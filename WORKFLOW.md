@@ -3351,6 +3351,13 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Test `packages/engine/core/test/doc-read.test.ts` (3 pass, 0 fail).
   - `npm run build -w apps/web` lulus 100% dengan 0 error TypeScript.
 
+### Phase 76: UI Localization & Spreadsheet Viewer i18n ✅ DONE
+- [x] **Spreadsheet & Canvas Viewer i18n Localization**:
+  - Pindahkan semua label dan tooltip hardcoded (Buka di Excel, Salin CSV, Disalin, Cari di sheet..., baris × kolom, Kosong, Sheets:, Buka di Canvas) ke kamus `apps/web/src/lib/i18n.ts`.
+  - Integrasikan hook `useI18n()` pada `SpreadsheetViewer.tsx` dan `ChatMessageContent.tsx` sesuai React Rules of Hooks.
+  - Sinkronkan label dinamis sesuai preferensi bahasa yang dipilih user (English vs Bahasa Indonesia).
+  - Verifikasi build `npm run build -w apps/web` (0 TypeScript compilation errors).
+
 
 
 

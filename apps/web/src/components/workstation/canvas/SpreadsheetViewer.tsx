@@ -13,6 +13,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
 import { useWordWrap } from "../../../lib/wordWrap";
+import { useI18n } from "../../../lib/i18n";
 
 interface SpreadsheetViewerProps {
   content: string;
@@ -35,6 +36,7 @@ interface ParsedSheetData {
 }
 
 export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewerProps) {
+  const { t } = useI18n();
   const { isLight } = useTheme();
   const { wordWrap } = useWordWrap();
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
@@ -208,7 +210,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
         </div>
         <h3 className={cn("text-base font-semibold mb-2", isLight ? "text-slate-900" : "text-white")}>{title}</h3>
         <p className={cn("text-xs max-w-md mb-6 leading-relaxed", isLight ? "text-slate-500" : "text-[#71717a]")}>
-          Berkas spreadsheet biner telah dimuat. Anda dapat membukanya langsung di Microsoft Excel desktop atau memeriksa integritasnya.
+          {t("spreadsheetBinaryNotice", "Binary spreadsheet loaded. You can open it directly in desktop Microsoft Excel or verify its contents.")}
         </p>
         <button
           onClick={handleOpenNative}
@@ -218,7 +220,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
           )}
         >
           <ExternalLink className="w-4 h-4" />
-          Buka di Microsoft Excel
+          {t("openInExcelNative", "Open in Microsoft Excel")}
         </button>
       </div>
     );
@@ -261,7 +263,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
 
             {/* Row & Col count */}
             <span className={cn("text-[11px] font-mono hidden sm:inline", isLight ? "text-slate-500" : "text-[#71717a]")}>
-              {activeSheet.rowCount} baris × {activeSheet.colCount} kolom
+              {activeSheet.rowCount} {t("rowsLabel", "rows")} × {activeSheet.colCount} {t("colsLabel", "cols")}
             </span>
 
             {/* Non-Destructive Badge */}
@@ -270,7 +272,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
                 "flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border transition-colors",
                 isLight ? "text-slate-600 bg-white border-slate-200 shadow-2xs" : "text-zinc-300 bg-[#222225] border-[#333336]"
               )}
-              title="Berkas dibuka secara aman di memori (read-only) tanpa mengubah format asli OOXML Excel."
+              title={t("nonDestructiveEmbedTooltip", "File opened safely in memory (read-only) without modifying original Excel OOXML format.")}
             >
               <ShieldCheck className={cn("w-3 h-3", isLight ? "text-slate-500" : "text-zinc-400")} />
               <span className="hidden md:inline">Non-Destructive Embed</span>
@@ -285,7 +287,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari di sheet..."
+                placeholder={t("searchInSheet", "Search in sheet...")}
                 className={cn(
                   "pl-7 pr-6 py-1 rounded text-[11px] w-32 md:w-44 outline-none transition-all border",
                   isLight
@@ -312,14 +314,14 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
                   ? "bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-200 shadow-2xs"
                   : "bg-[#27272a] hover:bg-[#323236] text-[#d4d4d8] hover:text-white border-[#3f3f46]/50"
               )}
-              title="Salin isi sheet ini sebagai CSV ke clipboard"
+              title={t("copyCsvTooltip", "Copy this sheet content as CSV to clipboard")}
             >
               {copied ? (
                 <Check className={cn("w-3 h-3", isLight ? "text-slate-900" : "text-white")} />
               ) : (
                 <Copy className={cn("w-3 h-3", isLight ? "text-slate-500" : "text-zinc-400")} />
               )}
-              <span className="hidden lg:inline">{copied ? "Disalin" : "Salin CSV"}</span>
+              <span className="hidden lg:inline">{copied ? t("copiedCsv", "Copied") : t("copyCsv", "Copy CSV")}</span>
             </button>
 
             {/* Open in Microsoft Excel Native Button (Monochrome High Contrast) */}
@@ -329,10 +331,10 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
                 "flex items-center gap-1.5 px-3 py-1 rounded text-[11px] font-semibold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0",
                 isLight ? "bg-slate-900 hover:bg-slate-800 text-white" : "bg-white hover:bg-zinc-200 text-black"
               )}
-              title="Buka dokumen ini langsung di aplikasi Microsoft Excel desktop asli"
+              title={t("openInExcelTooltip", "Open this document directly in native Microsoft Excel desktop application")}
             >
               <ExternalLink className={cn("w-3.5 h-3.5", isLight ? "text-white" : "text-black")} />
-              <span>Buka di Excel</span>
+              <span>{t("openInExcel", "Open in Excel")}</span>
             </button>
           </div>
         </div>
@@ -363,7 +365,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
               isLight ? "bg-[#f8fafc] border-slate-200 text-slate-900" : "bg-[#1a1a1d] border-[#27272a] text-[#e4e4e7]"
             )}
           >
-            {activeFormula ? String(activeFormula) : <span className={cn("italic", isLight ? "text-slate-400" : "text-[#52525b]")}>Kosong</span>}
+            {activeFormula ? String(activeFormula) : <span className={cn("italic", isLight ? "text-slate-400" : "text-[#52525b]")}>{t("emptyCell", "Empty")}</span>}
           </div>
         </div>
       </div>
@@ -477,7 +479,7 @@ export function SpreadsheetViewer({ content, filePath, title }: SpreadsheetViewe
         >
           <div className={cn("flex items-center gap-1 text-[11px] px-2 py-0.5 font-medium", isLight ? "text-slate-500" : "text-[#71717a]")}>
             <Layers className="w-3 h-3" />
-            <span>Sheets:</span>
+            <span>{t("sheetsLabel", "Sheets:")}</span>
           </div>
           {parsedWorkbook.sheets.map((sheet, index) => {
             const isActive = index === activeSheetIndex;

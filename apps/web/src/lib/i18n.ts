@@ -310,6 +310,25 @@ export const translations = {
     dontHaveAccount: "Don't have an account? Register",
     privacyGuaranteeTitle: "Privacy & Offline Guarantee:",
     privacyGuaranteeDesc: "Arunaki operates fully offline in local mode without requiring an active account or internet login.",
+
+    // Spreadsheet & Canvas Viewer
+    openInExcel: "Open in Excel",
+    openInExcelNative: "Open in Microsoft Excel",
+    openInExcelTooltip: "Open this document directly in native Microsoft Excel desktop application",
+    copyCsv: "Copy CSV",
+    copiedCsv: "Copied",
+    copyCsvTooltip: "Copy this sheet content as CSV to clipboard",
+    searchInSheet: "Search in sheet...",
+    rowsLabel: "rows",
+    colsLabel: "cols",
+    emptyCell: "Empty",
+    nonDestructiveEmbedTooltip: "File opened safely in memory (read-only) without modifying original Excel OOXML format.",
+    spreadsheetBinaryNotice: "Binary spreadsheet loaded. You can open it directly in desktop Microsoft Excel or verify its contents.",
+    sheetsLabel: "Sheets:",
+    openInCanvas: "Open in Canvas",
+    openInCanvasTooltip: "Open this table in the Center Canvas Panel",
+    tableOpenedInCanvas: "Table opened in Canvas panel",
+    dataTableLabel: "Data Table",
   },
   id: {
     // Menu Bar
@@ -616,6 +635,25 @@ export const translations = {
     dontHaveAccount: "Belum punya akun? Daftar",
     privacyGuaranteeTitle: "Jaminan Privasi & Mode Offline:",
     privacyGuaranteeDesc: "Arunaki beroperasi penuh secara lokal offline tanpa memerlukan akun aktif ataupun login internet.",
+
+    // Spreadsheet & Canvas Viewer
+    openInExcel: "Buka di Excel",
+    openInExcelNative: "Buka di Microsoft Excel",
+    openInExcelTooltip: "Buka dokumen ini langsung di aplikasi Microsoft Excel desktop asli",
+    copyCsv: "Salin CSV",
+    copiedCsv: "Disalin",
+    copyCsvTooltip: "Salin isi sheet ini sebagai CSV ke clipboard",
+    searchInSheet: "Cari di sheet...",
+    rowsLabel: "baris",
+    colsLabel: "kolom",
+    emptyCell: "Kosong",
+    nonDestructiveEmbedTooltip: "Berkas dibuka secara aman di memori (read-only) tanpa mengubah format asli OOXML Excel.",
+    spreadsheetBinaryNotice: "Berkas spreadsheet biner telah dimuat. Anda dapat membukanya langsung di Microsoft Excel desktop atau memeriksa integritasnya.",
+    sheetsLabel: "Sheets:",
+    openInCanvas: "Buka di Canvas",
+    openInCanvasTooltip: "Buka tabel ini di Panel Canvas Tengah",
+    tableOpenedInCanvas: "Tabel dibuka di panel Canvas",
+    dataTableLabel: "Tabel Data",
   },
 } as const;
 

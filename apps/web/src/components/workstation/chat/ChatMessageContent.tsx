@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import { FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
+import { useI18n } from "../../../lib/i18n";
 
 export interface TableBlock {
   type: "table";
@@ -151,6 +152,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
   content: string;
   isUser?: boolean;
 }) {
+  const { t } = useI18n();
   const blocks = useMemo(() => parseContentBlocks(content), [content]);
 
   return (
@@ -164,7 +166,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
             >
               <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)] select-none">
                 <span className="font-medium text-[11px] text-[var(--text-secondary)]">
-                  Tabel Data ({block.rows.length} baris)
+                  {t("dataTableLabel", "Data Table")} ({block.rows.length} {t("rowsLabel", "rows")})
                 </span>
                 <button
                   type="button"
@@ -179,13 +181,13 @@ export const ChatMessageContent = memo(function ChatMessageContent({
                         detail: { content: fullTableMd },
                       })
                     );
-                    toast.success("Tabel dibuka di panel Canvas");
+                    toast.success(t("tableOpenedInCanvas", "Table opened in Canvas panel"));
                   }}
                   className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
-                  title="Buka tabel ini di Panel Canvas Tengah"
+                  title={t("openInCanvasTooltip", "Open this table in Center Canvas Panel")}
                 >
                   <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
-                  <span>Buka di Canvas</span>
+                  <span>{t("openInCanvas", "Open in Canvas")}</span>
                 </button>
               </div>
               <div className="overflow-x-auto no-scrollbar max-w-full">

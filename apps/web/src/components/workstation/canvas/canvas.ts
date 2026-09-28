@@ -1,6 +1,6 @@
 export function extractCanvasTitle(content: string): string {
   const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) return "Tabel Data";
+  if (lines.length === 0) return "Data Table";
 
   // Check if first non-empty line is a markdown title/heading
   const firstLine = lines[0].replace(/^#+\s*/, "").replace(/[`*|_]/g, "").trim();
@@ -12,9 +12,9 @@ export function extractCanvasTitle(content: string): string {
   if (lines[0].startsWith("|")) {
     const cells = lines[0].split("|").map((c) => c.trim()).filter(Boolean);
     if (cells.length > 0) {
-      return `Tabel: ${cells.slice(0, 2).join(" / ")}`;
+      return `Table: ${cells.slice(0, 2).join(" / ")}`;
     }
-    return "Tabel Data";
+    return "Data Table";
   }
 
   if (firstLine.length > 40) return firstLine.slice(0, 38) + "...";
