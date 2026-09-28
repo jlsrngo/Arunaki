@@ -3356,7 +3356,12 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Pindahkan semua label dan tooltip hardcoded (Buka di Excel, Salin CSV, Disalin, Cari di sheet..., baris × kolom, Kosong, Sheets:, Buka di Canvas) ke kamus `apps/web/src/lib/i18n.ts`.
   - Integrasikan hook `useI18n()` pada `SpreadsheetViewer.tsx` dan `ChatMessageContent.tsx` sesuai React Rules of Hooks.
   - Sinkronkan label dinamis sesuai preferensi bahasa yang dipilih user (English vs Bahasa Indonesia).
-  - Verifikasi build `npm run build -w apps/web` (0 TypeScript compilation errors).
+### Phase 77: Natural & Communicative Agent Tone ✅ DONE
+- [x] **Natural, Warm & Collaborative Tone Policy**:
+  - Hapus aturan warisan CLI ekstrem ("One word answers are best", "Do not explain what you did", "Fewer than 4 lines") dari `default.txt`, `kimi.txt`, dan `agent.ts`.
+  - Pasang pedoman nada bicara baru: konfirmasi tindakan file dengan ramah dan informatif (menyebutkan nama file target dan ringkasan total/hasil), melarang jawaban dingin satu kata tanpa konteks.
+  - Perbarui contoh respons natural di system prompt.
+  - Verifikasi build `npm run build -w apps/web` (0 error).
 
 
 
