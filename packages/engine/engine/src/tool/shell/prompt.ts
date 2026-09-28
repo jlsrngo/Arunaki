@@ -101,7 +101,8 @@ Usage notes:
     - File search: Use Glob (NOT find or ls)
     - Content search: Use Grep (NOT grep or rg)
     - Read files: Use Read (NOT cat/head/tail)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect or summarize spreadsheets)
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect, count, or summarize spreadsheets)
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens (STRICTLY FORBIDDEN to run Python scripts or shell commands to do arithmetic, counting, or stats)
     - Read / inspect Word documents (.docx): Use word_read (STRICTLY FORBIDDEN to use Python scripts or docx)
     - Read / inspect PowerPoint (.pptx): Use ppt_read (STRICTLY FORBIDDEN to use Python scripts)
     - Edit Excel workbooks: Use excel_com
@@ -158,7 +159,8 @@ Usage notes:
     - File search: Use Glob (NOT Get-ChildItem)
     - Content search: Use Grep (NOT Select-String)
     - Read files: Use Read (NOT Get-Content)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect or summarize spreadsheets)
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect, count, or summarize spreadsheets)
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens (STRICTLY FORBIDDEN to run Python scripts or shell commands to do arithmetic, counting, or stats)
     - Read / inspect Word documents (.docx): Use word_read (STRICTLY FORBIDDEN to use Python scripts or docx)
     - Read / inspect PowerPoint (.pptx): Use ppt_read (STRICTLY FORBIDDEN to use Python scripts)
     - Edit Excel workbooks: Use excel_com
@@ -213,7 +215,8 @@ Usage notes:
     - File search: Use Glob (NOT dir /s)
     - Content search: Use Grep (NOT findstr)
     - Read files: Use Read (NOT type)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect or summarize spreadsheets)
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Use excel_read (STRICTLY FORBIDDEN to use Python scripts, openpyxl, pandas, or shell commands to inspect, count, or summarize spreadsheets)
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens (STRICTLY FORBIDDEN to run Python scripts or shell commands to do arithmetic, counting, or stats)
     - Read / inspect Word documents (.docx): Use word_read (STRICTLY FORBIDDEN to use Python scripts or docx)
     - Read / inspect PowerPoint (.pptx): Use ppt_read (STRICTLY FORBIDDEN to use Python scripts)
     - Edit Excel workbooks: Use excel_com

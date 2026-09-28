@@ -417,7 +417,7 @@ describe("BashTool", () => {
     ),
   )
 
-  it.live("blocks python/shell scripts targeting office documents (.docx, .xlsx, .pptx)", () =>
+  it.live("blocks python/shell scripts in bash tool", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),
       (tmp) => {
@@ -432,7 +432,7 @@ describe("BashTool", () => {
             Effect.sync(() => {
               expect(settled.result).toMatchObject({
                 type: "error",
-                value: expect.stringContaining("Execution blocked: Shell/Python commands for reading or inspecting office documents are disabled"),
+                value: expect.stringContaining("Execution blocked: Python and script execution are strictly disabled in Arunaki"),
               })
               expect(runs).toHaveLength(0)
             }),

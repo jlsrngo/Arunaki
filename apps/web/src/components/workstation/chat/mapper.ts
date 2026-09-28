@@ -119,11 +119,13 @@ export function mapEngineMessages(raw: any[]): Message[] {
         executionSteps = toolParts.map((t: any, i: number) => {
           const toolName = t.name || t.tool || t.toolInvocation?.toolName || "action";
           const input = t.state?.input || t.input || t.args || t.toolInvocation?.args || {};
+          const isError = t.state?.status === "error" || t.state?.status === "failed" || Boolean(t.error) || Boolean(t.state?.error) || Boolean(t.state?.metadata?.blocked);
+          const status = isError ? "failed" : (t.state?.status === "running" ? "running" : "completed");
           const label = formatToolStepLabel(toolName, input, true);
           return {
             id: t.id || `tool-${idx}-${i}`,
             label,
-            status: "completed",
+            status,
             iconType: "tool",
             toolName,
           };
@@ -166,11 +168,13 @@ export function mapEngineMessages(raw: any[]): Message[] {
         executionSteps = toolInvocations.map((t: any, i: number) => {
           const toolName = t.name || t.tool || t.toolInvocation?.toolName || "action";
           const input = t.state?.input || t.input || t.args || t.toolInvocation?.args || {};
+          const isError = t.state?.status === "error" || t.state?.status === "failed" || Boolean(t.error) || Boolean(t.state?.error) || Boolean(t.state?.metadata?.blocked);
+          const status = isError ? "failed" : (t.state?.status === "running" ? "running" : "completed");
           const label = formatToolStepLabel(toolName, input, true);
           return {
             id: t.id || `tool-${idx}-${i}`,
             label,
-            status: "completed",
+            status,
             iconType: "tool",
             toolName,
           };
@@ -265,13 +269,15 @@ export function mapEngineMessages(raw: any[]): Message[] {
           }
         }
 
+        const isError = p.state?.status === "error" || p.state?.status === "failed" || Boolean(p.error) || Boolean(p.state?.error) || Boolean(p.state?.metadata?.blocked);
+        const status = isError ? "failed" : (p.state?.status === "running" ? "running" : "completed");
         const label = formatToolStepLabel(toolName, input, true);
         parts.push({
           type: "tool",
           step: {
             id: p.id || `tool-${idx}-${pIdx}`,
             label,
-            status: "completed",
+            status,
             iconType: "tool",
             toolName,
           },

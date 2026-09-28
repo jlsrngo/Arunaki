@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  X,
   Database,
   FileSearch,
   Loader2,
@@ -26,7 +27,7 @@ export interface LiveStatusData {
 export interface StepItem {
   id: string;
   label: string;
-  status: 'completed' | 'running';
+  status: 'completed' | 'running' | 'failed' | 'error' | 'blocked';
   iconType: 'thinking' | 'tool' | 'text';
   toolName?: string;
 }
@@ -292,6 +293,7 @@ export function MessageThoughtBadge({
   const hasToolExecution = toolSteps.length > 0;
   const hasRunningTool = toolSteps.some((s) => s.status === "running");
   const completedToolCount = toolSteps.filter((s) => s.status === "completed").length;
+  const failedToolCount = toolSteps.filter((s) => s.status === "failed" || s.status === "error" || s.status === "blocked").length;
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();
@@ -338,13 +340,17 @@ export function MessageThoughtBadge({
             <div className="flex items-center gap-2 min-w-0">
               {hasRunningTool ? (
                 <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+              ) : failedToolCount > 0 && completedToolCount === 0 ? (
+                <X size={12} className="text-rose-400 shrink-0" />
               ) : (
                 <Check size={12} className="text-emerald-400 shrink-0" />
               )}
               <span className="font-semibold text-white truncate">
                 {hasRunningTool
                   ? `Executing ${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}...`
-                  : `Executed ${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}`}
+                  : failedToolCount > 0 && completedToolCount === 0
+                  ? `Blocked ${failedToolCount} script task${failedToolCount > 1 ? "s" : ""}`
+                  : `Executed ${completedToolCount}/${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}`}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -361,6 +367,7 @@ export function MessageThoughtBadge({
             <div className="p-2 space-y-1.5 bg-[var(--bg-panel)]">
               {toolSteps.map((step, idx) => {
                 const isRunning = step.status === "running";
+                const isFailed = step.status === "failed" || step.status === "error" || step.status === "blocked";
                 return (
                   <div
                     key={step.id || `step-${idx}`}
@@ -368,15 +375,17 @@ export function MessageThoughtBadge({
                   >
                     {isRunning ? (
                       <Loader2 size={11} className="animate-spin text-amber-400 shrink-0" />
+                    ) : isFailed ? (
+                      <X size={11} className="text-rose-400 shrink-0" />
                     ) : (
                       <Check size={11} className="text-emerald-400 shrink-0" />
                     )}
                     {renderStepIcon(step)}
-                    <span className={cn("truncate max-w-[80%]", isRunning ? "text-white font-medium" : "text-[var(--text-muted)]")}>
+                    <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-300/80 line-through" : isRunning ? "text-white font-medium" : "text-[var(--text-muted)]")}>
                       {step.label}
                     </span>
-                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-amber-400 animate-pulse" : "text-[var(--text-dim)]")}>
-                      {isRunning ? "running..." : "done"}
+                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-amber-400 animate-pulse" : isFailed ? "text-rose-400 font-medium" : "text-[var(--text-dim)]")}>
+                      {isRunning ? "running..." : isFailed ? "blocked" : "done"}
                     </span>
                   </div>
                 );

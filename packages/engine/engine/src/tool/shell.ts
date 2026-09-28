@@ -627,20 +627,18 @@ export const ShellTool = Tool.define(
                 return SCRATCH_MODE_RESPONSE as any
               }
 
-              // Enforce native document tool usage - strictly block python/shell inspection of office documents
-              const isOfficeScript =
-                /\b(?:python|python3|py)\b/i.test(params.command) &&
-                /(?:docx|openpyxl|pptx|\.xlsx|\.docx|\.pptx)/i.test(params.command)
-              if (isOfficeScript) {
+              // Enforce Arunaki document boundary - strictly block Python and script execution
+              const isPythonOrScript = /\b(?:python|python3|py|pip|pip3)\b/i.test(params.command)
+              if (isPythonOrScript) {
                 return {
-                  title: "Shell blocked: office document reading disabled",
+                  title: "Shell blocked: Python execution disabled",
                   output:
-                    `Execution blocked: Shell/Python commands for reading or inspecting office documents are disabled. ` +
-                    `You MUST invoke native document tools instead:\n` +
-                    `- Word documents (.docx): use 'word_read' with { filePath: "..." }\n` +
-                    `- Excel workbooks (.xlsx, .xls, .csv): use 'excel_read' with { filePath: "..." }\n` +
-                    `- PowerPoint presentations (.pptx): use 'ppt_read' with { filePath: "..." }\n` +
-                    `Native tools extract complete document maps in-memory (<50ms) without starting terminal processes.`,
+                    `Execution blocked: Python and script execution are strictly disabled in Arunaki. ` +
+                    `Arunaki is a desktop document agent, NOT a code runner or script executor.\n` +
+                    `- To read or inspect spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
+                    `- To read Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
+                    `- To read PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
+                    `- To count items, calculate totals, compare data, or summarize: perform calculations DIRECTLY in your internal reasoning without running any scripts!`,
                   metadata: { blocked: true },
                 }
               }
