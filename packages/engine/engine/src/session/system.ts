@@ -26,13 +26,13 @@ You may still write a brief conversational summary or note outside the [CANVAS] 
 Arunaki's UI will automatically extract everything inside the [CANVAS]...[/CANVAS] block and display it in the user's Center Panel Canvas editor.
 
 Example:
-Berikut rekap pesanan yang sudah dirapikan:
+Here is the organized summary:
 
 [CANVAS]
-# Rekap Pesanan
-| Warna | Size | Qty |
+# Order Summary
+| Item  | Size | Qty |
 |-------|------|-----|
-| Putih | S | 2 |
+| Shirt | M    | 2   |
 [/CANVAS]
 `
 
