@@ -4,6 +4,7 @@ import * as fs from "fs"
 import * as path from "path"
 import JSZip from "jszip"
 import { PptMap } from "./docmap"
+import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -55,6 +56,7 @@ export const PptReadTool = Tool.define(
     parameters: Parameters,
     execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
       Effect.gen(function* () {
+        recordNativeAttempt(ctx?.sessionID, params.filePath)
         const baseDir = typeof ctx?.extra?.directory === "string" ? ctx.extra.directory : process.cwd()
         let filePath = params.filePath
         if (!path.isAbsolute(filePath)) {
@@ -82,17 +84,23 @@ export const PptReadTool = Tool.define(
         }
 
         if (!fs.existsSync(filePath)) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
           return {
             title: "PPT read: file not found",
             output: `ERROR: ${params.filePath} not found in workspace (${baseDir})`,
             metadata: { slides: 0 },
           }
         }
-        const map = yield* Effect.tryPromise({ try: () => buildPptMap(filePath), catch: (e) => new Error(String(e)) })
-        return {
-          title: `PPT read: ${path.basename(filePath)}`,
-          output: JSON.stringify(map),
-          metadata: { slides: map.slides.length },
+        try {
+          const map = yield* Effect.tryPromise({ try: () => buildPptMap(filePath), catch: (e) => new Error(String(e)) })
+          return {
+            title: `PPT read: ${path.basename(filePath)}`,
+            output: JSON.stringify(map),
+            metadata: { slides: map.slides.length },
+          }
+        } catch (e) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
+          return { title: "PPT read failed", output: `ERROR: ${e}`, metadata: { slides: 0 } }
         }
       }).pipe(Effect.orDie),
   }),

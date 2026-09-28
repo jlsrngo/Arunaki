@@ -3333,6 +3333,25 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Buat `packages/engine/core/test/doc-read.test.ts`: Verifikasi registrasi tool ke registry V2 serta eksekusi riil membaca sample file `.docx` dan `.xlsx` (3 pass, 0 fail).
   - Verifikasi build `npm run build -w apps/web` sukses (0 error TypeScript).
 
+---
+
+## Phase: Native-First Document Reading with Python Resilient Fallback ✅ DONE
+
+- [x] **Session Doc-Fallback Tracker (`doc-fallback.ts`)**:
+  - Implementasikan `recordNativeAttempt`, `recordNativeFailure`, `hasAttemptedNative`, dan `hasFailedNative` menggunakan singleton global (`Symbol.for`) lintas monorepo (`packages/arunaki-tools`, `packages/engine/core`, `packages/engine/engine`).
+- [x] **Instrumentasi Native Document Tools**:
+  - Pasang pencatatan attempt dan failure pada `excel-read.ts`, `word-read.ts`, dan `ppt-read.ts` di kedua tree runtime (`packages/arunaki-tools/src/` dan `packages/engine/core/src/tool/`).
+- [x] **Smart Fallback Guardrail (`bash.ts` & `shell.ts`)**:
+  - Prioritaskan tool native: jika model mencoba eksekusi script Python untuk inspeksi dokumen sebelum mencoba native tool, berikan feedback terarah agar mencoba native tool terlebih dahulu (<50ms).
+  - Anti-Gagal Resilient Fallback: jika native tool sudah dicoba atau mengalami kegagalan/error, script Python **TIDAK DIBLOKIR** dan diizinkan berjalan secara bebas tanpa rintangan.
+- [x] **Harmonisasi Prompt System**:
+  - Perbarui prompt sistem di `agent.ts`, `default.txt`, `system.ts`, dan `shell/prompt.ts` untuk menegaskan prinsip: *"Utamakan native tool terlebih dahulu demi kecepatan (<50ms in-memory). Jika native tool gagal atau file kompleks, model bebas menggunakan Python script sebagai fallback."*
+- [x] **Testing & Build Verification**:
+  - Test `packages/engine/core/test/tool-bash.test.ts` (12 pass, 0 fail).
+  - Test `packages/engine/core/test/doc-read.test.ts` (3 pass, 0 fail).
+  - `npm run build -w apps/web` lulus 100% dengan 0 error TypeScript.
+
+
 
 
 

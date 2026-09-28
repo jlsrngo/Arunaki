@@ -13,7 +13,8 @@
     "./ppt-com": "./src/ppt-com.ts",
     "./excel-read": "./src/excel-read.ts",
     "./word-read": "./src/word-read.ts",
-    "./ppt-read": "./src/ppt-read.ts"
+    "./ppt-read": "./src/ppt-read.ts",
+    "./doc-fallback": "./src/doc-fallback.ts"
   },
   "dependencies": {
     "@arunaki/engine": "workspace:*",

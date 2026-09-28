@@ -4,6 +4,7 @@ import * as XLSX from "xlsx"
 import * as fs from "fs"
 import * as path from "path"
 import { ExcelMap } from "./docmap"
+import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -71,6 +72,7 @@ export const ExcelReadTool = Tool.define(
     parameters: Parameters,
     execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
       Effect.gen(function* () {
+        recordNativeAttempt(ctx?.sessionID, params.filePath)
         const baseDir = typeof ctx?.extra?.directory === "string" ? ctx.extra.directory : process.cwd()
         let filePath = params.filePath
         if (!path.isAbsolute(filePath)) {
@@ -100,6 +102,7 @@ export const ExcelReadTool = Tool.define(
         }
 
         if (!fs.existsSync(filePath)) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
           return {
             title: "Excel read: file not found",
             output: `ERROR: ${params.filePath} not found in workspace (${baseDir})`,
@@ -115,6 +118,7 @@ export const ExcelReadTool = Tool.define(
             metadata: { cells: map.sheets.reduce((n, s) => n + s.cells.length, 0) },
           }
         } catch (e) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
           return { title: "Excel read failed", output: `ERROR: ${e}`, metadata: { cells: 0 } }
         }
       }),

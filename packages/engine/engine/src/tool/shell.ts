@@ -22,6 +22,7 @@ import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner
 import { ShellPrompt, type Parameters } from "./shell/prompt"
 import { BashArity } from "@/permission/arity"
 import { isScratchMode, SCRATCH_MODE_RESPONSE } from "./scratch-guard"
+import { hasAttemptedNative, hasFailedNative } from "./doc-fallback"
 
 export { Parameters } from "./shell/prompt"
 
@@ -627,19 +628,23 @@ export const ShellTool = Tool.define(
                 return SCRATCH_MODE_RESPONSE as any
               }
 
-              // Enforce Arunaki document boundary - strictly block Python and script execution
+              // Enforce Arunaki document boundary - prioritize native tools first, allow Python freely as fallback
               const isPythonOrScript = /\b(?:python|python3|py|pip|pip3)\b/i.test(params.command)
               if (isPythonOrScript) {
-                return {
-                  title: "Shell blocked: Python execution disabled",
-                  output:
-                    `Execution blocked: Python and script execution are strictly disabled in Arunaki. ` +
-                    `Arunaki is a desktop document agent, NOT a code runner or script executor.\n` +
-                    `- To read or inspect spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
-                    `- To read Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
-                    `- To read PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
-                    `- To count items, calculate totals, compare data, or summarize: perform calculations DIRECTLY in your internal reasoning without running any scripts!`,
-                  metadata: { blocked: true },
+                const attemptedNative = hasAttemptedNative(ctx?.sessionID)
+                const failedNative = hasFailedNative(ctx?.sessionID)
+                if (!attemptedNative && !failedNative) {
+                  return {
+                    title: "Shell redirected: Prioritize native document tools",
+                    output:
+                      `Native Document Tool Priority: Arunaki prioritizes native document tools ('excel_read', 'word_read', 'ppt_read') for instant extraction (<50ms) without Python overhead.\n` +
+                      `Please attempt the relevant native tool first:\n` +
+                      `- For spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
+                      `- For Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
+                      `- For PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
+                      `If the native tool fails, errors, or cannot process this document, you are completely free to write and execute Python scripts as a fallback.`,
+                    metadata: { blocked: true },
+                  }
                 }
               }
 

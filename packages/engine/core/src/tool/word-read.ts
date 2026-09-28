@@ -11,6 +11,7 @@ import { Tools } from "./tools"
 import { buildWordMap } from "@arunaki/tools/word-map"
 import * as fs from "fs"
 import * as path from "path"
+import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
 
 export const name = "word_read"
 
@@ -43,6 +44,7 @@ const layer = Layer.effectDiscard(
           toModelOutput: ({ output }) => [{ type: "text", text: output.output }],
           execute: (input, context) =>
             Effect.gen(function* () {
+              recordNativeAttempt(context.sessionID, input.filePath)
               const source = {
                 type: "tool" as const,
                 messageID: context.assistantMessageID,
@@ -75,6 +77,7 @@ const layer = Layer.effectDiscard(
               }
 
               if (!fs.existsSync(filePath)) {
+                recordNativeFailure(context.sessionID, input.filePath)
                 return yield* Effect.fail(new ToolFailure({ message: `File not found: ${input.filePath}` }))
               }
 
@@ -86,6 +89,7 @@ const layer = Layer.effectDiscard(
                   metadata: { paragraphs: map.paragraphs.length, tables: map.tables.length },
                 }
               } catch (e: any) {
+                recordNativeFailure(context.sessionID, input.filePath)
                 return yield* Effect.fail(new ToolFailure({ message: `Failed to read Word document: ${e?.message || e}` }))
               }
             }),

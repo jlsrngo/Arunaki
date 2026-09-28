@@ -11,6 +11,7 @@ import { Tools } from "./tools"
 import { buildExcelMap } from "@arunaki/tools/excel-map"
 import * as fs from "fs"
 import * as path from "path"
+import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
 
 export const name = "excel_read"
 
@@ -43,6 +44,7 @@ const layer = Layer.effectDiscard(
           toModelOutput: ({ output }) => [{ type: "text", text: output.output }],
           execute: (input, context) =>
             Effect.gen(function* () {
+              recordNativeAttempt(context.sessionID, input.filePath)
               const source = {
                 type: "tool" as const,
                 messageID: context.assistantMessageID,
@@ -87,6 +89,7 @@ const layer = Layer.effectDiscard(
                   metadata: { cells: map.sheets.reduce((n, s) => n + s.cells.length, 0) },
                 }
               } catch (e: any) {
+                recordNativeFailure(context.sessionID, input.filePath)
                 return yield* Effect.fail(new ToolFailure({ message: `Failed to read Excel workbook: ${e?.message || e}` }))
               }
             }),

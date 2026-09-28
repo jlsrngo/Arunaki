@@ -17,6 +17,7 @@ import { SessionV2 } from "@arunaki/core/session"
 import { BashTool } from "@arunaki/core/tool/bash"
 import { ToolRegistry } from "@arunaki/core/tool/registry"
 import { ToolOutputStore } from "@arunaki/core/tool-output-store"
+import { recordNativeAttempt, recordNativeFailure } from "@arunaki/core/tool/doc-fallback"
 import { location } from "./fixture/location"
 import { tmpdir } from "./fixture/tmpdir"
 import { testEffect } from "./lib/effect"
@@ -417,7 +418,7 @@ describe("BashTool", () => {
     ),
   )
 
-  it.live("blocks python/shell scripts in bash tool", () =>
+  it.live("redirects python to native tools first if not attempted", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),
       (tmp) => {
@@ -432,9 +433,34 @@ describe("BashTool", () => {
             Effect.sync(() => {
               expect(settled.result).toMatchObject({
                 type: "error",
-                value: expect.stringContaining("Execution blocked: Python and script execution are strictly disabled in Arunaki"),
+                value: expect.stringContaining("Native Document Tool Priority: Arunaki prioritizes native document tools"),
               })
               expect(runs).toHaveLength(0)
+            }),
+          ),
+        )
+      },
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ),
+  )
+
+  it.live("allows python fallback if native tool was attempted or failed", () =>
+    Effect.acquireUseRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => {
+        reset()
+        recordNativeAttempt(sessionID, "test.docx")
+        return withTool(tmp.path, (registry) =>
+          settleTool(
+            registry,
+            call({ command: 'python -c "print(\'fallback success\')"' }),
+          ),
+        ).pipe(
+          Effect.andThen((settled) =>
+            Effect.sync(() => {
+              expect(settled.result?.type).toBe("content")
+              expect(runs).toHaveLength(1)
+              expect(runs[0].command).toBe('python -c "print(\'fallback success\')"')
             }),
           ),
         )

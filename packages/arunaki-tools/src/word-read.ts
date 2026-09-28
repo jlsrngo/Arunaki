@@ -4,6 +4,7 @@ import * as fs from "fs"
 import * as path from "path"
 import JSZip from "jszip"
 import { WordMap } from "./docmap"
+import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -77,6 +78,7 @@ export const WordReadTool = Tool.define(
     parameters: Parameters,
     execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
       Effect.gen(function* () {
+        recordNativeAttempt(ctx?.sessionID, params.filePath)
         const baseDir = typeof ctx?.extra?.directory === "string" ? ctx.extra.directory : process.cwd()
         let filePath = params.filePath
         if (!path.isAbsolute(filePath)) {
@@ -104,6 +106,7 @@ export const WordReadTool = Tool.define(
         }
 
         if (!fs.existsSync(filePath)) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
           return {
             title: "Word read: file not found",
             output: `ERROR: ${params.filePath} not found in workspace (${baseDir})`,
@@ -111,11 +114,16 @@ export const WordReadTool = Tool.define(
           }
         }
 
-        const map = yield* Effect.tryPromise({ try: () => buildWordMap(filePath), catch: (e) => new Error(String(e)) })
-        return {
-          title: `Word read: ${path.basename(filePath)}`,
-          output: JSON.stringify(map),
-          metadata: { paragraphs: map.paragraphs.length, tables: map.tables.length },
+        try {
+          const map = yield* Effect.tryPromise({ try: () => buildWordMap(filePath), catch: (e) => new Error(String(e)) })
+          return {
+            title: `Word read: ${path.basename(filePath)}`,
+            output: JSON.stringify(map),
+            metadata: { paragraphs: map.paragraphs.length, tables: map.tables.length },
+          }
+        } catch (e) {
+          recordNativeFailure(ctx?.sessionID, params.filePath)
+          return { title: "Word read failed", output: `ERROR: ${e}`, metadata: { paragraphs: 0, tables: 0 } }
         }
       }).pipe(Effect.orDie),
   }),
