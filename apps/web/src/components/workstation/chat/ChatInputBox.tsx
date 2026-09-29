@@ -28,6 +28,7 @@ import {
 import { cn } from "../../../lib/utils";
 import { ArunakiLogo } from "../../common/ArunakiLogo";
 import { getFileIcon } from "../../workspace/tree-utils";
+import { normalizeAttachmentName, isImageFile } from "./attachmentUtils";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
 
@@ -314,38 +315,38 @@ export const ChatInputBox = memo(function ChatInputBox({
   };
 
   const handleAddFiles = async (filesToAdd: File[]) => {
-    for (const file of filesToAdd) {
+    const currentCount = attachedFiles.length;
+    for (let i = 0; i < filesToAdd.length; i++) {
+      const file = filesToAdd[i];
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        const isImg =
-          file.type.startsWith("image/") ||
-          /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(file.name);
+        const resolvedName = normalizeAttachmentName(file.name, i, filesToAdd.length, currentCount);
+        const isImg = isImageFile(resolvedName, file.type);
         const localPreviewUrl = isImg ? URL.createObjectURL(file) : "";
         const timestamp = Date.now();
-        const fileId = `${file.name}-${timestamp}-${Math.random()}`;
+        const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
 
         setAttachedFiles((prev) => [
           ...prev,
           {
             id: fileId,
-            name: file.name,
+            name: resolvedName,
             url: localPreviewUrl,
             dataUrl,
-            mime: file.type || "application/octet-stream",
+            mime: file.type || (isImg ? "image/png" : "application/octet-stream"),
             size: file.size,
             isImage: isImg,
           },
         ]);
 
-        // Auto-save attached file to active project folder if running in desktop app
+        // CRITICAL: DO NOT save chat attachments to the root workspace folder!
+        // Chat attachments are ephemeral context parts passed in sendPrompt.
+        // For non-image documents requiring disk access (xlsx/pdf), save to hidden .arunaki/attachments/
         const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-        if (desktop?.writeFile) {
-          desktop.writeFile(file.name, dataUrl).then((res: any) => {
-            if (res && !res.error) {
-              window.dispatchEvent(new CustomEvent("arunaki-file-tree-refresh"));
-            }
-          }).catch((e: any) => {
-            console.warn("[ChatInputBox] Could not auto-save file to workspace:", e);
+        if (!isImg && desktop?.writeFile) {
+          const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
+          desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
+            console.warn("[ChatInputBox] Could not cache non-image attachment internally:", e);
           });
         }
       } catch (err) {

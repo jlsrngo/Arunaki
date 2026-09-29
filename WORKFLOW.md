@@ -3363,6 +3363,30 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Perbarui contoh respons natural di system prompt.
   - Verifikasi build `npm run build -w apps/web` (0 error).
 
+### Phase 78: Chat Attachment Isolation, Multi-Image Routing & Fast Native PDF Reader (`pdf_read`) ✅ DONE
+- [x] **Attachment Workspace Isolation & Naming Deduplication**:
+  - Hentikan penulisan file lampiran chat ke folder kerja utama user (`desktop.writeFile(file.name, ...)` dihapus dari `ChatInputBox.tsx`).
+  - Gambar hasil paste/drop disimpan di memori sebagai base64 data URL tanpa menyentuh disk (setara Antigravity/Cursor).
+  - File non-gambar di-cache secara terisolasi di `.arunaki/attachments/${name}`.
+  - Tangani multi-paste clipboard gambar dengan penomoran unik otomatis (`image.png`, `image_1.png`, `image_2.png`, dst.) via `attachmentUtils.ts` agar tidak saling menimpa.
+- [x] **Multimodal Engine Routing & Attachment Hints**:
+  - Teruskan lampiran gambar secara langsung ke model LLM sebagai multimodal `media` parts (`to-llm-message.ts`).
+  - Berikan hint otomatis untuk lampiran PDF agar model langsung memanggil tool native `pdf_read`.
+  - Perbarui instruksi system prompt (`system.ts` dan `default.txt`) untuk memprioritaskan kapabilitas vision langsung pada gambar lampiran.
+- [x] **Fast Native PDF Reader (`pdf_read`)**:
+  - Definisikan tipe `PdfMap` dan `PdfPage` pada `docmap.ts`.
+  - Implementasikan `buildPdfMap` berbasis library `pdf-parse` pada `packages/arunaki-tools/src/pdf-map.ts`.
+  - Buat tool `pdf_read` di `@arunaki/tools` dan `packages/engine/core/src/tool/pdf-read.ts` (<50ms execution).
+  - Pasang deteksi otomatis untuk PDF hasil scan/gambar (`isScanned: true`).
+  - Sambungkan ke tracker `doc-fallback.ts` dan panduan prioritas pada `bash.ts` & `shell/prompt.ts`.
+- [x] **Comprehensive Testing & Verification**:
+  - Unit test `apps/web/src/components/workstation/chat/attachmentUtils.test.ts` (4 pass, 0 fail).
+  - Engine test `packages/engine/core/test/attachment-hints.test.ts` (2 pass, 0 fail).
+  - Tool test `packages/arunaki-tools/test/doc-read.test.ts` & `pdf-read.test.ts` (5 pass, 0 fail).
+  - Core tool test `packages/engine/core/test/doc-read.test.ts` (4 pass, 0 fail).
+  - Production build `npm run build -w apps/web` berhasil tanpa error.
+
+
 
 
 

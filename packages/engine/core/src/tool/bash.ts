@@ -107,7 +107,7 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description: `Execute one shell command string with the host user's filesystem, process, and network authority. The active Location is the default working directory. Relative workdir values resolve from that Location. External workdir values require external_directory approval; best-effort command-argument path warnings are advisory only. Timeout values are milliseconds (default: ${DEFAULT_TIMEOUT_MS}; maximum: ${MAX_TIMEOUT_MS}). Uses the configured shell when set; otherwise uses /bin/sh on POSIX and COMSPEC or cmd.exe on Windows. Always prioritize native document tools ('excel_read', 'word_read', 'ppt_read') first. If a native tool fails or cannot process the document, Python scripts may be executed freely as a fallback.`,
+          description: `Execute one shell command string with the host user's filesystem, process, and network authority. The active Location is the default working directory. Relative workdir values resolve from that Location. External workdir values require external_directory approval; best-effort command-argument path warnings are advisory only. Timeout values are milliseconds (default: ${DEFAULT_TIMEOUT_MS}; maximum: ${MAX_TIMEOUT_MS}). Uses the configured shell when set; otherwise uses /bin/sh on POSIX and COMSPEC or cmd.exe on Windows. Always prioritize native document tools ('excel_read', 'word_read', 'ppt_read', 'pdf_read') first. If a native tool fails or cannot process the document, Python scripts may be executed freely as a fallback.`,
           input: Input,
           output: Output,
           structured: StructuredOutput,
@@ -131,11 +131,12 @@ const layer = Layer.effectDiscard(
                   return yield* Effect.fail(
                     new ToolFailure({
                       message:
-                        `Native Document Tool Priority: Arunaki prioritizes native document tools ('excel_read', 'word_read', 'ppt_read') for instant extraction (<50ms) without Python overhead.\n` +
+                        `Native Document Tool Priority: Arunaki prioritizes native document tools ('excel_read', 'word_read', 'ppt_read', 'pdf_read') for instant extraction (<50ms) without Python overhead.\n` +
                         `Please attempt the relevant native tool first:\n` +
                         `- For spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
                         `- For Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
                         `- For PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
+                        `- For PDF documents (.pdf): invoke 'pdf_read' with { filePath: "..." }\n` +
                         `If the native tool fails, errors, or cannot process this document, you are completely free to write and execute Python scripts as a fallback.`,
                     }),
                   )

@@ -8,18 +8,21 @@
     "./excel-map": "./src/excel-map.ts",
     "./word-map": "./src/word-map.ts",
     "./ppt-map": "./src/ppt-map.ts",
+    "./pdf-map": "./src/pdf-map.ts",
     "./excel-com": "./src/excel-com.ts",
     "./word-com": "./src/word-com.ts",
     "./ppt-com": "./src/ppt-com.ts",
     "./excel-read": "./src/excel-read.ts",
     "./word-read": "./src/word-read.ts",
     "./ppt-read": "./src/ppt-read.ts",
+    "./pdf-read": "./src/pdf-read.ts",
     "./doc-fallback": "./src/doc-fallback.ts"
   },
   "dependencies": {
     "@arunaki/engine": "workspace:*",
     "effect": "catalog:",
     "jszip": "^3.10.1",
+    "pdf-parse": "^2.4.5",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

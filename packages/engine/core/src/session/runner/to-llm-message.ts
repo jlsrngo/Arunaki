@@ -42,6 +42,8 @@ const media = (file: FileAttachment): ContentPart => {
     hint = ` — Call the 'word_read' tool with filePath="${name}" to extract paragraphs and tables instantly.`;
   } else if (ext === "pptx" || ext === "ppt" || file.mime?.includes("presentation")) {
     hint = ` — Call the 'ppt_read' tool with filePath="${name}" to inspect slides instantly.`;
+  } else if (ext === "pdf" || file.mime?.includes("pdf")) {
+    hint = ` — Call the 'pdf_read' tool with filePath="${name}" to extract text, page count, and document structure instantly.`;
   } else {
     hint = ` — Use the 'read' tool with filePath="${name}" to inspect this file.`;
   }

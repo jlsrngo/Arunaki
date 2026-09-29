@@ -68,7 +68,22 @@ export class PptMap extends Schema.Class<PptMap>("PptMap")({
   slides: Schema.Array(PptSlide),
 }) {}
 
-export const DocMap = Schema.Union([ExcelMap, WordMap, PptMap])
+export class PdfPage extends Schema.Class<PdfPage>("PdfPage")({
+  number: Schema.Number, // 1-indexed
+  text: Schema.String,
+}) {}
+
+export class PdfMap extends Schema.Class<PdfMap>("PdfMap")({
+  format: Schema.Literal("pdf"),
+  filePath: Schema.String,
+  pageCount: Schema.Number,
+  isScanned: Schema.Boolean,
+  text: Schema.String,
+  pages: Schema.Array(PdfPage),
+  info: Schema.optional(Schema.NullishOr(Schema.Record({ key: Schema.String, value: Schema.Unknown }))),
+}) {}
+
+export const DocMap = Schema.Union([ExcelMap, WordMap, PptMap, PdfMap])
 export type DocMap = typeof DocMap.Type
 
 // ============================================================

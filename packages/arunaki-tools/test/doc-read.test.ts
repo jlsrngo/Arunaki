@@ -8,6 +8,7 @@ import JSZip from "jszip"
 import { ExcelReadTool } from "../src/excel-read"
 import { WordReadTool } from "../src/word-read"
 import { PptReadTool } from "../src/ppt-read"
+import { PdfReadTool } from "../src/pdf-read"
 import * as Tool from "@arunaki/engine/tool"
 import { Truncate } from "@arunaki/engine/tool/truncate"
 import { Agent } from "@arunaki/engine/agent/agent"
@@ -128,6 +129,71 @@ describe("Document Read Native Tools E2E", () => {
     expect(parsed.tables[0].rows[0]).toEqual(["Ukuran", "Jumlah"])
     expect(parsed.tables[0].rows[1]).toEqual(["M", "10"])
     expect(parsed.tables[0].rows[2]).toEqual(["L", "14"])
+
+    // Cleanup
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it("pdf_read reads pdf document and extracts structure accurately", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "arunaki-test-pdf-"))
+    const filePath = path.join(tmpDir, "sample.pdf")
+
+    // Minimal valid PDF with 1 page
+    const samplePdf = `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Resources <<>>
+>>
+endobj
+xref
+0 4
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+trailer
+<<
+/Size 4
+/Root 1 0 R
+>>
+startxref
+200
+%%EOF`
+
+    fs.writeFileSync(filePath, samplePdf)
+
+    const toolInfo = await Effect.runPromise(PdfReadTool.pipe(Effect.provide(testLayer)))
+    const toolDef = await Effect.runPromise(Tool.init(toolInfo).pipe(Effect.provide(testLayer)))
+
+    const mockCtx: any = {
+      extra: { directory: tmpDir },
+    }
+
+    const result = await Effect.runPromise(
+      toolDef.execute({ filePath: "sample.pdf" }, mockCtx).pipe(Effect.provide(testLayer))
+    )
+
+    expect(result.title).toContain("PDF read: sample.pdf")
+    const parsed = JSON.parse(result.output)
+    expect(parsed.format).toBe("pdf")
+    expect(parsed.pageCount).toBe(1)
+    expect(parsed.isScanned).toBe(true)
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true, force: true })

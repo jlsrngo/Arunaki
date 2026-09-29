@@ -105,6 +105,7 @@ Usage notes:
     - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
     - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
     - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
     - Edit Excel workbooks: Use excel_com
     - Edit Word documents: Use word_com
     - Edit PowerPoint presentations: Use ppt_com
@@ -163,6 +164,7 @@ Usage notes:
     - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
     - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
     - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
     - Edit Excel workbooks: Use excel_com
     - Edit Word documents: Use word_com
     - Edit PowerPoint presentations: Use ppt_com
@@ -219,6 +221,7 @@ Usage notes:
     - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
     - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
     - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
     - Edit Excel workbooks: Use excel_com
     - Edit Word documents: Use word_com
     - Edit PowerPoint presentations: Use ppt_com

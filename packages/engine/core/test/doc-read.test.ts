@@ -47,7 +47,7 @@ describe("V2 Native Document Read Tools", () => {
     ]
   )
 
-  it("registers excel_read, word_read, and ppt_read in BuiltInTools", async () => {
+  it("registers excel_read, word_read, ppt_read, and pdf_read in BuiltInTools", async () => {
     await Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service
       const tools = yield* toolDefinitions(registry)
@@ -55,6 +55,7 @@ describe("V2 Native Document Read Tools", () => {
       expect(toolNames).toContain("excel_read")
       expect(toolNames).toContain("word_read")
       expect(toolNames).toContain("ppt_read")
+      expect(toolNames).toContain("pdf_read")
     }).pipe(Effect.provide(testLayer), Effect.runPromise)
   })
 
@@ -144,4 +145,69 @@ describe("V2 Native Document Read Tools", () => {
       if (fs.existsSync(tmpXlsx)) fs.unlinkSync(tmpXlsx)
     }
   })
+
+  it("executes pdf_read on a sample .pdf", async () => {
+    const samplePdf = `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Resources <<>>
+>>
+endobj
+xref
+0 4
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+trailer
+<<
+/Size 4
+/Root 1 0 R
+>>
+startxref
+200
+%%EOF`
+    const tmpPdf = path.join(process.cwd(), "test_sample_pdf.pdf")
+    fs.writeFileSync(tmpPdf, samplePdf)
+
+    try {
+      await Effect.gen(function* () {
+        const registry = yield* ToolRegistry.Service
+        const res = yield* executeTool(registry, {
+          sessionID: SessionV2.ID.make("ses_test"),
+          ...toolIdentity,
+          call: {
+            type: "tool-call",
+            id: "call-pdf",
+            name: "pdf_read",
+            input: { filePath: tmpPdf },
+          },
+        })
+        expect(res).toBeDefined()
+        const parsed = JSON.parse((res as any).value)
+        expect(parsed.format).toBe("pdf")
+        expect(parsed.pageCount).toBe(1)
+        expect(parsed.isScanned).toBe(true)
+      }).pipe(Effect.provide(testLayer), Effect.runPromise)
+    } finally {
+      if (fs.existsSync(tmpPdf)) fs.unlinkSync(tmpPdf)
+    }
+  })
 })
+
