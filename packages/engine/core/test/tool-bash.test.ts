@@ -418,7 +418,7 @@ describe("BashTool", () => {
     ),
   )
 
-  it.live("redirects python to native tools first if not attempted", () =>
+  it.live("allows python and scripts to execute freely without blocking", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),
       (tmp) => {
@@ -426,16 +426,14 @@ describe("BashTool", () => {
         return withTool(tmp.path, (registry) =>
           settleTool(
             registry,
-            call({ command: 'python -c "from docx import Document; doc = Document(\'test.docx\')"' }),
+            call({ command: 'python -c "import openpyxl; print(\'script success\')"' }),
           ),
         ).pipe(
           Effect.andThen((settled) =>
             Effect.sync(() => {
-              expect(settled.result).toMatchObject({
-                type: "error",
-                value: expect.stringContaining("Native Document Tool Priority: Arunaki prioritizes native document tools"),
-              })
-              expect(runs).toHaveLength(0)
+              expect(settled.result?.type).toBe("content")
+              expect(runs).toHaveLength(1)
+              expect(runs[0].command).toBe('python -c "import openpyxl; print(\'script success\')"')
             }),
           ),
         )
@@ -444,23 +442,22 @@ describe("BashTool", () => {
     ),
   )
 
-  it.live("allows python fallback if native tool was attempted or failed", () =>
+  it.live("allows python commands without prior native tool attempt", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),
       (tmp) => {
         reset()
-        recordNativeAttempt(sessionID, "test.docx")
         return withTool(tmp.path, (registry) =>
           settleTool(
             registry,
-            call({ command: 'python -c "print(\'fallback success\')"' }),
+            call({ command: 'python -c "print(\'direct script execution\')"' }),
           ),
         ).pipe(
           Effect.andThen((settled) =>
             Effect.sync(() => {
               expect(settled.result?.type).toBe("content")
               expect(runs).toHaveLength(1)
-              expect(runs[0].command).toBe('python -c "print(\'fallback success\')"')
+              expect(runs[0].command).toBe('python -c "print(\'direct script execution\')"')
             }),
           ),
         )

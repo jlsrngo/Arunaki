@@ -628,26 +628,6 @@ export const ShellTool = Tool.define(
                 return SCRATCH_MODE_RESPONSE as any
               }
 
-              // Enforce Arunaki document boundary - prioritize native tools first, allow Python freely as fallback
-              const isPythonOrScript = /\b(?:python|python3|py|pip|pip3)\b/i.test(params.command)
-              if (isPythonOrScript) {
-                const attemptedNative = hasAttemptedNative(ctx?.sessionID)
-                const failedNative = hasFailedNative(ctx?.sessionID)
-                if (!attemptedNative && !failedNative) {
-                  return {
-                    title: "Shell redirected: Prioritize native document tools",
-                    output:
-                      `Native Document Tool Priority: Arunaki prioritizes native document tools ('excel_read', 'word_read', 'ppt_read') for instant extraction (<50ms) without Python overhead.\n` +
-                      `Please attempt the relevant native tool first:\n` +
-                      `- For spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
-                      `- For Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
-                      `- For PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
-                      `If the native tool fails, errors, or cannot process this document, you are completely free to write and execute Python scripts as a fallback.`,
-                    metadata: { blocked: true },
-                  }
-                }
-              }
-
               const instanceCtx = yield* InstanceState.context
               const cwd = params.workdir
                 ? yield* resolvePath(params.workdir, instanceCtx.directory, shell)

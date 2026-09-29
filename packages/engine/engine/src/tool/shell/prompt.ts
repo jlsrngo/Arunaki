@@ -101,14 +101,12 @@ Usage notes:
     - File search: Use Glob (NOT find or ls)
     - Content search: Use Grep (NOT grep or rg)
     - Read files: Use Read (NOT cat/head/tail)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction. If excel_read fails, Python scripts are permitted as fallback.
-    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
-    - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
-    - Edit Excel workbooks: Use excel_com
-    - Edit Word documents: Use word_com
-    - Edit PowerPoint presentations: Use ppt_com
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction.
+    - Edit / update Excel workbooks (.xlsx): Write and execute Python scripts (e.g. openpyxl) via shell to update cells, insert rows, and format spreadsheets.
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens or via Python scripts.
+    - Read / inspect Word documents (.docx): Always use word_read first.
+    - Read / inspect PowerPoint (.pptx): Always use ppt_read first.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms).
     - Edit files: Use Edit (NOT sed/awk)
     - Write files: Use Write (NOT echo >/cat <<EOF)
     - Communication: Output text directly (NOT echo/printf)
@@ -160,14 +158,12 @@ Usage notes:
     - File search: Use Glob (NOT Get-ChildItem)
     - Content search: Use Grep (NOT Select-String)
     - Read files: Use Read (NOT Get-Content)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction. If excel_read fails, Python scripts are permitted as fallback.
-    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
-    - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
-    - Edit Excel workbooks: Use excel_com
-    - Edit Word documents: Use word_com
-    - Edit PowerPoint presentations: Use ppt_com
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction.
+    - Edit / update Excel workbooks (.xlsx): Write and execute Python scripts (e.g. openpyxl) via shell to update cells, insert rows, and format spreadsheets.
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens or via Python scripts.
+    - Read / inspect Word documents (.docx): Always use word_read first.
+    - Read / inspect PowerPoint (.pptx): Always use ppt_read first.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms).
     - Edit files: Use Edit (NOT Set-Content)
     - Write files: Use Write (NOT Set-Content/Out-File or here-strings)
     - Communication: Output text directly (NOT Write-Output/Write-Host)
@@ -217,14 +213,12 @@ Usage notes:
     - File search: Use Glob (NOT dir /s)
     - Content search: Use Grep (NOT findstr)
     - Read files: Use Read (NOT type)
-    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction. If excel_read fails, Python scripts are permitted as fallback.
-    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens after native extraction. If native extraction fails, Python fallback scripts may be used.
-    - Read / inspect Word documents (.docx): Always use word_read first. If word_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PowerPoint (.pptx): Always use ppt_read first. If ppt_read fails, Python scripts are permitted as fallback.
-    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms). If pdf_read fails, Python scripts are permitted as fallback.
-    - Edit Excel workbooks: Use excel_com
-    - Edit Word documents: Use word_com
-    - Edit PowerPoint presentations: Use ppt_com
+    - Read / inspect spreadsheets (.xlsx, .xls, .csv): Always use excel_read first for instant <50ms extraction.
+    - Edit / update Excel workbooks (.xlsx): Write and execute Python scripts (e.g. openpyxl) via shell to update cells, insert rows, and format spreadsheets.
+    - Calculations and counts: Perform calculations and counting directly in your reasoning tokens or via Python scripts.
+    - Read / inspect Word documents (.docx): Always use word_read first.
+    - Read / inspect PowerPoint (.pptx): Always use ppt_read first.
+    - Read / inspect PDF documents (.pdf): Always use pdf_read first (<50ms).
     - Edit files: Use Edit (NOT copy)
     - Write files: Use Write (NOT echo > file)
     - Communication: Output text directly (NOT echo)

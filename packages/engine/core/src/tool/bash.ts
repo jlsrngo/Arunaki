@@ -122,27 +122,6 @@ const layer = Layer.effectDiscard(
           ],
           execute: (input, context) =>
             Effect.gen(function* () {
-              // Enforce Arunaki document boundary - prioritize native tools first, allow Python freely as fallback
-              const isPythonOrScript = /\b(?:python|python3|py|pip|pip3)\b/i.test(input.command)
-              if (isPythonOrScript) {
-                const attemptedNative = hasAttemptedNative(context.sessionID)
-                const failedNative = hasFailedNative(context.sessionID)
-                if (!attemptedNative && !failedNative) {
-                  return yield* Effect.fail(
-                    new ToolFailure({
-                      message:
-                        `Native Document Tool Priority: Arunaki prioritizes native document tools ('excel_read', 'word_read', 'ppt_read', 'pdf_read') for instant extraction (<50ms) without Python overhead.\n` +
-                        `Please attempt the relevant native tool first:\n` +
-                        `- For spreadsheets (.xlsx, .xls, .csv): invoke 'excel_read' with { filePath: "..." }\n` +
-                        `- For Word documents (.docx): invoke 'word_read' with { filePath: "..." }\n` +
-                        `- For PowerPoint presentations (.pptx): invoke 'ppt_read' with { filePath: "..." }\n` +
-                        `- For PDF documents (.pdf): invoke 'pdf_read' with { filePath: "..." }\n` +
-                        `If the native tool fails, errors, or cannot process this document, you are completely free to write and execute Python scripts as a fallback.`,
-                    }),
-                  )
-                }
-              }
-
               const source = {
                 type: "tool" as const,
                 messageID: context.assistantMessageID,

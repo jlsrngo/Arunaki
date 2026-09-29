@@ -3404,6 +3404,19 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
   - `npm run build -w apps/web` berhasil dengan 0 error kompilasi.
 
+### Phase 80: Unblock Python & Shell Automation for Excel & Document Editing ✅ DONE
+- [x] **Unblock Python & Shell Scripts Execution**:
+  - Hapus blokir artifisial script Python (`isPythonOrScript`) dari `packages/engine/core/src/tool/bash.ts` dan `packages/engine/engine/src/tool/shell.ts`.
+  - Berikan kebebasan penuh bagi model untuk menjalankan script Python (misal `openpyxl`, `pandas`, `python-docx`, dsb.) untuk memodifikasi file Excel, menyisipkan baris, mengisi cell, dan kalkulasi otomatis.
+- [x] **Eliminasi Rekomendasi Manual Edit (Strict Automation)**:
+  - Perbarui prompt sistem di `default.txt`, `system.ts`, dan `shell/prompt.ts` untuk melarang agen menyuruh pengguna mengedit dokumen secara manual.
+  - Tegaskan bahwa untuk editing / modifikasi file `.xlsx`, agen wajib langsung menulis dan mengeksekusi script Python (`openpyxl`) via `bash`.
+- [x] **Testing & Build Verification**:
+  - `packages/engine/core/test/tool-bash.test.ts` (12 pass, 0 fail).
+  - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
+  - Production build `npm run build -w apps/web` berhasil dengan 0 error kompilasi.
+
+
 
 
 
