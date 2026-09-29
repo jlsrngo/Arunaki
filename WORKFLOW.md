@@ -3386,6 +3386,25 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Core tool test `packages/engine/core/test/doc-read.test.ts` (4 pass, 0 fail).
   - Production build `npm run build -w apps/web` berhasil tanpa error.
 
+### Phase 79: Native Multilingual OCR (`image_ocr`) & Text-Only Model Vision Fallback ✅ DONE
+- [x] **Native Multilingual OCR Tool (`image_ocr`)**:
+  - Implementasikan `buildImageOcrMap` berbasis `tesseract.js` pada `packages/arunaki-tools/src/image-ocr.ts` dengan dukungan dwibahasa Inggris dan Indonesia (`eng+ind`).
+  - Definisikan skema `ImageOcrMap` dan `ImageOcrLine` di `docmap.ts` dengan confidence score dan baris teks terstruktur.
+  - Buat tool `image_ocr` di `@arunaki/tools` dan `packages/engine/core/src/tool/image-ocr.ts`.
+  - Daftarkan `ImageOcrTool.node` ke `BuiltInTools` pada `packages/engine/core/src/tool/builtins.ts`.
+- [x] **Smart Text-Only Model Routing & 400 Bad Request Prevention**:
+  - Implementasikan deteksi kapabilitas vision model `isVisionModel(model)` pada `to-llm-message.ts`.
+  - Model vision (Gemini, Claude, GPT-4o) tetap menerima payload multimodal `type: "media"` langsung.
+  - Model teks murni (DeepSeek, Qwen Coder, Llama, Nemotron, dll.) secara cerdas menerima hint terarah: `[Attached Image: ${name} — Call the 'image_ocr' tool with filePath="${name}" to extract text]`, mencegah error 400 Bad Request dari OpenRouter/OpenAI API.
+- [x] **Universal Attachment Caching**:
+  - Perbarui `ChatInputBox.tsx` agar menyimpan semua berkas lampiran (dokumen & gambar) ke direktori internal terisolasi `.arunaki/attachments/${name}`, sehingga tool `image_ocr` dan `pdf_read` dapat mengaksesnya secara instan tanpa mengotori root folder kerja.
+- [x] **Testing & Build Verification**:
+  - `packages/arunaki-tools/test/image-ocr.test.ts` (3 pass, 0 fail).
+  - `packages/engine/core/test/attachment-hints.test.ts` (3 pass, 0 fail).
+  - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
+  - `npm run build -w apps/web` berhasil dengan 0 error kompilasi.
+
+
 
 
 

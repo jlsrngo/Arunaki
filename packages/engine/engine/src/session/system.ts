@@ -133,7 +133,7 @@ const layer = Layer.effect(
               `  * Tools must ONLY be executed when the user explicitly names a file, references a document, asks to inspect/read/edit workspace content, or pastes actual raw data to be recorded.`,
               `- NATIVE-FIRST DOCUMENT TOOLS POLICY:`,
               `  * PDF DOCUMENTS (.pdf): ALWAYS call 'pdf_read' first (<50ms) to inspect text and page structure. If 'pdf_read' reports isScanned: true, notify the user that the document contains scanned images without selectable text.`,
-              `  * IMAGE ATTACHMENTS (png, jpg, webp, screenshots): When the user attaches or pastes images, inspect them directly via multimodal vision in your message context. Do NOT expect image files on disk or run python OCR unless explicitly requested.`,
+              `  * IMAGE ATTACHMENTS (png, jpg, webp, screenshots): When the user attaches or pastes images, inspect them directly via multimodal vision in your message context if supported. For text-only models or when extracting character-level text from images, receipts, or notes, call the 'image_ocr' tool (<1.5s).`,
               `  * EXCEL SPREADSHEETS (.xlsx, .xls, .csv): When the user attaches or references a spreadsheet to inspect, check sizes/dimensions, or recap, you MUST ALWAYS invoke 'excel_read' first (<50ms). Once 'excel_read' extracts the data, calculate all recaps, counts, and comparisons directly in your reasoning!`,
               `  * WORD DOCUMENTS (.docx): ALWAYS call 'word_read' first to extract text and tables (<50ms).`,
               `  * POWERPOINT (.pptx): ALWAYS call 'ppt_read' first.`,

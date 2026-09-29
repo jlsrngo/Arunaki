@@ -19,6 +19,7 @@ import { ExcelReadTool } from "./excel-read"
 import { WordReadTool } from "./word-read"
 import { PptReadTool } from "./ppt-read"
 import { PdfReadTool } from "./pdf-read"
+import { ImageOcrTool } from "./image-ocr"
 
 /**
  * Composes only the shipped Location-scoped built-in tool transforms.
@@ -49,6 +50,7 @@ export const node = makeLocationNode({
     WordReadTool.node,
     PptReadTool.node,
     PdfReadTool.node,
+    ImageOcrTool.node,
     SkillTool.node,
     TodoWriteTool.node,
     WebFetchTool.node,

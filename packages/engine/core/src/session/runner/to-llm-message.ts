@@ -15,18 +15,45 @@ const isImageMime = (mime: string) => {
   return m === "image/png" || m === "image/jpeg" || m === "image/jpg" || m === "image/webp" || m === "image/gif";
 };
 
-const media = (file: FileAttachment): ContentPart => {
+export const isVisionModel = (model?: Model | { id?: string; provider?: string }): boolean => {
+  if (!model) return true;
+  const anyModel = model as any;
+  if (Array.isArray(anyModel.capabilities?.input)) {
+    return anyModel.capabilities.input.includes("image");
+  }
+  const id = String(model.id || "").toLowerCase();
+  if (
+    id.includes("deepseek") ||
+    id.includes("coder") ||
+    id.includes("nemotron") ||
+    id.includes("codestral") ||
+    (id.includes("llama-3") && !id.includes("vision")) ||
+    (id.includes("qwen") && !id.includes("vl") && !id.includes("vision")) ||
+    id.includes("text-only")
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const media = (file: FileAttachment, model?: Model): ContentPart => {
+  const name = file.name || "document";
   if (isImageMime(file.mime)) {
+    if (isVisionModel(model)) {
+      return {
+        type: "media",
+        mediaType: file.mime,
+        data: file.uri,
+        filename: file.name,
+        metadata: file.description === undefined ? undefined : { description: file.description },
+      };
+    }
     return {
-      type: "media",
-      mediaType: file.mime,
-      data: file.uri,
-      filename: file.name,
-      metadata: file.description === undefined ? undefined : { description: file.description },
+      type: "text",
+      text: `[Attached Image: ${name} (${file.mime}) — Note: This model is text-only and cannot view raw images directly. Call the 'image_ocr' tool with filePath="${name}" to extract and read all visible text, receipts, tables, and notes from this image.]`,
     };
   }
 
-  const name = file.name || "document";
   const ext = (name.split(".").pop() || "").toLowerCase();
   let hint = "";
   if (
@@ -158,7 +185,7 @@ function toLLMMessage(message: SessionMessage.Message, model: Model): Message[] 
         Message.make({
           id: message.id,
           role: "user",
-          content: [{ type: "text", text: message.text }, ...(message.files ?? []).map(media)],
+          content: [{ type: "text", text: message.text }, ...(message.files ?? []).map((f) => media(f, model))],
           metadata: {
             ...message.metadata,
             ...(message.agents?.length ? { agents: message.agents } : {}),

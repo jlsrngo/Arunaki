@@ -83,7 +83,20 @@ export class PdfMap extends Schema.Class<PdfMap>("PdfMap")({
   info: Schema.optional(Schema.NullishOr(Schema.Record({ key: Schema.String, value: Schema.Unknown }))),
 }) {}
 
-export const DocMap = Schema.Union([ExcelMap, WordMap, PptMap, PdfMap])
+export class ImageOcrLine extends Schema.Class<ImageOcrLine>("ImageOcrLine")({
+  lineNumber: Schema.Number,
+  text: Schema.String,
+}) {}
+
+export class ImageOcrMap extends Schema.Class<ImageOcrMap>("ImageOcrMap")({
+  format: Schema.Literal("ocr"),
+  filePath: Schema.String,
+  confidence: Schema.Number,
+  text: Schema.String,
+  lines: Schema.Array(ImageOcrLine),
+}) {}
+
+export const DocMap = Schema.Union([ExcelMap, WordMap, PptMap, PdfMap, ImageOcrMap])
 export type DocMap = typeof DocMap.Type
 
 // ============================================================

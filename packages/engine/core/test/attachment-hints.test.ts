@@ -50,4 +50,26 @@ describe("toLLMMessages attachment handling", () => {
     expect(hintPart.text).toContain("pdf_read");
     expect(hintPart.text).not.toContain("Use the 'read' tool");
   });
+
+  it("routes images to image_ocr tool hint for text-only models (deepseek, qwen-coder, llama)", () => {
+    const msg = {
+      id: "msg_test_3",
+      sessionID: "ses_test",
+      type: "user" as const,
+      text: "check this receipt",
+      files: [
+        { name: "receipt.png", mime: "image/png", uri: "data:image/png;base64,DDD" },
+      ],
+      time: Date.now(),
+    };
+
+    // DeepSeek is a text-only model without vision input
+    const result = toLLMMessages([msg], { id: "deepseek-chat", provider: "deepseek" });
+    expect(result[0].content).toHaveLength(2);
+    const part = (result[0].content as any[])[1];
+    expect(part.type).toBe("text");
+    expect(part.text).toContain("image_ocr");
+    expect(part.text).toContain("text-only");
+    expect(part.text).not.toContain("data:image/png;base64");
+  });
 });

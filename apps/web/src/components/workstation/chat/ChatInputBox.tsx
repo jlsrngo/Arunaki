@@ -341,12 +341,12 @@ export const ChatInputBox = memo(function ChatInputBox({
 
         // CRITICAL: DO NOT save chat attachments to the root workspace folder!
         // Chat attachments are ephemeral context parts passed in sendPrompt.
-        // For non-image documents requiring disk access (xlsx/pdf), save to hidden .arunaki/attachments/
+        // For documents and images requiring tool access (image_ocr/pdf_read), cache to hidden .arunaki/attachments/
         const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-        if (!isImg && desktop?.writeFile) {
+        if (desktop?.writeFile) {
           const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
           desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
-            console.warn("[ChatInputBox] Could not cache non-image attachment internally:", e);
+            console.warn("[ChatInputBox] Could not cache attachment internally:", e);
           });
         }
       } catch (err) {

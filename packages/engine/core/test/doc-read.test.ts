@@ -56,6 +56,7 @@ describe("V2 Native Document Read Tools", () => {
       expect(toolNames).toContain("word_read")
       expect(toolNames).toContain("ppt_read")
       expect(toolNames).toContain("pdf_read")
+      expect(toolNames).toContain("image_ocr")
     }).pipe(Effect.provide(testLayer), Effect.runPromise)
   })
 
@@ -207,6 +208,38 @@ startxref
       }).pipe(Effect.provide(testLayer), Effect.runPromise)
     } finally {
       if (fs.existsSync(tmpPdf)) fs.unlinkSync(tmpPdf)
+    }
+  })
+
+  it("executes image_ocr on a sample image", async () => {
+    const minimalPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    )
+    const tmpImg = path.join(process.cwd(), "test_sample_ocr.png")
+    fs.writeFileSync(tmpImg, minimalPng)
+
+    try {
+      await Effect.gen(function* () {
+        const registry = yield* ToolRegistry.Service
+        const res = yield* executeTool(registry, {
+          sessionID: SessionV2.ID.make("ses_test"),
+          ...toolIdentity,
+          call: {
+            type: "tool-call",
+            id: "call-ocr",
+            name: "image_ocr",
+            input: { filePath: tmpImg },
+          },
+        })
+        expect(res).toBeDefined()
+        const parsed = JSON.parse((res as any).value)
+        expect(parsed.format).toBe("ocr")
+        expect(typeof parsed.confidence).toBe("number")
+        expect(Array.isArray(parsed.lines)).toBe(true)
+      }).pipe(Effect.provide(testLayer), Effect.runPromise)
+    } finally {
+      if (fs.existsSync(tmpImg)) fs.unlinkSync(tmpImg)
     }
   })
 })
