@@ -35,6 +35,8 @@ scratch/
 .arunaki/sessions/
 **/.arunaki/sessions/
 **/.arunaki/backups/
+**/.arunaki/attachments/
+**/.arunaki/uploads/
 **/.arunaki-backups/
 
 # Root-level local business files
