@@ -16,15 +16,23 @@ describe("toLLMMessages attachment handling", () => {
     };
 
     const result = toLLMMessages([msg], { id: "test-model", provider: "test" });
-    expect(result[0].content).toHaveLength(3);
+    expect(result[0].content).toHaveLength(5);
     expect(result[0].content[0]).toEqual({ type: "text", text: "check these images" });
     expect(result[0].content[1]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("[Attached Image: image_1.png"),
+    });
+    expect(result[0].content[2]).toMatchObject({
       type: "media",
       mediaType: "image/png",
       data: "data:image/png;base64,AAA",
       filename: "image_1.png",
     });
-    expect(result[0].content[2]).toMatchObject({
+    expect(result[0].content[3]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("[Attached Image: image_2.png"),
+    });
+    expect(result[0].content[4]).toMatchObject({
       type: "media",
       mediaType: "image/png",
       data: "data:image/png;base64,BBB",

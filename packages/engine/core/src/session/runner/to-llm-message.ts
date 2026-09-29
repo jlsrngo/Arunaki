@@ -180,18 +180,31 @@ function toLLMMessage(message: SessionMessage.Message, model: Model): Message[] 
     case "agent-switched":
     case "model-switched":
       return []
-    case "user":
+    case "user": {
+      const parts: ContentPart[] = [{ type: "text", text: message.text }]
+      for (const f of message.files ?? []) {
+        if (isImageMime(f.mime) && isVisionModel(model)) {
+          parts.push({
+            type: "text",
+            text: `[Attached Image: ${f.name || "image.png"} — View this attached image directly in the message below. Do NOT search for this file on disk.]`,
+          })
+          parts.push(media(f, model))
+        } else {
+          parts.push(media(f, model))
+        }
+      }
       return [
         Message.make({
           id: message.id,
           role: "user",
-          content: [{ type: "text", text: message.text }, ...(message.files ?? []).map((f) => media(f, model))],
+          content: parts,
           metadata: {
             ...message.metadata,
             ...(message.agents?.length ? { agents: message.agents } : {}),
           },
         }),
       ]
+    }
     case "synthetic":
       return [Message.make({ id: message.id, role: "user", content: message.text, metadata: message.metadata })]
     case "system":

@@ -9,14 +9,15 @@ export function isImageFile(fileName: string, mimeType?: string): boolean {
 
 export function normalizeAttachmentName(
   rawName: string,
-  batchIndex: number,
-  totalInBatch: number,
+  batchIndex: number = 0,
+  totalInBatch: number = 1,
   existingCount: number = 0
 ): string {
   const isGenericImage = /^image(\s*\(\d+\))?\.png$/i.test(rawName.trim());
-  if (isGenericImage && (totalInBatch > 1 || existingCount > 0)) {
-    const fileNumber = existingCount + batchIndex + 1;
-    return `image_${fileNumber}.png`;
+  if (isGenericImage) {
+    const fileSuffix = totalInBatch > 1 || existingCount > 0 ? `_${existingCount + batchIndex + 1}` : "";
+    const stamp = Date.now().toString().slice(-4);
+    return `image_${stamp}${fileSuffix}.png`;
   }
   return rawName;
 }

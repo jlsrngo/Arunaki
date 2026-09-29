@@ -8,6 +8,9 @@ import { PermissionV2 } from "../permission"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { Database } from "../database/database"
+import { SessionMessageTable } from "../session/sql"
+import { eq, desc, and } from "drizzle-orm"
 import { buildImageOcrMap } from "@arunaki/tools/image-ocr"
 import * as fs from "fs"
 import * as path from "path"
@@ -33,6 +36,7 @@ const layer = Layer.effectDiscard(
     const tools = yield* Tools.Service
     const mutation = yield* LocationMutation.Service
     const permission = yield* PermissionV2.Service
+    const { db } = yield* Database.Service
 
     yield* tools
       .register({
@@ -60,6 +64,8 @@ const layer = Layer.effectDiscard(
                 })
 
               let filePath = target.canonical
+              let imageSource: string | Buffer = filePath
+
               if (!fs.existsSync(filePath)) {
                 const baseDir = path.dirname(filePath)
                 const baseName = path.basename(input.filePath)
@@ -67,6 +73,7 @@ const layer = Layer.effectDiscard(
 
                 if (fs.existsSync(attachmentFallback)) {
                   filePath = attachmentFallback
+                  imageSource = filePath
                 } else {
                   try {
                     const files = fs.readdirSync(baseDir)
@@ -77,24 +84,72 @@ const layer = Layer.effectDiscard(
                     )
                     if (match) {
                       filePath = path.join(baseDir, match)
+                      imageSource = filePath
                     } else {
                       const attachDir = path.join(baseDir, ".arunaki", "attachments")
                       if (fs.existsSync(attachDir)) {
                         const attachFiles = fs.readdirSync(attachDir)
                         const attachMatch = attachFiles.find((f) => f.toLowerCase() === baseName.toLowerCase())
-                        if (attachMatch) filePath = path.join(attachDir, attachMatch)
+                        if (attachMatch) {
+                          filePath = path.join(attachDir, attachMatch)
+                          imageSource = filePath
+                        }
+                      }
+                    }
+                  } catch {}
+                }
+
+                // If still not found on disk, retrieve directly from SQLite session message attachments!
+                if (!fs.existsSync(filePath)) {
+                  try {
+                    const recentMsgs = yield* db
+                      .select({ data: SessionMessageTable.data })
+                      .from(SessionMessageTable)
+                      .where(
+                        and(
+                          eq(SessionMessageTable.session_id, context.sessionID),
+                          eq(SessionMessageTable.type, "user"),
+                        ),
+                      )
+                      .orderBy(desc(SessionMessageTable.seq))
+                      .limit(10)
+                      .pipe(Effect.orDie)
+
+                    for (const row of recentMsgs) {
+                      const d = row.data as any
+                      if (Array.isArray(d?.files)) {
+                        const targetName = baseName.toLowerCase()
+                        const fileMatch = d.files.find(
+                          (f: any) =>
+                            f?.name?.toLowerCase() === targetName ||
+                            (f?.mime?.startsWith("image/") && (targetName.includes("image") || !targetName)),
+                        )
+                        if (fileMatch?.uri && typeof fileMatch.uri === "string") {
+                          const base64Data = fileMatch.uri.split(";base64,").pop()
+                          if (base64Data) {
+                            const buffer = Buffer.from(base64Data, "base64")
+                            imageSource = buffer
+                            // Cache to .arunaki/attachments so any downstream file tools also find it
+                            try {
+                              fs.mkdirSync(path.dirname(attachmentFallback), { recursive: true })
+                              fs.writeFileSync(attachmentFallback, buffer)
+                              filePath = attachmentFallback
+                            } catch {}
+                            break
+                          }
+                        }
                       }
                     }
                   } catch {}
                 }
               }
 
-              if (!fs.existsSync(filePath)) {
+              if (!fs.existsSync(filePath) && typeof imageSource === "string") {
                 return yield* Effect.fail(new ToolFailure({ message: `Image file not found: ${input.filePath}` }))
               }
 
               try {
-                const map = yield* Effect.promise(() => buildImageOcrMap(filePath))
+                const map = yield* Effect.promise(() => buildImageOcrMap(imageSource))
                 return {
                   title: `Image OCR: ${path.basename(filePath)} (${map.confidence}% confidence, ${map.lines.length} lines)`,
                   output: JSON.stringify(map, null, 2),
@@ -115,5 +170,5 @@ const layer = Layer.effectDiscard(
 export const node = makeLocationNode({
   name: "tool/image-ocr",
   layer,
-  deps: [ToolRegistry.node, LocationMutation.node, PermissionV2.node],
+  deps: [ToolRegistry.node, LocationMutation.node, PermissionV2.node, Database.node],
 })

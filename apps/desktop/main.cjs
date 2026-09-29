@@ -323,6 +323,7 @@ app.whenReady().then(() => {
   ipcMain.handle('fs:writeFile', async (_event, filePath, content) => {
     try {
       const safePath = resolveInsideWorkspace(filePath);
+      await fs.mkdir(path.dirname(safePath), { recursive: true });
       if (typeof content === 'string' && content.startsWith('data:')) {
         const base64Data = content.split(';base64,').pop();
         if (base64Data) {

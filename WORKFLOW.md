@@ -3416,6 +3416,21 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
   - Production build `npm run build -w apps/web` berhasil dengan 0 error kompilasi.
 
+### Phase 81: Fix Chat Image Attachment Resolution, Ephemeral Persistence & Zero-Disk-Search Guarantee ✅ DONE
+- [x] **Desktop IPC fs:writeFile Parent Directory Creation**:
+  - Perbaiki `apps/desktop/main.cjs` agar memanggil `await fs.mkdir(path.dirname(safePath), { recursive: true })` sebelum `fs.writeFile`, sehingga penulisan ke `.arunaki/attachments/${name}` tidak lagi error `ENOENT`.
+- [x] **Unique Timestamp for Generic Pasted Images**:
+  - Perbarui `normalizeAttachmentName` di `attachmentUtils.ts` agar gambar hasil paste clipboard tidak selalu bernama statis `image.png`, melainkan diberi sufiks timestamp unik (misal `image_4812.png`), mencegah tabrakan nama dengan file lama/file yang pernah dihapus.
+- [x] **image_ocr In-Memory Database Fallback**:
+  - Perbarui `packages/engine/core/src/tool/image-ocr.ts` agar mengambil data `Buffer` langsung dari tabel SQLite `session_message` jika file belum ada di disk, mengekstrak OCR langsung dari memori, dan meng-cache otomatis ke `.arunaki/attachments/`.
+- [x] **Vision Model Direct Message Guidance & Zero-Disk-Search Policy**:
+  - Perbarui `to-llm-message.ts` untuk menyisipkan catatan inline `[Attached Image: <name> — View this attached image directly in the message below. Do NOT search for this file on disk.]`.
+  - Perbarui `system.ts` dan `default.txt` dengan aturan tegas: attachment chat adalah input ephemeral dalam konteks pesan dan TIDAK disimpan di root folder kerja, sehingga model dilarang keras menjalankan `dir /b` atau mencari file gambar ke filesystem.
+- [x] **Testing & Verification**:
+  - `attachment-hints.test.ts` (3 pass, 0 fail).
+  - `doc-read.test.ts` (5 pass, 0 fail).
+  - Production build `npm run build -w apps/web` sukses (0 error).
+
 
 
 
