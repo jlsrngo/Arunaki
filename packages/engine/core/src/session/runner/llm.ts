@@ -265,7 +265,7 @@ const layer = Layer.effect(
             ...(session.parentID ? { "x-parent-session-id": session.parentID } : {}),
           },
           body: {
-            ...(reasoningEffort ? { reasoning_effort: reasoningEffort, reasoningEffort } : {}),
+            ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
           },
         },
         providerOptions: {

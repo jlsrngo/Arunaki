@@ -3471,6 +3471,17 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `bun test packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
   - Production build `npm run build -w apps/web` sukses (0 error).
 
+### Phase 86: Remove Unsupported 'reasoningEffort' from HTTP Body Payload (Groq HTTP 400 Fix) ✅ DONE
+- [x] **Eliminate Incompatible camelCase Field (`llm.ts` & `model.ts`)**:
+  - Mengoreksi payload HTTP POST ke provider OpenAI-compatible di `packages/engine/core/src/session/runner/llm.ts` dan `model.ts`.
+  - Sebelumnya, sistem menyuntikkan `reasoningEffort` (camelCase) ke dalam `body` JSON selain `reasoning_effort` (snake_case). Provider ketat seperti Groq Cloud langsung menolak request dengan `HTTP 400: property 'reasoningEffort' is unsupported`.
+  - Sekarang hanya menggunakan `reasoning_effort` resmi sesuai spesifikasi OpenAI Chat Completions API.
+- [x] **Testing & Verification**:
+  - Pengujian langsung ke endpoint live Groq dengan model `qwen/qwen3.8-27b` dan `openai/gpt-oss-120b` terverifikasi 100% SUKSES merespons tanpa error HTTP 400.
+  - `bun test packages/arunaki-tools/test/image-ocr.test.ts` (3 pass, 0 fail).
+  - `bun test packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
+  - Production build `npm run build -w apps/web` sukses (0 error).
+
 
 
 

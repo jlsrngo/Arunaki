@@ -114,7 +114,6 @@ const withVariant = (
     return Effect.succeed(
       produce(model, (draft) => {
         draft.request.body.reasoning_effort = id
-        draft.request.body.reasoningEffort = id
       }),
     )
   }
