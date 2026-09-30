@@ -3450,6 +3450,16 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
   - Production build `npm run build -w apps/web` sukses (0 error).
 
+### Phase 84: Filter Non-Chat Models from Provider Catalogs & Groq Tool Calling Precision ✅ DONE
+- [x] **Filter Non-Conversational Models (`provider.ts`)**:
+  - Menyaring model non-chat seperti audio transcription (`whisper`), pengklasifikasi keamanan (`prompt-guard`, `safeguard`), generator suara (`orpheus`), embedding, dan moderasi dari endpoint `fetchModels`.
+  - Mengeliminasi insiden di mana Groq memunculkan `meta-llama/llama-prompt-guard-2-22m` sebagai model utama di pool yang menolak eksekusi alat (`tool calling is not supported with this model`) dan memicu fallback otomatis ke Kenari (`deepseek-v4-1-flash`).
+- [x] **Catalog Sanitization for Groq**:
+  - Memperbarui konfigurasi katalog model Groq di workspace agar langsung memprioritaskan model chat yang terbukti mendukung tool-calling (`openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`).
+- [x] **Testing & Verification**:
+  - Live API validation dengan Groq key: `openai/gpt-oss-120b` dan `qwen/qwen3.8-27b` terverifikasi sukses merespons panggilan tools.
+  - Production build `npm run build -w apps/web` sukses (0 error).
+
 
 
 

@@ -405,7 +405,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const data = json.value as { data?: Array<{ id?: unknown }> }
           return (data.data ?? [])
             .map((model) => (typeof model?.id === "string" ? model.id : ""))
-            .filter(Boolean)
+            .filter((id) => {
+              if (!id) return false
+              const lower = id.toLowerCase()
+              if (lower.includes("whisper")) return false
+              if (lower.includes("prompt-guard") || lower.includes("safeguard")) return false
+              if (lower.includes("orpheus")) return false
+              if (lower.includes("embedding") || lower.includes("moderation")) return false
+              if (lower.includes("tts") || lower.includes("audio")) return false
+              return true
+            })
         })()
         return { data: { models } }
       },
