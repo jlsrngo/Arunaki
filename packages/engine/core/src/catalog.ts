@@ -70,7 +70,8 @@ const layer = Layer.effect(
 
     const available = (provider: ProviderV2.Info, integration: Integration.Info | undefined) => {
       if (provider.disabled) return false
-      if (typeof provider.request.body.apiKey === "string" && provider.request.body.apiKey.length > 5) return true
+      const key = (provider.request.body.apiKey ?? (provider.api as { settings?: { apiKey?: string } })?.settings?.apiKey) as string | undefined
+      if (typeof key === "string" && key.length > 5) return true
       if (integration?.connections.length) return true
       if (provider.id === "kenari") return true
       if (provider.id === "ollama" || provider.id === "lmstudio") return true

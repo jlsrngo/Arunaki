@@ -200,11 +200,15 @@ export const locationLayer = Layer.effect(
         // Location plugins populate and filter the catalog asynchronously during layer startup.
         const defaultModel = session.model ? undefined : yield* catalog.model.default()
         const allAvailable = yield* catalog.model.available()
-        const withKey = allAvailable.filter(
-          (m) =>
-            (typeof m.request.body.apiKey === "string" && m.request.body.apiKey.length > 5) ||
-            m.providerID === "kenari",
-        )
+        const withKey = allAvailable.filter((m) => {
+          const key = m.request.body.apiKey ?? m.api.settings?.apiKey
+          return (
+            (typeof key === "string" && key.length > 5 && !key.includes("•")) ||
+            m.providerID === "kenari" ||
+            m.providerID === "ollama" ||
+            m.providerID === "lmstudio"
+          )
+        })
         // Sanitize requested model ID in case it contains commas or is a pool
         let requestedID = session.model?.id
         if (requestedID && requestedID.includes(",")) {

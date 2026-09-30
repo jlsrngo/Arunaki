@@ -3460,6 +3460,17 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Live API validation dengan Groq key: `openai/gpt-oss-120b` dan `qwen/qwen3.8-27b` terverifikasi sukses merespons panggilan tools.
   - Production build `npm run build -w apps/web` sukses (0 error).
 
+### Phase 85: Fix Custom Provider API Key Detection in Catalog & Model Runner (Groq Availability) ✅ DONE
+- [x] **Provider Availability Check (`catalog.ts`)**:
+  - Memperbaiki fungsi `available()` pada `CatalogV2` yang sebelumnya hanya memeriksa `provider.request.body.apiKey`. Untuk provider kustom seperti Groq yang dimigrasikan dari UI settings, apiKey disimpan di `provider.api.settings.apiKey`.
+  - Sekarang `available()` memeriksa `provider.request.body.apiKey ?? provider.api?.settings?.apiKey`, sehingga Groq terdaftar sebagai provider aktif yang valid di katalog.
+- [x] **Model Runner `withKey` Filter (`model.ts`)**:
+  - Memperbarui filter `withKey` pada `SessionRunnerModel.resolve` agar memeriksa `m.request.body.apiKey ?? m.api.settings?.apiKey`. Sebelumnya hanya mengecek `m.request.body.apiKey` atau `m.providerID === 'kenari'`, sehingga semua model Groq disaring keluar dan selalu jatuh ke fallback Kenari.
+- [x] **Testing & Verification**:
+  - `bun test packages/arunaki-tools/test/image-ocr.test.ts` (3 pass, 0 fail).
+  - `bun test packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
+  - Production build `npm run build -w apps/web` sukses (0 error).
+
 
 
 
