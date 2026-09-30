@@ -34,7 +34,10 @@ import { SessionStore } from "../store"
 import { type RunError, Service } from "./index"
 import { SessionRunnerModel } from "./model"
 import { createLLMEventPublisher } from "./publish-llm-event"
-import { toLLMMessages } from "./to-llm-message"
+import { toLLMMessages, isVisionModel } from "./to-llm-message"
+import { buildImageOcrMap } from "@arunaki/tools/image-ocr"
+import * as fs from "fs"
+import * as path from "path"
 import { MAX_STEPS_PROMPT } from "./max-steps"
 import { Snapshot } from "../../snapshot"
 import { makeLocationNode } from "../../effect/app-node"
@@ -202,6 +205,46 @@ const layer = Layer.effect(
         initialized ?? (yield* SessionContextEpoch.prepare(db, events, loadSystemContext(agent), session.id))
       const model = yield* models.resolve(session)
       const entries = yield* SessionHistory.entriesForRunner(db, session.id, system.baselineSeq)
+
+      // Automatic OCR for text-only models (DeepSeek, Qwen-coder, Llama, etc.):
+      // Directly extract text and tables from attached images so the model receives the data in turn 1.
+      if (!isVisionModel(model)) {
+        for (const entry of entries) {
+          const msg = entry.message as any
+          if (msg.type === "user" && Array.isArray(msg.files)) {
+            for (const file of msg.files) {
+              const isImage = (file.mime || "").toLowerCase().startsWith("image/")
+              if (isImage && !file.description) {
+                try {
+                  let imageBuf: Buffer | null = null
+                  if (typeof file.uri === "string" && file.uri.startsWith("data:")) {
+                    const base64Data = file.uri.split(";base64,").pop()
+                    if (base64Data) imageBuf = Buffer.from(base64Data, "base64")
+                  }
+                  if (!imageBuf) {
+                    const attachPath = path.join(
+                      session.location.directory,
+                      ".arunaki",
+                      "attachments",
+                      file.name || "image.png",
+                    )
+                    if (fs.existsSync(attachPath)) imageBuf = fs.readFileSync(attachPath)
+                  }
+                  if (imageBuf) {
+                    const ocr = yield* Effect.promise(() => buildImageOcrMap(imageBuf!)).pipe(
+                      Effect.catchAll(() => Effect.succeed(undefined)),
+                    )
+                    if (ocr?.text) {
+                      file.description = ocr.text
+                    }
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+      }
+
       const context = entries.map((entry) => entry.message)
       const isLastStep = agent.info?.steps !== undefined && currentStep >= agent.info.steps
       const toolMaterialization = isLastStep ? undefined : yield* tools.materialize(agent.info?.permissions)

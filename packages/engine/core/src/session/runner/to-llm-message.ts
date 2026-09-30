@@ -48,10 +48,13 @@ const media = (file: FileAttachment, model?: Model): ContentPart => {
         metadata: file.description === undefined ? undefined : { description: file.description },
       };
     }
+    const ocrSnippet = file.description
+      ? `\n\nOCR Extracted Text from Image (${name}):\n"""\n${file.description}\n"""`
+      : ""
     return {
       type: "text",
-      text: `[Attached Image: ${name} (${file.mime}) — Note: This model is text-only and cannot view raw images directly. Call the 'image_ocr' tool with filePath="${name}" to extract and read all visible text, receipts, tables, and notes from this image.]`,
-    };
+      text: `[Attached Image: ${name} (${file.mime}) — Location: .arunaki/attachments/${name}${ocrSnippet}\nNote: This model is text-only and cannot view raw images directly. DO NOT search or run 'dir' for this file. It is an internal attachment already stored in .arunaki/attachments/${name}. Use the OCR text above or call 'image_ocr' with filePath="${name}" to inspect.]`,
+    }
   }
 
   const ext = (name.split(".").pop() || "").toLowerCase();

@@ -82,7 +82,11 @@ const layer = Layer.effectDiscard(
                 .pipe(
                   Effect.map((result) =>
                     result
-                      .filter((entry) => !entry.path.split(/[\\/]/).some((part) => part.startsWith(".")))
+                      .filter((entry) => {
+                        const parts = entry.path.split(/[\\/]/)
+                        if (parts.includes(".arunaki") && parts.includes("attachments")) return true
+                        return !parts.some((part) => part.startsWith("."))
+                      })
                       .map((entry) =>
                         FileSystem.Entry.make({
                           ...entry,

@@ -3426,6 +3426,14 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **Vision Model Direct Message Guidance & Zero-Disk-Search Policy**:
   - Perbarui `to-llm-message.ts` untuk menyisipkan catatan inline `[Attached Image: <name> — View this attached image directly in the message below. Do NOT search for this file on disk.]`.
   - Perbarui `system.ts` dan `default.txt` dengan aturan tegas: attachment chat adalah input ephemeral dalam konteks pesan dan TIDAK disimpan di root folder kerja, sehingga model dilarang keras menjalankan `dir /b` atau mencari file gambar ke filesystem.
+### Phase 82: Automatic Pre-OCR Injection for Text-Only Models & Attachment Glob Discovery ✅ DONE
+- [x] **Automatic Pre-OCR for Text-Only Models (`llm.ts`)**:
+  - Implementasi ekstraksi otomatis OCR pada pesan user yang melampirkan gambar saat menggunakan model non-vision (DeepSeek, Qwen-coder, dll.) langsung di runner sebelum request dikirim ke LLM.
+  - Teks hasil ekstraksi otomatis disuntikkan ke `file.description` dan muncul langsung di prompt asisten (`OCR Extracted Text from Image (...)`), sehingga model non-vision menerima data tabel dan angka secara instan di turn 1 tanpa perlu memanggil tool tambahan atau mengecek file di disk.
+- [x] **Attachment Discovery in Glob Tool (`glob.ts`)**:
+  - Sesuaikan filter dot-directory di `packages/engine/core/src/tool/glob.ts` agar berkas di `.arunaki/attachments/` dapat ditemukan saat dicari lewat pattern (seperti `**/image_*.png`), mencegah hasil palsu "No files found".
+- [x] **Context Notice Clarification (`to-llm-message.ts`)**:
+  - Tampilkan lokasi `.arunaki/attachments/${name}` secara eksplisit beserta cuplikan hasil OCR agar model tidak tersesat mencari berkas ke root workspace.
 - [x] **Testing & Verification**:
   - `attachment-hints.test.ts` (3 pass, 0 fail).
   - `doc-read.test.ts` (5 pass, 0 fail).
