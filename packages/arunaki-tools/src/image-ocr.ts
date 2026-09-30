@@ -12,12 +12,14 @@ async function getWorker(languages: string[] = ["eng", "ind"]): Promise<Worker> 
     workerInitializing = (async () => {
       try {
         const worker = await createWorker(languages)
+        await worker.setParameters({ tessedit_pageseg_mode: "3" })
         workerInstance = worker
         return worker
       } catch (err) {
         // Fallback to English only if multilingual pack fails to load
         console.warn("[image-ocr] Failed to initialize multilingual worker, falling back to 'eng':", err)
         const worker = await createWorker("eng")
+        await worker.setParameters({ tessedit_pageseg_mode: "3" })
         workerInstance = worker
         return worker
       } finally {
@@ -61,10 +63,29 @@ export async function buildImageOcrMap(
   }
 
   const worker = await getWorker(languages)
-  const result = await worker.recognize(imageSource)
+  await worker.setParameters({ tessedit_pageseg_mode: "3" })
+  let result = await worker.recognize(imageSource)
 
-  const rawText = (result.data.text || "").trim()
-  const confidence = Math.round(result.data.confidence ?? 0)
+  let rawText = (result.data.text || "").trim()
+  let confidence = Math.round(result.data.confidence ?? 0)
+
+  // If confidence is low (< 50) or extracted text is very brief, retry with PSM 4 (single column / structured table)
+  if (confidence < 50 || rawText.length < 10) {
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: "4" })
+      const retry = await worker.recognize(imageSource)
+      const retryText = (retry.data.text || "").trim()
+      const retryConfidence = Math.round(retry.data.confidence ?? 0)
+      if (retryConfidence > confidence || retryText.length > rawText.length) {
+        result = retry
+        rawText = retryText
+        confidence = retryConfidence
+      } else {
+        // Reset back to 3
+        await worker.setParameters({ tessedit_pageseg_mode: "3" })
+      }
+    } catch {}
+  }
 
   // Split lines and filter empty noise
   const rawLines = rawText.split(/\r?\n/)

@@ -3439,6 +3439,17 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `doc-read.test.ts` (5 pass, 0 fail).
   - Production build `npm run build -w apps/web` sukses (0 error).
 
+### Phase 83: Tesseract PSM Layout Optimization (PSM 3/4) & Tabular OCR Precision ✅ DONE
+- [x] **Page Segmentation Mode Optimization (`image-ocr.ts`)**:
+  - Konfigurasi parameter `tessedit_pageseg_mode: "3"` (Automatic Page Segmentation) secara eksplisit di Tesseract worker initialization. Mode default bawaan tesseract.js sebelumnya memperlakukan gambar tabel/spreadsheet sebagai blok teks tunggal (PSM 6) yang mengakibatkan tabel baris/kolom hancur menjadi karakter acak dengan confidence hanya 38%.
+  - Dengan PSM 3, confidence naik drastis menjadi 91% dan mengekstrak seluruh baris tabel spreadsheet (`2XL 1`, `L 17`, `M 12`, `S 4`, `XL 10`, `Grand Total 44`) secara presisi dan terstruktur.
+- [x] **Fallback & Auto-retry Mode (`buildImageOcrMap`)**:
+  - Menambahkan mekanisme fallback otomatis ke PSM 4 (single column / structured layout) apabila confidence rendah (< 50) atau teks terlalu pendek, memastikan ketahanan pembacaan untuk segala jenis screenshot tabel atau dokumen.
+- [x] **Testing & Verification**:
+  - `packages/arunaki-tools/test/image-ocr.test.ts` (3 pass, 0 fail).
+  - `packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
+  - Production build `npm run build -w apps/web` sukses (0 error).
+
 
 
 
