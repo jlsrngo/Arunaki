@@ -3503,6 +3503,27 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `bun test packages/engine/core/test/doc-read.test.ts` passed (5 pass, 0 fail).
 - [x] Checked disk contents of `E:\REKAPAN\ORDER.txt` — verified 17 PCS.
 
+---
+
+## Phase 88: Fix Hunyuan XML Tool Call Leakage ✅ DONE
+
+**Goal:** Prevent raw XML tool tags (`<arg_key:...>`, `<arg_value:...>`, `<tool_call:...>`, `<tool_sep:...>`) from leaking into chat UI and ensure document edits persist cleanly.
+
+### 88.1 Root Cause & File Synchronization
+- [x] Diagnosed model `hy3:free` emitting native Hunyuan XML format into the content stream when streaming parallel/unsupported tool calls.
+- [x] Updated `E:\REKAPAN\LAPORAN-HARIAN.txt` to ensure `BUS = 30RB` and `GALON = 6RB` were recorded under `PENGELUARAN :`.
+- [x] Cleaned raw XML tags from existing database rows (SEQ 143 and SEQ 153 in `session_message`).
+
+### 88.2 Engine & Frontend Sanitization
+- [x] Added XML tool tag stripping in `packages/engine/core/src/session/runner/publish-llm-event.ts` (`cleanAssistantText`) so persisted messages never contain tool call XML.
+- [x] Added XML tag filtering in `apps/web/src/components/workstation/chat/ChatMessageContent.tsx` (`parseContentBlocks`) for live stream and rendered markdown protection.
+
+### 88.3 Verification
+- [x] Production build `npm run build -w apps/web` passed in 2.68s / 11.08s (0 TypeScript errors).
+- [x] `bun test packages/engine/core/test/doc-read.test.ts` passed (5 pass, 0 fail).
+- [x] Inspected `LAPORAN-HARIAN.txt` on disk — verified `BUS = 30RB` & `GALON = 6RB` correctly present.
+
+
 
 
 

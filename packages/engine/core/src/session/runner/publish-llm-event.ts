@@ -118,6 +118,20 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
     return { start, append, end, flush }
   }
 
+const cleanAssistantText = (raw: string): string =>
+  raw
+    .replace(/(?:\[Assistant tool call\]:\s*)?(?:<tool_calls(?::[a-zA-Z0-9_-]+)?>)?(?:<tool_call(?::[a-zA-Z0-9_-]+)?>)?[a-zA-Z0-9_-]+<tool_sep(?::[a-zA-Z0-9_-]+)?>[\s\S]*?<\/tool_call(?::[a-zA-Z0-9_-]+)?>(?:\s*<\/tool_calls(?::[a-zA-Z0-9_-]+)?>)?/gi, "")
+    .replace(/<arg_key:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_key:[a-zA-Z0-9_-]+>/gi, "")
+    .replace(/<arg_value:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_value:[a-zA-Z0-9_-]+>/gi, "")
+    .replace(/<\/?(?:tool_call|tool_calls|tool_sep|arg_key|arg_value)(?::[a-zA-Z0-9_-]+)?>/gi, "")
+    .replace(/\[Assistant tool call\]:[^\n]*(\n|$)/gi, "")
+    .replace(/\[Tool (?:result|error)\]:?[^\n]*(\n|$)/gi, "")
+    .replace(/\[Tool result:[^\n]*(\n|$)/gi, "")
+    .replace(/\[Assistant\]:\s*/gi, "")
+    .replace(/^Wrote file successfully:.*(\n|$)/gmi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+
   const text = fragments("text", (textID, value) =>
     Effect.gen(function* () {
       yield* events.publish(SessionEvent.Text.Ended, {
@@ -125,7 +139,7 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
         assistantMessageID: yield* currentAssistantMessageID(),
         timestamp: yield* timestamp,
         textID,
-        text: value,
+        text: cleanAssistantText(value),
       })
     }),
   )

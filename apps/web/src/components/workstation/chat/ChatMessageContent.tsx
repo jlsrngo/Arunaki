@@ -22,6 +22,12 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
   const content = rawContent
     .replace(/\[\/?CANVAS\]/gi, "")
     .replace(/<\/?think\??>/gi, "")
+    // Remove Hunyuan / open-source XML tool calls & arguments
+    .replace(/(?:\[Assistant tool call\]:\s*)?(?:<tool_calls(?::[a-zA-Z0-9_-]+)?>)?(?:<tool_call(?::[a-zA-Z0-9_-]+)?>)?[a-zA-Z0-9_-]+<tool_sep(?::[a-zA-Z0-9_-]+)?>[\s\S]*?<\/tool_call(?::[a-zA-Z0-9_-]+)?>(?:\s*<\/tool_calls(?::[a-zA-Z0-9_-]+)?>)?/gi, "")
+    .replace(/<arg_key:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_key:[a-zA-Z0-9_-]+>/gi, "")
+    .replace(/<arg_value:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_value:[a-zA-Z0-9_-]+>/gi, "")
+    .replace(/<\/?(?:tool_call|tool_calls|tool_sep|arg_key|arg_value)(?::[a-zA-Z0-9_-]+)?>/gi, "")
+    // Remove pseudo tool calls and compaction transcript leaks
     .replace(/\[Assistant tool call\]:[^\n]*(\n|$)/gi, "")
     .replace(/\[Tool (?:result|error)\]:?[^\n]*(\n|$)/gi, "")
     .replace(/\[Tool result:[^\n]*(\n|$)/gi, "")
