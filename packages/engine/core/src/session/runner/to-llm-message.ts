@@ -238,6 +238,12 @@ ${message.summary}
 <recent-context>
 ${message.recent}
 </recent-context>
+
+<critical_rule>
+The historical record above contains serialized transcript traces such as "[Assistant tool call]: <tool>" and "[Tool result]: <result>".
+These are internal logs only. You must NEVER simulate, fake, or output text starting with "[Assistant tool call]:", "[Tool result]:", or "[Assistant]:" in your plain text response.
+Whenever you need to call a tool, you MUST use the native function/tool-calling mechanism. Never output tool calls or tool results as chat text.
+</critical_rule>
 </conversation-checkpoint>`,
           metadata: message.metadata,
         }),

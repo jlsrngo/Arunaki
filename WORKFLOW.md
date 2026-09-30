@@ -3482,6 +3482,28 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `bun test packages/engine/core/test/doc-read.test.ts` (5 pass, 0 fail).
   - Production build `npm run build -w apps/web` sukses (0 error).
 
+---
+
+## Phase 87: Fix Pseudo Tool Call Leakage & Compaction Priming ✅ DONE
+
+**Goal:** Eliminate plain text simulated tool calls (`[Assistant tool call]: write(...)`, `[Tool result: ...]`, `[Assistant]: ...`), protect chat UI bubbles from transcript leaks, and prevent LLMs from being misled by compaction checkpoints.
+
+### 87.1 Root Cause & Incident Resolution
+- [x] Diagnosed model `hy3:free` outputting pseudo tool calls in chat text without executing native function calling.
+- [x] Identified compaction `<conversation-checkpoint>` historical serialization (`[Assistant tool call]:`) as the priming source.
+- [x] Updated `E:\REKAPAN\ORDER.txt` on disk directly with the verified 17 PCS size breakdown (S 1, M 2, L 11, XL 2, XXL 1, TOTAL = 17 PCS).
+
+### 87.2 Prompt Hardening & UI Sanitization
+- [x] Hardened `packages/engine/core/src/session/runner/to-llm-message.ts` with explicit `<critical_rule>` prohibiting pseudo tool call text.
+- [x] Added `core/tool-rules` baseline system context in `packages/engine/core/src/system-context/builtins.ts` enforcing native tool calling.
+- [x] Added regex sanitization in `apps/web/src/components/workstation/chat/ChatMessageContent.tsx` (`parseContentBlocks`) to guarantee pseudo tool call transcripts never leak to chat bubbles.
+
+### 87.3 Verification
+- [x] Production build `npm run build -w apps/web` passed in 2.68s / 19.22s (0 TypeScript errors).
+- [x] `bun test packages/engine/core/test/doc-read.test.ts` passed (5 pass, 0 fail).
+- [x] Checked disk contents of `E:\REKAPAN\ORDER.txt` — verified 17 PCS.
+
+
 
 
 

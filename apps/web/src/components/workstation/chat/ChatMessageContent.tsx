@@ -22,6 +22,12 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
   const content = rawContent
     .replace(/\[\/?CANVAS\]/gi, "")
     .replace(/<\/?think\??>/gi, "")
+    .replace(/\[Assistant tool call\]:[^\n]*(\n|$)/gi, "")
+    .replace(/\[Tool (?:result|error)\]:?[^\n]*(\n|$)/gi, "")
+    .replace(/\[Tool result:[^\n]*(\n|$)/gi, "")
+    .replace(/\[Assistant\]:\s*/gi, "")
+    .replace(/^Wrote file successfully:.*(\n|$)/gmi, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!content.includes("|")) {
     return [{ type: "text", content }];

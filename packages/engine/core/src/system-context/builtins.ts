@@ -51,6 +51,21 @@ const builtIns = Layer.effectDiscard(
         baseline: (date) => `Today's date: ${date}`,
         update: (_previous, date) => `Today's date is now: ${date}`,
       }),
+      SystemContext.make({
+        key: SystemContext.Key.make("core/tool-rules"),
+        codec: Schema.toCodecJson(Schema.String),
+        load: Effect.succeed(
+          [
+            "<tool_guidelines>",
+            "CRITICAL: Always use the native function calling protocol to execute tools.",
+            "NEVER emit fake or pseudo tool call logs (e.g. '[Assistant tool call]: ...', '[Tool result]: ...', or '[Assistant]: ...') in chat text.",
+            "Your message text is rendered directly to the user in the UI. Simulating tool executions in conversational text is strictly forbidden.",
+            "</tool_guidelines>",
+          ].join("\n"),
+        ),
+        baseline: (text) => text,
+        update: (_previous, text) => text,
+      }),
     ])
 
     yield* registry.register({ key: SystemContext.Key.make("core/builtins"), load: Effect.succeed(context) })
