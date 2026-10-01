@@ -503,7 +503,7 @@ export const ChatInputBox = memo(function ChatInputBox({
       )}
 
       {/* Zero-JS Auto-Sizing Input Container: CSS Grid Ghost Mirror + Native field-sizing: content */}
-      <div className="grid grid-cols-1 relative min-h-[24px] max-h-[160px] overflow-hidden">
+      <div className="grid grid-cols-1 relative min-h-[24px] max-h-[160px]">
         {/* Invisible Ghost Sizer: sizes the grid row purely via browser layout engine with 0 JS */}
         <div
           aria-hidden="true"
@@ -525,8 +525,8 @@ export const ChatInputBox = memo(function ChatInputBox({
           autoCapitalize="off"
           placeholder={t("askPlaceholder", "Ask anything, type @ to mention files, / for commands...")}
           rows={1}
-          style={{ fieldSizing: "content" } as React.CSSProperties}
-          className="col-start-1 row-start-1 w-full h-full bg-transparent text-xs leading-[20px] py-0.5 text-[var(--text-primary)] placeholder-[var(--text-dim)] resize-none overflow-y-auto no-scrollbar focus:outline-none"
+          style={{ fieldSizing: "content", maxHeight: "160px" } as React.CSSProperties}
+          className="col-start-1 row-start-1 w-full min-h-[24px] max-h-[160px] bg-transparent text-xs leading-[20px] py-0.5 text-[var(--text-primary)] placeholder-[var(--text-dim)] resize-none overflow-y-auto focus:outline-none custom-scrollbar"
         />
       </div>
 
