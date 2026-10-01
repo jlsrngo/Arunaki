@@ -233,6 +233,14 @@ describe("Telegram BYOB Gateway", () => {
         await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
       }
     });
+
+    test("provides deleteWebhook method that handles invalid or empty tokens gracefully", async () => {
+      const resEmpty = await telegramService.deleteWebhook("");
+      expect(resEmpty).toBe(false);
+
+      const resWhitespace = await telegramService.deleteWebhook("   ");
+      expect(resWhitespace).toBe(false);
+    });
   });
 });
 

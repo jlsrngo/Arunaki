@@ -437,6 +437,9 @@ export class TelegramService {
     this.status.botFirstName = test.botFirstName || null;
     this.status.lastError = null;
 
+    // Clear lingering webhooks so long-polling (getUpdates) works without 409 Conflict
+    await this.deleteWebhook(config.telegram.botToken).catch(() => {});
+
     // Register native Telegram [/ Menu] commands
     await this.registerBotCommands(config.telegram.botToken).catch(() => {});
 
@@ -446,6 +449,21 @@ export class TelegramService {
       this.status.lastError = err?.message || String(err);
       this.running = false;
     });
+  }
+
+  /**
+   * Clears any active Telegram webhook so long-polling (getUpdates) can operate seamlessly.
+   */
+  public async deleteWebhook(botToken: string): Promise<boolean> {
+    if (!botToken || !botToken.trim()) return false;
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${botToken.trim()}/deleteWebhook?drop_pending_updates=false`, {
+        method: "POST",
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -620,6 +638,14 @@ export class TelegramService {
 
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
+          if (res.status === 409 && errText.toLowerCase().includes("webhook")) {
+            // Auto-heal: delete lingering webhook and resume polling
+            await this.deleteWebhook(config.telegram.botToken).catch(() => {});
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+
+          this.status.connected = false;
           this.status.lastError = `Telegram error: HTTP ${res.status} ${errText}`;
           await new Promise((r) => setTimeout(r, 4000));
           continue;
@@ -627,6 +653,7 @@ export class TelegramService {
 
         const data = await res.json();
         if (!data.ok || !Array.isArray(data.result)) {
+          this.status.connected = false;
           this.status.lastError = data.description || "Invalid getUpdates response format.";
           await new Promise((r) => setTimeout(r, 4000));
           continue;
