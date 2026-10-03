@@ -9,10 +9,7 @@ import {
   RefreshCw,
   Info,
   SlidersHorizontal,
-  ExternalLink,
-  Layers,
   Globe,
-  Radio,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -148,7 +145,7 @@ export function SettingsCliConnectionsTab({
   });
 
   const [loading, setLoading] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isOpeningClaudeTerminal, setIsOpeningClaudeTerminal] = useState(false);
   const [isStarting9Router, setIsStarting9Router] = useState(false);
   const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
   const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
@@ -424,6 +421,12 @@ export function SettingsCliConnectionsTab({
               </button>
             </div>
           )}
+          {id === "antigravity" && (
+            <div className="flex items-center gap-1.5 font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[10px] text-[var(--text-muted)]">
+              <Globe className="w-2.5 h-2.5 text-sky-400" />
+              <span>antigravity-ide</span>
+            </div>
+          )}
           <span className="text-[10px] text-[var(--text-muted)] font-mono">
             Active: <strong className="text-[var(--text-primary)]">{current}</strong>
           </span>
@@ -489,8 +492,8 @@ export function SettingsCliConnectionsTab({
     setTimeout(() => setCopiedCmd(null), 2000);
   };
 
-  const handleLaunchClaudeLogin = async () => {
-    setIsLoggingIn(true);
+  const handleLaunchClaudeTerminal = async () => {
+    setIsOpeningClaudeTerminal(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
@@ -500,17 +503,17 @@ export function SettingsCliConnectionsTab({
       const json = await res.json();
       if (json.data?.success) {
         toast.info("Terminal Window Opened", {
-          description: "Complete login in your browser, then click 'Scan All Agents'.",
+          description: "Claude Code CLI opened in a new terminal window.",
         });
       } else {
         toast.error("Could not launch terminal automatically", {
-          description: "Please run 'claude auth login --claudeai' in your terminal.",
+          description: "Please run 'claude' manually in your terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch login", { description: err.message });
+      toast.error("Failed to launch Claude terminal", { description: err.message });
     } finally {
-      setIsLoggingIn(false);
+      setIsOpeningClaudeTerminal(false);
     }
   };
 
@@ -760,8 +763,22 @@ export function SettingsCliConnectionsTab({
         </div>
       </div>
 
-      {/* Vertical List of Connections ("berbaris kebawah seperti provider style nya") */}
+      {/* ================================================================= */}
+      {/* SECTION 1: Terminal Coding Agents & Local Gateways (CLI)         */}
+      {/* ================================================================= */}
       <div className="space-y-3.5 w-full">
+        <div className="flex items-center justify-between pb-0.5">
+          <div>
+            <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-sky-400" />
+              Terminal Coding Agents &amp; Local Gateways
+            </h4>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              Autonomous CLI agents running in native terminal windows. Bridged directly with Arunaki.
+            </p>
+          </div>
+        </div>
+
         {/* ================================================================= */}
         {/* 1. Claude Code CLI */}
         {/* ================================================================= */}
@@ -815,7 +832,7 @@ export function SettingsCliConnectionsTab({
                   {data.claude.loggedIn ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      Claude Pro Ready
+                      Claude CLI Ready
                     </span>
                   ) : data.claude.installed ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-amber-300/90 border border-amber-500/20">
@@ -858,7 +875,7 @@ export function SettingsCliConnectionsTab({
                 </div>
 
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Flat $20/mo Claude Pro subscription • Zero per-token bills • Bridge: http://127.0.0.1:{data.bridgePort}/v1
+                  Official Anthropic terminal agent • Flat $20/mo Claude Pro subscription • Bridge: http://127.0.0.1:{data.bridgePort}/v1
                 </p>
 
                 {!data.claude.installed && (
@@ -899,15 +916,20 @@ export function SettingsCliConnectionsTab({
                 <span>{testingId === "claude" ? "Testing..." : "Test Ping"}</span>
               </button>
 
+              {/* Launch Claude Terminal Button */}
               <button
                 type="button"
-                onClick={handleLaunchClaudeLogin}
-                disabled={isLoggingIn}
-                className="px-3 py-1.5 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-color)] text-xs rounded-xl transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-xs"
-                title="Launch claude auth login in external terminal"
+                onClick={handleLaunchClaudeTerminal}
+                disabled={isOpeningClaudeTerminal || !data.claude.installed}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                title="Open Claude Code CLI in a native terminal window"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                <span>{isLoggingIn ? "Opening..." : "Login CLI"}</span>
+                {isOpeningClaudeTerminal ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span>Open Terminal</span>
               </button>
             </div>
           </div>
@@ -992,11 +1014,11 @@ export function SettingsCliConnectionsTab({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    <Terminal className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                     OpenCode CLI Agent
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
-                    autonomous-agent
+                    opencode-cli
                   </span>
                   {data.opencode.installed && data.opencode.version && (
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
@@ -1005,8 +1027,8 @@ export function SettingsCliConnectionsTab({
                   )}
 
                   {data.opencode.installed ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       OpenCode CLI Ready
                     </span>
                   ) : (
@@ -1339,182 +1361,7 @@ export function SettingsCliConnectionsTab({
         </div>
 
         {/* ================================================================= */}
-        {/* 4. Google Antigravity (Gemini Ecosystem) */}
-        {/* ================================================================= */}
-        <div
-          className={cn(
-            "p-4 rounded-2xl border transition-all duration-200 space-y-3",
-            isGeminiActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100 hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <button
-                type="button"
-                onClick={() => {
-                  const model = selectedModels.antigravity;
-                  if (geminiProvider) {
-                    handleToggleActiveDirect("gemini", model, "Google Antigravity");
-                  } else {
-                    handleConnectTarget("antigravity", "gemini", model, "Google Antigravity");
-                  }
-                }}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
-                  isGeminiActive
-                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                    : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
-                )}
-              >
-                <Check className={cn("w-3.5 h-3.5", isGeminiActive && "stroke-[3]")} />
-                <span>{isGeminiActive ? "Active" : "Set Active"}</span>
-              </button>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                    Google Antigravity
-                  </h4>
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
-                    gemini-ecosystem
-                  </span>
-                  {data.antigravity.detected ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                      Antigravity IDE Detected
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                      IDE Not Detected
-                    </span>
-                  )}
-
-                  {pingResults["antigravity"] && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedDetailsId(
-                          expandedDetailsId === "antigravity" ? null : "antigravity"
-                        )
-                      }
-                      className={cn(
-                        "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 font-mono cursor-pointer transition-all hover:scale-105",
-                        pingResults["antigravity"].success
-                          ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-                          : "bg-red-500/10 text-red-400 border-red-500/20"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          pingResults["antigravity"].success ? "bg-emerald-400" : "bg-red-400"
-                        )}
-                      />
-                      <span>
-                        {pingResults["antigravity"].success
-                          ? `Ping OK (${pingResults["antigravity"].timeMs}ms)`
-                          : `Failed: ${formatToastError(pingResults["antigravity"].error) || pingResults["antigravity"].status}`}
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Google Antigravity IDE runtime at C:\Users\AMD\.gemini • 1M+ token context window & multimodal reasoning
-                </p>
-              </div>
-            </div>
-
-            {/* Right Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  const key = geminiProvider?.apiKey || "";
-                  handleTestPing(
-                    "antigravity",
-                    "https://generativelanguage.googleapis.com/v1beta",
-                    key,
-                    selectedModels.antigravity
-                  );
-                }}
-                disabled={testingId === "antigravity"}
-                className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 font-medium shadow-xs"
-              >
-                {testingId === "antigravity" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-primary)]" />
-                ) : (
-                  <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                )}
-                <span>{testingId === "antigravity" ? "Testing..." : "Test Ping"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const model = selectedModels.antigravity;
-                  if (geminiProvider) {
-                    handleToggleActiveDirect("gemini", model, "Google Antigravity");
-                  } else {
-                    handleConnectTarget("antigravity", "gemini", model, "Google Antigravity");
-                  }
-                }}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs"
-              >
-                <Radio className="w-3.5 h-3.5 text-sky-400" />
-                <span>{isGeminiActive ? "Active" : "Activate"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Model Selection Bar (NOT FIXED - USER SELECTABLE) */}
-          {renderModelSelector("antigravity", PRESET_MODELS.antigravity)}
-
-          {/* Expandable Test Ping Inspector */}
-          {pingResults["antigravity"] && expandedDetailsId === "antigravity" && (
-            <div className="p-3.5 rounded-xl bg-[var(--bg-app)] border border-[var(--border-strong)] text-xs font-mono space-y-2 animate-in fade-in zoom-in-95 duration-100">
-              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-1.5">
-                <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                  Antigravity Gemini Session
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setExpandedDetailsId(null)}
-                  className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                <div>
-                  <span className="text-[var(--text-muted)] block">Prompt Sent:</span>
-                  <p className="p-1.5 bg-[var(--bg-card)] rounded border border-[var(--border-color)] text-[var(--text-primary)] mt-0.5">
-                    &quot;{pingResults["antigravity"].prompt}&quot;
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[var(--text-muted)] block">LLM Reply Received:</span>
-                  <p className="p-1.5 bg-[var(--bg-card)] rounded border border-[var(--border-color)] text-[var(--text-primary)] font-semibold mt-0.5">
-                    &quot;{pingResults["antigravity"].reply || pingResults["antigravity"].error || "No response"}&quot;
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-[10px] text-[var(--text-muted)] pt-1">
-                <span>Model: <strong className="text-[var(--text-primary)]">{selectedModels.antigravity}</strong></span>
-                <span>Latency: <strong className="text-[var(--text-primary)]">{pingResults["antigravity"].timeMs}ms</strong></span>
-                <span>Status: <strong className="text-[var(--text-primary)]">HTTP {pingResults["antigravity"].status}</strong></span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ================================================================= */}
-        {/* 5. 9Router Local Gateway */}
+        {/* 4. 9Router Local Gateway */}
         {/* ================================================================= */}
         <div
           className={cn(
@@ -1555,7 +1402,7 @@ export function SettingsCliConnectionsTab({
                     9Router Local Gateway
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
-                    local-gateway
+                    9router-cli
                   </span>
                   {data.nineRouter.installed && data.nineRouter.version && (
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
@@ -1569,8 +1416,8 @@ export function SettingsCliConnectionsTab({
                       Port 20128 Active
                     </span>
                   ) : data.nineRouter.installed ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       9Router CLI Ready
                     </span>
                   ) : (
@@ -1705,6 +1552,188 @@ export function SettingsCliConnectionsTab({
                 <span>Model: <strong className="text-[var(--text-primary)]">{selectedModels.nineRouter}</strong></span>
                 <span>Latency: <strong className="text-[var(--text-primary)]">{pingResults["9router"].timeMs}ms</strong></span>
                 <span>Status: <strong className="text-[var(--text-primary)]">HTTP {pingResults["9router"].status}</strong></span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* SECTION 2: Desktop Applications & IDE Workspaces                 */}
+      {/* ================================================================= */}
+      <div className="pt-5 border-t border-[var(--border-color)] space-y-3.5 w-full">
+        <div className="flex items-center justify-between pb-0.5">
+          <div>
+            <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-2">
+              <Globe className="w-4 h-4 text-sky-400" />
+              Desktop Applications &amp; IDE Workspaces
+            </h4>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              Native GUI applications and local desktop AI IDE runtime environments installed on this computer.
+            </p>
+          </div>
+        </div>
+
+        {/* 5. Google Antigravity (Gemini Ecosystem) */}
+        <div
+          className={cn(
+            "p-4 rounded-2xl border transition-all duration-200 space-y-3",
+            isGeminiActive
+              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
+              : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100 hover:border-[var(--border-strong)]"
+          )}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const model = selectedModels.antigravity;
+                  if (geminiProvider) {
+                    handleToggleActiveDirect("gemini", model, "Google Antigravity");
+                  } else {
+                    handleConnectTarget("antigravity", "gemini", model, "Google Antigravity");
+                  }
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  isGeminiActive
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                    : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
+                )}
+              >
+                <Check className={cn("w-3.5 h-3.5", isGeminiActive && "stroke-[3]")} />
+                <span>{isGeminiActive ? "Active" : "Set Active"}</span>
+              </button>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-sky-400" />
+                    Google Antigravity IDE
+                  </h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
+                    gemini-ecosystem
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-sky-500/10 border border-sky-500/20 rounded-md text-sky-300">
+                    desktop-application
+                  </span>
+                  {data.antigravity.detected ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Antigravity IDE Ready
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      IDE Not Detected
+                    </span>
+                  )}
+
+                  {pingResults["antigravity"] && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedDetailsId(
+                          expandedDetailsId === "antigravity" ? null : "antigravity"
+                        )
+                      }
+                      className={cn(
+                        "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 font-mono cursor-pointer transition-all hover:scale-105",
+                        pingResults["antigravity"].success
+                          ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          pingResults["antigravity"].success ? "bg-emerald-400" : "bg-red-400"
+                        )}
+                      />
+                      <span>
+                        {pingResults["antigravity"].success
+                          ? `Ping OK (${pingResults["antigravity"].timeMs}ms)`
+                          : `Failed: ${formatToastError(pingResults["antigravity"].error) || pingResults["antigravity"].status}`}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                  Installed Desktop IDE runtime at C:\Users\AMD\.gemini • Multimodal reasoning &amp; 1M+ token context window
+                </p>
+              </div>
+            </div>
+
+            {/* Right Action Buttons */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const key = geminiProvider?.apiKey || "";
+                  handleTestPing(
+                    "antigravity",
+                    "https://generativelanguage.googleapis.com/v1beta",
+                    key,
+                    selectedModels.antigravity
+                  );
+                }}
+                disabled={testingId === "antigravity"}
+                className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 font-medium shadow-xs"
+              >
+                {testingId === "antigravity" ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-primary)]" />
+                ) : (
+                  <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                )}
+                <span>{testingId === "antigravity" ? "Testing..." : "Test Ping"}</span>
+              </button>
+
+              <div className="px-3 py-1.5 bg-zinc-800/80 text-zinc-300 border border-zinc-700/60 text-xs rounded-xl font-medium flex items-center gap-1.5 shadow-xs">
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span>Desktop App</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Model Selection Bar (NOT FIXED - USER SELECTABLE) */}
+          {renderModelSelector("antigravity", PRESET_MODELS.antigravity)}
+
+          {/* Expandable Test Ping Inspector */}
+          {pingResults["antigravity"] && expandedDetailsId === "antigravity" && (
+            <div className="p-3.5 rounded-xl bg-[var(--bg-app)] border border-[var(--border-strong)] text-xs font-mono space-y-2 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-1.5">
+                <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Terminal className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  Antigravity Gemini Session
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedDetailsId(null)}
+                  className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-[var(--text-muted)] block">Prompt Sent:</span>
+                  <p className="p-1.5 bg-[var(--bg-card)] rounded border border-[var(--border-color)] text-[var(--text-primary)] mt-0.5">
+                    &quot;{pingResults["antigravity"].prompt}&quot;
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[var(--text-muted)] block">LLM Reply Received:</span>
+                  <p className="p-1.5 bg-[var(--bg-card)] rounded border border-[var(--border-color)] text-[var(--text-primary)] font-semibold mt-0.5">
+                    &quot;{pingResults["antigravity"].reply || pingResults["antigravity"].error || "No response"}&quot;
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] text-[var(--text-muted)] pt-1">
+                <span>Model: <strong className="text-[var(--text-primary)]">{selectedModels.antigravity}</strong></span>
+                <span>Latency: <strong className="text-[var(--text-primary)]">{pingResults["antigravity"].timeMs}ms</strong></span>
+                <span>Status: <strong className="text-[var(--text-primary)]">HTTP {pingResults["antigravity"].status}</strong></span>
               </div>
             </div>
           )}
