@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Cpu, User, Sliders, MessageSquare } from "lucide-react";
+import { Cpu, User, Sliders, MessageSquare, Terminal } from "lucide-react";
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { ModelProviderSettings, Provider } from "../components/settings/ModelProviderSettings";
+import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
 import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
@@ -13,8 +14,9 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState("models");
 
   const tabs = [
-    { id: "models", label: t("modelRouting", "Model Routing & Providers"), icon: Cpu },
-    { id: "integrations", label: t("desktopAutomation", "Desktop Automation & Office"), icon: Sliders },
+    { id: "models", label: t("modelRouting", "Model Providers"), icon: Cpu },
+    { id: "cli", label: t("cliConnections", "Connection CLI"), icon: Terminal },
+    { id: "integrations", label: t("desktopAutomation", "Office Automation"), icon: Sliders },
     { id: "messaging", label: t("messagingApps", "Messaging Apps"), icon: MessageSquare },
     { id: "account", label: t("accountLicense", "Account & License"), icon: User },
   ];
@@ -126,9 +128,9 @@ export function SettingsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer border",
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer border whitespace-nowrap h-10 select-none",
                   isActive
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-xs"
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-xs font-semibold"
                     : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border-transparent"
                 )}
               >
@@ -146,6 +148,13 @@ export function SettingsPage() {
               providers={providers}
               availableCatalogModels={availableCatalogModels}
               loading={loading}
+              onRefresh={fetchProviders}
+            />
+          )}
+
+          {activeTab === "cli" && (
+            <SettingsCliConnectionsTab
+              providers={providers}
               onRefresh={fetchProviders}
             />
           )}

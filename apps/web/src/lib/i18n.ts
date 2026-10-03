@@ -57,8 +57,9 @@ export const translations = {
     // Settings Navigation
     settingsTitle: "Workstation System Settings",
     settingsSubtitle: "Configure model routing, desktop office automation behavior, and user account licensing.",
-    modelRouting: "Model Routing & Providers",
-    desktopAutomation: "Desktop Automation & Office",
+    modelRouting: "Model Providers",
+    cliConnections: "Connection CLI",
+    desktopAutomation: "Office Automation",
     messagingApps: "Messaging Apps",
     accountLicense: "Account & License",
 
@@ -382,9 +383,10 @@ export const translations = {
     // Settings Navigation
     settingsTitle: "Pengaturan Sistem Workstation",
     settingsSubtitle: "Atur routing model AI, perilaku otomasi Microsoft Office desktop, dan lisensi akun pengguna.",
-    modelRouting: "Routing Model & Provider",
-    desktopAutomation: "Otomasi Desktop & Office",
-    messagingApps: "Aplikasi Pesan (Messaging)",
+    modelRouting: "Provider Model",
+    cliConnections: "Koneksi CLI",
+    desktopAutomation: "Otomasi Office",
+    messagingApps: "Aplikasi Pesan",
     accountLicense: "Akun & Lisensi",
 
     // Common Actions

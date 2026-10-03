@@ -21,8 +21,14 @@ import {
   ProviderTestInput,
   ProviderUpsert,
 } from "../groups/provider"
-import { ProviderV2 } from "@arunaki/core/provider"
-import { checkClaudeStatus, checkNineRouterStatus, launchClaudeLoginTerminal } from "../../../../local-cli/detector"
+import {
+  checkAntigravityStatus,
+  checkClaudeStatus,
+  checkNineRouterStatus,
+  checkOpenCodeStatus,
+  getOpenCodeGroqKey,
+  launchClaudeLoginTerminal,
+} from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
 
 function mapProviderAuthError<A, R>(self: Effect.Effect<A, ProviderAuth.Error, R>) {
@@ -426,10 +432,14 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
 
     const localCliStatus = Effect.fn("ProviderSettings.localCliStatus")(function* () {
       const claude = yield* Effect.promise(() => checkClaudeStatus())
+      const opencode = yield* Effect.promise(() => checkOpenCodeStatus())
+      const antigravity = checkAntigravityStatus()
       const nineRouter = yield* Effect.promise(() => checkNineRouterStatus())
       return {
         data: {
           claude,
+          opencode,
+          antigravity,
           nineRouter,
           bridgePort: localCliBridge.port,
           bridgeRunning: localCliBridge.running,
@@ -463,6 +473,32 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             model: "claude-3-7-sonnet, claude-3-5-sonnet, claude-3-5-haiku",
           })
         }
+        if (ctx.payload.target === "opencode") {
+          const status = yield* Effect.promise(() => checkOpenCodeStatus())
+          if (!status.installed) {
+            return yield* HttpApiError.badRequest({ message: "OpenCode CLI is not installed." })
+          }
+          return yield* upsert("opencode", {
+            name: "OpenCode CLI Agent",
+            type: "openai-compatible",
+            baseUrl: "http://localhost:20128/v1",
+            apiKey: "opencode-local-session",
+            model: "claude-3-5-sonnet, deepseek-r1, llama-3.3-70b-versatile",
+          })
+        }
+        if (ctx.payload.target === "groq-sync") {
+          const key = getOpenCodeGroqKey()
+          if (!key) {
+            return yield* HttpApiError.badRequest({ message: "No Groq API key found in OpenCode auth cache." })
+          }
+          return yield* upsert("groq", {
+            name: "Groq Cloud (Synced from OpenCode)",
+            type: "groq",
+            baseUrl: "https://api.groq.com/openai/v1",
+            apiKey: key,
+            model: "llama-3.3-70b-versatile, deepseek-r1-distill-llama-70b",
+          })
+        }
         if (ctx.payload.target === "9router") {
           return yield* upsert("9router", {
             name: "9Router Gateway",
@@ -470,6 +506,15 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             baseUrl: "http://localhost:20128/v1",
             apiKey: "9router",
             model: "claude-3-5-sonnet, deepseek-r1",
+          })
+        }
+        if (ctx.payload.target === "antigravity") {
+          return yield* upsert("gemini", {
+            name: "Google Antigravity (Gemini)",
+            type: "gemini",
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            apiKey: "antigravity-active",
+            model: "gemini-2.5-flash, gemini-2.5-pro",
           })
         }
         return yield* HttpApiError.badRequest({ message: "Invalid target" })

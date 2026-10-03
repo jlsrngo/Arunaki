@@ -1,5 +1,8 @@
 import { spawn } from "child_process"
 import crossSpawn from "cross-spawn"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 
 export interface ClaudeStatus {
   installed: boolean
@@ -11,6 +14,21 @@ export interface ClaudeStatus {
   error?: string
 }
 
+export interface OpenCodeStatus {
+  installed: boolean
+  version?: string
+  authenticatedProviders: string[]
+  hasGroq: boolean
+  has9Router: boolean
+  error?: string
+}
+
+export interface AntigravityStatus {
+  detected: boolean
+  path?: string
+  environment: string
+}
+
 export interface NineRouterStatus {
   running: boolean
   url: string
@@ -19,6 +37,8 @@ export interface NineRouterStatus {
 
 export interface LocalCliStatusResult {
   claude: ClaudeStatus
+  opencode: OpenCodeStatus
+  antigravity: AntigravityStatus
   nineRouter: NineRouterStatus
   bridgePort: number
   bridgeRunning: boolean
@@ -85,6 +105,83 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
   })
 }
 
+export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
+  return new Promise((resolve) => {
+    try {
+      const verProc = crossSpawn("opencode", ["--version"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      let verOut = ""
+      verProc.stdout?.on("data", (d: Buffer) => (verOut += d.toString()))
+
+      verProc.on("error", () => {
+        resolve({ installed: false, authenticatedProviders: [], hasGroq: false, has9Router: false })
+      })
+
+      verProc.on("close", (verCode) => {
+        const installed = verCode === 0 || !!verOut
+        const version = verOut.trim().split("\n")[0] || undefined
+
+        // Read ~/.local/share/opencode/auth.json
+        const authPath = path.join(os.homedir(), ".local", "share", "opencode", "auth.json")
+        let authenticatedProviders: string[] = []
+        let hasGroq = false
+        let has9Router = false
+
+        if (fs.existsSync(authPath)) {
+          try {
+            const authJson = JSON.parse(fs.readFileSync(authPath, "utf8"))
+            authenticatedProviders = Object.keys(authJson)
+            hasGroq = Boolean(authJson.groq?.key)
+            has9Router = Boolean(authJson["9router"]?.key || authJson["9router"])
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
+        resolve({
+          installed,
+          version,
+          authenticatedProviders,
+          hasGroq,
+          has9Router,
+        })
+      })
+    } catch (err: any) {
+      resolve({
+        installed: false,
+        authenticatedProviders: [],
+        hasGroq: false,
+        has9Router: false,
+        error: err?.message,
+      })
+    }
+  })
+}
+
+export function getOpenCodeGroqKey(): string | undefined {
+  const authPath = path.join(os.homedir(), ".local", "share", "opencode", "auth.json")
+  if (fs.existsSync(authPath)) {
+    try {
+      const authJson = JSON.parse(fs.readFileSync(authPath, "utf8"))
+      return authJson.groq?.key
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
+export function checkAntigravityStatus(): AntigravityStatus {
+  const geminiDir = path.join(os.homedir(), ".gemini")
+  const detected = fs.existsSync(geminiDir)
+  return {
+    detected,
+    path: detected ? geminiDir : undefined,
+    environment: "Google Antigravity IDE (Gemini Ecosystem)",
+  }
+}
+
 export async function checkNineRouterStatus(): Promise<NineRouterStatus> {
   const url = "http://localhost:20128/v1"
   try {
@@ -122,7 +219,7 @@ export function launchClaudeLoginTerminal(): { success: boolean; message: string
     }
     return {
       success: true,
-      message: "Terminal window opened. Complete the login in your browser, then click 'Scan Agents'.",
+      message: "Terminal window opened. Complete the login in your browser, then click 'Scan Status'.",
     }
   } catch (err: any) {
     return {

@@ -105,8 +105,25 @@ export const LocalCliStatusItem = Schema.Struct({
   error: Schema.optional(Schema.String),
 })
 
+export const OpenCodeStatusItem = Schema.Struct({
+  installed: Schema.Boolean,
+  version: Schema.optional(Schema.String),
+  authenticatedProviders: Schema.Array(Schema.String),
+  hasGroq: Schema.Boolean,
+  has9Router: Schema.Boolean,
+  error: Schema.optional(Schema.String),
+})
+
+export const AntigravityStatusItem = Schema.Struct({
+  detected: Schema.Boolean,
+  path: Schema.optional(Schema.String),
+  environment: Schema.String,
+})
+
 export const LocalCliStatus = Schema.Struct({
   claude: LocalCliStatusItem,
+  opencode: OpenCodeStatusItem,
+  antigravity: AntigravityStatusItem,
   nineRouter: Schema.Struct({
     running: Schema.Boolean,
     url: Schema.String,
@@ -119,7 +136,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini"),
+  target: Schema.Literal("claude", "gemini", "opencode"),
 })
 
 export const LocalCliLoginResult = Schema.Struct({
@@ -130,7 +147,7 @@ export const LocalCliLoginResult = Schema.Struct({
 })
 
 export const LocalCliConnectInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router"),
+  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity"),
 })
 
 export const ProviderApi = HttpApi.make("provider")
