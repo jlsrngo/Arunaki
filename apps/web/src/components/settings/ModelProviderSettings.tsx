@@ -477,7 +477,7 @@ export function ModelProviderSettings({
       </div>
 
       {/* Local Code Agent & CLI Subscriptions */}
-      <LocalCliSection onConnected={onRefresh} />
+      <LocalCliSection providers={providers} onToggleActive={handleToggleActive} onRefresh={onRefresh} />
 
       {/* Info Banner */}
       <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)] leading-relaxed">
