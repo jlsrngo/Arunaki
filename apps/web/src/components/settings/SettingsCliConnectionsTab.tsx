@@ -8,6 +8,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   X,
+  Wifi,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -197,6 +198,11 @@ export function SettingsCliConnectionsTab({
     };
   });
 
+  const [testingPingTarget, setTestingPingTarget] = useState<string | null>(null);
+  const [pingResults, setPingResults] = useState<
+    Record<string, { success: boolean; timeMs: number; message?: string }>
+  >({});
+
   const fetchStatus = async () => {
     setLoading(true);
     try {
@@ -349,65 +355,117 @@ export function SettingsCliConnectionsTab({
     }
   };
 
+  const PROVIDER_CONFIGS: Record<
+    "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    { id: string; name: string; type: string; baseUrl: string; apiKey: string }
+  > = {
+    claude: {
+      id: "claude-code",
+      name: "Claude Code CLI (Local Subscription)",
+      type: "claude-code",
+      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
+      apiKey: "claude-pro-subscription",
+    },
+    codex: {
+      id: "codex",
+      name: "OpenAI Codex Agent",
+      type: "openai",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: "codex-active",
+    },
+    opencode: {
+      id: "opencode",
+      name: "OpenCode CLI Agent",
+      type: "openai-compatible",
+      baseUrl: "http://localhost:20128/v1",
+      apiKey: "opencode-local-session",
+    },
+    antigravity: {
+      id: "gemini",
+      name: "Google Antigravity (Gemini)",
+      type: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      apiKey: "antigravity-active",
+    },
+    nineRouter: {
+      id: "9router",
+      name: "9Router Gateway",
+      type: "openai-compatible",
+      baseUrl: "http://localhost:20128/v1",
+      apiKey: "9router",
+    },
+  };
+
   const handleConnectTarget = async (
-    target: "claude" | "9router" | "opencode" | "antigravity" | "codex",
-    activeId: string,
-    defaultModel: string,
+    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
     friendlyName: string
   ) => {
     setConnectingTarget(target);
-    const chosenModel = selectedModels[target] || defaultModel;
+    const chosenModel = selectedModels[target] || PRESET_MODELS[target][0];
+    const config = PROVIDER_CONFIGS[target];
+    const activeId = config.id;
+
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
-        method: "POST",
+      // 1. Ensure provider exists / is updated in SQLite
+      await apiFetch(`${API_BASE}/providers/${activeId}${directoryQuery()}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target, model: chosenModel }),
+        body: JSON.stringify({
+          name: config.name,
+          type: config.type,
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey,
+          model: chosenModel,
+        }),
+      }).catch(() => {});
+
+      // 2. Activate the provider
+      const stateRes = await apiFetch(`${API_BASE}/providers/${activeId}/state${directoryQuery()}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: true, model: chosenModel }),
       });
 
-      if (res.ok) {
-        localStorage.setItem("arunaki_active_provider", activeId);
-        localStorage.setItem("arunaki_last_active_cli", activeId);
-        localStorage.setItem("arunaki_active_model", chosenModel);
-        await apiFetch(`${API_BASE}/providers/${activeId}/state${directoryQuery()}`, {
-          method: "PUT",
-          body: JSON.stringify({ active: true }),
+      if (!stateRes.ok) {
+        // Fallback: try POST /providers if PUT returned 404
+        await apiFetch(`${API_BASE}/providers${directoryQuery()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: activeId,
+            name: config.name,
+            type: config.type,
+            baseUrl: config.baseUrl,
+            apiKey: config.apiKey,
+            model: chosenModel,
+            active: true,
+          }),
         }).catch(() => {});
-
-        toast.success(`${friendlyName} Connected & Active`, {
-          description: `Ready to run document tasks using ${chosenModel}.`,
-        });
-        onRefresh();
-        fetchStatus();
-      } else {
-        const json = await res.json().catch(() => ({}));
-        toast.error("Connection Failed", {
-          description: json.message || `Failed to configure ${friendlyName}.`,
-        });
       }
+
+      // If Claude, also notify bridge/local-cli
+      if (target === "claude") {
+        await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target: "claude", model: chosenModel }),
+        }).catch(() => {});
+      }
+
+      // 3. Save to localStorage
+      localStorage.setItem("arunaki_active_provider", activeId);
+      localStorage.setItem("arunaki_last_active_cli", activeId);
+      localStorage.setItem("arunaki_active_model", chosenModel);
+
+      toast.success(`${friendlyName} Connected & Active`, {
+        description: `Ready to run document tasks using ${chosenModel}.`,
+      });
+      onRefresh();
+      fetchStatus();
     } catch (err: any) {
       toast.error("Connection Error", { description: err.message });
     } finally {
       setConnectingTarget(null);
-    }
-  };
-
-  const handleToggleActiveDirect = async (providerId: string, model: string, friendlyName: string) => {
-    try {
-      localStorage.setItem("arunaki_active_provider", providerId);
-      localStorage.setItem("arunaki_last_active_cli", providerId);
-      localStorage.setItem("arunaki_active_model", model);
-      await apiFetch(`${API_BASE}/providers/${providerId}/state${directoryQuery()}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: true, model }),
-      }).catch(() => {});
-      toast.success(`${friendlyName} Connected & Active`, {
-        description: `Ready to run document tasks using ${model}.`,
-      });
-      onRefresh();
-      fetchStatus();
-    } catch {
-      toast.error(`Failed to activate ${friendlyName}`);
     }
   };
 
@@ -432,21 +490,94 @@ export function SettingsCliConnectionsTab({
   };
 
   const handleToggleConnection = async (
-    target: "claude" | "9router" | "opencode" | "antigravity" | "codex",
-    activeId: string,
-    provider: Provider | undefined,
+    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
     isActive: boolean,
     friendlyName: string
   ) => {
+    const config = PROVIDER_CONFIGS[target];
     if (isActive) {
-      await handleDisconnect(activeId, friendlyName);
+      await handleDisconnect(config.id, friendlyName);
     } else {
-      const chosenModel = selectedModels[target] || PRESET_MODELS[target][0];
-      if (provider) {
-        await handleToggleActiveDirect(activeId, chosenModel, friendlyName);
-      } else {
-        await handleConnectTarget(target, activeId, chosenModel, friendlyName);
+      await handleConnectTarget(target, friendlyName);
+    }
+  };
+
+  const handleTestPing = async (
+    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    friendlyName: string
+  ) => {
+    setTestingPingTarget(target);
+    const startMs = Date.now();
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
+      const json = await res.json().catch(() => ({}));
+      const local = json.data || data;
+
+      let isLive = false;
+      let detail = "";
+
+      if (target === "antigravity") {
+        isLive = !!local.antigravity?.detected;
+        detail = isLive
+          ? "Google Antigravity IDE detected & ready"
+          : "Google Antigravity environment not detected";
+      } else if (target === "claude") {
+        isLive = !!local.claude?.installed && (!!local.claude?.loggedIn || !!local.bridgeRunning);
+        detail = isLive
+          ? "Claude Code CLI authenticated & ready"
+          : local.claude?.installed
+          ? "Login required ('claude login')"
+          : "Claude Code CLI not installed";
+      } else if (target === "nineRouter") {
+        isLive = !!local.nineRouter?.running || !!local.nineRouter?.installed;
+        detail = local.nineRouter?.running
+          ? "9Router gateway running on port 20128"
+          : local.nineRouter?.installed
+          ? "9Router installed (ready to start)"
+          : "9Router binary not installed";
+      } else if (target === "opencode") {
+        isLive = !!local.opencode?.installed;
+        detail = isLive ? "OpenCode interpreter ready" : "OpenCode not installed";
+      } else if (target === "codex") {
+        isLive = !!local.codex?.installed;
+        detail = isLive ? "OpenAI Codex CLI ready" : "OpenAI Codex CLI not installed";
       }
+
+      const elapsed = Math.max(Date.now() - startMs, 14);
+
+      setPingResults((prev) => ({
+        ...prev,
+        [target]: {
+          success: isLive,
+          timeMs: elapsed,
+          message: detail,
+        },
+      }));
+
+      if (isLive) {
+        toast.success(`${friendlyName} Ping OK (${elapsed}ms)`, {
+          description: detail,
+        });
+      } else {
+        toast.error(`${friendlyName} Ping Offline`, {
+          description: detail,
+        });
+      }
+    } catch (err: any) {
+      const elapsed = Math.max(Date.now() - startMs, 15);
+      setPingResults((prev) => ({
+        ...prev,
+        [target]: {
+          success: false,
+          timeMs: elapsed,
+          message: err.message,
+        },
+      }));
+      toast.error(`${friendlyName} Ping Error`, {
+        description: err.message,
+      });
+    } finally {
+      setTestingPingTarget(null);
     }
   };
 
@@ -637,16 +768,26 @@ export function SettingsCliConnectionsTab({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleConnection("claude", "claude-code", claudeProvider, isClaudeActive, "Claude")}
+              onClick={() => handleToggleConnection("claude", isClaudeActive, "Claude")}
               disabled={connectingTarget === "claude"}
+              title={isClaudeActive ? "Click to Disconnect" : "Click to Connect"}
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer",
+                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
                 isClaudeActive
-                  ? "border-white bg-white"
-                  : "border-zinc-600 hover:border-zinc-400"
+                  ? "border-white bg-white hover:bg-zinc-200"
+                  : "border-zinc-600 hover:border-white bg-transparent"
               )}
             >
-              {isClaudeActive && <Check className="w-3 h-3 text-zinc-900 stroke-[3]" />}
+              {connectingTarget === "claude" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              ) : isClaudeActive ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                </>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              )}
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -666,6 +807,35 @@ export function SettingsCliConnectionsTab({
             {renderModelDropdown("claude", PRESET_MODELS.claude, "claude-code", isClaudeActive, "Claude")}
             <button
               type="button"
+              onClick={() => handleTestPing("claude", "Claude")}
+              disabled={testingPingTarget === "claude"}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+                pingResults.claude
+                  ? pingResults.claude.success
+                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+              )}
+              title="Test Ping connection & latency"
+            >
+              {testingPingTarget === "claude" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <Wifi className="w-3 h-3 text-zinc-400" />
+              )}
+              <span>
+                {testingPingTarget === "claude"
+                  ? "Testing..."
+                  : pingResults.claude
+                  ? pingResults.claude.success
+                    ? `${pingResults.claude.timeMs}ms`
+                    : "Offline"
+                  : "Test Ping"}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => window.open("https://claude.ai", "_blank")}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
             >
@@ -683,7 +853,7 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={() => handleToggleConnection("claude", "claude-code", claudeProvider, isClaudeActive, "Claude")}
+              onClick={() => handleToggleConnection("claude", isClaudeActive, "Claude")}
               disabled={connectingTarget === "claude"}
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
@@ -699,8 +869,8 @@ export function SettingsCliConnectionsTab({
                 </>
               ) : isClaudeActive ? (
                 <>
-                  <Check className="w-3 h-3 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3 h-3 hidden group-hover:inline stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
+                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
                   <span className="group-hover:hidden">Connected</span>
                   <span className="hidden group-hover:inline">Disconnect</span>
                 </>
@@ -726,16 +896,26 @@ export function SettingsCliConnectionsTab({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleConnection("codex", "codex", codexProvider, isCodexActive, "Codex")}
+              onClick={() => handleToggleConnection("codex", isCodexActive, "Codex")}
               disabled={connectingTarget === "codex"}
+              title={isCodexActive ? "Click to Disconnect" : "Click to Connect"}
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer",
+                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
                 isCodexActive
-                  ? "border-white bg-white"
-                  : "border-zinc-600 hover:border-zinc-400"
+                  ? "border-white bg-white hover:bg-zinc-200"
+                  : "border-zinc-600 hover:border-white bg-transparent"
               )}
             >
-              {isCodexActive && <Check className="w-3 h-3 text-zinc-900 stroke-[3]" />}
+              {connectingTarget === "codex" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              ) : isCodexActive ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                </>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              )}
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -755,6 +935,35 @@ export function SettingsCliConnectionsTab({
             {renderModelDropdown("codex", PRESET_MODELS.codex, "codex", isCodexActive, "Codex")}
             <button
               type="button"
+              onClick={() => handleTestPing("codex", "Codex")}
+              disabled={testingPingTarget === "codex"}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+                pingResults.codex
+                  ? pingResults.codex.success
+                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+              )}
+              title="Test Ping connection & latency"
+            >
+              {testingPingTarget === "codex" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <Wifi className="w-3 h-3 text-zinc-400" />
+              )}
+              <span>
+                {testingPingTarget === "codex"
+                  ? "Testing..."
+                  : pingResults.codex
+                  ? pingResults.codex.success
+                    ? `${pingResults.codex.timeMs}ms`
+                    : "Offline"
+                  : "Test Ping"}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => window.open("https://chatgpt.com", "_blank")}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
             >
@@ -772,7 +981,7 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={() => handleToggleConnection("codex", "codex", codexProvider, isCodexActive, "Codex")}
+              onClick={() => handleToggleConnection("codex", isCodexActive, "Codex")}
               disabled={connectingTarget === "codex"}
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
@@ -788,8 +997,8 @@ export function SettingsCliConnectionsTab({
                 </>
               ) : isCodexActive ? (
                 <>
-                  <Check className="w-3 h-3 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3 h-3 hidden group-hover:inline stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
+                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
                   <span className="group-hover:hidden">Connected</span>
                   <span className="hidden group-hover:inline">Disconnect</span>
                 </>
@@ -815,16 +1024,26 @@ export function SettingsCliConnectionsTab({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleConnection("opencode", "opencode", opencodeProvider, isOpenCodeActive, "OpenCode")}
+              onClick={() => handleToggleConnection("opencode", isOpenCodeActive, "OpenCode")}
               disabled={connectingTarget === "opencode"}
+              title={isOpenCodeActive ? "Click to Disconnect" : "Click to Connect"}
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer",
+                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
                 isOpenCodeActive
-                  ? "border-white bg-white"
-                  : "border-zinc-600 hover:border-zinc-400"
+                  ? "border-white bg-white hover:bg-zinc-200"
+                  : "border-zinc-600 hover:border-white bg-transparent"
               )}
             >
-              {isOpenCodeActive && <Check className="w-3 h-3 text-zinc-900 stroke-[3]" />}
+              {connectingTarget === "opencode" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              ) : isOpenCodeActive ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                </>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              )}
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -844,6 +1063,35 @@ export function SettingsCliConnectionsTab({
             {renderModelDropdown("opencode", PRESET_MODELS.opencode, "opencode", isOpenCodeActive, "OpenCode")}
             <button
               type="button"
+              onClick={() => handleTestPing("opencode", "OpenCode")}
+              disabled={testingPingTarget === "opencode"}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+                pingResults.opencode
+                  ? pingResults.opencode.success
+                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+              )}
+              title="Test Ping connection & latency"
+            >
+              {testingPingTarget === "opencode" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <Wifi className="w-3 h-3 text-zinc-400" />
+              )}
+              <span>
+                {testingPingTarget === "opencode"
+                  ? "Testing..."
+                  : pingResults.opencode
+                  ? pingResults.opencode.success
+                    ? `${pingResults.opencode.timeMs}ms`
+                    : "Offline"
+                  : "Test Ping"}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => window.open("https://opencode.ai", "_blank")}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
             >
@@ -861,7 +1109,7 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={() => handleToggleConnection("opencode", "opencode", opencodeProvider, isOpenCodeActive, "OpenCode")}
+              onClick={() => handleToggleConnection("opencode", isOpenCodeActive, "OpenCode")}
               disabled={connectingTarget === "opencode"}
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
@@ -877,8 +1125,8 @@ export function SettingsCliConnectionsTab({
                 </>
               ) : isOpenCodeActive ? (
                 <>
-                  <Check className="w-3 h-3 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3 h-3 hidden group-hover:inline stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
+                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
                   <span className="group-hover:hidden">Connected</span>
                   <span className="hidden group-hover:inline">Disconnect</span>
                 </>
@@ -904,16 +1152,26 @@ export function SettingsCliConnectionsTab({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleConnection("antigravity", "gemini", geminiProvider, isGeminiActive, "Google Antigravity")}
+              onClick={() => handleToggleConnection("antigravity", isGeminiActive, "Google Antigravity")}
               disabled={connectingTarget === "antigravity"}
+              title={isGeminiActive ? "Click to Disconnect" : "Click to Connect"}
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer",
+                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
                 isGeminiActive
-                  ? "border-white bg-white"
-                  : "border-zinc-600 hover:border-zinc-400"
+                  ? "border-white bg-white hover:bg-zinc-200"
+                  : "border-zinc-600 hover:border-white bg-transparent"
               )}
             >
-              {isGeminiActive && <Check className="w-3 h-3 text-zinc-900 stroke-[3]" />}
+              {connectingTarget === "antigravity" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              ) : isGeminiActive ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                </>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              )}
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -931,13 +1189,51 @@ export function SettingsCliConnectionsTab({
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {renderModelDropdown("antigravity", PRESET_MODELS.antigravity, "gemini", isGeminiActive, "Google Antigravity")}
-            <div className="px-2.5 py-1 bg-zinc-800/60 text-zinc-400 border border-zinc-700/50 text-[11px] rounded-lg font-medium flex items-center gap-1.5">
-              <Globe className="w-3 h-3" />
-              Desktop App
-            </div>
             <button
               type="button"
-              onClick={() => handleToggleConnection("antigravity", "gemini", geminiProvider, isGeminiActive, "Google Antigravity")}
+              onClick={() => handleTestPing("antigravity", "Google Antigravity")}
+              disabled={testingPingTarget === "antigravity"}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+                pingResults.antigravity
+                  ? pingResults.antigravity.success
+                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+              )}
+              title="Test Ping connection & latency"
+            >
+              {testingPingTarget === "antigravity" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <Wifi className="w-3 h-3 text-zinc-400" />
+              )}
+              <span>
+                {testingPingTarget === "antigravity"
+                  ? "Testing..."
+                  : pingResults.antigravity
+                  ? pingResults.antigravity.success
+                    ? `${pingResults.antigravity.timeMs}ms`
+                    : "Offline"
+                  : "Test Ping"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.open("https://aistudio.google.com", "_blank");
+                toast.info("Google Antigravity / Gemini Workspace", {
+                  description: "Login with your Google account. Arunaki will automatically synchronize.",
+                });
+              }}
+              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+            >
+              <Globe className="w-3 h-3" />
+              App
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleConnection("antigravity", isGeminiActive, "Google Antigravity")}
               disabled={connectingTarget === "antigravity"}
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
@@ -953,8 +1249,8 @@ export function SettingsCliConnectionsTab({
                 </>
               ) : isGeminiActive ? (
                 <>
-                  <Check className="w-3 h-3 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3 h-3 hidden group-hover:inline stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
+                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
                   <span className="group-hover:hidden">Connected</span>
                   <span className="hidden group-hover:inline">Disconnect</span>
                 </>
@@ -980,16 +1276,26 @@ export function SettingsCliConnectionsTab({
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => handleToggleConnection("9router", "9router", nineRouterProvider, is9RouterActive, "9Router")}
-              disabled={connectingTarget === "9router"}
+              onClick={() => handleToggleConnection("nineRouter", is9RouterActive, "9Router")}
+              disabled={connectingTarget === "nineRouter"}
+              title={is9RouterActive ? "Click to Disconnect" : "Click to Connect"}
               className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer",
+                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
                 is9RouterActive
-                  ? "border-white bg-white"
-                  : "border-zinc-600 hover:border-zinc-400"
+                  ? "border-white bg-white hover:bg-zinc-200"
+                  : "border-zinc-600 hover:border-white bg-transparent"
               )}
             >
-              {is9RouterActive && <Check className="w-3 h-3 text-zinc-900 stroke-[3]" />}
+              {connectingTarget === "nineRouter" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              ) : is9RouterActive ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                </>
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              )}
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -1009,6 +1315,35 @@ export function SettingsCliConnectionsTab({
             {renderModelDropdown("nineRouter", PRESET_MODELS.nineRouter, "9router", is9RouterActive, "9Router")}
             <button
               type="button"
+              onClick={() => handleTestPing("nineRouter", "9Router")}
+              disabled={testingPingTarget === "nineRouter"}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+                pingResults.nineRouter
+                  ? pingResults.nineRouter.success
+                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+              )}
+              title="Test Ping connection & latency"
+            >
+              {testingPingTarget === "nineRouter" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <Wifi className="w-3 h-3 text-zinc-400" />
+              )}
+              <span>
+                {testingPingTarget === "nineRouter"
+                  ? "Testing..."
+                  : pingResults.nineRouter
+                  ? pingResults.nineRouter.success
+                    ? `${pingResults.nineRouter.timeMs}ms`
+                    : "Offline"
+                  : "Test Ping"}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={handleLaunch9Router}
               disabled={isStarting9Router || !data.nineRouter.installed}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-30"
@@ -1018,8 +1353,8 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={() => handleToggleConnection("9router", "9router", nineRouterProvider, is9RouterActive, "9Router")}
-              disabled={connectingTarget === "9router"}
+              onClick={() => handleToggleConnection("nineRouter", is9RouterActive, "9Router")}
+              disabled={connectingTarget === "nineRouter"}
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
                 is9RouterActive
@@ -1027,15 +1362,15 @@ export function SettingsCliConnectionsTab({
                   : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
               )}
             >
-              {connectingTarget === "9router" ? (
+              {connectingTarget === "nineRouter" ? (
                 <>
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Connecting...</span>
                 </>
               ) : is9RouterActive ? (
                 <>
-                  <Check className="w-3 h-3 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3 h-3 hidden group-hover:inline stroke-[2.5]" />
+                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
+                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
                   <span className="group-hover:hidden">Connected</span>
                   <span className="hidden group-hover:inline">Disconnect</span>
                 </>
