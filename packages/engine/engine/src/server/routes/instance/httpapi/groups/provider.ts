@@ -95,6 +95,44 @@ export const ProviderPingQuery = Schema.Struct({
   model: Schema.optional(Schema.String),
 })
 
+export const LocalCliStatusItem = Schema.Struct({
+  installed: Schema.Boolean,
+  version: Schema.optional(Schema.String),
+  loggedIn: Schema.Boolean,
+  authMethod: Schema.optional(Schema.String),
+  apiProvider: Schema.optional(Schema.String),
+  email: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
+})
+
+export const LocalCliStatus = Schema.Struct({
+  claude: LocalCliStatusItem,
+  nineRouter: Schema.Struct({
+    running: Schema.Boolean,
+    url: Schema.String,
+    models: Schema.Array(Schema.String),
+  }),
+  bridgePort: Schema.Number,
+  bridgeRunning: Schema.Boolean,
+})
+
+export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
+
+export const LocalCliLoginInput = Schema.Struct({
+  target: Schema.Literal("claude", "gemini"),
+})
+
+export const LocalCliLoginResult = Schema.Struct({
+  data: Schema.Struct({
+    success: Schema.Boolean,
+    message: Schema.String,
+  }),
+})
+
+export const LocalCliConnectInput = Schema.Struct({
+  target: Schema.Literal("claude", "9router"),
+})
+
 export const ProviderApi = HttpApi.make("provider")
   .add(
     HttpApiGroup.make("provider")
@@ -251,6 +289,40 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "providers.fetchModels",
             summary: "Fetch models from endpoint",
             description: "List model IDs exposed by an OpenAI-compatible endpoint.",
+          }),
+        ),
+        HttpApiEndpoint.get("localCliStatus", `${uiRoot}/local-cli/status`, {
+          query: WorkspaceRoutingQuery,
+          success: described(LocalCliStatusEnvelope, "Status of local AI CLI tools"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliStatus",
+            summary: "Get local CLI status",
+            description: "Check status of local AI coding CLI tools like Claude Code and 9Router.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliLogin", `${uiRoot}/local-cli/login`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliLoginInput,
+          success: described(LocalCliLoginResult, "Login command launch result"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliLogin",
+            summary: "Launch local CLI login",
+            description: "Launch terminal authentication for local CLI tool (e.g. Claude Code).",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliConnect", `${uiRoot}/local-cli/connect`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliConnectInput,
+          success: described(ProviderWriteResult, "Provider configured and connected"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliConnect",
+            summary: "Connect local CLI provider",
+            description: "Automatically configure and activate local CLI as a provider.",
           }),
         ),
       )

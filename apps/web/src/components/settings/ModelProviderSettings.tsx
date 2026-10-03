@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useI18n } from "../../lib/i18n";
 import { ProviderCard } from "./ProviderCard";
 import { ProviderForm } from "./ProviderForm";
+import { LocalCliSection } from "./LocalCliSection";
 import { Provider, ProviderFormData, FormTestResult } from "./types";
 import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
 
@@ -474,6 +475,9 @@ export function ModelProviderSettings({
           </button>
         )}
       </div>
+
+      {/* Local Code Agent & CLI Subscriptions */}
+      <LocalCliSection onConnected={onRefresh} />
 
       {/* Info Banner */}
       <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)] leading-relaxed">

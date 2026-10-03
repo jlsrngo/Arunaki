@@ -10,9 +10,11 @@ import { markInstanceForDisposal } from "../lifecycle"
 import { mapValues } from "remeda"
 import { Duration, Effect, Exit, Schema } from "effect"
 import { HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import {
+  LocalCliConnectInput,
+  LocalCliLoginInput,
   ProviderAuthApiError,
   ProviderFetchModelsInput,
   ProviderStateInput,
@@ -20,6 +22,8 @@ import {
   ProviderUpsert,
 } from "../groups/provider"
 import { ProviderV2 } from "@arunaki/core/provider"
+import { checkClaudeStatus, checkNineRouterStatus, launchClaudeLoginTerminal } from "../../../../local-cli/detector"
+import { localCliBridge } from "../../../../local-cli/bridge"
 
 function mapProviderAuthError<A, R>(self: Effect.Effect<A, ProviderAuth.Error, R>) {
   return self.pipe(
@@ -420,6 +424,58 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    const localCliStatus = Effect.fn("ProviderSettings.localCliStatus")(function* () {
+      const claude = yield* Effect.promise(() => checkClaudeStatus())
+      const nineRouter = yield* Effect.promise(() => checkNineRouterStatus())
+      return {
+        data: {
+          claude,
+          nineRouter,
+          bridgePort: localCliBridge.port,
+          bridgeRunning: localCliBridge.running,
+        },
+      }
+    })
+
+    const localCliLogin = Effect.fn("ProviderSettings.localCliLogin")(
+      function* (ctx: { payload: Schema.Schema.Type<typeof LocalCliLoginInput> }) {
+        if (ctx.payload.target === "claude") {
+          const res = launchClaudeLoginTerminal()
+          return { data: res }
+        }
+        return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }
+      },
+    )
+
+    const localCliConnect = Effect.fn("ProviderSettings.localCliConnect")(
+      function* (ctx: { payload: Schema.Schema.Type<typeof LocalCliConnectInput> }) {
+        yield* Effect.promise(() => localCliBridge.start())
+        if (ctx.payload.target === "claude") {
+          const status = yield* Effect.promise(() => checkClaudeStatus())
+          if (!status.installed) {
+            return yield* HttpApiError.badRequest({ message: "Claude Code CLI is not installed on this system." })
+          }
+          return yield* upsert("claude-code", {
+            name: "Claude Code CLI (Local Subscription)",
+            type: "openai-compatible",
+            baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
+            apiKey: "claude-pro-subscription",
+            model: "claude-3-7-sonnet, claude-3-5-sonnet, claude-3-5-haiku",
+          })
+        }
+        if (ctx.payload.target === "9router") {
+          return yield* upsert("9router", {
+            name: "9Router Gateway",
+            type: "openai-compatible",
+            baseUrl: "http://localhost:20128/v1",
+            apiKey: "9router",
+            model: "claude-3-5-sonnet, deepseek-r1",
+          })
+        }
+        return yield* HttpApiError.badRequest({ message: "Invalid target" })
+      },
+    )
+
     return handlers
       .handle("listUi", list)
       .handle("upsert", create)
@@ -429,5 +485,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("testConnection", testConnection)
       .handle("testProvider", testProvider)
       .handle("fetchModels", fetchModels)
+      .handle("localCliStatus", localCliStatus)
+      .handle("localCliLogin", localCliLogin)
+      .handle("localCliConnect", localCliConnect)
   }),
 )

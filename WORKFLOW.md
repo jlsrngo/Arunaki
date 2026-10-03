@@ -3523,33 +3523,30 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `bun test packages/engine/core/test/doc-read.test.ts` passed (5 pass, 0 fail).
 - [x] Inspected `LAPORAN-HARIAN.txt` on disk — verified `BUS = 30RB` & `GALON = 6RB` correctly present.
 
+---
 
+## Phase 97: Local Code Agent & Subscription CLI Bridge (Claude Code & 9Router) ✅ DONE
 
+**Goal:** Enable Arunaki to connect directly to locally installed AI coding CLIs (Claude Code with Claude Pro / Team subscription, and 9Router gateway) so users can harness their existing flat monthly packages with zero API keys and $0.00 token cost.
 
+### 97.1 Local CLI Detection & In-Process Bridge
+- [x] Implemented `checkClaudeStatus()` and `checkNineRouterStatus()` in `packages/engine/engine/src/server/local-cli/detector.ts` (parses real-time output of `claude auth status` and `claude --version`).
+- [x] Implemented `launchClaudeLoginTerminal()` to launch terminal authentication (`claude auth login --claudeai`) with 1 click.
+- [x] Implemented `localCliBridge` daemon in `packages/engine/engine/src/server/local-cli/bridge.ts` running on port 20188 with full OpenAI-compatible `/v1/models` and `/v1/chat/completions` translation.
+- [x] Bound bridge lifecycle into `packages/engine/engine/src/server/server.ts` (`listenEffect` & `makeStop`).
 
+### 97.2 Server HttpApi Integration
+- [x] Registered schemas and endpoints (`localCliStatus`, `localCliLogin`, `localCliConnect`) in `packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts`.
+- [x] Implemented handlers in `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts`.
 
+### 97.3 Frontend UI Integration
+- [x] Created `apps/web/src/components/settings/LocalCliSection.tsx` with live telemetry, badges, terminal copy triggers, and 1-click login launcher.
+- [x] Added `claude-code` to `PROVIDER_TYPES` and `DEFAULT_MODELS` in `apps/web/src/components/settings/constants.ts`.
+- [x] Integrated `LocalCliSection` into `ModelProviderSettings.tsx`.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### 97.4 Verification
+- [x] `npm run build -w apps/web`: ✅ Passed in 36.99s (0 TypeScript errors).
+- [x] Local CLI detection verified: detected Claude Code v2.1.202 on system.
 
 
 
