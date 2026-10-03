@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Loader2, Cpu, Info } from "lucide-react";
+import { Plus, Loader2, Cpu, Info, Terminal } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
 import { useI18n } from "../../lib/i18n";
@@ -228,20 +228,61 @@ export function ModelProviderSettings({
 
   const handleToggleActive = async (provider: Provider) => {
     try {
-      localStorage.setItem("arunaki_active_provider", provider.id);
-      const pool = localStorage.getItem("arunaki_provider_models_" + provider.id) || provider.model;
-      const primary = pool ? pool.split(",").map((s) => s.trim()).filter(Boolean)[0] : "";
-      if (primary) {
-        localStorage.setItem("arunaki_active_model", primary);
+      const isCurrentlyActive = provider.active || localStorage.getItem("arunaki_active_provider") === provider.id;
+
+      if (isCurrentlyActive) {
+        // Matikan (OFF) -> Alihkan rute obrolan ke CLI / Local Agent
+        await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
+          method: "PUT",
+          body: JSON.stringify({ active: false }),
+        }).catch(() => {});
+
+        const cliTargets = ["claude-code", "gemini", "opencode", "codex", "9router"];
+        const lastCli = localStorage.getItem("arunaki_last_active_cli");
+        const targetCli = (lastCli && cliTargets.includes(lastCli))
+          ? lastCli
+          : (providers.find((p) => cliTargets.includes(p.id))?.id || "claude-code");
+
+        localStorage.setItem("arunaki_active_provider", targetCli);
+
+        // Aktifkan target CLI di backend jika terdaftar
+        await apiFetch(`${API_BASE}/providers/${targetCli}/state${directoryQuery()}`, {
+          method: "PUT",
+          body: JSON.stringify({ active: true }),
+        }).catch(() => {});
+
+        const cliNames: Record<string, string> = {
+          "claude-code": "Claude Code CLI",
+          codex: "OpenAI Codex CLI",
+          gemini: "Google Antigravity",
+          opencode: "OpenCode Interpreter",
+          "9router": "9Router Gateway",
+        };
+        const friendlyName = cliNames[targetCli] || targetCli;
+
+        toast.success(`Provider ${provider.name || provider.id} dimatikan (OFF)`, {
+          description: `Rute obrolan otomatis dialihkan ke CLI (${friendlyName}).`,
+        });
+        onRefresh();
+      } else {
+        // Nyalakan (ON) -> Jadikan Primary Active
+        localStorage.setItem("arunaki_active_provider", provider.id);
+        const pool = localStorage.getItem("arunaki_provider_models_" + provider.id) || provider.model;
+        const primary = pool ? pool.split(",").map((s) => s.trim()).filter(Boolean)[0] : "";
+        if (primary) {
+          localStorage.setItem("arunaki_active_model", primary);
+        }
+        await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
+          method: "PUT",
+          body: JSON.stringify({ active: true }),
+        }).catch(() => {});
+        toast.success(`Provider ${provider.name || provider.id} dinyalakan (ON)`, {
+          description: `Rute obrolan kini menggunakan ${provider.name || provider.id}.`,
+        });
+        onRefresh();
       }
-      await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
-        method: "PUT",
-        body: JSON.stringify({ active: true }),
-      }).catch(() => {});
-      toast.success(`Provider ${provider.name || provider.id} set as primary active`);
-      onRefresh();
     } catch {
-      toast.error("Failed to update provider status.");
+      toast.error("Gagal mengubah status provider.");
     }
   };
 
@@ -474,6 +515,37 @@ export function ModelProviderSettings({
           </button>
         )}
       </div>
+
+      {/* CLI Diversion Banner if routing is currently diverted to CLI */}
+      {(() => {
+        const activeProviderId = localStorage.getItem("arunaki_active_provider");
+        const cliTargets: Record<string, string> = {
+          "claude-code": "Claude Code CLI",
+          codex: "OpenAI Codex CLI",
+          gemini: "Google Antigravity",
+          opencode: "OpenCode Interpreter",
+          "9router": "9Router Gateway",
+        };
+        const isCliDiverted = activeProviderId && cliTargets[activeProviderId];
+        if (!isCliDiverted && providers.some((p) => p.active)) return null;
+
+        return (
+          <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-between gap-3 text-xs shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="font-semibold text-white">Rute Obrolan Dialihkan ke CLI:</span>{" "}
+                <span className="text-zinc-200 font-mono font-medium">
+                  {activeProviderId && cliTargets[activeProviderId] ? cliTargets[activeProviderId] : "Local CLI Agent"}
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] text-zinc-400">
+              Nyalakan (ON) salah satu provider di bawah untuk kembali ke API Cloud.
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Info Banner */}
       <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start gap-3 text-xs text-[var(--text-muted)] leading-relaxed">

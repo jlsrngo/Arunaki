@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Wifi, Trash2, Check, ArrowUp, ArrowDown, Settings2, Info, X, Terminal } from "lucide-react";
+import { Loader2, Wifi, Trash2, ArrowUp, ArrowDown, Settings2, Info, X, Terminal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import type { Provider } from "./ModelProviderSettings";
@@ -76,20 +76,42 @@ export function ProviderCard({
             </div>
           )}
 
-          {/* Primary Activation Toggle */}
+          {/* ON / OFF Toggle Switch */}
           <button
             type="button"
             onClick={() => onToggleActive(p)}
-            title={p.active ? t("primaryActiveTooltip") : t("setPrimaryTooltip")}
-            className={cn(
-              "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+            title={
               p.active
-                ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
-                : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
+                ? "Klik untuk mematikan (OFF) & mengalihkan rute ke CLI / Local Agent"
+                : "Klik untuk menyalakan (ON) sebagai Primary API Provider"
+            }
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs select-none",
+              p.active
+                ? "bg-white text-zinc-950 border-white hover:bg-zinc-200"
+                : "bg-zinc-900/90 text-zinc-400 hover:text-zinc-200 border-zinc-700 hover:border-zinc-500"
             )}
           >
-            <Check className={cn("w-3.5 h-3.5", p.active && "stroke-[3]")} />
-            <span>{p.active ? t("primaryActive") : t("setPrimary")}</span>
+            {/* Switch Track & Thumb */}
+            <div
+              className={cn(
+                "w-7 h-4 rounded-full p-0.5 transition-colors flex items-center shrink-0",
+                p.active ? "bg-zinc-950" : "bg-zinc-700"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-3 h-3 rounded-full transition-transform duration-150 shadow-xs",
+                  p.active ? "bg-white translate-x-3" : "bg-zinc-400 translate-x-0"
+                )}
+              />
+            </div>
+            <span>{p.active ? "ON" : "OFF"}</span>
+            {p.active && (
+              <span className="text-[10px] font-medium opacity-70 border-l border-zinc-950/20 pl-1.5">
+                Primary
+              </span>
+            )}
           </button>
 
           <div className="min-w-0">

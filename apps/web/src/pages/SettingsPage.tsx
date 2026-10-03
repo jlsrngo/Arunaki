@@ -51,10 +51,14 @@ export function SettingsPage() {
 
         if (rawProviders.length > 0) {
           const savedActiveId = localStorage.getItem("arunaki_active_provider");
-          const activeId =
-            savedActiveId && rawProviders.some((p: any) => p.id === savedActiveId)
-              ? savedActiveId
-              : (rawProviders.find((p: any) => p.id === "kenari" || p.apiKey)?.id || rawProviders[0]?.id);
+          const CLI_PROVIDER_IDS = ["claude-code", "codex", "gemini", "opencode", "9router"];
+          const isCliActive = savedActiveId && CLI_PROVIDER_IDS.includes(savedActiveId);
+
+          const activeId = isCliActive
+            ? null
+            : (savedActiveId && rawProviders.some((p: any) => p.id === savedActiveId)
+                ? savedActiveId
+                : (rawProviders.find((p: any) => p.active)?.id || null));
 
           const mapped: Provider[] = rawProviders.map((p: any, idx: number) => {
             const savedSelected = localStorage.getItem("arunaki_provider_models_" + p.id);

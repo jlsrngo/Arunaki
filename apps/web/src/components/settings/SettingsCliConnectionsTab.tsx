@@ -316,6 +316,7 @@ export function SettingsCliConnectionsTab({
 
       if (res.ok) {
         localStorage.setItem("arunaki_active_provider", activeId);
+        localStorage.setItem("arunaki_last_active_cli", activeId);
         localStorage.setItem("arunaki_active_model", chosenModel);
         await apiFetch(`${API_BASE}/providers/${activeId}/state${directoryQuery()}`, {
           method: "PUT",
@@ -343,6 +344,7 @@ export function SettingsCliConnectionsTab({
   const handleToggleActiveDirect = async (providerId: string, model: string, friendlyName: string) => {
     try {
       localStorage.setItem("arunaki_active_provider", providerId);
+      localStorage.setItem("arunaki_last_active_cli", providerId);
       localStorage.setItem("arunaki_active_model", model);
       await apiFetch(`${API_BASE}/providers/${providerId}/state${directoryQuery()}`, {
         method: "PUT",

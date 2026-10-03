@@ -1072,6 +1072,21 @@ export function useWorkstationChat({
             return { hasConfiguredProvider: false, activeProviderName: "" };
           }
           const savedActiveId = localStorage.getItem("arunaki_active_provider");
+          const CLI_NAMES: Record<string, string> = {
+            "claude-code": "Claude Code CLI",
+            codex: "OpenAI Codex CLI",
+            gemini: "Google Antigravity",
+            opencode: "OpenCode Interpreter",
+            "9router": "9Router Gateway",
+          };
+          if (savedActiveId && CLI_NAMES[savedActiveId]) {
+            return {
+              hasConfiguredProvider: true,
+              activeProviderName: CLI_NAMES[savedActiveId],
+              modelName: activeModel.id || localStorage.getItem("arunaki_active_model") || "CLI Agent",
+            };
+          }
+
           const active =
             providers.find((p) => p.id === savedActiveId) ||
             providers.find((p) => p.id === "kenari" || p.apiKey) ||
@@ -1086,9 +1101,16 @@ export function useWorkstationChat({
       } catch {}
 
       const fallbackId = localStorage.getItem("arunaki_active_provider");
+      const CLI_NAMES: Record<string, string> = {
+        "claude-code": "Claude Code CLI",
+        codex: "OpenAI Codex CLI",
+        gemini: "Google Antigravity",
+        opencode: "OpenCode Interpreter",
+        "9router": "9Router Gateway",
+      };
       return {
         hasConfiguredProvider: !!fallbackId,
-        activeProviderName: fallbackId === "kenari" ? "Kenari" : fallbackId || "AI Provider",
+        activeProviderName: (fallbackId && CLI_NAMES[fallbackId]) || (fallbackId === "kenari" ? "Kenari" : fallbackId || "AI Provider"),
         modelName: activeModel.id,
       };
     };
