@@ -30,9 +30,18 @@ export interface AntigravityStatus {
 }
 
 export interface NineRouterStatus {
+  installed: boolean
+  version?: string
   running: boolean
   url: string
   models: string[]
+}
+
+export interface CodexStatus {
+  installed: boolean
+  version?: string
+  isCloudOnly: boolean
+  message: string
 }
 
 export interface LocalCliStatusResult {
@@ -40,6 +49,7 @@ export interface LocalCliStatusResult {
   opencode: OpenCodeStatus
   antigravity: AntigravityStatus
   nineRouter: NineRouterStatus
+  codex: CodexStatus
   bridgePort: number
   bridgeRunning: boolean
 }
@@ -223,47 +233,176 @@ export function launchOpenCodeServer(port = 4097): { success: boolean; message: 
 
 export async function checkNineRouterStatus(): Promise<NineRouterStatus> {
   const url = "http://localhost:20128/v1"
+  let installed = false
+  let version: string | undefined = undefined
+
+  // 1. Check if 9router CLI binary exists on the system
+  await new Promise<void>((resolve) => {
+    try {
+      const proc = crossSpawn("9router", ["--version"], { stdio: ["ignore", "pipe", "pipe"] })
+      let out = ""
+      proc.stdout?.on("data", (d: Buffer) => (out += d.toString()))
+      proc.on("close", (code) => {
+        if (code === 0 || out.trim()) {
+          installed = true
+          version = out.trim().split("\n")[0] || undefined
+        }
+        resolve()
+      })
+      proc.on("error", () => resolve())
+    } catch {
+      resolve()
+    }
+  })
+
+  // 2. Check if local gateway daemon is actively responding on port 20128
   try {
     const res = await fetch(`${url}/models`, {
       signal: AbortSignal.timeout(1200),
     })
     if (!res.ok) {
-      return { running: false, url, models: [] }
+      return clean({ installed, version, running: false, url, models: [] })
     }
     const json = (await res.json()) as { data?: Array<{ id?: string }> }
     const models = (json.data ?? []).map((m) => m.id).filter(Boolean) as string[]
-    return { running: true, url, models }
+    return clean({ installed, version, running: true, url, models })
   } catch {
-    return { running: false, url, models: [] }
+    return clean({ installed, version, running: false, url, models: [] })
   }
 }
 
-export function launchClaudeLoginTerminal(): { success: boolean; message: string } {
+export async function checkCodexStatus(): Promise<CodexStatus> {
+  return new Promise((resolve) => {
+    try {
+      const proc = crossSpawn("codex", ["--version"], { stdio: ["ignore", "pipe", "pipe"] })
+      let out = ""
+      proc.stdout?.on("data", (d: Buffer) => (out += d.toString()))
+      proc.on("close", (code) => {
+        if (code === 0 && out.trim()) {
+          return resolve({
+            installed: true,
+            version: out.trim().split("\n")[0] || undefined,
+            isCloudOnly: false,
+            message: "Codex CLI binary found on local PATH.",
+          })
+        }
+        resolve({
+          installed: false,
+          isCloudOnly: true,
+          message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+        })
+      })
+      proc.on("error", () => {
+        resolve({
+          installed: false,
+          isCloudOnly: true,
+          message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+        })
+      })
+    } catch {
+      resolve({
+        installed: false,
+        isCloudOnly: true,
+        message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+      })
+    }
+  })
+}
+
+export function launchTerminalWithCommand(cmd: string, title = "Arunaki CLI"): { success: boolean; message: string } {
   try {
     if (process.platform === "win32") {
-      spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", "claude auth login --claudeai"], {
+      spawn("cmd.exe", ["/c", "start", title, "cmd.exe", "/k", cmd], {
         detached: true,
         stdio: "ignore",
       })
     } else if (process.platform === "darwin") {
-      spawn("open", ["-a", "Terminal", "-e", "claude auth login --claudeai"], {
+      spawn("open", ["-a", "Terminal", "-e", cmd], {
         detached: true,
         stdio: "ignore",
       })
     } else {
-      spawn("x-terminal-emulator", ["-e", "claude auth login --claudeai"], {
+      spawn("x-terminal-emulator", ["-e", cmd], {
         detached: true,
         stdio: "ignore",
       })
     }
     return {
       success: true,
-      message: "Terminal window opened. Complete the login in your browser, then click 'Scan Status'.",
+      message: `Terminal window opened for: ${cmd}`,
     }
   } catch (err: any) {
     return {
       success: false,
-      message: `Failed to open terminal: ${err.message}. Please run 'claude auth login --claudeai' manually in terminal.`,
+      message: `Failed to open terminal: ${err.message}. Please run '${cmd}' manually in terminal.`,
     }
   }
+}
+
+export function launchClaudeLoginTerminal(): { success: boolean; message: string } {
+  return launchTerminalWithCommand("claude auth login --claudeai", "Claude Code Authentication")
+}
+
+export async function getCliSupportedModels(target: string): Promise<string[]> {
+  if (target === "antigravity") {
+    return [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
+      "gemini-3.1-pro",
+      "claude-sonnet-4.6",
+      "claude-opus-4.6",
+      "gpt-oss-120b",
+    ]
+  }
+
+  if (target === "opencode") {
+    return new Promise((resolve) => {
+      try {
+        const proc = crossSpawn("opencode", ["models"], { stdio: ["ignore", "pipe", "pipe"] })
+        let stdout = ""
+        proc.stdout?.on("data", (d: Buffer) => (stdout += d.toString()))
+        proc.on("close", (code) => {
+          if (code === 0 && stdout.trim()) {
+            const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+            if (lines.length > 0) return resolve(lines)
+          }
+          resolve([
+            "groq/llama-3.3-70b-versatile",
+            "groq/openai/gpt-oss-120b",
+            "groq/qwen/qwen3.8-27b",
+            "groq/llama-3.1-8b-instant",
+            "9router/ComboMaut",
+            "opencode/nemotron-3.5-lightning-free",
+          ])
+        })
+        proc.on("error", () => {
+          resolve([
+            "groq/llama-3.3-70b-versatile",
+            "groq/openai/gpt-oss-120b",
+            "groq/qwen/qwen3.8-27b",
+            "groq/llama-3.1-8b-instant",
+          ])
+        })
+      } catch {
+        resolve(["groq/llama-3.3-70b-versatile", "groq/openai/gpt-oss-120b"])
+      }
+    })
+  }
+
+  if (target === "claude") {
+    return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
+  }
+
+  if (target === "codex") {
+    return ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"]
+  }
+
+  if (target === "9router") {
+    const nine = await checkNineRouterStatus()
+    if (nine.models.length > 0) return nine.models
+    return ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"]
+  }
+
+  return []
 }

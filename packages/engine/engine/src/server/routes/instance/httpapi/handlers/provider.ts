@@ -24,12 +24,15 @@ import {
 import {
   checkAntigravityStatus,
   checkClaudeStatus,
+  checkCodexStatus,
   checkNineRouterStatus,
   checkOpenCodeServerRunning,
   checkOpenCodeStatus,
+  getCliSupportedModels,
   getOpenCodeGroqKey,
   launchClaudeLoginTerminal,
   launchOpenCodeServer,
+  launchTerminalWithCommand,
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
 
@@ -438,6 +441,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       const opencodeRunning = yield* Effect.promise(() => checkOpenCodeServerRunning(4097))
       const antigravity = checkAntigravityStatus()
       const nineRouter = yield* Effect.promise(() => checkNineRouterStatus())
+      const codex = yield* Effect.promise(() => checkCodexStatus())
       return {
         data: {
           claude,
@@ -448,6 +452,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           },
           antigravity,
           nineRouter,
+          codex,
           bridgePort: localCliBridge.port,
           bridgeRunning: localCliBridge.running,
         },
@@ -463,6 +468,14 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         if (ctx.payload.target === "opencode" || ctx.payload.target === "opencode-server") {
           const res = launchOpenCodeServer(4097)
           return { data: { success: res.success, message: res.message } }
+        }
+        if (ctx.payload.target === "opencode-terminal") {
+          const res = launchTerminalWithCommand("opencode", "OpenCode Interactive Terminal")
+          return { data: res }
+        }
+        if (ctx.payload.target === "9router") {
+          const res = launchTerminalWithCommand("9router start", "9Router Local Gateway")
+          return { data: res }
         }
         return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }
       },
@@ -541,6 +554,18 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    const localCliModels = Effect.fnUntraced(
+      function* (ctx: { readonly payload: { readonly target: "claude" | "9router" | "opencode" | "antigravity" | "codex" } }) {
+        const models = yield* Effect.promise(() => getCliSupportedModels(ctx.payload.target))
+        return {
+          data: {
+            target: ctx.payload.target,
+            models,
+          },
+        }
+      },
+    )
+
     return handlers
       .handle("listUi", list)
       .handle("upsert", create)
@@ -553,5 +578,6 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("localCliStatus", localCliStatus)
       .handle("localCliLogin", localCliLogin)
       .handle("localCliConnect", localCliConnect)
+      .handle("localCliModels", localCliModels)
   }),
 )

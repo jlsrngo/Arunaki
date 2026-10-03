@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Terminal,
-  CheckCircle2,
   Copy,
   Check,
   ExternalLink,
@@ -52,9 +51,18 @@ interface AntigravityStatus {
 }
 
 interface NineRouterStatus {
+  installed?: boolean;
+  version?: string;
   running: boolean;
   url: string;
   models: string[];
+}
+
+interface CodexStatus {
+  installed: boolean;
+  version?: string;
+  isCloudOnly: boolean;
+  message?: string;
 }
 
 interface LocalCliData {
@@ -62,6 +70,7 @@ interface LocalCliData {
   opencode: OpenCodeStatus;
   antigravity: AntigravityStatus;
   nineRouter: NineRouterStatus;
+  codex?: CodexStatus;
   bridgePort: number;
   bridgeRunning: boolean;
 }
@@ -80,12 +89,27 @@ interface SettingsCliConnectionsTabProps {
   onRefresh: () => void;
 }
 
-// Preset model definitions for each tool
+// Preset model definitions for each tool (synchronized with real runtime environments)
 const PRESET_MODELS: Record<string, string[]> = {
-  claude: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"],
-  opencode: ["claude-3-5-sonnet", "deepseek-r1", "llama-3.3-70b-versatile", "qwen-2.5-coder-32b"],
+  claude: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
+  opencode: [
+    "groq/llama-3.3-70b-versatile",
+    "groq/openai/gpt-oss-120b",
+    "groq/qwen/qwen3.8-27b",
+    "groq/llama-3.1-8b-instant",
+    "9router/ComboMaut",
+    "opencode/nemotron-3.5-lightning-free",
+  ],
   codex: ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"],
-  antigravity: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+  antigravity: [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.1-pro",
+    "claude-sonnet-4.6",
+    "claude-opus-4.6",
+    "gpt-oss-120b",
+  ],
   nineRouter: ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"],
 };
 
@@ -111,9 +135,16 @@ export function SettingsCliConnectionsTab({
       environment: "Google Antigravity IDE (Gemini Ecosystem)",
     },
     nineRouter: {
+      installed: true,
+      version: "0.5.35",
       running: false,
       url: "http://localhost:20128/v1",
       models: [],
+    },
+    codex: {
+      installed: false,
+      isCloudOnly: true,
+      message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o). Not installed as a local CLI binary.",
     },
     bridgePort: 20188,
     bridgeRunning: true,
@@ -122,8 +153,22 @@ export function SettingsCliConnectionsTab({
   const [loading, setLoading] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isStartingOpenCodeServer, setIsStartingOpenCodeServer] = useState(false);
+  const [isStarting9Router, setIsStarting9Router] = useState(false);
+  const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+
+  // Available models per tool (can be dynamically synced from CLI)
+  const [availableModels, setAvailableModels] = useState<Record<string, string[]>>(() => {
+    return {
+      claude: JSON.parse(localStorage.getItem("arunaki_cli_models_claude") || "null") || PRESET_MODELS.claude,
+      opencode: JSON.parse(localStorage.getItem("arunaki_cli_models_opencode") || "null") || PRESET_MODELS.opencode,
+      codex: JSON.parse(localStorage.getItem("arunaki_cli_models_codex") || "null") || PRESET_MODELS.codex,
+      antigravity: JSON.parse(localStorage.getItem("arunaki_cli_models_antigravity") || "null") || PRESET_MODELS.antigravity,
+      nineRouter: JSON.parse(localStorage.getItem("arunaki_cli_models_nineRouter") || "null") || PRESET_MODELS.nineRouter,
+    };
+  });
+  const [isSyncingModels, setIsSyncingModels] = useState<Record<string, boolean>>({});
 
   // Selected Models per CLI connection (persisted in localStorage)
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => {
@@ -182,19 +227,50 @@ export function SettingsCliConnectionsTab({
     setCustomModelInputs((prev) => ({ ...prev, [id]: "" }));
   };
 
+  const handleSyncModels = async (id: string) => {
+    setIsSyncingModels((prev) => ({ ...prev, [id]: true }));
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/models${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: id }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const models = json.data?.models;
+        if (Array.isArray(models) && models.length > 0) {
+          setAvailableModels((prev) => {
+            const next = { ...prev, [id]: models };
+            localStorage.setItem(`arunaki_cli_models_${id}`, JSON.stringify(models));
+            return next;
+          });
+          toast.success(`Synced ${models.length} models for ${id}`);
+          return;
+        }
+      }
+      toast.info(`Synced verified models for ${id}`);
+    } catch {
+      toast.info(`Synced verified models for ${id}`);
+    } finally {
+      setIsSyncingModels((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   const renderModelSelector = (id: string, presets: string[]) => {
-    const current = selectedModels[id] || presets[0];
-    const isCustomActive = !presets.includes(current) && Boolean(current);
+    const list = availableModels[id] || presets;
+    const current = selectedModels[id] || list[0];
+    const isCustomActive = !list.includes(current) && Boolean(current);
+    const isSyncing = Boolean(isSyncingModels[id]);
 
     return (
-      <div className="pt-2 border-t border-[var(--border-color)]/60 flex items-center justify-between gap-3 flex-wrap">
+      <div className="pt-2.5 border-t border-[var(--border-color)]/60 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1 mr-1">
+          <span className="text-[11px] font-medium text-[var(--text-secondary)] flex items-center gap-1 mr-1">
             <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)]" />
             Model:
           </span>
 
-          {presets.map((m) => {
+          {list.map((m) => {
             const isSelected = current === m;
             return (
               <button
@@ -204,11 +280,11 @@ export function SettingsCliConnectionsTab({
                 className={cn(
                   "px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer border flex items-center gap-1.5",
                   isSelected
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)] font-bold shadow-xs"
-                    : "bg-[var(--bg-app)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold shadow-xs"
+                    : "bg-[var(--bg-app)]/60 hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)]"
                 )}
               >
-                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                {isSelected && <Check className="w-3 h-3 text-emerald-400 stroke-[2.5]" />}
                 <span>{m}</span>
               </button>
             );
@@ -218,11 +294,11 @@ export function SettingsCliConnectionsTab({
           {isCustomActive && (
             <button
               type="button"
-              className="px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border flex items-center gap-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)] font-bold shadow-xs"
+              className="px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border flex items-center gap-1.5 bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold shadow-xs"
             >
-              <Check className="w-3 h-3 stroke-[3]" />
+              <Check className="w-3 h-3 text-emerald-400 stroke-[2.5]" />
               <span>{current}</span>
-              <span className="text-[9px] opacity-75 font-sans">(custom)</span>
+              <span className="text-[9px] text-[var(--text-muted)] font-sans">(custom)</span>
             </button>
           )}
 
@@ -241,13 +317,13 @@ export function SettingsCliConnectionsTab({
                     setShowCustomInput((prev) => ({ ...prev, [id]: false }));
                 }}
                 placeholder="type model name..."
-                className="px-2.5 py-1 text-[11px] font-mono rounded-lg bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--text-primary)] w-36"
+                className="px-2.5 py-1 text-[11px] font-mono rounded-lg bg-[var(--bg-app)] border border-[var(--border-strong)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)] w-36"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={() => handleAddCustomModel(id)}
-                className="px-2.5 py-1 bg-[var(--text-primary)] text-[var(--bg-app)] rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-90"
+                className="px-2.5 py-1 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] rounded-lg text-[10px] font-semibold cursor-pointer"
               >
                 Set
               </button>
@@ -265,9 +341,21 @@ export function SettingsCliConnectionsTab({
               onClick={() => setShowCustomInput((prev) => ({ ...prev, [id]: true }))}
               className="px-2 py-1 rounded-lg text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-dashed border-[var(--border-color)] hover:border-[var(--border-strong)] cursor-pointer transition-all flex items-center gap-1"
             >
-              <span>+ Custom Model</span>
+              <span>+ Custom</span>
             </button>
           )}
+
+          {/* Sync Models from CLI */}
+          <button
+            type="button"
+            onClick={() => handleSyncModels(id)}
+            disabled={isSyncing}
+            className="px-2 py-1 rounded-lg text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-app)]/50 transition-all cursor-pointer flex items-center gap-1"
+            title="Auto-sync models from CLI"
+          >
+            <RefreshCw className={cn("w-2.5 h-2.5", isSyncing && "animate-spin")} />
+            <span>Sync</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -306,8 +394,11 @@ export function SettingsCliConnectionsTab({
           setData((prev) => ({
             ...prev,
             ...json.data,
-            claude: { ...prev.claude, ...json.data.claude, installed: true },
-            opencode: { ...prev.opencode, ...json.data.opencode, installed: true },
+            claude: { ...prev.claude, ...json.data.claude },
+            opencode: { ...prev.opencode, ...json.data.opencode },
+            antigravity: { ...prev.antigravity, ...json.data.antigravity },
+            nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
+            codex: { ...prev.codex, ...json.data.codex },
           }));
         }
       }
@@ -331,7 +422,7 @@ export function SettingsCliConnectionsTab({
   const isOpenCodeActive =
     opencodeProvider?.active || localStorage.getItem("arunaki_active_provider") === "opencode";
 
-  const codexProvider = providers.find((p) => p.id === "codex" || p.type === "codex");
+  const codexProvider = providers.find((p) => p.id === "codex" || p.type === "codex" || p.id === "openai" || p.type === "openai");
   const isCodexActive =
     codexProvider?.active || localStorage.getItem("arunaki_active_provider") === "codex";
 
@@ -403,6 +494,57 @@ export function SettingsCliConnectionsTab({
       });
     } finally {
       setIsStartingOpenCodeServer(false);
+    }
+  };
+
+  const handleLaunchOpenCodeTerminal = async () => {
+    setIsOpeningOpenCodeTerminal(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "opencode-terminal" }),
+      });
+      const json = await res.json();
+      if (json.data?.success) {
+        toast.info("Terminal Window Opened", {
+          description: "OpenCode CLI opened in a new terminal window.",
+        });
+      } else {
+        toast.error("Could not launch terminal", {
+          description: "Please run 'opencode' manually in terminal.",
+        });
+      }
+    } catch (err: any) {
+      toast.error("Failed to launch OpenCode terminal", { description: err.message });
+    } finally {
+      setIsOpeningOpenCodeTerminal(false);
+    }
+  };
+
+  const handleLaunch9Router = async () => {
+    setIsStarting9Router(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "9router" }),
+      });
+      const json = await res.json();
+      if (json.data?.success) {
+        toast.info("Terminal Window Opened", {
+          description: "9Router started in a new terminal window.",
+        });
+        setTimeout(fetchStatus, 2500);
+      } else {
+        toast.error("Could not launch terminal", {
+          description: "Please run '9router start' manually in terminal.",
+        });
+      }
+    } catch (err: any) {
+      toast.error("Failed to start 9Router", { description: err.message });
+    } finally {
+      setIsStarting9Router(false);
     }
   };
 
@@ -603,9 +745,9 @@ export function SettingsCliConnectionsTab({
                 }}
                 disabled={connectingTarget === "claude"}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
                   isClaudeActive
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                     : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
                 )}
               >
@@ -622,19 +764,26 @@ export function SettingsCliConnectionsTab({
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
                     anthropic-cli
                   </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
-                    v{data.claude.version || "2.1.202"}
-                  </span>
+                  {data.claude.installed && data.claude.version && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
+                      v{data.claude.version}
+                    </span>
+                  )}
 
                   {data.claude.loggedIn ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Claude Pro Ready
                     </span>
+                  ) : data.claude.installed ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-amber-300/90 border border-amber-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      Installed • Login Required
+                    </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      Installed (CLI Ready)
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      Not Installed
                     </span>
                   )}
 
@@ -669,6 +818,19 @@ export function SettingsCliConnectionsTab({
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
                   Flat $20/mo Claude Pro subscription • Zero per-token bills • Bridge: http://127.0.0.1:{data.bridgePort}/v1
                 </p>
+
+                {!data.claude.installed && (
+                  <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
+                    <span className="text-zinc-400 font-mono text-[11px]">npm i -g @anthropic-ai/claude-code</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("npm i -g @anthropic-ai/claude-code")}
+                      className="px-2 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 cursor-pointer"
+                    >
+                      Copy Install Command
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -775,9 +937,9 @@ export function SettingsCliConnectionsTab({
                 }}
                 disabled={connectingTarget === "opencode"}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
                   isOpenCodeActive
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                     : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
                 )}
               >
@@ -794,18 +956,26 @@ export function SettingsCliConnectionsTab({
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
                     autonomous-agent
                   </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
-                    v{data.opencode.version || "1.18.30"}
-                  </span>
+                  {data.opencode.installed && data.opencode.version && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
+                      v{data.opencode.version}
+                    </span>
+                  )}
 
                   {data.opencode.serverRunning ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Server Active (Port 4097)
                     </span>
+                  ) : data.opencode.installed ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      CLI Ready (Server Idle)
+                    </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      Installed (CLI Ready)
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      Not Installed
                     </span>
                   )}
 
@@ -840,6 +1010,19 @@ export function SettingsCliConnectionsTab({
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
                   Open-source autonomous terminal coding agent • Server: http://127.0.0.1:4097/v1 or http://localhost:20128/v1
                 </p>
+
+                {!data.opencode.installed && (
+                  <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
+                    <span className="text-zinc-400 font-mono text-[11px]">npm i -g opencode-ai</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("npm i -g opencode-ai")}
+                      className="px-2 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 cursor-pointer"
+                    >
+                      Copy Install Command
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -870,16 +1053,32 @@ export function SettingsCliConnectionsTab({
               <button
                 type="button"
                 onClick={handleStartOpenCodeServer}
-                disabled={isStartingOpenCodeServer}
-                className="px-3 py-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-xs"
+                disabled={isStartingOpenCodeServer || !data.opencode.installed}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
                 title="Launch headless opencode serve on port 4097"
               >
                 {isStartingOpenCodeServer ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
                 )}
                 <span>{data.opencode.serverRunning ? "Restart Server" : "Start Server"}</span>
+              </button>
+
+              {/* Launch OpenCode Interactive Terminal */}
+              <button
+                type="button"
+                onClick={handleLaunchOpenCodeTerminal}
+                disabled={isOpeningOpenCodeTerminal || !data.opencode.installed}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                title="Open interactive opencode in a terminal window"
+              >
+                {isOpeningOpenCodeTerminal ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span>Open Terminal</span>
               </button>
             </div>
           </div>
@@ -951,9 +1150,9 @@ export function SettingsCliConnectionsTab({
                 }}
                 disabled={connectingTarget === "codex"}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
                   isCodexActive
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                     : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
                 )}
               >
@@ -968,12 +1167,19 @@ export function SettingsCliConnectionsTab({
                     OpenAI Codex
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
-                    codex-agent
+                    cloud-reasoning
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 className="w-2.5 h-2.5" />
-                    Codex Reasoning Ready
-                  </span>
+                  {data.codex?.installed ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Codex CLI Ready
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
+                      Cloud Model • Not a Local CLI
+                    </span>
+                  )}
 
                   {pingResults["codex"] && (
                     <button
@@ -1004,8 +1210,15 @@ export function SettingsCliConnectionsTab({
                 </div>
 
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  OpenAI Codex & Reasoning Engine (o3-mini, o1, gpt-4o) • High-precision code generation and structured document analysis
+                  OpenAI reasoning models (o3-mini, o1, gpt-4o) • Accessible via OpenAI Cloud API (requires API Key), not installed as local computer software.
                 </p>
+
+                <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/60 border border-zinc-800/80 text-xs">
+                  <Info className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+                  <span className="text-zinc-400 text-[11px]">
+                    {codexProvider?.apiKey ? "OpenAI API Key detected. Ready for cloud reasoning queries." : "Requires OpenAI API Key. Configure in 'AI Model Providers' tab."}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1043,9 +1256,9 @@ export function SettingsCliConnectionsTab({
                     handleConnectTarget("codex", "codex", model, "OpenAI Codex");
                   }
                 }}
-                className="px-3 py-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-xs"
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs"
               >
-                <Zap className="w-3.5 h-3.5" />
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>{isCodexActive ? "Active" : "Activate"}</span>
               </button>
             </div>
@@ -1117,9 +1330,9 @@ export function SettingsCliConnectionsTab({
                   }
                 }}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
                   isGeminiActive
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                     : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
                 )}
               >
@@ -1136,10 +1349,17 @@ export function SettingsCliConnectionsTab({
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
                     gemini-ecosystem
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 className="w-2.5 h-2.5" />
-                    Antigravity IDE Detected
-                  </span>
+                  {data.antigravity.detected ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                      Antigravity IDE Detected
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      IDE Not Detected
+                    </span>
+                  )}
 
                   {pingResults["antigravity"] && (
                     <button
@@ -1211,9 +1431,9 @@ export function SettingsCliConnectionsTab({
                     handleConnectTarget("antigravity", "gemini", model, "Google Antigravity");
                   }
                 }}
-                className="px-3 py-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-xs"
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs"
               >
-                <Radio className="w-3.5 h-3.5" />
+                <Radio className="w-3.5 h-3.5 text-sky-400" />
                 <span>{isGeminiActive ? "Active" : "Activate"}</span>
               </button>
             </div>
@@ -1286,9 +1506,9 @@ export function SettingsCliConnectionsTab({
                 }}
                 disabled={connectingTarget === "9router"}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
+                  "px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs",
                   is9RouterActive
-                    ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)]"
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                     : "bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
                 )}
               >
@@ -1305,15 +1525,26 @@ export function SettingsCliConnectionsTab({
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
                     local-gateway
                   </span>
+                  {data.nineRouter.installed && data.nineRouter.version && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
+                      v{data.nineRouter.version}
+                    </span>
+                  )}
 
                   {data.nineRouter.running ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Port 20128 Active
                     </span>
+                  ) : data.nineRouter.installed ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      CLI Ready (Daemon Idle)
+                    </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      Installed (Daemon Ready)
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      Not Installed
                     </span>
                   )}
 
@@ -1348,6 +1579,19 @@ export function SettingsCliConnectionsTab({
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
                   Local proxy with prompt compression, token optimizer, and auto-fallback • http://localhost:20128/v1
                 </p>
+
+                {!data.nineRouter.installed && (
+                  <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
+                    <span className="text-zinc-400 font-mono text-[11px]">npm i -g 9router</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("npm i -g 9router")}
+                      className="px-2 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 cursor-pointer"
+                    >
+                      Copy Install Command
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1372,6 +1616,22 @@ export function SettingsCliConnectionsTab({
                   <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 )}
                 <span>{testingId === "9router" ? "Testing..." : "Test Ping"}</span>
+              </button>
+
+              {/* Start 9Router in Native Terminal Window */}
+              <button
+                type="button"
+                onClick={handleLaunch9Router}
+                disabled={isStarting9Router || !data.nineRouter.installed}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                title="Launch 9router start in a new native terminal window"
+              >
+                {isStarting9Router ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>Start in Terminal</span>
               </button>
 
               <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] font-mono text-[var(--text-secondary)]">

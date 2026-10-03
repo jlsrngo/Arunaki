@@ -127,10 +127,18 @@ export const LocalCliStatus = Schema.Struct({
   opencode: OpenCodeStatusItem,
   antigravity: AntigravityStatusItem,
   nineRouter: Schema.Struct({
+    installed: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+    version: Schema.optional(Schema.UndefinedOr(Schema.String)),
     running: Schema.Boolean,
     url: Schema.String,
     models: Schema.Array(Schema.String),
   }),
+  codex: Schema.optional(Schema.UndefinedOr(Schema.Struct({
+    installed: Schema.Boolean,
+    version: Schema.optional(Schema.UndefinedOr(Schema.String)),
+    isCloudOnly: Schema.Boolean,
+    message: Schema.String,
+  }))),
   bridgePort: Schema.Number,
   bridgeRunning: Schema.Boolean,
 })
@@ -138,7 +146,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server"),
+  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server", "opencode-terminal", "9router"),
 })
 
 export const LocalCliLoginResult = Schema.Struct({
@@ -151,6 +159,17 @@ export const LocalCliLoginResult = Schema.Struct({
 export const LocalCliConnectInput = Schema.Struct({
   target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity", "codex"),
   model: Schema.optional(Schema.UndefinedOr(Schema.String)),
+})
+
+export const LocalCliModelsInput = Schema.Struct({
+  target: Schema.Literal("claude", "9router", "opencode", "antigravity", "codex"),
+})
+
+export const LocalCliModelsResult = Schema.Struct({
+  data: Schema.Struct({
+    target: Schema.String,
+    models: Schema.Array(Schema.String),
+  }),
 })
 
 export const ProviderApi = HttpApi.make("provider")
@@ -343,6 +362,18 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "providers.localCliConnect",
             summary: "Connect local CLI provider",
             description: "Automatically configure and activate local CLI as a provider.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliModels", `${uiRoot}/local-cli/models`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliModelsInput,
+          success: described(LocalCliModelsResult, "List of available models for local CLI"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliModels",
+            summary: "Fetch local CLI models",
+            description: "Automatically retrieve the actual available models configured for a local CLI or IDE.",
           }),
         ),
       )
