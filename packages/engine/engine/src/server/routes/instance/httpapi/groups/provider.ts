@@ -118,6 +118,7 @@ export const OpenCodeStatusItem = Schema.Struct({
 
 export const AntigravityStatusItem = Schema.Struct({
   detected: Schema.Boolean,
+  cliInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
   path: Schema.optional(Schema.UndefinedOr(Schema.String)),
   environment: Schema.String,
 })

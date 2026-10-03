@@ -38,6 +38,7 @@ interface OpenCodeStatus {
 
 interface AntigravityStatus {
   detected: boolean;
+  cliInstalled?: boolean;
   path?: string;
   environment: string;
 }
@@ -184,6 +185,7 @@ export function SettingsCliConnectionsTab({
   const [isStarting9Router, setIsStarting9Router] = useState(false);
   const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
   const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
+  const [isOpeningAntigravityTerminal, setIsOpeningAntigravityTerminal] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState<Record<string, string>>({});
@@ -352,6 +354,31 @@ export function SettingsCliConnectionsTab({
       toast.error("Failed to start 9Router", { description: err.message });
     } finally {
       setIsStarting9Router(false);
+    }
+  };
+
+  const handleLaunchAntigravityTerminal = async () => {
+    setIsOpeningAntigravityTerminal(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "antigravity" }),
+      });
+      const json = await res.json();
+      if (json.data?.success) {
+        toast.info("Terminal Window Opened", {
+          description: "Google Antigravity CLI (agy) opened in a new terminal window.",
+        });
+      } else {
+        toast.error("Could not launch agy terminal", {
+          description: json.data?.message || "Please ensure 'agy' is installed and available in PATH.",
+        });
+      }
+    } catch (err: any) {
+      toast.error("Failed to launch Antigravity CLI", { description: err.message });
+    } finally {
+      setIsOpeningAntigravityTerminal(false);
     }
   };
 
@@ -1267,6 +1294,16 @@ export function SettingsCliConnectionsTab({
             >
               <Globe className="w-3 h-3" />
               App
+            </button>
+            <button
+              type="button"
+              onClick={handleLaunchAntigravityTerminal}
+              disabled={isOpeningAntigravityTerminal}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="Launch Google Antigravity CLI (agy) in terminal"
+            >
+              {isOpeningAntigravityTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
+              CLI
             </button>
             <button
               type="button"

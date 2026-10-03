@@ -25,6 +25,7 @@ export interface OpenCodeStatus {
 
 export interface AntigravityStatus {
   detected: boolean
+  cliInstalled?: boolean
   path?: string
   environment: string
 }
@@ -195,8 +196,16 @@ export function getOpenCodeGroqKey(): string | undefined {
 export function checkAntigravityStatus(): AntigravityStatus {
   const geminiDir = path.join(os.homedir(), ".gemini")
   const detected = fs.existsSync(geminiDir)
+  let cliInstalled = false
+  try {
+    const proc = crossSpawn.sync("agy", ["--version"])
+    if (proc.status === 0 || proc.stdout?.toString().trim()) {
+      cliInstalled = true
+    }
+  } catch {}
   return clean({
     detected,
+    cliInstalled,
     path: detected ? geminiDir : undefined,
     environment: "Google Antigravity IDE (Gemini Ecosystem)",
   })

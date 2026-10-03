@@ -477,6 +477,10 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = launchTerminalWithCommand("codex", "OpenAI Codex CLI (ChatGPT)")
           return { data: res }
         }
+        if (ctx.payload.target === "antigravity") {
+          const res = launchTerminalWithCommand("agy", "Google Antigravity CLI (agy)")
+          return { data: res }
+        }
         return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }
       },
     )
