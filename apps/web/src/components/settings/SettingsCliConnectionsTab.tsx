@@ -361,20 +361,20 @@ export function SettingsCliConnectionsTab({
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity" }),
+        body: JSON.stringify({ target: "gemini-cli" }),
       });
       const json = await res.json();
       if (json.data?.success) {
         toast.info("Terminal Window Opened", {
-          description: "Google Antigravity CLI (agy) opened in a new terminal window.",
+          description: "Google Gemini CLI (gemini) opened in a new terminal window.",
         });
       } else {
-        toast.error("Could not launch agy terminal", {
-          description: json.data?.message || "Please ensure 'agy' is installed and available in PATH.",
+        toast.error("Could not launch Gemini terminal", {
+          description: json.data?.message || "Please run 'gemini' manually in your terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch Antigravity CLI", { description: err.message });
+      toast.error("Failed to launch Gemini CLI", { description: err.message });
     } finally {
       setIsOpeningAntigravityTerminal(false);
     }
