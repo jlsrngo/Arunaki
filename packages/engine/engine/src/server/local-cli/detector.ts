@@ -197,6 +197,17 @@ export function getOpenCodeGroqKey(): string | undefined {
   return undefined
 }
 
+export function resolveAgyCommand(): string {
+  const local = process.env.LOCALAPPDATA
+  if (local) {
+    const exe = path.join(local, "agy", "bin", process.platform === "win32" ? "agy.exe" : "agy")
+    if (fs.existsSync(exe)) return exe
+  }
+  const unix = path.join(os.homedir(), ".local", "bin", "agy")
+  if (process.platform !== "win32" && fs.existsSync(unix)) return unix
+  return "agy"
+}
+
 export function checkAntigravityStatus(): AntigravityStatus {
   const geminiDir = path.join(os.homedir(), ".gemini")
   const detected = fs.existsSync(geminiDir)
@@ -206,7 +217,7 @@ export function checkAntigravityStatus(): AntigravityStatus {
   let geminiVersion: string | undefined = undefined
 
   try {
-    const proc = crossSpawn.sync("agy", ["--version"])
+    const proc = crossSpawn.sync(resolveAgyCommand(), ["--version"])
     if (proc.status === 0 || proc.stdout?.toString().trim()) {
       cliInstalled = true
       agyVersion = proc.stdout?.toString().trim().split("\n")[0]

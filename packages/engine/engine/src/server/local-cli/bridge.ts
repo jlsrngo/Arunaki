@@ -1,6 +1,6 @@
 import http from "node:http"
 import crossSpawn from "cross-spawn"
-import { checkClaudeStatus } from "./detector"
+import { checkClaudeStatus, resolveAgyCommand } from "./detector"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -206,9 +206,10 @@ class LocalCliBridge {
     // Gemini CLI individual OAuth is discontinued; agy headless print mode replaces it.
     if (isGemini) {
       const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${finalPrompt}` : finalPrompt
-      const child = crossSpawn("agy", ["-p", fullPrompt], {
+      const child = crossSpawn(resolveAgyCommand(), ["-p", fullPrompt], {
         stdio: ["ignore", "pipe", "pipe"],
       })
+      let responded = false
 
       let stdout = ""
       let stderr = ""
@@ -221,6 +222,8 @@ class LocalCliBridge {
       })
 
       child.on("close", (code) => {
+        if (responded || res.headersSent) return
+        responded = true
         const replyText = stdout.trim()
 
         if (!replyText || code !== 0) {
@@ -242,6 +245,8 @@ class LocalCliBridge {
       })
 
       child.on("error", (err: any) => {
+        if (responded || res.headersSent) return
+        responded = true
         if (err.code === "ENOENT") {
           res.writeHead(503, { "Content-Type": "application/json" })
           res.end(
