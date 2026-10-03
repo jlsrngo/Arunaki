@@ -42,14 +42,23 @@ const EDIT_FILE_TOOLS = new Set([
 ]);
 
 export function resolveActiveSingleModel(): { providerID: string; id: string } {
-  const p = localStorage.getItem("arunaki_active_provider") || "kenari";
+  let p = localStorage.getItem("arunaki_active_provider") || "kenari";
+
+  // Guard against unauthenticated gemini / antigravity
+  if (p === "gemini") {
+    const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
+    if (!geminiKey || geminiKey === "antigravity-active") {
+      p = "kenari";
+    }
+  }
+
   const specific =
     localStorage.getItem("arunaki_active_model") ||
     localStorage.getItem(`arunaki_provider_model_${p}`);
   if (specific && specific.trim()) {
     const trimmed = specific.trim();
     const firstModel = trimmed.includes(",") ? trimmed.split(",")[0].trim() : trimmed;
-    if (firstModel) {
+    if (firstModel && (p !== "kenari" || !firstModel.toLowerCase().includes("gemini"))) {
       return { providerID: p, id: firstModel };
     }
   }
@@ -59,14 +68,14 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    if (list.length > 0) {
+    if (list.length > 0 && (p !== "kenari" || !list[0].toLowerCase().includes("gemini"))) {
       localStorage.setItem("arunaki_active_model", list[0]);
       return { providerID: p, id: list[0] };
     }
   }
   return {
     providerID: p,
-    id: p === "kenari" ? "deepseek-v4-flash" : "default",
+    id: p === "kenari" ? "mimo-v2-5:free" : "default",
   };
 }
 

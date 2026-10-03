@@ -385,7 +385,7 @@ export function SettingsCliConnectionsTab({
       name: "Google Antigravity (Gemini)",
       type: "gemini",
       baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-      apiKey: "antigravity-active",
+      apiKey: localStorage.getItem("arunaki_gemini_api_key") || "",
     },
     nineRouter: {
       id: "9router",
@@ -404,6 +404,25 @@ export function SettingsCliConnectionsTab({
     const chosenModel = selectedModels[target] || PRESET_MODELS[target][0];
     const config = PROVIDER_CONFIGS[target];
     const activeId = config.id;
+
+    if (target === "antigravity") {
+      let geminiKey = localStorage.getItem("arunaki_gemini_api_key");
+      if (!geminiKey || geminiKey === "antigravity-active") {
+        const inputKey = window.prompt(
+          "Google Antigravity communicates with Gemini models via Google Gemini API. Please enter your Google Gemini / AI Studio API key (free at https://aistudio.google.com):"
+        );
+        if (!inputKey || !inputKey.trim()) {
+          toast.error("Google Gemini API Key Required", {
+            description: "Please provide a valid Gemini API key to connect Google Antigravity.",
+          });
+          setConnectingTarget(null);
+          return;
+        }
+        geminiKey = inputKey.trim();
+        localStorage.setItem("arunaki_gemini_api_key", geminiKey);
+      }
+      config.apiKey = geminiKey;
+    }
 
     try {
       // 1. Ensure provider exists / is updated in SQLite
@@ -517,10 +536,28 @@ export function SettingsCliConnectionsTab({
       let detail = "";
 
       if (target === "antigravity") {
-        isLive = !!local.antigravity?.detected;
-        detail = isLive
-          ? "Google Antigravity IDE detected & ready"
-          : "Google Antigravity environment not detected";
+        const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
+        if (geminiKey && geminiKey !== "antigravity-active") {
+          const testRes = await apiFetch(`${API_BASE}/providers/test`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+              apiKey: geminiKey,
+              model: selectedModels.antigravity || "gemini-2.0-flash",
+            }),
+          });
+          const testJson = await testRes.json().catch(() => ({}));
+          isLive = !!testJson.data?.success;
+          detail = isLive
+            ? "Google Gemini API connected & authenticated"
+            : (testJson.data?.error || "Gemini API rejected key");
+        } else {
+          isLive = !!local.antigravity?.detected;
+          detail = isLive
+            ? "Antigravity IDE detected (API key required to execute)"
+            : "Google Antigravity environment not detected";
+        }
       } else if (target === "claude") {
         isLive = !!local.claude?.installed && (!!local.claude?.loggedIn || !!local.bridgeRunning);
         detail = isLive
