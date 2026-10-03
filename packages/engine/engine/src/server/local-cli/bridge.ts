@@ -32,7 +32,11 @@ class LocalCliBridge {
           return
         }
 
-        const url = new URL(req.url ?? "/", `http://${req.headers.host}`)
+        if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/ping")) {
+          res.writeHead(200, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ status: "ok", bridge: "running", port: LOCAL_BRIDGE_PORT }))
+          return
+        }
 
         if (req.method === "GET" && (url.pathname === "/v1/models" || url.pathname === "/models")) {
           res.writeHead(200, { "Content-Type": "application/json" })
@@ -190,58 +194,168 @@ class LocalCliBridge {
     let systemPrompt = ""
     const conversationParts: string[] = []
 
+    const extractContent = (content: any): string => {
+      if (typeof content === "string") return content
+      if (Array.isArray(content)) {
+        return content
+          .map((part) => {
+            if (typeof part === "string") return part
+            if (part && typeof part.text === "string") return part.text
+            return ""
+          })
+          .filter(Boolean)
+          .join("\n")
+      }
+      if (content && typeof content.text === "string") return content.text
+      return typeof content === "object" ? JSON.stringify(content) : String(content ?? "")
+    }
+
     for (const msg of messages) {
+      const contentStr = extractContent(msg.content)
       if (msg.role === "system") {
-        systemPrompt += (systemPrompt ? "\n" : "") + (typeof msg.content === "string" ? msg.content : "")
+        systemPrompt += (systemPrompt ? "\n" : "") + contentStr
       } else if (msg.role === "user") {
-        conversationParts.push(`User: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
+        conversationParts.push(`User: ${contentStr}`)
       } else if (msg.role === "assistant") {
-        conversationParts.push(`Assistant: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
+        conversationParts.push(`Assistant: ${contentStr}`)
       }
     }
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
 
     // ── Google Antigravity CLI (agy) Handler ─────────────
-    // Gemini CLI individual OAuth is discontinued; agy headless print mode replaces it.
+    // Uses stdin streaming mode to bypass Windows 32,767 char CLI argument limit (ENAMETOOLONG).
     if (isGemini) {
       const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${finalPrompt}` : finalPrompt
-      const child = crossSpawn(resolveAgyCommand(), ["-p", fullPrompt], {
-        stdio: ["ignore", "pipe", "pipe"],
-      })
+      const child = crossSpawn(
+        resolveAgyCommand(),
+        ["--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions"],
+        {
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      )
       let responded = false
-
-      let stdout = ""
+      let stdoutBuffer = ""
       let stderr = ""
+      let finalResultText = ""
+      let usage: { input_tokens?: number; output_tokens?: number } | undefined
 
       child.stdout?.on("data", (chunk: Buffer) => {
-        stdout += chunk.toString()
+        stdoutBuffer += chunk.toString()
+        const lines = stdoutBuffer.split("\n")
+        stdoutBuffer = lines.pop() ?? ""
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const parsed = JSON.parse(trimmed)
+            if (parsed.event === "step_update" && parsed.step_update?.text_delta) {
+              if (payload.stream && !res.headersSent) {
+                res.writeHead(200, {
+                  "Content-Type": "text/event-stream",
+                  "Cache-Control": "no-cache",
+                  Connection: "keep-alive",
+                })
+              }
+              if (payload.stream && res.headersSent) {
+                const chunkObj = {
+                  id: `chatcmpl-antigravity-${Date.now()}`,
+                  object: "chat.completion.chunk",
+                  created: Math.floor(Date.now() / 1000),
+                  model: payload.model || "default",
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { content: parsed.step_update.text_delta },
+                      finish_reason: null,
+                    },
+                  ],
+                }
+                res.write(`data: ${JSON.stringify(chunkObj)}\n\n`)
+              }
+            } else if (parsed.event === "result") {
+              if (parsed.result?.status === "SUCCESS") {
+                finalResultText = parsed.result.response ?? ""
+                if (parsed.result.usage) {
+                  usage = {
+                    input_tokens: parsed.result.usage.input_tokens,
+                    output_tokens: parsed.result.usage.output_tokens,
+                  }
+                }
+              } else if (parsed.result?.status === "ERROR") {
+                stderr += (stderr ? "\n" : "") + (parsed.result.error || "Execution error")
+              }
+            }
+          } catch {}
+        }
       })
+
       child.stderr?.on("data", (chunk: Buffer) => {
         stderr += chunk.toString()
       })
 
       child.on("close", (code) => {
-        if (responded || res.headersSent) return
+        if (responded) return
         responded = true
-        const replyText = stdout.trim()
 
-        if (!replyText || code !== 0) {
-          res.writeHead(503, { "Content-Type": "application/json" })
-          res.end(
-            JSON.stringify({
-              error: {
-                message: `Antigravity CLI (agy) failed${code !== null ? ` (exit ${code})` : ""}: ${
-                  stderr.trim().slice(0, 300) || "no output. Run 'agy' once in a terminal to sign in."
-                }`,
-                type: "cli_execution_failed",
-              },
-            }),
-          )
+        if (stdoutBuffer.trim()) {
+          try {
+            const parsed = JSON.parse(stdoutBuffer.trim())
+            if (parsed.event === "result" && parsed.result?.status === "SUCCESS") {
+              finalResultText = parsed.result.response ?? ""
+              if (parsed.result.usage) {
+                usage = {
+                  input_tokens: parsed.result.usage.input_tokens,
+                  output_tokens: parsed.result.usage.output_tokens,
+                }
+              }
+            }
+          } catch {}
+        }
+
+        const replyText = finalResultText.trim()
+
+        if (!replyText || (code !== 0 && !replyText)) {
+          if (!res.headersSent) {
+            res.writeHead(503, { "Content-Type": "application/json" })
+            res.end(
+              JSON.stringify({
+                error: {
+                  message: `Antigravity CLI (agy) failed${code !== null ? ` (exit ${code})` : ""}: ${
+                    stderr.trim().slice(0, 300) || "no output. Run 'agy' once in a terminal to sign in."
+                  }`,
+                  type: "cli_execution_failed",
+                },
+              }),
+            )
+          } else {
+            res.end()
+          }
           return
         }
 
-        this.sendCompletionResponse(res, payload, replyText, "antigravity")
+        if (payload.stream && res.headersSent) {
+          const finishChunk = {
+            id: `chatcmpl-antigravity-${Date.now()}`,
+            object: "chat.completion.chunk",
+            created: Math.floor(Date.now() / 1000),
+            model: payload.model || "default",
+            choices: [
+              {
+                index: 0,
+                delta: {},
+                finish_reason: "stop",
+              },
+            ],
+          }
+          res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
+          res.write("data: [DONE]\n\n")
+          res.end()
+          return
+        }
+
+        this.sendCompletionResponse(res, payload, replyText, "antigravity", usage)
       })
 
       child.on("error", (err: any) => {
@@ -262,6 +376,17 @@ class LocalCliBridge {
           res.writeHead(500, { "Content-Type": "application/json" })
           res.end(JSON.stringify({ error: { message: `Antigravity CLI process error: ${err.message}` } }))
         }
+      })
+
+      // Pipe prompt cleanly via stdin
+      const streamPayload = {
+        event: "user",
+        message: {
+          content: fullPrompt,
+        },
+      }
+      child.stdin?.write(JSON.stringify(streamPayload) + "\n", () => {
+        child.stdin?.end()
       })
       return
     }

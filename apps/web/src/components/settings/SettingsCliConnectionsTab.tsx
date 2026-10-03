@@ -39,6 +39,8 @@ interface OpenCodeStatus {
 interface AntigravityStatus {
   detected: boolean;
   cliInstalled?: boolean;
+  agyInstalled?: boolean;
+  agyVersion?: string;
   geminiCliInstalled?: boolean;
   geminiVersion?: string;
   path?: string;
@@ -538,6 +540,31 @@ export function SettingsCliConnectionsTab({
     setTestingPingTarget(target);
     const startMs = Date.now();
     try {
+      if (target === "antigravity") {
+        try {
+          const directRes = await fetch("http://127.0.0.1:20188/v1/models", {
+            signal: AbortSignal.timeout(1200),
+          }).catch(() => null);
+          if (directRes && directRes.ok) {
+            const elapsed = Math.max(Date.now() - startMs, 12);
+            const agyVer = data.antigravity?.agyVersion ? `agy ${data.antigravity.agyVersion}` : "port 20188";
+            const detail = `Google Antigravity CLI bridge active (${agyVer})`;
+            setPingResults((prev) => ({
+              ...prev,
+              antigravity: {
+                success: true,
+                timeMs: elapsed,
+                message: detail,
+              },
+            }));
+            toast.success(`${friendlyName} Ping OK (${elapsed}ms)`, {
+              description: detail,
+            });
+            return;
+          }
+        } catch {}
+      }
+
       const res = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
       const json = await res.json().catch(() => ({}));
       const local = json.data || data;

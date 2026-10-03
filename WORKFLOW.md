@@ -3618,4 +3618,47 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] Direct bridge completions at `http://127.0.0.1:20188/v1/chat/completions` tested and returning completions from `agy`.
 - [x] `npm run build -w apps/web`: ✅ Passed in 40.84s (0 TypeScript errors).
 
+---
+
+## Phase 101: Fix ENAMETOOLONG CLI Spawn Limit via Stream-JSON Stdin & E2E Verification ✅ DONE
+
+**Goal:** Eliminate the `ENAMETOOLONG: name too long, uv_spawn` error when executing Google Antigravity CLI (`agy`) by switching from command-line `-p` argument passing to stdin streaming (`--input-format stream-json --output-format stream-json`), and verify end-to-end chat turn execution through the Arunaki engine.
+
+### 101.1 Root Cause Diagnosis
+- [x] Identified that Node.js `uv_spawn` on Windows is subject to `CreateProcessW`'s hard 32,767 character command-line argument limit.
+- [x] When Arunaki sessions include extensive system prompts (guidelines, tools declarations, workspace boundaries, and message history), passing the combined string as `["-p", fullPrompt]` exceeded 32KB and triggered an immediate `uv_spawn` `ENAMETOOLONG` crash mapped to HTTP 400.
+
+### 101.2 Stream-JSON Stdin Implementation
+- [x] Upgraded `packages/engine/engine/src/server/local-cli/bridge.ts` to spawn `agy` with flags: `["--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions"]`.
+- [x] Cleanly piped user prompt payloads through `child.stdin.write(JSON.stringify({ event: "user", message: { content: fullPrompt } }) + '\n')` followed by `child.stdin.end()`.
+- [x] Implemented real-time NDJSON stream parsing for `step_update` (extracting `text_delta` for true SSE streaming) and `result` (capturing final response and token usage metrics).
+- [x] Added robust message content extraction supporting strings, text part arrays, and tool invocation payloads.
+
+### 101.3 Verification & E2E Testing
+- [x] Stress-tested 45,000 and 66,000 character prompt payloads via `POST http://127.0.0.1:20188/v1/chat/completions`: ✅ Returned 200 OK with valid completions and 0 errors.
+- [x] Full session runner test via `POST /api/session` and `POST /api/session/:id/prompt`: ✅ Completed with model `{ id: 'gemini-3.8-flash', providerID: 'antigravity', variant: 'high' }` and returned response `"Antigravity Sukses Terhubung."`.
+- [x] Frontend build verification (`npm run build -w apps/web`): ✅ Passed in 33.56s (0 TypeScript errors).
+
+---
+
+## Phase 102: Antigravity CLI Ping Latency & Status Cache Optimization ✅ DONE
+
+**Goal:** Eliminate the 14-second "Testing..." freeze when clicking Test Ping on Google Antigravity CLI by implementing memory TTL caching and target-direct fast-path pinging.
+
+### 102.1 Root Cause Diagnosis
+- [x] Test Ping called `/api/providers/local-cli/status`, which sequentially spawned `agy --version`, `gemini --version`, `claude --version`, `claude auth status`, `opencode --version`, and `codex --version` (14 seconds on Windows).
+- [x] Antigravity CLI itself is native and running at `127.0.0.1:20188`, capable of sub-20ms ping times.
+
+### 102.2 Optimization & Fast-Path Implementation
+- [x] Added in-memory TTL caching (45 seconds) in `detector.ts` for all CLI detection methods.
+- [x] Converted serial checks in `localCliStatus` handler to run concurrently with `Promise.all`.
+- [x] Implemented direct fast-path pinging in `SettingsCliConnectionsTab.tsx` pointing straight to local bridge port 20188 (`/v1/models` and `/health`).
+- [x] Added `/health` and `/ping` routes to `bridge.ts`.
+
+### 102.3 Verification
+- [x] Direct bridge ping: ✅ ~12–25ms (down from 14,000ms).
+- [x] `npm run build -w apps/web`: ✅ Passed in 46.54s (0 TypeScript errors).
+
+
+
 

@@ -69,8 +69,26 @@ function clean<T extends Record<string, any>>(obj: T): T {
   return res
 }
 
-export async function checkClaudeStatus(): Promise<ClaudeStatus> {
+const statusCache = new Map<string, { data: any; expires: number }>()
+
+function getCached<T>(key: string): T | undefined {
+  const item = statusCache.get(key)
+  if (item && Date.now() < item.expires) return item.data as T
+  return undefined
+}
+
+function setCached<T>(key: string, data: T, ttlMs = 45000): T {
+  statusCache.set(key, { data, expires: Date.now() + ttlMs })
+  return data
+}
+
+export async function checkClaudeStatus(forceRefresh = false): Promise<ClaudeStatus> {
+  if (!forceRefresh) {
+    const cached = getCached<ClaudeStatus>("claude")
+    if (cached) return cached
+  }
   return new Promise((resolve) => {
+    const resolveWithCache = (val: ClaudeStatus) => resolve(setCached("claude", val))
     try {
       // 1. Run claude --version to verify binary presence
       const verProc = crossSpawn("claude", ["--version"], {
@@ -80,12 +98,12 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
       verProc.stdout?.on("data", (d: Buffer) => (verOut += d.toString()))
 
       verProc.on("error", () => {
-        resolve({ installed: false, loggedIn: false })
+        resolveWithCache({ installed: false, loggedIn: false })
       })
 
       verProc.on("close", (verCode) => {
         if (verCode !== 0 && !verOut) {
-          return resolve({ installed: false, loggedIn: false })
+          return resolveWithCache({ installed: false, loggedIn: false })
         }
 
         const version = verOut.trim().split("\n")[0] || undefined
@@ -101,7 +119,7 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
         authProc.on("close", () => {
           try {
             const parsed = JSON.parse(authOut.trim())
-            resolve(clean({
+            resolveWithCache(clean({
               installed: true,
               version,
               loggedIn: Boolean(parsed.loggedIn),
@@ -111,7 +129,7 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
             }))
           } catch {
             const isLogged = authOut.includes('"loggedIn": true') || authOut.includes('"loggedIn":true')
-            resolve(clean({
+            resolveWithCache(clean({
               installed: true,
               version,
               loggedIn: isLogged,
@@ -121,17 +139,22 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
         })
 
         authProc.on("error", () => {
-          resolve(clean({ installed: true, version, loggedIn: false }))
+          resolveWithCache(clean({ installed: true, version, loggedIn: false }))
         })
       })
     } catch (err: any) {
-      resolve(clean({ installed: false, loggedIn: false, error: err?.message }))
+      resolveWithCache(clean({ installed: false, loggedIn: false, error: err?.message }))
     }
   })
 }
 
-export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
+export async function checkOpenCodeStatus(forceRefresh = false): Promise<OpenCodeStatus> {
+  if (!forceRefresh) {
+    const cached = getCached<OpenCodeStatus>("opencode")
+    if (cached) return cached
+  }
   return new Promise((resolve) => {
+    const resolveWithCache = (val: OpenCodeStatus) => resolve(setCached("opencode", val))
     try {
       const verProc = crossSpawn("opencode", ["--version"], {
         stdio: ["ignore", "pipe", "pipe"],
@@ -140,7 +163,7 @@ export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
       verProc.stdout?.on("data", (d: Buffer) => (verOut += d.toString()))
 
       verProc.on("error", () => {
-        resolve({ installed: false, authenticatedProviders: [], hasGroq: false, has9Router: false })
+        resolveWithCache({ installed: false, authenticatedProviders: [], hasGroq: false, has9Router: false })
       })
 
       verProc.on("close", (verCode) => {
@@ -164,7 +187,7 @@ export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
           }
         }
 
-        resolve(clean({
+        resolveWithCache(clean({
           installed,
           version,
           authenticatedProviders,
@@ -173,7 +196,7 @@ export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
         }))
       })
     } catch (err: any) {
-      resolve(clean({
+      resolveWithCache(clean({
         installed: false,
         authenticatedProviders: [],
         hasGroq: false,
@@ -208,7 +231,11 @@ export function resolveAgyCommand(): string {
   return "agy"
 }
 
-export function checkAntigravityStatus(): AntigravityStatus {
+export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus {
+  if (!forceRefresh) {
+    const cached = getCached<AntigravityStatus>("antigravity")
+    if (cached) return cached
+  }
   const geminiDir = path.join(os.homedir(), ".gemini")
   const detected = fs.existsSync(geminiDir)
   let cliInstalled = false
@@ -232,7 +259,7 @@ export function checkAntigravityStatus(): AntigravityStatus {
     }
   } catch {}
 
-  return clean({
+  return setCached("antigravity", clean({
     detected: detected || cliInstalled || geminiCliInstalled,
     cliInstalled,
     agyInstalled: cliInstalled,

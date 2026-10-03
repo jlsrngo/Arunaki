@@ -436,12 +436,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     )
 
     const localCliStatus = Effect.fn("ProviderSettings.localCliStatus")(function* () {
-      const claude = yield* Effect.promise(() => checkClaudeStatus())
-      const opencode = yield* Effect.promise(() => checkOpenCodeStatus())
-      const opencodeRunning = yield* Effect.promise(() => checkOpenCodeServerRunning(4097))
+      const [claude, opencode, opencodeRunning, nineRouter, codex] = yield* Effect.promise(() =>
+        Promise.all([
+          checkClaudeStatus(),
+          checkOpenCodeStatus(),
+          checkOpenCodeServerRunning(4097),
+          checkNineRouterStatus(),
+          checkCodexStatus(),
+        ]),
+      )
       const antigravity = checkAntigravityStatus()
-      const nineRouter = yield* Effect.promise(() => checkNineRouterStatus())
-      const codex = yield* Effect.promise(() => checkCodexStatus())
       return {
         data: {
           claude,
