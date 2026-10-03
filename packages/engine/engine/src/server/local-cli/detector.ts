@@ -272,7 +272,7 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
       : geminiCliInstalled
       ? "Google Gemini CLI (@google/gemini-cli)"
       : "Google Antigravity IDE (Gemini Ecosystem)",
-  })
+  }))
 }
 
 let opencodeProcess: any = null
