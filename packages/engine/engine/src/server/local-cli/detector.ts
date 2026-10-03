@@ -223,7 +223,7 @@ export function checkAntigravityStatus(): AntigravityStatus {
 
   return clean({
     detected: detected || cliInstalled || geminiCliInstalled,
-    cliInstalled: cliInstalled || geminiCliInstalled,
+    cliInstalled,
     agyInstalled: cliInstalled,
     agyVersion,
     geminiCliInstalled,

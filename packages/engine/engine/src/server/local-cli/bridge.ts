@@ -202,9 +202,11 @@ class LocalCliBridge {
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
 
-    // ── Google Gemini CLI Handler ────────────────────────
+    // ── Google Antigravity CLI (agy) Handler ─────────────
+    // Gemini CLI individual OAuth is discontinued; agy headless print mode replaces it.
     if (isGemini) {
-      const child = crossSpawn("gemini", ["-p", finalPrompt], {
+      const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${finalPrompt}` : finalPrompt
+      const child = crossSpawn("agy", ["-p", fullPrompt], {
         stdio: ["ignore", "pipe", "pipe"],
       })
 
@@ -219,15 +221,16 @@ class LocalCliBridge {
       })
 
       child.on("close", (code) => {
-        const replyText = stdout.trim() || stderr.trim()
+        const replyText = stdout.trim()
 
-        if (!replyText && code !== 0) {
+        if (!replyText || code !== 0) {
           res.writeHead(503, { "Content-Type": "application/json" })
           res.end(
             JSON.stringify({
               error: {
-                message:
-                  "Google Gemini CLI failed to execute. Run 'gemini' in terminal to Login with Google.",
+                message: `Antigravity CLI (agy) failed${code !== null ? ` (exit ${code})` : ""}: ${
+                  stderr.trim().slice(0, 300) || "no output. Run 'agy' once in a terminal to sign in."
+                }`,
                 type: "cli_execution_failed",
               },
             }),
@@ -235,7 +238,7 @@ class LocalCliBridge {
           return
         }
 
-        this.sendCompletionResponse(res, payload, replyText, "gemini-cli")
+        this.sendCompletionResponse(res, payload, replyText, "antigravity")
       })
 
       child.on("error", (err: any) => {
@@ -245,14 +248,14 @@ class LocalCliBridge {
             JSON.stringify({
               error: {
                 message:
-                  "Google Gemini CLI is not installed on this system. Run: npm install -g @google/gemini-cli and run 'gemini' to Login with Google.",
+                  "Antigravity CLI (agy) is not installed. Install: irm https://antigravity.google/cli/install.ps1 | iex — then run 'agy' once to sign in.",
                 type: "cli_not_installed",
               },
             }),
           )
         } else {
           res.writeHead(500, { "Content-Type": "application/json" })
-          res.end(JSON.stringify({ error: { message: `Gemini CLI process error: ${err.message}` } }))
+          res.end(JSON.stringify({ error: { message: `Antigravity CLI process error: ${err.message}` } }))
         }
       })
       return

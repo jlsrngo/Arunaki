@@ -3577,9 +3577,9 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 **Goal:** Formally register the official Google Antigravity CLI (`agy`) as a primary local AI provider in Arunaki following Google's sunset of individual Gemini Code Assist OAuth, enabling zero-token-fee subscription reuse directly from the Antigravity IDE environment.
 
 ### 99.1 Global Shim & Process Registration
-- [x] Located Antigravity IDE CLI binary: `C:\Users\AMD\AppData\Local\Programs\Antigravity IDE\bin\antigravity-ide.cmd`.
-- [x] Created global npm wrapper `C:\Users\AMD\AppData\Roaming\npm\agy.cmd` forwarding to `antigravity-ide.cmd %*`.
-- [x] Verified `agy --version` outputs: `1.107.0 (ecfbad74d93962fc8ca485d93ab9b4f3d4cb6cf8 x64)`.
+- [x] (Corrected) Earlier `agy.cmd` shim to `antigravity-ide.cmd` was wrong (only opens IDE chat) and was removed.
+- [x] Installed real Antigravity CLI via `irm https://antigravity.google/cli/install.ps1 | iex` → `%LOCALAPPDATA%\agy\bin\agy.exe` (v1.2.16); one-time Google sign-in required.
+- [x] `bridge.ts` routes Google models through `agy -p <prompt>`; verified `agy -p "halo"` replies.
 
 ### 99.2 Backend Engine Detection & Provider Handlers
 - [x] Extended `packages/engine/engine/src/server/local-cli/detector.ts` with `agy` detection, version parsing, and status reporting (`Google Antigravity CLI (agy 1.107.0)`).
