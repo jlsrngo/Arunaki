@@ -10,13 +10,13 @@ import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
 
 export type { Provider };
 
-const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router"];
+const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router", "gemini-cli", "antigravity"];
 
 export const isCliProvider = (p: Provider): boolean => {
   if (CLI_PROVIDER_IDS.includes(p.id)) return true;
   if (
-    p.id === "gemini" &&
-    (p.apiKey === "antigravity-active" || p.name?.toLowerCase().includes("antigravity"))
+    (p.id === "gemini" || p.id === "gemini-cli") &&
+    (p.apiKey === "antigravity-active" || p.apiKey === "gemini-local-session" || p.name?.toLowerCase().includes("antigravity") || p.name?.toLowerCase().includes("gemini cli"))
   ) {
     return true;
   }

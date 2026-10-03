@@ -3548,7 +3548,24 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `npm run build -w apps/web`: ✅ Passed in 36.99s (0 TypeScript errors).
 - [x] Local CLI detection verified: detected Claude Code v2.1.202 on system.
 
+---
 
+## Phase 98: Standard Local CLI Subscription Parity (Sokudo & Gemini CLI Standard) ✅ DONE
 
+**Goal:** Adopt standard industry practices (parity with Sokudo IDE and Claude Code local bridges) so Arunaki reuses flat monthly CLI subscriptions (Claude Pro/Max, Google Gemini Account OAuth, OpenCode, 9Router) without requiring paid API keys or per-token billing.
 
+### 98.1 Bridge & Engine Enhancements
+- [x] Extended `LocalCliBridge` daemon (`packages/engine/engine/src/server/local-cli/bridge.ts` on port 20188) to execute `@google/gemini-cli` subprocesses (`gemini -p <prompt>`) alongside `claude`.
+- [x] Implemented SSE streaming support (`text/event-stream`) in `LocalCliBridge` for seamless chat streaming.
+- [x] Enhanced `packages/engine/engine/src/server/local-cli/detector.ts` with `@google/gemini-cli` detection.
+- [x] Updated `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts` to connect `gemini-cli` directly to the local subscription bridge daemon instead of raw Google Cloud API keys.
 
+### 98.2 Frontend Settings UI Refinement
+- [x] Removed API key prompts from CLI Connections tab in `apps/web/src/components/settings/SettingsCliConnectionsTab.tsx`.
+- [x] Updated Google Gemini row to "Google Gemini CLI" (`@google/gemini-cli`) with local subscription badge, docs link, and 1-click terminal launcher for Google OAuth browser login.
+- [x] Updated `isCliProvider` in `ModelProviderSettings.tsx` to keep CLI tools distinct from cloud API catalog.
+- [x] Ensured `useWorkstationChat.ts` resolves `gemini-cli` to local subscription bridge daemon.
+
+### 98.3 Verification
+- [x] `npm run build -w apps/web`: ✅ Passed in 36.90s (0 TypeScript errors).
+- [x] Confirmed zero regressions across workstation chat, provider switching, and settings tabs.

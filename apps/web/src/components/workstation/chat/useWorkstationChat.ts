@@ -44,11 +44,11 @@ const EDIT_FILE_TOOLS = new Set([
 export function resolveActiveSingleModel(): { providerID: string; id: string } {
   let p = localStorage.getItem("arunaki_active_provider") || "kenari";
 
-  // Guard against unauthenticated gemini / antigravity
+  // Migrate legacy raw gemini to gemini-cli local bridge if no cloud API key
   if (p === "gemini") {
     const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
     if (!geminiKey || geminiKey === "antigravity-active") {
-      p = "kenari";
+      p = "gemini-cli";
     }
   }
 

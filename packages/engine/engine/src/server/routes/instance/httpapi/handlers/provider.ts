@@ -477,8 +477,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = launchTerminalWithCommand("codex", "OpenAI Codex CLI (ChatGPT)")
           return { data: res }
         }
-        if (ctx.payload.target === "antigravity") {
-          const res = launchTerminalWithCommand("agy", "Google Antigravity CLI (agy)")
+        if (ctx.payload.target === "antigravity" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
+          const res = launchTerminalWithCommand("gemini", "Google Gemini CLI")
           return { data: res }
         }
         return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }
@@ -536,13 +536,13 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             model: ctx.payload.model || "claude-3-5-sonnet, deepseek-r1",
           })
         }
-        if (ctx.payload.target === "antigravity") {
-          return yield* upsert("gemini", {
-            name: "Google Antigravity (Gemini)",
-            type: "gemini",
-            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-            apiKey: "antigravity-active",
-            model: ctx.payload.model || "gemini-2.5-flash, gemini-2.5-pro",
+        if (ctx.payload.target === "antigravity" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
+          return yield* upsert("gemini-cli", {
+            name: "Google Gemini CLI (Local Subscription)",
+            type: "openai-compatible",
+            baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
+            apiKey: "gemini-local-session",
+            model: ctx.payload.model || "gemini-2.5-flash, gemini-2.5-pro, gemini-1.5-flash",
           })
         }
         if (ctx.payload.target === "codex") {

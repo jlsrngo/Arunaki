@@ -43,6 +43,10 @@ class LocalCliBridge {
                 { id: "claude-3-7-sonnet", object: "model", owned_by: "claude-cli" },
                 { id: "claude-3-5-sonnet", object: "model", owned_by: "claude-cli" },
                 { id: "claude-3-5-haiku", object: "model", owned_by: "claude-cli" },
+                { id: "gemini-2.5-flash", object: "model", owned_by: "gemini-cli" },
+                { id: "gemini-2.5-pro", object: "model", owned_by: "gemini-cli" },
+                { id: "gemini-1.5-flash", object: "model", owned_by: "gemini-cli" },
+                { id: "gemini-1.5-pro", object: "model", owned_by: "gemini-cli" },
               ],
             }),
           )
@@ -106,7 +110,155 @@ class LocalCliBridge {
     })
   }
 
+  private sendCompletionResponse(
+    res: http.ServerResponse,
+    payload: any,
+    replyText: string,
+    prefix = "cli",
+    usage?: { input_tokens?: number; output_tokens?: number }
+  ) {
+    if (payload.stream) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      })
+      const chunk = {
+        id: `chatcmpl-${prefix}-${Date.now()}`,
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model: payload.model || "default",
+        choices: [
+          {
+            index: 0,
+            delta: { content: replyText },
+            finish_reason: null,
+          },
+        ],
+      }
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
+      const finishChunk = {
+        id: `chatcmpl-${prefix}-${Date.now()}`,
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model: payload.model || "default",
+        choices: [
+          {
+            index: 0,
+            delta: {},
+            finish_reason: "stop",
+          },
+        ],
+      }
+      res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
+      res.write("data: [DONE]\n\n")
+      res.end()
+      return
+    }
+
+    const completion = {
+      id: `chatcmpl-${prefix}-${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: payload.model || "default",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: replyText,
+          },
+          finish_reason: "stop",
+        },
+      ],
+      usage: {
+        prompt_tokens: usage?.input_tokens ?? 15,
+        completion_tokens: usage?.output_tokens ?? 25,
+        total_tokens: (usage?.input_tokens ?? 15) + (usage?.output_tokens ?? 25),
+      },
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" })
+    res.end(JSON.stringify(completion))
+  }
+
   private async handleChatCompletion(payload: any, res: http.ServerResponse) {
+    const requestedModel = (payload.model || "").toLowerCase()
+    const isGemini = requestedModel.includes("gemini")
+
+    const messages = payload.messages ?? []
+    let systemPrompt = ""
+    const conversationParts: string[] = []
+
+    for (const msg of messages) {
+      if (msg.role === "system") {
+        systemPrompt += (systemPrompt ? "\n" : "") + (typeof msg.content === "string" ? msg.content : "")
+      } else if (msg.role === "user") {
+        conversationParts.push(`User: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
+      } else if (msg.role === "assistant") {
+        conversationParts.push(`Assistant: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
+      }
+    }
+
+    const finalPrompt = conversationParts.join("\n\n") || "Hello"
+
+    // ── Google Gemini CLI Handler ────────────────────────
+    if (isGemini) {
+      const child = crossSpawn("gemini", ["-p", finalPrompt], {
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+
+      let stdout = ""
+      let stderr = ""
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString()
+      })
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString()
+      })
+
+      child.on("close", (code) => {
+        const replyText = stdout.trim() || stderr.trim()
+
+        if (!replyText && code !== 0) {
+          res.writeHead(503, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: {
+                message:
+                  "Google Gemini CLI failed to execute. Run 'gemini' in terminal to Login with Google.",
+                type: "cli_execution_failed",
+              },
+            }),
+          )
+          return
+        }
+
+        this.sendCompletionResponse(res, payload, replyText, "gemini-cli")
+      })
+
+      child.on("error", (err: any) => {
+        if (err.code === "ENOENT") {
+          res.writeHead(503, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: {
+                message:
+                  "Google Gemini CLI is not installed on this system. Run: npm install -g @google/gemini-cli and run 'gemini' to Login with Google.",
+                type: "cli_not_installed",
+              },
+            }),
+          )
+        } else {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: { message: `Gemini CLI process error: ${err.message}` } }))
+        }
+      })
+      return
+    }
+
+    // ── Claude Code CLI Handler ──────────────────────────
     const status = await checkClaudeStatus()
     if (!status.installed) {
       res.writeHead(503, { "Content-Type": "application/json" })
@@ -135,21 +287,6 @@ class LocalCliBridge {
       return
     }
 
-    const messages = payload.messages ?? []
-    let systemPrompt = ""
-    const conversationParts: string[] = []
-
-    for (const msg of messages) {
-      if (msg.role === "system") {
-        systemPrompt += (systemPrompt ? "\n" : "") + (typeof msg.content === "string" ? msg.content : "")
-      } else if (msg.role === "user") {
-        conversationParts.push(`User: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
-      } else if (msg.role === "assistant") {
-        conversationParts.push(`Assistant: ${typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}`)
-      }
-    }
-
-    const finalPrompt = conversationParts.join("\n\n") || "Hello"
     const args = ["-p", finalPrompt, "--output-format", "json"]
 
     if (systemPrompt) {
@@ -188,50 +325,13 @@ class LocalCliBridge {
           return
         }
 
-        const completion = {
-          id: `chatcmpl-claude-${Date.now()}`,
-          object: "chat.completion",
-          created: Math.floor(Date.now() / 1000),
-          model: payload.model ?? "claude-3-7-sonnet",
-          choices: [
-            {
-              index: 0,
-              message: {
-                role: "assistant",
-                content: replyText,
-              },
-              finish_reason: "stop",
-            },
-          ],
-          usage: {
-            prompt_tokens: json.usage?.input_tokens ?? 10,
-            completion_tokens: json.usage?.output_tokens ?? 20,
-            total_tokens: (json.usage?.input_tokens ?? 10) + (json.usage?.output_tokens ?? 20),
-          },
-        }
-
-        res.writeHead(200, { "Content-Type": "application/json" })
-        res.end(JSON.stringify(completion))
+        this.sendCompletionResponse(res, payload, replyText, "claude", {
+          input_tokens: json.usage?.input_tokens,
+          output_tokens: json.usage?.output_tokens,
+        })
       } catch {
-        res.writeHead(200, { "Content-Type": "application/json" })
-        res.end(
-          JSON.stringify({
-            id: `chatcmpl-claude-${Date.now()}`,
-            object: "chat.completion",
-            created: Math.floor(Date.now() / 1000),
-            model: payload.model ?? "claude-3-7-sonnet",
-            choices: [
-              {
-                index: 0,
-                message: {
-                  role: "assistant",
-                  content: stdout.trim() || stderr.trim() || "No response received from Claude CLI.",
-                },
-                finish_reason: "stop",
-              },
-            ],
-          }),
-        )
+        const replyText = stdout.trim() || stderr.trim() || "No response received from Claude CLI."
+        this.sendCompletionResponse(res, payload, replyText, "claude")
       }
     })
 

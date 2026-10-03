@@ -26,6 +26,8 @@ export interface OpenCodeStatus {
 export interface AntigravityStatus {
   detected: boolean
   cliInstalled?: boolean
+  geminiCliInstalled?: boolean
+  geminiVersion?: string
   path?: string
   environment: string
 }
@@ -197,17 +199,33 @@ export function checkAntigravityStatus(): AntigravityStatus {
   const geminiDir = path.join(os.homedir(), ".gemini")
   const detected = fs.existsSync(geminiDir)
   let cliInstalled = false
+  let geminiCliInstalled = false
+  let geminiVersion: string | undefined = undefined
+
+  try {
+    const geminiProc = crossSpawn.sync("gemini", ["--version"])
+    if (geminiProc.status === 0 || geminiProc.stdout?.toString().trim()) {
+      geminiCliInstalled = true
+      geminiVersion = geminiProc.stdout?.toString().trim().split("\n")[0]
+    }
+  } catch {}
+
   try {
     const proc = crossSpawn.sync("agy", ["--version"])
     if (proc.status === 0 || proc.stdout?.toString().trim()) {
       cliInstalled = true
     }
   } catch {}
+
   return clean({
-    detected,
-    cliInstalled,
+    detected: detected || geminiCliInstalled,
+    cliInstalled: cliInstalled || geminiCliInstalled,
+    geminiCliInstalled,
+    geminiVersion,
     path: detected ? geminiDir : undefined,
-    environment: "Google Antigravity IDE (Gemini Ecosystem)",
+    environment: geminiCliInstalled
+      ? "Google Gemini CLI (@google/gemini-cli)"
+      : "Google Antigravity IDE (Gemini Ecosystem)",
   })
 }
 
@@ -353,12 +371,14 @@ export function launchClaudeLoginTerminal(): { success: boolean; message: string
 }
 
 export async function getCliSupportedModels(target: string): Promise<string[]> {
-  if (target === "antigravity") {
+  if (target === "antigravity" || target === "gemini" || target === "gemini-cli") {
     return [
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
       "gemini-3.8-flash",
       "gemini-3.7-flash",
-      "gemini-3.6-flash",
-      "gemini-3.1-pro",
       "claude-sonnet-4.6",
       "claude-opus-4.6",
       "gpt-oss-120b",
