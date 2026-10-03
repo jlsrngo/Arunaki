@@ -131,10 +131,10 @@ export function ProviderCard({
                     "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 font-mono cursor-pointer transition-all hover:scale-105",
                     result.success
                       ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-                      : "bg-red-500/10 text-red-400 border-red-500/20"
+                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
                   )}
                 >
-                  <span className={cn("w-1.5 h-1.5 rounded-full", result.success ? "bg-[var(--text-primary)]" : "bg-red-400")} />
+                  <span className={cn("w-1.5 h-1.5 rounded-full", result.success ? "bg-white" : "bg-zinc-500")} />
                   <span>{result.success ? `${t("connected")} (${result.timeMs}ms)` : `${t("failed")}: ${formatToastError(result.error) || result.status}`}</span>
                   <Info className="w-2.5 h-2.5 text-[var(--text-muted)]" />
                 </button>

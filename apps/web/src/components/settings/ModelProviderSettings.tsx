@@ -532,7 +532,7 @@ export function ModelProviderSettings({
         return (
           <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5">
-              <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
+              <Terminal className="w-4 h-4 text-zinc-200 shrink-0" />
               <div>
                 <span className="font-semibold text-white">Rute Obrolan Dialihkan ke CLI:</span>{" "}
                 <span className="text-zinc-200 font-mono font-medium">
