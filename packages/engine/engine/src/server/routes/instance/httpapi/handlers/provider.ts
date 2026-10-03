@@ -465,16 +465,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = launchClaudeLoginTerminal()
           return { data: res }
         }
-        if (ctx.payload.target === "opencode" || ctx.payload.target === "opencode-server") {
-          const res = launchOpenCodeServer(4097)
-          return { data: { success: res.success, message: res.message } }
-        }
-        if (ctx.payload.target === "opencode-terminal") {
+        if (ctx.payload.target === "opencode" || ctx.payload.target === "opencode-terminal" || ctx.payload.target === "opencode-server") {
           const res = launchTerminalWithCommand("opencode", "OpenCode Interactive Terminal")
           return { data: res }
         }
         if (ctx.payload.target === "9router") {
           const res = launchTerminalWithCommand("9router start", "9Router Local Gateway")
+          return { data: res }
+        }
+        if (ctx.payload.target === "codex") {
+          const res = launchTerminalWithCommand("codex", "OpenAI Codex CLI (ChatGPT)")
           return { data: res }
         }
         return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }

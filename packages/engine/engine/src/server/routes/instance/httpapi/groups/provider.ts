@@ -146,7 +146,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server", "opencode-terminal", "9router"),
+  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"),
 })
 
 export const LocalCliLoginResult = Schema.Struct({

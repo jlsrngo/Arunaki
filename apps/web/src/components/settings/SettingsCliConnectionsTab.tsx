@@ -3,19 +3,16 @@ import {
   Terminal,
   Copy,
   Check,
-  ExternalLink,
-  Zap,
   Wifi,
   Loader2,
   X,
+  RefreshCw,
+  Info,
+  SlidersHorizontal,
+  ExternalLink,
   Layers,
   Globe,
   Radio,
-  Play,
-  Bot,
-  SlidersHorizontal,
-  RefreshCw,
-  Info,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -143,8 +140,8 @@ export function SettingsCliConnectionsTab({
     },
     codex: {
       installed: false,
-      isCloudOnly: true,
-      message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o). Not installed as a local CLI binary.",
+      isCloudOnly: false,
+      message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
     },
     bridgePort: 20188,
     bridgeRunning: true,
@@ -152,9 +149,9 @@ export function SettingsCliConnectionsTab({
 
   const [loading, setLoading] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isStartingOpenCodeServer, setIsStartingOpenCodeServer] = useState(false);
   const [isStarting9Router, setIsStarting9Router] = useState(false);
   const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
+  const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
@@ -359,16 +356,67 @@ export function SettingsCliConnectionsTab({
         </div>
 
         <div className="flex items-center gap-2">
-          {id === "opencode" && (
+          {id === "claude" && (
             <div className="flex items-center gap-1 font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[10px] text-[var(--text-muted)]">
-              <span>opencode serve --port 4097</span>
+              <span>claude</span>
               <button
                 type="button"
-                onClick={() => handleCopy("opencode serve --port 4097")}
+                onClick={() => handleCopy("claude")}
                 className="hover:text-[var(--text-primary)] cursor-pointer p-0.5"
-                title="Copy start command"
+                title="Copy command"
               >
-                {copiedCmd === "opencode serve --port 4097" ? (
+                {copiedCmd === "claude" ? (
+                  <Check className="w-2.5 h-2.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-2.5 h-2.5" />
+                )}
+              </button>
+            </div>
+          )}
+          {id === "opencode" && (
+            <div className="flex items-center gap-1 font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[10px] text-[var(--text-muted)]">
+              <span>opencode</span>
+              <button
+                type="button"
+                onClick={() => handleCopy("opencode")}
+                className="hover:text-[var(--text-primary)] cursor-pointer p-0.5"
+                title="Copy command"
+              >
+                {copiedCmd === "opencode" ? (
+                  <Check className="w-2.5 h-2.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-2.5 h-2.5" />
+                )}
+              </button>
+            </div>
+          )}
+          {id === "codex" && (
+            <div className="flex items-center gap-1 font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[10px] text-[var(--text-muted)]">
+              <span>codex</span>
+              <button
+                type="button"
+                onClick={() => handleCopy("codex")}
+                className="hover:text-[var(--text-primary)] cursor-pointer p-0.5"
+                title="Copy command"
+              >
+                {copiedCmd === "codex" ? (
+                  <Check className="w-2.5 h-2.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-2.5 h-2.5" />
+                )}
+              </button>
+            </div>
+          )}
+          {id === "nineRouter" && (
+            <div className="flex items-center gap-1 font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[10px] text-[var(--text-muted)]">
+              <span>9router start</span>
+              <button
+                type="button"
+                onClick={() => handleCopy("9router start")}
+                className="hover:text-[var(--text-primary)] cursor-pointer p-0.5"
+                title="Copy command"
+              >
+                {copiedCmd === "9router start" ? (
                   <Check className="w-2.5 h-2.5 text-emerald-400" />
                 ) : (
                   <Copy className="w-2.5 h-2.5" />
@@ -466,34 +514,28 @@ export function SettingsCliConnectionsTab({
     }
   };
 
-  const handleStartOpenCodeServer = async () => {
-    setIsStartingOpenCodeServer(true);
+  const handleLaunchCodexTerminal = async () => {
+    setIsOpeningCodexTerminal(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "opencode-server" }),
+        body: JSON.stringify({ target: "codex" }),
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.success("OpenCode Server Started", {
-          description: "Headless server active on port 4097.",
+        toast.info("Terminal Window Opened", {
+          description: "OpenAI Codex CLI opened in a new terminal window.",
         });
-        setData((prev) => ({
-          ...prev,
-          opencode: { ...prev.opencode, serverRunning: true, serverPort: 4097 },
-        }));
       } else {
-        toast.info("Starting OpenCode Server", {
-          description: "Run 'opencode serve --port 4097' in your terminal.",
+        toast.error("Could not launch terminal", {
+          description: "Please run 'codex' manually in terminal.",
         });
       }
-    } catch {
-      toast.info("Starting OpenCode Server", {
-        description: "Run 'opencode serve --port 4097' in your terminal.",
-      });
+    } catch (err: any) {
+      toast.error("Failed to launch Codex terminal", { description: err.message });
     } finally {
-      setIsStartingOpenCodeServer(false);
+      setIsOpeningCodexTerminal(false);
     }
   };
 
@@ -962,15 +1004,10 @@ export function SettingsCliConnectionsTab({
                     </span>
                   )}
 
-                  {data.opencode.serverRunning ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      Server Active (Port 4097)
-                    </span>
-                  ) : data.opencode.installed ? (
+                  {data.opencode.installed ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                      CLI Ready (Server Idle)
+                      OpenCode CLI Ready
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
@@ -1008,7 +1045,7 @@ export function SettingsCliConnectionsTab({
                 </div>
 
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Open-source autonomous terminal coding agent • Server: http://127.0.0.1:4097/v1 or http://localhost:20128/v1
+                  Open-source autonomous terminal coding agent • Interactive in native terminal window
                 </p>
 
                 {!data.opencode.installed && (
@@ -1047,22 +1084,6 @@ export function SettingsCliConnectionsTab({
                   <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 )}
                 <span>{testingId === "opencode" ? "Testing..." : "Test Ping"}</span>
-              </button>
-
-              {/* Start OpenCode Server Button */}
-              <button
-                type="button"
-                onClick={handleStartOpenCodeServer}
-                disabled={isStartingOpenCodeServer || !data.opencode.installed}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-                title="Launch headless opencode serve on port 4097"
-              >
-                {isStartingOpenCodeServer ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
-                )}
-                <span>{data.opencode.serverRunning ? "Restart Server" : "Start Server"}</span>
               </button>
 
               {/* Launch OpenCode Interactive Terminal */}
@@ -1163,21 +1184,26 @@ export function SettingsCliConnectionsTab({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-1.5">
-                    <Bot className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                    OpenAI Codex
+                    <Terminal className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                    Codex CLI
                   </h4>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
-                    cloud-reasoning
+                    openai-codex
                   </span>
+                  {data.codex?.installed && data.codex.version && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[var(--text-muted)]">
+                      v{data.codex.version}
+                    </span>
+                  )}
                   {data.codex?.installed ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       Codex CLI Ready
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80" />
-                      Cloud Model • Not a Local CLI
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      Not Installed
                     </span>
                   )}
 
@@ -1210,15 +1236,21 @@ export function SettingsCliConnectionsTab({
                 </div>
 
                 <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  OpenAI reasoning models (o3-mini, o1, gpt-4o) • Accessible via OpenAI Cloud API (requires API Key), not installed as local computer software.
+                  Official terminal coding agent from OpenAI (@openai/codex) • Powered by your ChatGPT account directly from terminal
                 </p>
 
-                <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/60 border border-zinc-800/80 text-xs">
-                  <Info className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
-                  <span className="text-zinc-400 text-[11px]">
-                    {codexProvider?.apiKey ? "OpenAI API Key detected. Ready for cloud reasoning queries." : "Requires OpenAI API Key. Configure in 'AI Model Providers' tab."}
-                  </span>
-                </div>
+                {!data.codex?.installed && (
+                  <div className="mt-2 flex items-center gap-2 p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs">
+                    <span className="text-zinc-400 font-mono text-[11px]">npm i -g @openai/codex</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy("npm i -g @openai/codex")}
+                      className="px-2 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded border border-zinc-700 cursor-pointer"
+                    >
+                      Copy Install Command
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1246,20 +1278,20 @@ export function SettingsCliConnectionsTab({
                 <span>{testingId === "codex" ? "Testing..." : "Test Ping"}</span>
               </button>
 
+              {/* Launch Codex Terminal Button */}
               <button
                 type="button"
-                onClick={() => {
-                  const model = selectedModels.codex;
-                  if (codexProvider) {
-                    handleToggleActiveDirect("codex", model, "OpenAI Codex");
-                  } else {
-                    handleConnectTarget("codex", "codex", model, "OpenAI Codex");
-                  }
-                }}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs"
+                onClick={handleLaunchCodexTerminal}
+                disabled={isOpeningCodexTerminal || !data.codex?.installed}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs rounded-xl transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                title="Launch codex CLI in a native terminal window"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>{isCodexActive ? "Active" : "Activate"}</span>
+                {isOpeningCodexTerminal ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span>Open Terminal</span>
               </button>
             </div>
           </div>
@@ -1539,7 +1571,7 @@ export function SettingsCliConnectionsTab({
                   ) : data.nineRouter.installed ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                      CLI Ready (Daemon Idle)
+                      9Router CLI Ready
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
@@ -1618,7 +1650,7 @@ export function SettingsCliConnectionsTab({
                 <span>{testingId === "9router" ? "Testing..." : "Test Ping"}</span>
               </button>
 
-              {/* Start 9Router in Native Terminal Window */}
+              {/* Launch 9Router in Native Terminal Window */}
               <button
                 type="button"
                 onClick={handleLaunch9Router}
@@ -1629,26 +1661,10 @@ export function SettingsCliConnectionsTab({
                 {isStarting9Router ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                  <Terminal className="w-3.5 h-3.5 text-sky-400" />
                 )}
-                <span>Start in Terminal</span>
+                <span>Open Terminal</span>
               </button>
-
-              <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] font-mono text-[var(--text-secondary)]">
-                <span>npx 9router start</span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy("npx 9router start")}
-                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer p-0.5 ml-1"
-                  title="Copy command"
-                >
-                  {copiedCmd === "npx 9router start" ? (
-                    <Check className="w-3 h-3 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                </button>
-              </div>
             </div>
           </div>
 

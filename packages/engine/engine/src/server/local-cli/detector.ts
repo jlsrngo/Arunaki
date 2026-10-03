@@ -283,27 +283,27 @@ export async function checkCodexStatus(): Promise<CodexStatus> {
             installed: true,
             version: out.trim().split("\n")[0] || undefined,
             isCloudOnly: false,
-            message: "Codex CLI binary found on local PATH.",
+            message: "OpenAI Codex CLI (@openai/codex) installed on local PATH.",
           })
         }
         resolve({
           installed: false,
-          isCloudOnly: true,
-          message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+          isCloudOnly: false,
+          message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
         })
       })
       proc.on("error", () => {
         resolve({
           installed: false,
-          isCloudOnly: true,
-          message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+          isCloudOnly: false,
+          message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
         })
       })
     } catch {
       resolve({
         installed: false,
-        isCloudOnly: true,
-        message: "OpenAI Codex is a cloud reasoning model family (o3-mini, o1, gpt-4o), not a local CLI binary. Requires OpenAI API Key.",
+        isCloudOnly: false,
+        message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
       })
     }
   })
