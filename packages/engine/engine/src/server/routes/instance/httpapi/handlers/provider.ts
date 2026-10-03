@@ -477,7 +477,11 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = launchTerminalWithCommand("codex", "OpenAI Codex CLI (ChatGPT)")
           return { data: res }
         }
-        if (ctx.payload.target === "antigravity" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
+        if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy") {
+          const res = launchTerminalWithCommand("agy --help", "Google Antigravity CLI (agy)")
+          return { data: res }
+        }
+        if (ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
           const res = launchTerminalWithCommand("gemini", "Google Gemini CLI")
           return { data: res }
         }
@@ -536,12 +540,12 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             model: ctx.payload.model || "claude-3-5-sonnet, deepseek-r1",
           })
         }
-        if (ctx.payload.target === "antigravity" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
-          return yield* upsert("gemini-cli", {
-            name: "Google Gemini CLI (Local Subscription)",
+        if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
+          return yield* upsert("antigravity", {
+            name: "Google Antigravity CLI (Local Subscription)",
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
-            apiKey: "gemini-local-session",
+            apiKey: "antigravity-local-session",
             model: ctx.payload.model || "gemini-2.5-flash, gemini-2.5-pro, gemini-1.5-flash",
           })
         }
@@ -559,7 +563,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     )
 
     const localCliModels = Effect.fnUntraced(
-      function* (ctx: { readonly payload: { readonly target: "claude" | "9router" | "opencode" | "antigravity" | "codex" } }) {
+      function* (ctx: { readonly payload: { readonly target: "claude" | "9router" | "opencode" | "antigravity" | "agy" | "codex" | "gemini" | "gemini-cli" } }) {
         const models = yield* Effect.promise(() => getCliSupportedModels(ctx.payload.target))
         return {
           data: {

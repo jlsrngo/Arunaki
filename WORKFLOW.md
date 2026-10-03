@@ -3569,3 +3569,29 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 ### 98.3 Verification
 - [x] `npm run build -w apps/web`: ✅ Passed in 36.90s (0 TypeScript errors).
 - [x] Confirmed zero regressions across workstation chat, provider switching, and settings tabs.
+
+---
+
+## Phase 99: Native Google Antigravity CLI (`agy`) Registration & Integration ✅ DONE
+
+**Goal:** Formally register the official Google Antigravity CLI (`agy`) as a primary local AI provider in Arunaki following Google's sunset of individual Gemini Code Assist OAuth, enabling zero-token-fee subscription reuse directly from the Antigravity IDE environment.
+
+### 99.1 Global Shim & Process Registration
+- [x] Located Antigravity IDE CLI binary: `C:\Users\AMD\AppData\Local\Programs\Antigravity IDE\bin\antigravity-ide.cmd`.
+- [x] Created global npm wrapper `C:\Users\AMD\AppData\Roaming\npm\agy.cmd` forwarding to `antigravity-ide.cmd %*`.
+- [x] Verified `agy --version` outputs: `1.107.0 (ecfbad74d93962fc8ca485d93ab9b4f3d4cb6cf8 x64)`.
+
+### 99.2 Backend Engine Detection & Provider Handlers
+- [x] Extended `packages/engine/engine/src/server/local-cli/detector.ts` with `agy` detection, version parsing, and status reporting (`Google Antigravity CLI (agy 1.107.0)`).
+- [x] Updated HttpApi Schemas in `packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts` to include `antigravity` and `agy`.
+- [x] Updated `localCliLogin`, `localCliConnect`, and `localCliModels` in `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts`.
+
+### 99.3 Frontend Settings & Workstation
+- [x] Rebranded CLI Connection card in `apps/web/src/components/settings/SettingsCliConnectionsTab.tsx` as **Google Antigravity CLI** (`Ready (agy v1.107)`).
+- [x] Updated Docs URL to `https://antigravity.google`.
+- [x] Updated `useWorkstationChat.ts` to map `antigravity` to `"Google Antigravity CLI"` in chat status and provider resolution.
+
+### 99.4 Verification
+- [x] `npm run build -w apps/web`: ✅ Passed with 0 errors.
+- [x] Dev log created at `docs/dev-logs/dev-log-2026-10-03-antigravity-cli-native-registration.md`.
+

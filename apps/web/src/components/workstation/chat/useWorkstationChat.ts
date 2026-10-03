@@ -44,11 +44,11 @@ const EDIT_FILE_TOOLS = new Set([
 export function resolveActiveSingleModel(): { providerID: string; id: string } {
   let p = localStorage.getItem("arunaki_active_provider") || "kenari";
 
-  // Migrate legacy raw gemini to gemini-cli local bridge if no cloud API key
-  if (p === "gemini") {
+  // Migrate legacy raw gemini to antigravity local bridge if no cloud API key
+  if (p === "gemini" || p === "gemini-cli") {
     const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
     if (!geminiKey || geminiKey === "antigravity-active") {
-      p = "gemini-cli";
+      p = "antigravity";
     }
   }
 
@@ -1084,7 +1084,9 @@ export function useWorkstationChat({
           const CLI_NAMES: Record<string, string> = {
             "claude-code": "Claude Code CLI",
             codex: "OpenAI Codex CLI",
-            gemini: "Google Antigravity",
+            antigravity: "Google Antigravity CLI",
+            "gemini-cli": "Google Antigravity CLI",
+            gemini: "Google Antigravity CLI",
             opencode: "OpenCode Interpreter",
             "9router": "9Router Gateway",
           };
@@ -1113,7 +1115,9 @@ export function useWorkstationChat({
       const CLI_NAMES: Record<string, string> = {
         "claude-code": "Claude Code CLI",
         codex: "OpenAI Codex CLI",
-        gemini: "Google Antigravity",
+        antigravity: "Google Antigravity CLI",
+        "gemini-cli": "Google Antigravity CLI",
+        gemini: "Google Antigravity CLI",
         opencode: "OpenCode Interpreter",
         "9router": "9Router Gateway",
       };

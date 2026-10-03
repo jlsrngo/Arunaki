@@ -243,11 +243,15 @@ export function SettingsCliConnectionsTab({
   const isCodexActive =
     codexProvider?.active || localStorage.getItem("arunaki_active_provider") === "codex";
 
-  const geminiProvider = providers.find((p) => p.id === "gemini-cli" || p.id === "gemini" || p.type === "gemini");
-  const isGeminiActive =
-    geminiProvider?.active ||
+  const antigravityProvider = providers.find(
+    (p) => p.id === "antigravity" || p.id === "gemini-cli" || p.id === "gemini" || p.type === "antigravity" || p.type === "gemini"
+  );
+  const isAntigravityActive =
+    antigravityProvider?.active ||
+    localStorage.getItem("arunaki_active_provider") === "antigravity" ||
     localStorage.getItem("arunaki_active_provider") === "gemini-cli" ||
     localStorage.getItem("arunaki_active_provider") === "gemini";
+  const isGeminiActive = isAntigravityActive;
 
   const nineRouterProvider = providers.find((p) => p.id === "9router" || p.type === "9router");
   const is9RouterActive =
@@ -361,20 +365,20 @@ export function SettingsCliConnectionsTab({
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "gemini-cli" }),
+        body: JSON.stringify({ target: "antigravity" }),
       });
       const json = await res.json();
       if (json.data?.success) {
         toast.info("Terminal Window Opened", {
-          description: "Google Gemini CLI (gemini) opened in a new terminal window.",
+          description: "Google Antigravity CLI (agy) opened in a new terminal window.",
         });
       } else {
-        toast.error("Could not launch Gemini terminal", {
-          description: json.data?.message || "Please run 'gemini' manually in your terminal.",
+        toast.error("Could not launch Antigravity terminal", {
+          description: json.data?.message || "Please run 'agy' manually in your terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch Gemini CLI", { description: err.message });
+      toast.error("Failed to launch Antigravity CLI", { description: err.message });
     } finally {
       setIsOpeningAntigravityTerminal(false);
     }
@@ -406,11 +410,11 @@ export function SettingsCliConnectionsTab({
       apiKey: "opencode-local-session",
     },
     antigravity: {
-      id: "gemini-cli",
-      name: "Google Gemini CLI (Local Subscription)",
+      id: "antigravity",
+      name: "Google Antigravity CLI (agy)",
       type: "openai-compatible",
       baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
-      apiKey: "gemini-local-session",
+      apiKey: "antigravity-local-session",
     },
     nineRouter: {
       id: "9router",
@@ -468,12 +472,12 @@ export function SettingsCliConnectionsTab({
         }).catch(() => {});
       }
 
-      // If Claude or Google Gemini, also notify bridge/local-cli
+      // If Claude or Google Antigravity, also notify bridge/local-cli
       if (target === "claude" || target === "antigravity") {
         await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target: target === "claude" ? "claude" : "gemini-cli", model: chosenModel }),
+          body: JSON.stringify({ target: target === "claude" ? "claude" : "antigravity", model: chosenModel }),
         }).catch(() => {});
       }
 
@@ -544,9 +548,9 @@ export function SettingsCliConnectionsTab({
       if (target === "antigravity") {
         isLive = !!local.bridgeRunning && (!!local.antigravity?.detected || !!local.antigravity?.cliInstalled);
         detail = isLive
-          ? "Google Gemini CLI bridge active (port 20188)"
+          ? `Google Antigravity CLI bridge active (${local.antigravity?.agyVersion ? `agy ${local.antigravity.agyVersion}` : "port 20188"})`
           : local.bridgeRunning
-          ? "Bridge active (Run 'gemini' in terminal to login with Google)"
+          ? "Bridge active (Google Antigravity CLI ready)"
           : "Local CLI bridge offline";
       } else if (target === "claude") {
         isLive = !!local.claude?.installed && (!!local.claude?.loggedIn || !!local.bridgeRunning);
@@ -1202,23 +1206,23 @@ export function SettingsCliConnectionsTab({
             </button>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">Google Gemini CLI</span>
+                <span className="font-semibold text-sm text-[var(--text-primary)]">Google Antigravity CLI</span>
                 <span className={cn(
                   "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.antigravity?.geminiCliInstalled || data.antigravity?.detected ? "bg-zinc-200" : "bg-zinc-700"
+                  data.antigravity?.cliInstalled || data.antigravity?.detected ? "bg-zinc-200" : "bg-zinc-700"
                 )} />
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.antigravity?.geminiCliInstalled || data.antigravity?.detected ? "Ready" : "Google Account OAuth"}
+                  {data.antigravity?.cliInstalled ? "Ready (agy v1.107)" : "Ready"}
                 </span>
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Official Google CLI (@google/gemini-cli) • Local Subscription</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Google DeepMind • Antigravity CLI (agy)</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("antigravity", PRESET_MODELS.antigravity, "gemini-cli", isGeminiActive, "Google Gemini CLI")}
+            {renderModelDropdown("antigravity", PRESET_MODELS.antigravity, "antigravity", isGeminiActive, "Google Antigravity")}
             <button
               type="button"
-              onClick={() => handleTestPing("antigravity", "Google Gemini CLI")}
+              onClick={() => handleTestPing("antigravity", "Google Antigravity")}
               disabled={testingPingTarget === "antigravity"}
               className={cn(
                 "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
@@ -1248,7 +1252,7 @@ export function SettingsCliConnectionsTab({
             <button
               type="button"
               onClick={() => {
-                window.open("https://geminicli.com", "_blank");
+                window.open("https://antigravity.google", "_blank");
               }}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
             >

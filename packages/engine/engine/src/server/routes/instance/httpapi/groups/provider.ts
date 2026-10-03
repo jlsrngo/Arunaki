@@ -119,6 +119,10 @@ export const OpenCodeStatusItem = Schema.Struct({
 export const AntigravityStatusItem = Schema.Struct({
   detected: Schema.Boolean,
   cliInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  agyInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  agyVersion: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  geminiCliInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  geminiVersion: Schema.optional(Schema.UndefinedOr(Schema.String)),
   path: Schema.optional(Schema.UndefinedOr(Schema.String)),
   environment: Schema.String,
 })
@@ -147,7 +151,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"),
+  target: Schema.Literal("claude", "gemini", "antigravity", "agy", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"),
 })
 
 export const LocalCliLoginResult = Schema.Struct({
@@ -158,12 +162,12 @@ export const LocalCliLoginResult = Schema.Struct({
 })
 
 export const LocalCliConnectInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity", "codex"),
+  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity", "agy", "codex", "gemini", "gemini-cli"),
   model: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const LocalCliModelsInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router", "opencode", "antigravity", "codex"),
+  target: Schema.Literal("claude", "9router", "opencode", "antigravity", "agy", "codex", "gemini", "gemini-cli"),
 })
 
 export const LocalCliModelsResult = Schema.Struct({
