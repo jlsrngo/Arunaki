@@ -151,7 +151,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini", "antigravity", "agy", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"),
+  target: Schema.Literals(["claude", "gemini", "antigravity", "agy", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"]),
 })
 
 export const LocalCliLoginResult = Schema.Struct({
@@ -162,12 +162,12 @@ export const LocalCliLoginResult = Schema.Struct({
 })
 
 export const LocalCliConnectInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity", "agy", "codex", "gemini", "gemini-cli"),
+  target: Schema.Literals(["claude", "9router", "opencode", "groq-sync", "antigravity", "agy", "codex", "gemini", "gemini-cli"]),
   model: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const LocalCliModelsInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router", "opencode", "antigravity", "agy", "codex", "gemini", "gemini-cli"),
+  target: Schema.Literals(["claude", "9router", "opencode", "antigravity", "agy", "codex", "gemini", "gemini-cli"]),
 })
 
 export const LocalCliModelsResult = Schema.Struct({

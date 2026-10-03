@@ -313,7 +313,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           }),
           Effect.orDie,
         )
-        const res = yield* http.execute(request).pipe(Effect.timeout(Duration.seconds(8)), Effect.exit)
+        const res = yield* http.execute(request).pipe(Effect.timeout(Duration.seconds(25)), Effect.exit)
         if (Exit.isFailure(res)) {
           return {
             data: {
@@ -546,7 +546,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "antigravity-local-session",
-            model: ctx.payload.model || "gemini-2.5-flash, gemini-2.5-pro, gemini-1.5-flash",
+            model: ctx.payload.model || "gemini-3.8-flash, gemini-2.5-flash, gemini-2.5-pro",
           })
         }
         if (ctx.payload.target === "codex") {

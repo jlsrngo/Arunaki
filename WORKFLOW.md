@@ -3595,3 +3595,27 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `npm run build -w apps/web`: ✅ Passed with 0 errors.
 - [x] Dev log created at `docs/dev-logs/dev-log-2026-10-03-antigravity-cli-native-registration.md`.
 
+---
+
+## Phase 100: Fix HTTP Transport Failed & Antigravity Model Resolution Pipeline ✅ DONE
+
+**Goal:** Resolve the persistent `⚠️ HTTP transport failed` error in Arunaki Workstation chat caused by model catalog omission and Effect Schema validation mismatch, ensuring the engine properly routes conversation turns to the Google Antigravity CLI daemon on port 20188.
+
+### 100.1 Root Cause Diagnosis
+- [x] Located failure traceback in `C:\Users\AMD\.local\share\arunaki\log\Arunaki.log`: `RequestExecutor.execute: HTTP transport failed`.
+- [x] Identified that sessions with `providerID: "antigravity"` fell back to `opencode/fledge-alpha-free` on offline port `20128` because `antigravity` was filtered out of `catalog.model.available()` due to absence of cloud API keys.
+- [x] Discovered Effect Schema bug where `Schema.Literal` was called with multiple arguments instead of `Schema.Literals([...])`, rejecting all CLI targets except `"claude"`.
+
+### 100.2 Engine & Model Resolution Fixes
+- [x] **`packages/engine/core/src/catalog.ts`**: Whitelisted `antigravity` (along with `gemini-cli`, `claude-code`, `codex`) in `available()` to allow local subscriptions without API keys.
+- [x] **`packages/engine/core/src/session/runner/model.ts`**: Added `antigravity` to `withKey` candidate filter and provided default `Auth.value("antigravity-local-session")`.
+- [x] **`packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts`**: Fixed `LocalCliConnectInput`, `LocalCliLoginInput`, and `LocalCliModelsInput` to use `Schema.Literals([...])`.
+- [x] **`packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts`**: Increased `testConnection` timeout from 8s to 25s for local CLI subprocess execution and set default model to `gemini-3.8-flash`.
+- [x] **`arunaki.json` & `~/.config/arunaki/arunaki.json`**: Added `antigravity` provider with models `gemini-3.8-flash`, `gemini-2.5-flash`, `gemini-2.5-pro`.
+
+### 100.3 Verification
+- [x] `POST http://127.0.0.1:4096/api/providers`: Successfully registered `antigravity`.
+- [x] Direct bridge completions at `http://127.0.0.1:20188/v1/chat/completions` tested and returning completions from `agy`.
+- [x] `npm run build -w apps/web`: ✅ Passed in 40.84s (0 TypeScript errors).
+
+

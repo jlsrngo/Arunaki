@@ -75,7 +75,7 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
   }
   return {
     providerID: p,
-    id: p === "kenari" ? "mimo-v2-5:free" : "default",
+    id: p === "kenari" ? "mimo-v2-5:free" : p === "antigravity" ? "gemini-3.8-flash" : "default",
   };
 }
 
