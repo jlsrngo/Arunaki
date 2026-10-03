@@ -25,9 +25,11 @@ import {
   checkAntigravityStatus,
   checkClaudeStatus,
   checkNineRouterStatus,
+  checkOpenCodeServerRunning,
   checkOpenCodeStatus,
   getOpenCodeGroqKey,
   launchClaudeLoginTerminal,
+  launchOpenCodeServer,
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
 
@@ -433,12 +435,17 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     const localCliStatus = Effect.fn("ProviderSettings.localCliStatus")(function* () {
       const claude = yield* Effect.promise(() => checkClaudeStatus())
       const opencode = yield* Effect.promise(() => checkOpenCodeStatus())
+      const opencodeRunning = yield* Effect.promise(() => checkOpenCodeServerRunning(4097))
       const antigravity = checkAntigravityStatus()
       const nineRouter = yield* Effect.promise(() => checkNineRouterStatus())
       return {
         data: {
           claude,
-          opencode,
+          opencode: {
+            ...opencode,
+            serverRunning: opencodeRunning,
+            serverPort: 4097,
+          },
           antigravity,
           nineRouter,
           bridgePort: localCliBridge.port,
@@ -452,6 +459,10 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         if (ctx.payload.target === "claude") {
           const res = launchClaudeLoginTerminal()
           return { data: res }
+        }
+        if (ctx.payload.target === "opencode" || ctx.payload.target === "opencode-server") {
+          const res = launchOpenCodeServer(4097)
+          return { data: { success: res.success, message: res.message } }
         }
         return { data: { success: false, message: `Unsupported target: ${ctx.payload.target}` } }
       },
@@ -505,7 +516,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: "http://localhost:20128/v1",
             apiKey: "9router",
-            model: "claude-3-5-sonnet, deepseek-r1",
+            model: ctx.payload.model || "claude-3-5-sonnet, deepseek-r1",
           })
         }
         if (ctx.payload.target === "antigravity") {
@@ -514,7 +525,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "gemini",
             baseUrl: "https://generativelanguage.googleapis.com/v1beta",
             apiKey: "antigravity-active",
-            model: "gemini-2.5-flash, gemini-2.5-pro",
+            model: ctx.payload.model || "gemini-2.5-flash, gemini-2.5-pro",
+          })
+        }
+        if (ctx.payload.target === "codex") {
+          return yield* upsert("codex", {
+            name: "OpenAI Codex Agent",
+            type: "openai-compatible",
+            baseUrl: "https://api.openai.com/v1",
+            apiKey: "codex-active",
+            model: ctx.payload.model || "o3-mini, o1, gpt-4o, gpt-4o-mini",
           })
         }
         return yield* HttpApiError.badRequest({ message: "Invalid target" })

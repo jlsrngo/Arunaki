@@ -44,6 +44,16 @@ export interface LocalCliStatusResult {
   bridgeRunning: boolean
 }
 
+function clean<T extends Record<string, any>>(obj: T): T {
+  const res: any = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      res[k] = v
+    }
+  }
+  return res
+}
+
 export async function checkClaudeStatus(): Promise<ClaudeStatus> {
   return new Promise((resolve) => {
     try {
@@ -76,31 +86,31 @@ export async function checkClaudeStatus(): Promise<ClaudeStatus> {
         authProc.on("close", () => {
           try {
             const parsed = JSON.parse(authOut.trim())
-            resolve({
+            resolve(clean({
               installed: true,
               version,
               loggedIn: Boolean(parsed.loggedIn),
               authMethod: parsed.authMethod,
               apiProvider: parsed.apiProvider,
               email: parsed.email,
-            })
+            }))
           } catch {
             const isLogged = authOut.includes('"loggedIn": true') || authOut.includes('"loggedIn":true')
-            resolve({
+            resolve(clean({
               installed: true,
               version,
               loggedIn: isLogged,
-              error: authOut.slice(0, 100),
-            })
+              error: authOut.slice(0, 100) || undefined,
+            }))
           }
         })
 
         authProc.on("error", () => {
-          resolve({ installed: true, version, loggedIn: false })
+          resolve(clean({ installed: true, version, loggedIn: false }))
         })
       })
     } catch (err: any) {
-      resolve({ installed: false, loggedIn: false, error: err?.message })
+      resolve(clean({ installed: false, loggedIn: false, error: err?.message }))
     }
   })
 }
@@ -139,22 +149,22 @@ export async function checkOpenCodeStatus(): Promise<OpenCodeStatus> {
           }
         }
 
-        resolve({
+        resolve(clean({
           installed,
           version,
           authenticatedProviders,
           hasGroq,
           has9Router,
-        })
+        }))
       })
     } catch (err: any) {
-      resolve({
+      resolve(clean({
         installed: false,
         authenticatedProviders: [],
         hasGroq: false,
         has9Router: false,
         error: err?.message,
-      })
+      }))
     }
   })
 }
@@ -175,10 +185,39 @@ export function getOpenCodeGroqKey(): string | undefined {
 export function checkAntigravityStatus(): AntigravityStatus {
   const geminiDir = path.join(os.homedir(), ".gemini")
   const detected = fs.existsSync(geminiDir)
-  return {
+  return clean({
     detected,
     path: detected ? geminiDir : undefined,
     environment: "Google Antigravity IDE (Gemini Ecosystem)",
+  })
+}
+
+let opencodeProcess: any = null
+
+export async function checkOpenCodeServerRunning(port = 4097): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
+      signal: AbortSignal.timeout(600),
+    })
+    return res.ok || res.status < 500
+  } catch {
+    return false
+  }
+}
+
+export function launchOpenCodeServer(port = 4097): { success: boolean; message: string; port: number } {
+  try {
+    if (opencodeProcess && !opencodeProcess.killed) {
+      return { success: true, message: `OpenCode server is already running on port ${port}.`, port }
+    }
+    opencodeProcess = crossSpawn("opencode", ["serve", "--port", String(port), "--hostname", "127.0.0.1"], {
+      detached: true,
+      stdio: "ignore",
+    })
+    opencodeProcess.unref()
+    return { success: true, message: `OpenCode server launched on port ${port}.`, port }
+  } catch (err: any) {
+    return { success: false, message: `Failed to launch OpenCode server: ${err.message}`, port }
   }
 }
 

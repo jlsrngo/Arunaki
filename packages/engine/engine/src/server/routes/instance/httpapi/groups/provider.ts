@@ -97,26 +97,28 @@ export const ProviderPingQuery = Schema.Struct({
 
 export const LocalCliStatusItem = Schema.Struct({
   installed: Schema.Boolean,
-  version: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.UndefinedOr(Schema.String)),
   loggedIn: Schema.Boolean,
-  authMethod: Schema.optional(Schema.String),
-  apiProvider: Schema.optional(Schema.String),
-  email: Schema.optional(Schema.String),
-  error: Schema.optional(Schema.String),
+  authMethod: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  apiProvider: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  email: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  error: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const OpenCodeStatusItem = Schema.Struct({
   installed: Schema.Boolean,
-  version: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  serverRunning: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  serverPort: Schema.optional(Schema.UndefinedOr(Schema.Number)),
   authenticatedProviders: Schema.Array(Schema.String),
   hasGroq: Schema.Boolean,
   has9Router: Schema.Boolean,
-  error: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const AntigravityStatusItem = Schema.Struct({
   detected: Schema.Boolean,
-  path: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.UndefinedOr(Schema.String)),
   environment: Schema.String,
 })
 
@@ -136,7 +138,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literal("claude", "gemini", "opencode"),
+  target: Schema.Literal("claude", "gemini", "opencode", "opencode-server"),
 })
 
 export const LocalCliLoginResult = Schema.Struct({
@@ -147,7 +149,8 @@ export const LocalCliLoginResult = Schema.Struct({
 })
 
 export const LocalCliConnectInput = Schema.Struct({
-  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity"),
+  target: Schema.Literal("claude", "9router", "opencode", "groq-sync", "antigravity", "codex"),
+  model: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const ProviderApi = HttpApi.make("provider")
