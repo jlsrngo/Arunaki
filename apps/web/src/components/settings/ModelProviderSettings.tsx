@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Loader2, Cpu, Info, Terminal } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -9,6 +9,19 @@ import { Provider, ProviderFormData, FormTestResult } from "./types";
 import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
 
 export type { Provider };
+
+const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router"];
+
+export const isCliProvider = (p: Provider): boolean => {
+  if (CLI_PROVIDER_IDS.includes(p.id)) return true;
+  if (
+    p.id === "gemini" &&
+    (p.apiKey === "antigravity-active" || p.name?.toLowerCase().includes("antigravity"))
+  ) {
+    return true;
+  }
+  return false;
+};
 
 interface ModelProviderSettingsProps {
   providers: Provider[];
@@ -24,6 +37,10 @@ export function ModelProviderSettings({
   onRefresh,
 }: ModelProviderSettingsProps) {
   const { t } = useI18n();
+  const cloudProviders = useMemo(() => {
+    return providers.filter((p) => !isCliProvider(p));
+  }, [providers]);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -260,9 +277,12 @@ export function ModelProviderSettings({
         };
         const friendlyName = cliNames[targetCli] || targetCli;
 
-        toast.success(`Provider ${provider.name || provider.id} dimatikan (OFF)`, {
-          description: `Rute obrolan otomatis dialihkan ke CLI (${friendlyName}).`,
-        });
+        toast.success(
+          `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOff", "turned OFF")}`,
+          {
+            description: `${t("chatRoutingDivertedDesc", "Chat routing automatically diverted to CLI")} (${friendlyName}).`,
+          }
+        );
         onRefresh();
       } else {
         // Nyalakan (ON) -> Jadikan Primary Active
@@ -276,18 +296,21 @@ export function ModelProviderSettings({
           method: "PUT",
           body: JSON.stringify({ active: true }),
         }).catch(() => {});
-        toast.success(`Provider ${provider.name || provider.id} dinyalakan (ON)`, {
-          description: `Rute obrolan kini menggunakan ${provider.name || provider.id}.`,
-        });
+        toast.success(
+          `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOnPrimary", "turned ON (Primary Active)")}`,
+          {
+            description: `${t("chatRoutingNowUsing", "Chat routing is now using")} ${provider.name || provider.id}.`,
+          }
+        );
         onRefresh();
       }
     } catch {
-      toast.error("Gagal mengubah status provider.");
+      toast.error(t("failedToChangeProviderStatus", "Failed to update provider status."));
     }
   };
 
   const handleMoveProviderPriority = async (index: number, direction: "up" | "down") => {
-    const list = [...providers];
+    const list = [...cloudProviders];
     const targetIdx = direction === "up" ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= list.length) return;
 
@@ -527,21 +550,23 @@ export function ModelProviderSettings({
           "9router": "9Router Gateway",
         };
         const isCliDiverted = activeProviderId && cliTargets[activeProviderId];
-        if (!isCliDiverted && providers.some((p) => p.active)) return null;
+        if (!isCliDiverted && cloudProviders.some((p) => p.active)) return null;
 
         return (
           <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5">
               <Terminal className="w-4 h-4 text-zinc-200 shrink-0" />
               <div>
-                <span className="font-semibold text-white">Rute Obrolan Dialihkan ke CLI:</span>{" "}
+                <span className="font-semibold text-white">
+                  {t("chatRoutingDivertedToCli", "Chat Routing Diverted to CLI:")}
+                </span>{" "}
                 <span className="text-zinc-200 font-mono font-medium">
                   {activeProviderId && cliTargets[activeProviderId] ? cliTargets[activeProviderId] : "Local CLI Agent"}
                 </span>
               </div>
             </div>
             <span className="text-[11px] text-zinc-400">
-              Nyalakan (ON) salah satu provider di bawah untuk kembali ke API Cloud.
+              {t("turnOnCloudProviderNotice", "Turn ON any provider below to switch back to Cloud API routing.")}
             </span>
           </div>
         );
@@ -587,7 +612,7 @@ export function ModelProviderSettings({
           <Loader2 className="w-4 h-4 animate-spin text-[var(--text-primary)]" />
           <span>{t("loadingProviders")}</span>
         </div>
-      ) : providers.length === 0 ? (
+      ) : cloudProviders.length === 0 ? (
         <div className="p-8 text-center bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] space-y-3">
           <Cpu className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-50" />
           <p className="text-xs text-[var(--text-muted)]">{t("noProvidersConfigured")}</p>
@@ -603,12 +628,12 @@ export function ModelProviderSettings({
         </div>
       ) : (
         <div className="space-y-3 w-full">
-          {providers.map((p, idx) => (
+          {cloudProviders.map((p, idx) => (
             <ProviderCard
               key={p.id}
               provider={p}
               index={idx}
-              totalProviders={providers.length}
+              totalProviders={cloudProviders.length}
               testResult={testResults[p.id]}
               isTesting={testingId === p.id}
               onToggleActive={handleToggleActive}

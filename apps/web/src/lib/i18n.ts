@@ -232,6 +232,16 @@ export const translations = {
     latency: "Latency:",
     status: "Status:",
     endpoint: "Endpoint:",
+    chatRoutingDivertedToCli: "Chat Routing Diverted to CLI:",
+    turnOnCloudProviderNotice: "Turn ON any provider below to switch back to Cloud API routing.",
+    providerTurnedOff: "turned OFF",
+    chatRoutingDivertedDesc: "Chat routing automatically diverted to CLI",
+    providerTurnedOnPrimary: "turned ON (Primary Active)",
+    chatRoutingNowUsing: "Chat routing is now using",
+    failedToChangeProviderStatus: "Failed to update provider status.",
+    clickToTurnOffDivertCli: "Click to turn OFF & divert routing to CLI / Local Agent",
+    clickToTurnOnPrimary: "Click to turn ON as Primary API Provider",
+    provider: "Provider",
 
     // Provider Form
     configureProvider: "Configure Provider",
@@ -558,6 +568,16 @@ export const translations = {
     latency: "Latensi:",
     status: "Status:",
     endpoint: "Endpoint:",
+    chatRoutingDivertedToCli: "Rute Obrolan Dialihkan ke CLI:",
+    turnOnCloudProviderNotice: "Nyalakan (ON) salah satu provider di bawah untuk kembali ke API Cloud.",
+    providerTurnedOff: "dimatikan (OFF)",
+    chatRoutingDivertedDesc: "Rute obrolan otomatis dialihkan ke CLI",
+    providerTurnedOnPrimary: "dinyalakan (ON - Utama)",
+    chatRoutingNowUsing: "Rute obrolan kini menggunakan",
+    failedToChangeProviderStatus: "Gagal mengubah status provider.",
+    clickToTurnOffDivertCli: "Klik untuk mematikan (OFF) & mengalihkan rute ke CLI / Local Agent",
+    clickToTurnOnPrimary: "Klik untuk menyalakan (ON) sebagai Primary API Provider",
+    provider: "Provider",
 
     // Provider Form
     configureProvider: "Konfigurasi Provider",

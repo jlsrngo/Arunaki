@@ -82,8 +82,8 @@ export function ProviderCard({
             onClick={() => onToggleActive(p)}
             title={
               p.active
-                ? "Klik untuk mematikan (OFF) & mengalihkan rute ke CLI / Local Agent"
-                : "Klik untuk menyalakan (ON) sebagai Primary API Provider"
+                ? t("clickToTurnOffDivertCli", "Click to turn OFF & divert routing to CLI / Local Agent")
+                : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
             }
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs select-none",
