@@ -2163,6 +2163,33 @@ export function SettingsCliConnectionsTab({
         };
 
         const isAntigravity = target === "antigravity";
+        const isTargetLoggedIn = (() => {
+          switch (target) {
+            case "antigravity":
+              return Boolean(data.antigravity?.loggedIn);
+            case "claude":
+              return Boolean(data.claude?.loggedIn);
+            case "codex":
+              return Boolean(data.codex?.installed);
+            case "opencode":
+              return Boolean(data.opencode?.serverRunning || data.opencode?.authenticatedProviders?.length);
+            case "nineRouter":
+              return Boolean(data.nineRouter?.running);
+            default:
+              return false;
+          }
+        })();
+
+        const providerName =
+          target === "antigravity"
+            ? "Google Antigravity"
+            : target === "claude"
+            ? "Anthropic Claude"
+            : target === "codex"
+            ? "OpenAI Codex"
+            : target === "opencode"
+            ? "OpenCode Daemon"
+            : "9Router Gateway";
 
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
@@ -2172,26 +2199,35 @@ export function SettingsCliConnectionsTab({
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h3 className="text-lg font-bold text-white tracking-tight">
-                      {isEn ? "Models & Usage" : "Model & Penggunaan"}
+                      {isEn ? `${providerName} — Models & Usage` : `${providerName} — Model & Penggunaan`}
                     </h3>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-950/60 border border-teal-800/40 text-[10.5px] text-teal-300 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                      <span>{isEn ? "Live Telemetry" : "Telemetri Langsung"}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRefreshQuota}
-                      disabled={isRefreshingQuota}
-                      className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                      title={isEn ? "Refresh quota and credits data" : "Segarkan data kuota dan kredit"}
-                    >
-                      <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingQuota && "animate-spin text-teal-400")} />
-                    </button>
+                    {isTargetLoggedIn ? (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-950/60 border border-teal-800/40 text-[10.5px] text-teal-300 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                        <span>{isEn ? "Live Telemetry" : "Telemetri Langsung"}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-700/60 text-[10.5px] text-zinc-400 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                        <span>{isEn ? "Not Connected" : "Belum Terhubung"}</span>
+                      </div>
+                    )}
+                    {isTargetLoggedIn && (
+                      <button
+                        type="button"
+                        onClick={handleRefreshQuota}
+                        disabled={isRefreshingQuota}
+                        className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                        title={isEn ? "Refresh quota and credits data" : "Segarkan data kuota dan kredit"}
+                      >
+                        <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingQuota && "animate-spin text-teal-400")} />
+                      </button>
+                    )}
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
                     {isEn
-                      ? "Manage your model quota, plan tier, and token credits synced with your local workstation session."
-                      : "Kelola kuota model, tingkatan paket, dan kredit token yang tersinkronisasi dengan sesi workstation lokal Anda."}
+                      ? "View and manage your model quota, subscription rate limits, and token usage."
+                      : "Lihat dan kelola kuota model, batas frekuensi langganan, dan pemakaian token Anda."}
                   </p>
                 </div>
                 <button
@@ -2204,188 +2240,228 @@ export function SettingsCliConnectionsTab({
                 </button>
               </div>
 
-              <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-                {/* 1. Plan Section */}
-                <div>
-                  <div className="text-xs font-semibold text-zinc-300 mb-2">
-                    {isEn ? "Plan" : "Paket"}
+              {/* ── Condition: Not Connected State ── */}
+              {!isTargetLoggedIn ? (
+                <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-6 text-center space-y-4 my-3">
+                  <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 mx-auto flex items-center justify-center text-amber-400">
+                    <AlertTriangle className="w-5 h-5" />
                   </div>
-                  <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white">
-                          {isEn ? `Your Plan: ${currentQuota.plan}` : `Paket Anda: ${currentQuota.plan}`}
-                        </span>
-                        {data.antigravity?.accountEmail && isAntigravity && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300">
-                            {data.antigravity.accountEmail}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                        {isAntigravity
-                          ? isEn
-                            ? "You can upgrade to a Google AI Ultra plan to receive higher rate limits."
-                            : "Anda dapat meningkatkan ke paket Google AI Ultra untuk batas kuota yang lebih tinggi."
-                          : isEn
-                          ? "Higher subscription tiers provide increased rate limits and concurrency."
-                          : "Tingkat langganan yang lebih tinggi menyediakan batas kuota dan konkurensi lebih besar."}
-                      </div>
-                    </div>
+                  <div>
+                    <h4 className="text-base font-semibold text-white">
+                      {isEn ? `${providerName} is Not Connected` : `${providerName} Belum Terhubung`}
+                    </h4>
+                    <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1.5 leading-relaxed">
+                      {isEn
+                        ? `No active session or local token was detected for ${providerName} on this PC. Quota telemetries are only populated when the account is authenticated.`
+                        : `Tidak ada sesi aktif atau token lokal yang terdeteksi untuk ${providerName} di komputer ini. Telemetri kuota hanya akan terisi saat akun sudah terhubung.`}
+                    </p>
+                  </div>
+                  <div className="pt-2 flex justify-center">
                     <button
                       type="button"
                       onClick={() => {
-                        if (isAntigravity) {
-                          window.open("https://one.google.com/explore-plan", "_blank");
-                        } else if (target === "claude") {
-                          window.open("https://claude.ai/settings/billing", "_blank");
-                        } else {
-                          window.open("https://platform.openai.com/account/billing", "_blank");
-                        }
+                        setActiveQuotaModalTarget(null);
+                        setActiveAuthModalTarget(target as any);
                       }}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#124950] hover:bg-[#165a63] text-teal-200 border border-teal-500/40 cursor-pointer transition-all shadow-sm shrink-0"
+                      className="px-4 py-2 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg transition-all inline-flex items-center gap-2 cursor-pointer shadow-md"
                     >
-                      {isEn ? "Upgrade" : "Tingkatkan"}
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>{isEn ? `Sign in to ${providerName}` : `Masuk ke ${providerName}`}</span>
                     </button>
                   </div>
                 </div>
-
-                {/* 2. Model Credits Section */}
-                <div>
-                  <div className="text-xs font-semibold text-zinc-300 mb-2">
-                    {isEn ? "Model Credits" : "Kredit Model"}
-                  </div>
-                  <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-medium text-white">
-                        {isEn ? "Enable AI Credit Overages" : "Aktifkan Overage Kredit AI"}
-                      </div>
-                      <div className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                        {isAntigravity
-                          ? isEn
-                            ? "When toggled on, Antigravity IDE will use your AI credits to fulfill model requests once you're out of model quota. Antigravity IDE will always use your model quota first before using AI credits."
-                            : "Saat diaktifkan, Antigravity akan menggunakan kredit AI jika kuota utama habis. Antigravity akan selalu menggunakan kuota model terlebih dahulu sebelum memotong kredit AI."
-                          : isEn
-                          ? "When enabled, requests will gracefully fall back to pay-as-you-go credits when rate limits are exhausted."
-                          : "Saat diaktifkan, permintaan akan otomatis menggunakan saldo kredit saat kuota langganan habis."}
-                      </div>
+              ) : (
+                /* ── Condition: Authenticated Live State ── */
+                <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                  {/* 1. Plan Section */}
+                  <div>
+                    <div className="text-xs font-semibold text-zinc-300 mb-2">
+                      {isEn ? "Plan" : "Paket"}
                     </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={overagesEnabled}
-                      onClick={handleToggleOverages}
-                      className={cn(
-                        "w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
-                        overagesEnabled
-                          ? "bg-teal-600 border-teal-500"
-                          : "bg-zinc-800 border-zinc-700 hover:border-zinc-600"
-                      )}
-                    >
-                      <div
+                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">
+                            {isEn ? `Your Plan: ${currentQuota.plan}` : `Paket Anda: ${currentQuota.plan}`}
+                          </span>
+                          {data.antigravity?.accountEmail && isAntigravity && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300">
+                              {data.antigravity.accountEmail}
+                            </span>
+                          )}
+                          {data.claude?.email && target === "claude" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300">
+                              {data.claude.email}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                          {isAntigravity
+                            ? isEn
+                              ? "You can upgrade to a Google AI Ultra plan to receive higher rate limits."
+                              : "Anda dapat meningkatkan ke paket Google AI Ultra untuk batas kuota yang lebih tinggi."
+                            : isEn
+                            ? "Higher subscription tiers provide increased rate limits and concurrency."
+                            : "Tingkat langganan yang lebih tinggi menyediakan batas kuota dan konkurensi lebih besar."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isAntigravity) {
+                            window.open("https://one.google.com/explore-plan", "_blank");
+                          } else if (target === "claude") {
+                            window.open("https://claude.ai/settings/billing", "_blank");
+                          } else {
+                            window.open("https://platform.openai.com/account/billing", "_blank");
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#124950] hover:bg-[#165a63] text-teal-200 border border-teal-500/40 cursor-pointer transition-all shadow-sm shrink-0"
+                      >
+                        {isEn ? "Upgrade" : "Tingkatkan"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Model Credits Section */}
+                  <div>
+                    <div className="text-xs font-semibold text-zinc-300 mb-2">
+                      {isEn ? "Model Credits" : "Kredit Model"}
+                    </div>
+                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {isEn ? "Enable AI Credit Overages" : "Aktifkan Overage Kredit AI"}
+                        </div>
+                        <div className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                          {isAntigravity
+                            ? isEn
+                              ? "When toggled on, Antigravity IDE will use your AI credits to fulfill model requests once you're out of model quota. Antigravity IDE will always use your model quota first before using AI credits."
+                              : "Saat diaktifkan, Antigravity akan menggunakan kredit AI jika kuota utama habis. Antigravity akan selalu menggunakan kuota model terlebih dahulu sebelum memotong kredit AI."
+                            : isEn
+                            ? "When enabled, requests will gracefully fall back to pay-as-you-go credits when rate limits are exhausted."
+                            : "Saat diaktifkan, permintaan akan otomatis menggunakan saldo kredit saat kuota langganan habis."}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={overagesEnabled}
+                        onClick={handleToggleOverages}
                         className={cn(
-                          "w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-                          overagesEnabled ? "translate-x-5" : "translate-x-0"
+                          "w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
+                          overagesEnabled
+                            ? "bg-teal-600 border-teal-500"
+                            : "bg-zinc-800 border-zinc-700 hover:border-zinc-600"
                         )}
-                      />
-                    </button>
+                      >
+                        <div
+                          className={cn(
+                            "w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+                            overagesEnabled ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* 3. Primary Models Section */}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 mb-2">
+                      <span>{isAntigravity ? (isEn ? "Gemini Models" : "Model Gemini") : (isEn ? `${providerName} Models` : `Model ${providerName}`)}</span>
+                      <Info className="w-3.5 h-3.5 text-zinc-500" />
+                    </div>
+                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
+                      <div className="flex items-center justify-between py-3 px-4">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {isEn ? "Weekly Limit Remaining" : "Sisa Batas Mingguan"}
+                          </div>
+                          <div className="text-xs text-zinc-400 mt-0.5">
+                            {isEn
+                              ? `You have used some of your weekly limit, it will fully refresh in ${currentQuota.gemini.weeklyReset}.`
+                              : `Anda telah menggunakan sebagian kuota mingguan, akan diperbarui penuh dalam ${currentQuota.gemini.weeklyReset}.`}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0 pl-3">
+                          <span className="text-sm font-bold text-white tracking-tight">
+                            {currentQuota.gemini.weeklyRemaining}%
+                          </span>
+                          <CircularQuotaRing percent={currentQuota.gemini.weeklyRemaining} size={30} strokeWidth={3} />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between py-3 px-4">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {isEn ? "Five Hour Limit Remaining" : "Sisa Batas 5 Jam"}
+                          </div>
+                          <div className="text-xs text-zinc-400 mt-0.5">
+                            {isEn
+                              ? `You have used some of your 5-hour limit, it will fully refresh in ${currentQuota.gemini.fiveHourReset}.`
+                              : `Anda telah menggunakan sebagian kuota 5 jam, akan diperbarui penuh dalam ${currentQuota.gemini.fiveHourReset}.`}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0 pl-3">
+                          <span className="text-sm font-bold text-white tracking-tight">
+                            {currentQuota.gemini.fiveHourRemaining}%
+                          </span>
+                          <CircularQuotaRing percent={currentQuota.gemini.fiveHourRemaining} size={30} strokeWidth={3} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Secondary / Claude & GPT models (Only for Antigravity) */}
+                  {isAntigravity && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 mb-2">
+                        <span>{isEn ? "Claude and GPT models" : "Model Claude dan GPT"}</span>
+                        <Info className="w-3.5 h-3.5 text-zinc-500" />
+                      </div>
+                      <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
+                        <div className="flex items-center justify-between py-3 px-4">
+                          <div>
+                            <div className="text-sm font-medium text-white">
+                              {isEn ? "Weekly Limit Remaining" : "Sisa Batas Mingguan"}
+                            </div>
+                            <div className="text-xs text-zinc-400 mt-0.5">
+                              {isEn
+                                ? `You have used some of your weekly limit, it will fully refresh in ${currentQuota.claudeGpt.weeklyReset}.`
+                                : `Anda telah menggunakan sebagian kuota mingguan, akan diperbarui penuh dalam ${currentQuota.claudeGpt.weeklyReset}.`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0 pl-3">
+                            <span className="text-sm font-bold text-white tracking-tight">
+                              {currentQuota.claudeGpt.weeklyRemaining}%
+                            </span>
+                            <CircularQuotaRing percent={currentQuota.claudeGpt.weeklyRemaining} size={30} strokeWidth={3} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between py-3 px-4">
+                          <div>
+                            <div className="text-sm font-medium text-white">
+                              {isEn ? "Five Hour Limit Remaining" : "Sisa Batas 5 Jam"}
+                            </div>
+                            <div className="text-xs text-zinc-400 mt-0.5">
+                              {isEn
+                                ? `You have used some of your 5-hour limit, it will fully refresh in ${currentQuota.claudeGpt.fiveHourReset}.`
+                                : `Anda telah menggunakan sebagian kuota 5 jam, akan diperbarui penuh dalam ${currentQuota.claudeGpt.fiveHourReset}.`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0 pl-3">
+                            <span className="text-sm font-bold text-white tracking-tight">
+                              {currentQuota.claudeGpt.fiveHourRemaining}%
+                            </span>
+                            <CircularQuotaRing percent={currentQuota.claudeGpt.fiveHourRemaining} size={30} strokeWidth={3} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {/* 3. Gemini Models Section */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 mb-2">
-                    <span>{isAntigravity ? (isEn ? "Gemini Models" : "Model Gemini") : (isEn ? "Primary Models" : "Model Utama")}</span>
-                    <Info className="w-3.5 h-3.5 text-zinc-500" />
-                  </div>
-                  <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
-                    <div className="flex items-center justify-between py-3 px-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {isEn ? "Weekly Limit Remaining" : "Sisa Batas Mingguan"}
-                        </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
-                          {isEn
-                            ? `You have used some of your weekly limit, it will fully refresh in ${currentQuota.gemini.weeklyReset}.`
-                            : `Anda telah menggunakan sebagian kuota mingguan, akan diperbarui penuh dalam ${currentQuota.gemini.weeklyReset}.`}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 shrink-0 pl-3">
-                        <span className="text-sm font-bold text-white tracking-tight">
-                          {currentQuota.gemini.weeklyRemaining}%
-                        </span>
-                        <CircularQuotaRing percent={currentQuota.gemini.weeklyRemaining} size={30} strokeWidth={3} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between py-3 px-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {isEn ? "Five Hour Limit Remaining" : "Sisa Batas 5 Jam"}
-                        </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
-                          {isEn
-                            ? `You have used some of your 5-hour limit, it will fully refresh in ${currentQuota.gemini.fiveHourReset}.`
-                            : `Anda telah menggunakan sebagian kuota 5 jam, akan diperbarui penuh dalam ${currentQuota.gemini.fiveHourReset}.`}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 shrink-0 pl-3">
-                        <span className="text-sm font-bold text-white tracking-tight">
-                          {currentQuota.gemini.fiveHourRemaining}%
-                        </span>
-                        <CircularQuotaRing percent={currentQuota.gemini.fiveHourRemaining} size={30} strokeWidth={3} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Claude and GPT models Section */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300 mb-2">
-                    <span>{isEn ? "Claude and GPT models" : "Model Claude dan GPT"}</span>
-                    <Info className="w-3.5 h-3.5 text-zinc-500" />
-                  </div>
-                  <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
-                    <div className="flex items-center justify-between py-3 px-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {isEn ? "Weekly Limit Remaining" : "Sisa Batas Mingguan"}
-                        </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
-                          {isEn
-                            ? `You have used some of your weekly limit, it will fully refresh in ${currentQuota.claudeGpt.weeklyReset}.`
-                            : `Anda telah menggunakan sebagian kuota mingguan, akan diperbarui penuh dalam ${currentQuota.claudeGpt.weeklyReset}.`}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 shrink-0 pl-3">
-                        <span className="text-sm font-bold text-white tracking-tight">
-                          {currentQuota.claudeGpt.weeklyRemaining}%
-                        </span>
-                        <CircularQuotaRing percent={currentQuota.claudeGpt.weeklyRemaining} size={30} strokeWidth={3} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between py-3 px-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {isEn ? "Five Hour Limit Remaining" : "Sisa Batas 5 Jam"}
-                        </div>
-                        <div className="text-xs text-zinc-400 mt-0.5">
-                          {isEn
-                            ? `You have used some of your 5-hour limit, it will fully refresh in ${currentQuota.claudeGpt.fiveHourReset}.`
-                            : `Anda telah menggunakan sebagian kuota 5 jam, akan diperbarui penuh dalam ${currentQuota.claudeGpt.fiveHourReset}.`}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 shrink-0 pl-3">
-                        <span className="text-sm font-bold text-white tracking-tight">
-                          {currentQuota.claudeGpt.fiveHourRemaining}%
-                        </span>
-                        <CircularQuotaRing percent={currentQuota.claudeGpt.fiveHourRemaining} size={30} strokeWidth={3} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Footer */}
               <div className="mt-5 pt-3 border-t border-[#1b2b31] flex items-center justify-between text-[11px] text-zinc-500">
