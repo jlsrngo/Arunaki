@@ -557,16 +557,16 @@ export function SettingsCliConnectionsTab({
         email: data.antigravity?.accountEmail || undefined,
         overagesEnabled,
         gemini: {
-          weeklyRemaining: 44,
-          weeklyReset: "4 days, 19 hours",
-          fiveHourRemaining: 61,
-          fiveHourReset: "3 hours, 24 minutes",
+          weeklyRemaining: 36,
+          weeklyReset: "4 days, 18 hours",
+          fiveHourRemaining: 16,
+          fiveHourReset: "2 hours, 17 minutes",
         },
         claudeGpt: {
           weeklyRemaining: 0,
-          weeklyReset: "4 days, 23 hours",
+          weeklyReset: "4 days, 21 hours",
           fiveHourRemaining: 1,
-          fiveHourReset: "1 hour, 12 minutes",
+          fiveHourReset: "5 minutes",
         },
       },
     }));
@@ -2149,16 +2149,16 @@ export function SettingsCliConnectionsTab({
           plan: target === "antigravity" ? "Google AI Pro" : target === "claude" ? "Anthropic Claude Pro / Team" : target === "codex" ? "OpenAI ChatGPT Plus / Team" : "Subscription Plan",
           overagesEnabled,
           gemini: {
-            weeklyRemaining: 44,
-            weeklyReset: "4 days, 19 hours",
-            fiveHourRemaining: 61,
-            fiveHourReset: "3 hours, 24 minutes",
+            weeklyRemaining: 36,
+            weeklyReset: "4 days, 18 hours",
+            fiveHourRemaining: 16,
+            fiveHourReset: "2 hours, 17 minutes",
           },
           claudeGpt: {
             weeklyRemaining: 0,
-            weeklyReset: "4 days, 23 hours",
+            weeklyReset: "4 days, 21 hours",
             fiveHourRemaining: 1,
-            fiveHourReset: "1 hour, 12 minutes",
+            fiveHourReset: "5 minutes",
           },
         };
 

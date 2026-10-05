@@ -454,8 +454,9 @@ class LocalCliBridge {
 
         if (req.method === "GET" && (parsedUrl.pathname === "/v1/quota" || parsedUrl.pathname === "/quota")) {
           const target = parsedUrl.searchParams.get("target") || "antigravity"
+          const quota = await getCliQuota(target)
           res.writeHead(200, { "Content-Type": "application/json" })
-          res.end(JSON.stringify({ data: getCliQuota(target) }))
+          res.end(JSON.stringify({ data: quota }))
           return
         }
 

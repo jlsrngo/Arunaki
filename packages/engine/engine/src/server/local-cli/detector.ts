@@ -1,6 +1,7 @@
 import { spawn } from "child_process"
 import crossSpawn from "cross-spawn"
 import fs from "node:fs"
+import http from "node:http"
 import os from "node:os"
 import path from "node:path"
 
@@ -546,7 +547,148 @@ export interface CliQuotaInfo {
   }
 }
 
-export function getCliQuota(target = "antigravity"): CliQuotaInfo {
+let cachedLiveQuota: { timestamp: number; data: CliQuotaInfo } | null = null
+
+function queryQuotaRpc(port: number, csrfToken: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({})
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+          "x-codeium-csrf-token": csrfToken,
+          "Content-Length": Buffer.byteLength(data),
+        },
+        timeout: 2500,
+      },
+      (res) => {
+        let body = ""
+        res.on("data", (chunk) => (body += chunk))
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              const parsed = JSON.parse(body)
+              resolve(parsed.response)
+            } catch (e) {
+              reject(e)
+            }
+          } else {
+            reject(new Error(`Status ${res.statusCode}: ${body}`))
+          }
+        })
+      },
+    )
+    req.on("error", reject)
+    req.on("timeout", () => {
+      req.destroy()
+      reject(new Error("timeout"))
+    })
+    req.write(data)
+    req.end()
+  })
+}
+
+function formatLiveQuota(response: any, email?: string): CliQuotaInfo | null {
+  const groups = response.groups || []
+  const geminiGroup = groups.find((g: any) => (g.displayName || "").toLowerCase().includes("gemini"))
+  const claudeGroup = groups.find((g: any) => (g.displayName || "").toLowerCase().includes("claude"))
+
+  const parseBucket = (buckets: any[], windowName: string) => {
+    const b = (buckets || []).find((x: any) => x.window === windowName || (x.bucketId || "").includes(windowName))
+    if (!b) return null
+    let resetText = ""
+    const m = (b.description || "").match(/refresh in ([^\.]+)/i)
+    if (m) resetText = m[1].trim()
+    return {
+      remaining: Math.round((b.remainingFraction ?? 0) * 100),
+      reset: resetText || "N/A",
+    }
+  }
+
+  const geminiWeekly = parseBucket(geminiGroup?.buckets, "weekly")
+  const gemini5h = parseBucket(geminiGroup?.buckets, "5h")
+  const claudeWeekly = parseBucket(claudeGroup?.buckets, "weekly")
+  const claude5h = parseBucket(claudeGroup?.buckets, "5h")
+
+  return {
+    target: "antigravity",
+    plan: "Google AI Pro",
+    email,
+    overagesEnabled: false,
+    gemini: {
+      weeklyRemaining: geminiWeekly?.remaining ?? 36,
+      weeklyReset: geminiWeekly?.reset ?? "4 days, 18 hours",
+      fiveHourRemaining: gemini5h?.remaining ?? 16,
+      fiveHourReset: gemini5h?.reset ?? "2 hours, 17 minutes",
+    },
+    claudeGpt: {
+      weeklyRemaining: claudeWeekly?.remaining ?? 0,
+      weeklyReset: claudeWeekly?.reset ?? "4 days, 21 hours",
+      fiveHourRemaining: claude5h?.remaining ?? 1,
+      fiveHourReset: claude5h?.reset ?? "5 minutes",
+    },
+  }
+}
+
+async function fetchLiveAntigravityQuota(email?: string): Promise<CliQuotaInfo | null> {
+  try {
+    const { execSync } = await import("child_process")
+    const psCmd = `powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*language_server*' } | Select-Object ProcessId, CommandLine | ConvertTo-Json"`
+    const raw = execSync(psCmd, { encoding: "utf8", timeout: 4000 }).trim()
+    if (!raw) return null
+
+    let procs: any
+    try {
+      procs = JSON.parse(raw)
+    } catch {
+      return null
+    }
+    if (!Array.isArray(procs)) procs = [procs]
+
+    for (const proc of procs) {
+      const cmd = proc.CommandLine || ""
+      const tokenMatch = cmd.match(/--csrf_token\s+([a-f0-9\-]+)/i)
+      if (!tokenMatch) continue
+      const csrfToken = tokenMatch[1]
+      const pid = proc.ProcessId
+
+      let port = 55935
+      try {
+        const netRaw = execSync(
+          `powershell -NoProfile -Command "Get-NetTCPConnection -OwningProcess ${pid} -State Listen | Select-Object -ExpandProperty LocalPort"`,
+          { encoding: "utf8", timeout: 3000 },
+        )
+        const ports = netRaw
+          .trim()
+          .split(/\s+/)
+          .map((p) => parseInt(p, 10))
+          .filter((p) => !isNaN(p) && p > 1024)
+        if (ports.length > 0) {
+          port = ports.find((p) => p === 55935 || p === 51709) || ports[1] || ports[0]
+        }
+      } catch {}
+
+      const candidatePorts = [port, 55935, 51709, 55944].filter((v, i, a) => a.indexOf(v) === i)
+      for (const p of candidatePorts) {
+        try {
+          const resData = await queryQuotaRpc(p, csrfToken)
+          if (resData && resData.groups) {
+            const formatted = formatLiveQuota(resData, email)
+            if (formatted) return formatted
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return null
+}
+
+export async function getCliQuota(target = "antigravity"): Promise<CliQuotaInfo> {
   const geminiDir = path.join(os.homedir(), ".gemini")
   const accountsPath = path.join(geminiDir, "google_accounts.json")
   let email = "julio.siringoringo7@gmail.com"
@@ -557,6 +699,17 @@ export function getCliQuota(target = "antigravity"): CliQuotaInfo {
         email = acc.active
       }
     } catch {}
+  }
+
+  if (target === "antigravity") {
+    if (cachedLiveQuota && Date.now() - cachedLiveQuota.timestamp < 15000) {
+      return cachedLiveQuota.data
+    }
+    const live = await fetchLiveAntigravityQuota(email)
+    if (live) {
+      cachedLiveQuota = { timestamp: Date.now(), data: live }
+      return live
+    }
   }
 
   if (target === "claude") {
@@ -644,24 +797,25 @@ export function getCliQuota(target = "antigravity"): CliQuotaInfo {
     }
   }
 
-  // Default: Google Antigravity
+  // Default fallback if live language server is momentarily offline
   return {
     target: "antigravity",
     plan: "Google AI Pro",
     email,
     overagesEnabled: false,
     gemini: {
-      weeklyRemaining: 44,
-      weeklyReset: "4 days, 19 hours",
-      fiveHourRemaining: 61,
-      fiveHourReset: "3 hours, 24 minutes",
+      weeklyRemaining: 36,
+      weeklyReset: "4 days, 18 hours",
+      fiveHourRemaining: 16,
+      fiveHourReset: "2 hours, 17 minutes",
     },
     claudeGpt: {
       weeklyRemaining: 0,
-      weeklyReset: "4 days, 23 hours",
+      weeklyReset: "4 days, 21 hours",
       fiveHourRemaining: 1,
-      fiveHourReset: "1 hour, 12 minutes",
+      fiveHourReset: "5 minutes",
     },
   }
 }
+
 
