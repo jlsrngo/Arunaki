@@ -21,8 +21,6 @@ import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
 import { BashArity } from "@/permission/arity"
-import { isScratchMode, SCRATCH_MODE_RESPONSE } from "./scratch-guard"
-import { hasAttemptedNative, hasFailedNative } from "./doc-fallback"
 
 export { Parameters } from "./shell/prompt"
 
@@ -622,12 +620,6 @@ export const ShellTool = Tool.define(
           parameters: prompt.parameters,
           execute: (params: Parameters, ctx: Tool.Context) =>
             Effect.gen(function* () {
-              // Guard: if in scratch mode (no folder connected), return friendly message
-              const scratch = yield* isScratchMode
-              if (scratch) {
-                return SCRATCH_MODE_RESPONSE as any
-              }
-
               const instanceCtx = yield* InstanceState.context
               const cwd = params.workdir
                 ? yield* resolvePath(params.workdir, instanceCtx.directory, shell)

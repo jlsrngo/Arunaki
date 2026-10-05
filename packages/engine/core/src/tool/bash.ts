@@ -14,7 +14,6 @@ import { PositiveInt } from "../schema"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
-import { hasAttemptedNative, hasFailedNative } from "./doc-fallback"
 
 export const name = "bash"
 export const DEFAULT_TIMEOUT_MS = 2 * 60 * 1_000
@@ -107,7 +106,7 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description: `Execute one shell command string with the host user's filesystem, process, and network authority. The active Location is the default working directory. Relative workdir values resolve from that Location. External workdir values require external_directory approval; best-effort command-argument path warnings are advisory only. Timeout values are milliseconds (default: ${DEFAULT_TIMEOUT_MS}; maximum: ${MAX_TIMEOUT_MS}). Uses the configured shell when set; otherwise uses /bin/sh on POSIX and COMSPEC or cmd.exe on Windows. Always prioritize native document tools ('excel_read', 'word_read', 'ppt_read', 'pdf_read') first. If a native tool fails or cannot process the document, Python scripts may be executed freely as a fallback.`,
+          description: `Execute one shell command string with the host user's filesystem, process, and network authority. The active Location is the default working directory. Relative workdir values resolve from that Location. External workdir values require external_directory approval; best-effort command-argument path warnings are advisory only. Timeout values are milliseconds (default: ${DEFAULT_TIMEOUT_MS}; maximum: ${MAX_TIMEOUT_MS}). Uses the configured shell when set; otherwise uses /bin/sh on POSIX and COMSPEC or cmd.exe on Windows. Tool Execution Hierarchy: Level 1 (Top Priority) - Always attempt native document tools ('excel_read', 'word_read', 'ppt_read', 'pdf_read', 'image_ocr', 'read', 'edit', 'write') first. Level 2 (Autonomous Scripting Fallback) - If native tools fail or cannot fulfill the task (such as updating Excel .xlsx rows/cells/formulas, formatting spreadsheets, complex calculations, or data processing), Python scripts (e.g. openpyxl, python-docx) or Node.js may be written and executed freely as a fallback without hesitation.`,
           input: Input,
           output: Output,
           structured: StructuredOutput,

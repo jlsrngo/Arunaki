@@ -81,8 +81,13 @@ export const Plugin = define({
   id: "agent",
   effect: Effect.fn(function* (ctx) {
     const location = yield* Location.Service
-    const worktree = location.directory
-    const whitelistedDirs = [TRUNCATION_GLOB, path.join(Global.Path.tmp, "*")]
+    const whitelistedDirs = [
+      TRUNCATION_GLOB,
+      path.join(Global.Path.tmp, "*"),
+      path.join(Global.Path.tmp, "**"),
+      path.join(Global.Path.home, ".arunaki", "*"),
+      path.join(Global.Path.home, ".arunaki", "**"),
+    ]
     const readonlyExternalDirectory: PermissionV2.Ruleset = [
       { action: "external_directory", resource: "*", effect: "deny" },
       ...whitelistedDirs.map(
