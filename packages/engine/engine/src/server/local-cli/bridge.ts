@@ -411,7 +411,7 @@ class LocalCliBridge {
     if (this.isRunning) return Promise.resolve(true)
 
     return new Promise((resolve) => {
-      this.server = http.createServer((req, res) => {
+      this.server = http.createServer(async (req, res) => {
         const parsedUrl = new URL(req.url ?? "/", `http://${req.headers.host || "127.0.0.1"}`)
 
         // Set CORS headers
