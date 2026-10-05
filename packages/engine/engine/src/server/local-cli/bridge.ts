@@ -4,6 +4,61 @@ import { checkClaudeStatus, resolveAgyCommand } from "./detector"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
+export interface ParsedToolCall {
+  name: string
+  arguments: Record<string, any>
+}
+
+export function parseToolCallsFromText(rawText: string): ParsedToolCall[] {
+  const calls: ParsedToolCall[] = []
+
+  // 1. Match ```tool_call\n...\n``` or ```tool_call ... ```
+  const mdRegex = /```tool_call\s*([\s\S]*?)\s*```/gi
+  let match: RegExpExecArray | null
+  while ((match = mdRegex.exec(rawText)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim())
+      if (parsed?.name && typeof parsed.name === "string") {
+        const args =
+          typeof parsed.arguments === "object" && parsed.arguments !== null
+            ? parsed.arguments
+            : typeof parsed.arguments === "string"
+              ? JSON.parse(parsed.arguments)
+              : {}
+        calls.push({ name: parsed.name, arguments: args })
+      }
+    } catch {}
+  }
+
+  // 2. Match <tool_call> ... </tool_call>
+  const tagRegex = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/gi
+  while ((match = tagRegex.exec(rawText)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim())
+      if (parsed?.name && typeof parsed.name === "string") {
+        const args =
+          typeof parsed.arguments === "object" && parsed.arguments !== null
+            ? parsed.arguments
+            : typeof parsed.arguments === "string"
+              ? JSON.parse(parsed.arguments)
+              : {}
+        if (!calls.some((c) => c.name === parsed.name && JSON.stringify(c.arguments) === JSON.stringify(args))) {
+          calls.push({ name: parsed.name, arguments: args })
+        }
+      }
+    } catch {}
+  }
+
+  return calls
+}
+
+export function stripToolCallsFromText(rawText: string): string {
+  return rawText
+    .replace(/```tool_call[\s\S]*?```/gi, "")
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+    .trim()
+}
+
 class AntigravityDaemonWorker {
   private child: any = null
   private isStarting = false
@@ -12,6 +67,8 @@ class AntigravityDaemonWorker {
     res: http.ServerResponse
     model: string
     accumulatedText: string
+    streamedText: string
+    inToolCall: boolean
     timeoutId?: NodeJS.Timeout
   } | null = null
   private turnQueue: Array<{
@@ -118,6 +175,24 @@ class AntigravityDaemonWorker {
     }
   }
 
+  private writeStreamChunk(res: http.ServerResponse, model: string, content: string) {
+    if (!content) return
+    const chunkObj = {
+      id: `chatcmpl-antigravity-${Date.now()}`,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000),
+      model: model || "gemini-3.8-flash",
+      choices: [
+        {
+          index: 0,
+          delta: { content },
+          finish_reason: null,
+        },
+      ],
+    }
+    res.write(`data: ${JSON.stringify(chunkObj)}\n\n`)
+  }
+
   private handleStdout(chunk: Buffer) {
     this.stdoutBuffer += chunk.toString()
     const lines = this.stdoutBuffer.split("\n")
@@ -131,9 +206,10 @@ class AntigravityDaemonWorker {
         if (parsed.event === "step_update" && parsed.step_update?.text_delta) {
           const delta = parsed.step_update.text_delta
           if (this.currentTurn) {
-            this.currentTurn.accumulatedText += delta
-            if (this.currentTurn.stream) {
-              const res = this.currentTurn.res
+            const turn = this.currentTurn
+            turn.accumulatedText += delta
+            if (turn.stream) {
+              const res = turn.res
               if (!res.headersSent) {
                 res.writeHead(200, {
                   "Content-Type": "text/event-stream",
@@ -141,20 +217,27 @@ class AntigravityDaemonWorker {
                   Connection: "keep-alive",
                 })
               }
-              const chunkObj = {
-                id: `chatcmpl-antigravity-${Date.now()}`,
-                object: "chat.completion.chunk",
-                created: Math.floor(Date.now() / 1000),
-                model: this.currentTurn.model || "gemini-3.8-flash",
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: delta },
-                    finish_reason: null,
-                  },
-                ],
+
+              if (!turn.inToolCall) {
+                const toolCallMatch = turn.accumulatedText.match(/```tool_call|<tool_call>/i)
+                if (toolCallMatch && toolCallMatch.index !== undefined) {
+                  turn.inToolCall = true
+                  const safeBefore = turn.accumulatedText.slice(0, toolCallMatch.index)
+                  if (safeBefore.length > turn.streamedText.length) {
+                    const chunkToStream = safeBefore.slice(turn.streamedText.length)
+                    turn.streamedText += chunkToStream
+                    this.writeStreamChunk(res, turn.model, chunkToStream)
+                  }
+                } else {
+                  // Buffer up to 15 chars to avoid leaking partial "```tool_call" or "<tool_call>"
+                  const safeEnd = Math.max(0, turn.accumulatedText.length - 15)
+                  if (safeEnd > turn.streamedText.length) {
+                    const chunkToStream = turn.accumulatedText.slice(turn.streamedText.length, safeEnd)
+                    turn.streamedText += chunkToStream
+                    this.writeStreamChunk(res, turn.model, chunkToStream)
+                  }
+                }
               }
-              res.write(`data: ${JSON.stringify(chunkObj)}\n\n`)
             }
           }
         } else if (parsed.event === "result") {
@@ -185,7 +268,9 @@ class AntigravityDaemonWorker {
     if (turn.timeoutId) clearTimeout(turn.timeoutId)
 
     this.turnCount++
-    const replyText = (text || turn.accumulatedText).trim()
+    const fullText = (text || turn.accumulatedText).trim()
+    const toolCalls = parseToolCallsFromText(fullText)
+    const hasToolCalls = toolCalls.length > 0
 
     if (turn.stream) {
       const res = turn.res
@@ -196,38 +281,117 @@ class AntigravityDaemonWorker {
           Connection: "keep-alive",
         })
       }
-      const finishChunk = {
-        id: `chatcmpl-antigravity-${Date.now()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: turn.model || "gemini-3.8-flash",
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: "stop",
+
+      if (hasToolCalls) {
+        // Stream any remaining text before the tool call if not yet streamed
+        if (!turn.inToolCall) {
+          const match = fullText.match(/```tool_call|<tool_call>/i)
+          const endIndex = match && match.index !== undefined ? match.index : fullText.length
+          const safeBefore = fullText.slice(0, endIndex)
+          if (safeBefore.length > turn.streamedText.length) {
+            const chunk = safeBefore.slice(turn.streamedText.length)
+            turn.streamedText += chunk
+            this.writeStreamChunk(res, turn.model, chunk)
+          }
+          turn.inToolCall = true
+        }
+
+        // Send tool_calls delta
+        const toolCallsDelta = toolCalls.map((tc, idx) => ({
+          index: idx,
+          id: `call_${Date.now()}_${idx}`,
+          type: "function" as const,
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
           },
-        ],
+        }))
+
+        const toolCallChunk = {
+          id: `chatcmpl-antigravity-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: turn.model || "gemini-3.8-flash",
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: toolCallsDelta,
+              },
+              finish_reason: null,
+            },
+          ],
+        }
+        res.write(`data: ${JSON.stringify(toolCallChunk)}\n\n`)
+
+        // Send finish chunk with finish_reason: "tool_calls"
+        const finishChunk = {
+          id: `chatcmpl-antigravity-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: turn.model || "gemini-3.8-flash",
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: "tool_calls",
+            },
+          ],
+        }
+        res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
+      } else {
+        // No tool calls: stream any remaining unstreamed text
+        if (fullText.length > turn.streamedText.length) {
+          const remaining = fullText.slice(turn.streamedText.length)
+          this.writeStreamChunk(res, turn.model, remaining)
+        }
+
+        const finishChunk = {
+          id: `chatcmpl-antigravity-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: turn.model || "gemini-3.8-flash",
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: "stop",
+            },
+          ],
+        }
+        res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
       }
-      res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
+
       res.write("data: [DONE]\n\n")
       res.end()
     } else {
+      // Non-streaming response
+      const choice: any = {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: hasToolCalls ? (stripToolCallsFromText(fullText) || null) : fullText,
+        },
+        finish_reason: hasToolCalls ? "tool_calls" : "stop",
+      }
+
+      if (hasToolCalls) {
+        choice.message.tool_calls = toolCalls.map((tc, idx) => ({
+          id: `call_${Date.now()}_${idx}`,
+          type: "function",
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        }))
+      }
+
       const completion = {
         id: `chatcmpl-antigravity-${Date.now()}`,
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
         model: turn.model || "gemini-3.8-flash",
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: replyText,
-            },
-            finish_reason: "stop",
-          },
-        ],
+        choices: [choice],
         usage: {
           prompt_tokens: usage?.input_tokens ?? 15,
           completion_tokens: usage?.output_tokens ?? 25,
@@ -256,21 +420,8 @@ class AntigravityDaemonWorker {
       if (active.timeoutId) clearTimeout(active.timeoutId)
       const replyText = active.accumulatedText.trim()
       if (replyText) {
-        if (active.stream && active.res.headersSent) {
-          active.res.write("data: [DONE]\n\n")
-          active.res.end()
-        } else {
-          active.res.writeHead(200, { "Content-Type": "application/json" })
-          active.res.end(
-            JSON.stringify({
-              id: `chatcmpl-antigravity-${Date.now()}`,
-              object: "chat.completion",
-              created: Math.floor(Date.now() / 1000),
-              model: active.model,
-              choices: [{ index: 0, message: { role: "assistant", content: replyText }, finish_reason: "stop" }],
-            }),
-          )
-        }
+        this.currentTurn = active
+        this.finishCurrentTurn(replyText)
       } else {
         if (!active.res.headersSent) {
           active.res.writeHead(503, { "Content-Type": "application/json" })
@@ -332,6 +483,8 @@ class AntigravityDaemonWorker {
         res,
         model: payload.model || "gemini-3.8-flash",
         accumulatedText: "",
+        streamedText: "",
+        inToolCall: false,
         timeoutId: setTimeout(() => {
           if (this.currentTurn) {
             console.warn("[LocalCliBridge] Antigravity turn timeout (60s), resetting worker...")
@@ -519,26 +672,61 @@ class LocalCliBridge {
     prefix = "cli",
     usage?: { input_tokens?: number; output_tokens?: number }
   ) {
+    const toolCalls = parseToolCallsFromText(replyText)
+    const hasToolCalls = toolCalls.length > 0
+    const cleanText = hasToolCalls ? stripToolCallsFromText(replyText) : replyText
+
     if (payload.stream) {
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-      })
-      const chunk = {
-        id: `chatcmpl-${prefix}-${Date.now()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: payload.model || "default",
-        choices: [
-          {
-            index: 0,
-            delta: { content: replyText },
-            finish_reason: null,
-          },
-        ],
+      if (!res.headersSent) {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        })
       }
-      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
+      if (cleanText) {
+        const chunk = {
+          id: `chatcmpl-${prefix}-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: payload.model || "default",
+          choices: [
+            {
+              index: 0,
+              delta: { content: cleanText },
+              finish_reason: null,
+            },
+          ],
+        }
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`)
+      }
+
+      if (hasToolCalls) {
+        const toolCallsDelta = toolCalls.map((tc, idx) => ({
+          index: idx,
+          id: `call_${Date.now()}_${idx}`,
+          type: "function" as const,
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        }))
+        const toolCallChunk = {
+          id: `chatcmpl-${prefix}-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: payload.model || "default",
+          choices: [
+            {
+              index: 0,
+              delta: { tool_calls: toolCallsDelta },
+              finish_reason: null,
+            },
+          ],
+        }
+        res.write(`data: ${JSON.stringify(toolCallChunk)}\n\n`)
+      }
+
       const finishChunk = {
         id: `chatcmpl-${prefix}-${Date.now()}`,
         object: "chat.completion.chunk",
@@ -548,7 +736,7 @@ class LocalCliBridge {
           {
             index: 0,
             delta: {},
-            finish_reason: "stop",
+            finish_reason: hasToolCalls ? "tool_calls" : "stop",
           },
         ],
       }
@@ -558,21 +746,32 @@ class LocalCliBridge {
       return
     }
 
+    const choice: any = {
+      index: 0,
+      message: {
+        role: "assistant",
+        content: hasToolCalls ? (cleanText || null) : cleanText,
+      },
+      finish_reason: hasToolCalls ? "tool_calls" : "stop",
+    }
+
+    if (hasToolCalls) {
+      choice.message.tool_calls = toolCalls.map((tc, idx) => ({
+        id: `call_${Date.now()}_${idx}`,
+        type: "function",
+        function: {
+          name: tc.name,
+          arguments: JSON.stringify(tc.arguments),
+        },
+      }))
+    }
+
     const completion = {
       id: `chatcmpl-${prefix}-${Date.now()}`,
       object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
       model: payload.model || "default",
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: replyText,
-          },
-          finish_reason: "stop",
-        },
-      ],
+      choices: [choice],
       usage: {
         prompt_tokens: usage?.input_tokens ?? 15,
         completion_tokens: usage?.output_tokens ?? 25,
@@ -621,8 +820,47 @@ class LocalCliBridge {
       } else if (msg.role === "user") {
         conversationParts.push(`User: ${contentStr}`)
       } else if (msg.role === "assistant") {
-        conversationParts.push(`Assistant: ${contentStr}`)
+        let text = contentStr
+        if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+          const callsStr = msg.tool_calls
+            .map((tc: any) => {
+              const name = tc?.function?.name || "unknown"
+              const args = tc?.function?.arguments || "{}"
+              return `\`\`\`tool_call\n{"name": "${name}", "arguments": ${typeof args === "string" ? args : JSON.stringify(args)}}\n\`\`\``
+            })
+            .join("\n")
+          text = text ? `${text}\n${callsStr}` : callsStr
+        }
+        if (text) conversationParts.push(`Assistant: ${text}`)
+      } else if (msg.role === "tool") {
+        conversationParts.push(`[Tool Result for ${msg.tool_call_id || "call"}]:\n${contentStr}`)
       }
+    }
+
+    let toolsDirective = ""
+    if (Array.isArray(payload.tools) && payload.tools.length > 0) {
+      const toolDefs = payload.tools
+        .map((t: any) => {
+          const fn = t.function || t
+          const props = fn.parameters?.properties
+          const req = fn.parameters?.required ?? []
+          const params = props
+            ? Object.entries(props)
+                .map(([k, v]: [string, any]) => `${k} (${v.type || "string"}${req.includes(k) ? ", required" : ""}): ${v.description || ""}`)
+                .join("; ")
+            : ""
+          return `- ${fn.name}: ${fn.description || ""}${params ? ` [Parameters: ${params}]` : ""}`
+        })
+        .join("\n")
+
+      toolsDirective = `\n\nAvailable Arunaki Workspace Tools:\n${toolDefs}\n\nCRITICAL TOOL USAGE INSTRUCTIONS:
+- You DO NOT have direct file access or execution in your runtime environment. DO NOT execute commands or invoke native tools.
+- When you need to read, write, edit, or search documents in the workspace, you MUST output a tool call block formatted EXACTLY as:
+\`\`\`tool_call
+{"name": "<tool_name>", "arguments": { <args> }}
+\`\`\`
+- Arunaki's host engine will execute your tool call and supply the result back to you in the next turn.
+- To inspect or modify files, ALWAYS output the appropriate tool call instead of guessing or falsely claiming the file was already updated.`
     }
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
@@ -630,10 +868,17 @@ class LocalCliBridge {
     // ── Google Antigravity CLI (agy) Persistent Daemon ───
     if (isAntigravity) {
       const directive =
-        "[SYSTEM INSTRUCTION: You are serving as a pure LLM completion provider for Arunaki. DO NOT invoke any internal tools or execute shell commands. Always wrap your preliminary thought process, calculations, and document plan inside <think>...</think> tags at the very beginning of your response. Then provide your direct response or output after </think>.]"
+        `[SYSTEM INSTRUCTION: You are an AI document assistant in Arunaki Workstation.
+Always wrap your preliminary thought process, calculations, and execution plan inside <think>...</think> tags at the very beginning of your response.
+DO NOT invoke any native internal tools or execute shell commands.${toolsDirective}]`
       const fullPrompt = systemPrompt ? `${directive}\n\n${systemPrompt}\n\n${finalPrompt}` : `${directive}\n\n${finalPrompt}`
       await this.agyDaemon.executeTurn(fullPrompt, payload, res)
       return
+    }
+
+    // Append tools directive to systemPrompt for Claude Code as well
+    if (toolsDirective) {
+      systemPrompt += (systemPrompt ? "\n" : "") + toolsDirective
     }
 
     // ── Claude Code CLI Handler ──────────────────────────

@@ -3659,6 +3659,29 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] Direct bridge ping: ✅ ~12–25ms (down from 14,000ms).
 - [x] `npm run build -w apps/web`: ✅ Passed in 46.54s (0 TypeScript errors).
 
+---
+
+## Phase 103: Antigravity & Local CLI Native Tool Bridging ✅ DONE
+
+**Goal:** Fix Arunaki workspace tools (`read`, `edit`, `write`, `excel-read`, etc.) not executing when using Antigravity CLI (`agy`), ensuring that file modifications actually execute on disk rather than hallucinating in chat text.
+
+### 103.1 Root Cause Diagnosis
+- [x] Identified that `bridge.ts` previously dropped `payload.tools` when building prompts for `agy`, never informing the model of available workspace tools.
+- [x] Multi-turn history dropped `tool` messages and assistant `tool_calls`, breaking tool result feedback loops.
+- [x] Responses from `bridge.ts` hardcoded `finish_reason: "stop"`, preventing Arunaki Engine's `ToolStream` from triggering tool execution.
+
+### 103.2 Implementation
+- [x] **`bridge.ts`**: Formatted and injected `payload.tools` specifications and calling instructions (` ```tool_call {"name": "...", "arguments": {...}} ``` `) into the system prompt.
+- [x] **`bridge.ts`**: Preserved assistant `tool_calls` and tool execution outputs (`[Tool Result for call_id]: ...`) across chat turns.
+- [x] **`bridge.ts`**: Added tool output buffering to prevent raw tool JSON from leaking into the user-facing chat bubble.
+- [x] **`bridge.ts`**: Implemented parser for ````tool_call```` and `<tool_call>` blocks emitting OpenAI-compatible `tool_calls` deltas and `finish_reason: "tool_calls"`.
+
+### 103.3 Verification
+- [x] `npm run build -w apps/web`: ✅ Passed with 0 TypeScript compilation errors.
+- [x] Direct bridge SSE test (`test-bridge-tools.cjs`): ✅ Emitted `tool_calls` delta (`read: LAPORAN-HARIAN.txt`) and `finish_reason: "tool_calls"`.
+- [x] Multi-turn test with tool result (`test-bridge-tools-turn2.cjs`): ✅ Emitted `edit` tool call with updated calculations and `finish_reason: "tool_calls"`.
+
+
 
 
 
