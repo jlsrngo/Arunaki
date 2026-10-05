@@ -10,8 +10,9 @@
    - Whitelisted `.arunaki` and `.arunaki/scratch` in `packages/engine/engine/src/agent/agent.ts` and `packages/engine/core/src/plugin/agent.ts` so scripts executing from or accessing `~/.arunaki/scratch` are never rejected by `external_directory: deny`.
 2. **Formally Codified the Two-Level Tool Execution Hierarchy**:
    - **Level 1 (Top Priority — Native In-Memory Tools)**: Always try built-in native tools first (`excel_read`, `word_read`, `ppt_read`, `pdf_read`, `image_ocr`, `read`, `edit`, `write`) for instant extraction and reading (<50ms).
-   - **Level 2 (Autonomous Scripting Fallback)**: If native tools fail, cannot parse the format, or if the task requires document modification (updating Excel `.xlsx` rows/cells/formulas, formatting spreadsheets, complex calculations, or data transformations), Arunaki is 100% UNBLOCKED and empowered to write and execute scripts (`python`, `openpyxl`, `python-docx`, Node.js) via `bash`/`shell`.
-   - **Never Get Stuck**: Instructed Arunaki never to give up or ask the user to edit documents manually if Level 1 fails; immediately write and execute a script to accomplish the goal.
+   - **Level 2 (Autonomous Scripting Fallback — Python Only)**: Standardized strictly on **Python** (`openpyxl`, `python-docx`, `pandas`) as the sole official scripting environment for document tasks. Node.js references were removed since Python is the universal standard for document automation.
+   - **Script Safety & Harmless Operation (Strict Rule)**: Added strict warnings prohibiting destructive, malicious, or system-altering scripts (e.g. deleting system files, accessing outside workspace, touching OS settings, network attacks, downloading binaries, infinite loops). Scripts must strictly focus on document processing, calculations, and data formatting.
+   - **Never Get Stuck**: Instructed Arunaki never to give up or ask the user to edit documents manually if Level 1 fails; immediately write and execute a Python script to accomplish the goal.
    - **Windows Quoting Safety**: Added explicit instructions to write scripts to `.arunaki/scratch/*.py` first before running `python .arunaki/scratch/*.py` to avoid Windows `cmd.exe` multiline quote stripping.
 
 ## Files Changed
