@@ -93,6 +93,7 @@ const layer = Layer.effectDiscard(
               return content
             }).pipe(
               Effect.mapError((error) => {
+                console.error("[tool/read] failed:", input.path, error)
                 const message =
                   error instanceof ReadToolFileSystem.BinaryFileError ||
                   error instanceof ReadToolFileSystem.MediaIngestLimitError ||

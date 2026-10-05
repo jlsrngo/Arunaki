@@ -81,6 +81,7 @@ export const Plugin = define({
   id: "agent",
   effect: Effect.fn(function* (ctx) {
     const location = yield* Location.Service
+    const worktree = location.directory
     const whitelistedDirs = [
       TRUNCATION_GLOB,
       path.join(Global.Path.tmp, "*"),

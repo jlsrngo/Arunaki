@@ -199,9 +199,12 @@ const layer = Layer.effectDiscard(
                 ...(warnings.length ? { warnings } : {}),
               }
             }).pipe(
-              Effect.mapError((err) =>
-                err instanceof ToolFailure ? err : new ToolFailure({ message: `Unable to execute command: ${input.command}` }),
-              ),
+              Effect.mapError((err) => {
+                console.error("[tool/bash] failed:", input.command, err)
+                return err instanceof ToolFailure
+                  ? err
+                  : new ToolFailure({ message: `Unable to execute command: ${input.command}` })
+              }),
             ),
         }),
       })
