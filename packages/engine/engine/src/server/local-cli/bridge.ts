@@ -334,10 +334,10 @@ class AntigravityDaemonWorker {
         accumulatedText: "",
         timeoutId: setTimeout(() => {
           if (this.currentTurn) {
-            console.warn("[LocalCliBridge] Antigravity turn timeout (120s), resetting worker...")
+            console.warn("[LocalCliBridge] Antigravity turn timeout (60s), resetting worker...")
             this.handleExit(-1)
           }
-        }, 120000),
+        }, 60000),
       }
 
       const streamPayload = {
@@ -629,7 +629,9 @@ class LocalCliBridge {
 
     // ── Google Antigravity CLI (agy) Persistent Daemon ───
     if (isAntigravity) {
-      const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${finalPrompt}` : finalPrompt
+      const directive =
+        "[SYSTEM INSTRUCTION: You are serving as a pure LLM completion provider for Arunaki. DO NOT invoke any internal tools or execute shell commands. Output your direct answer or document processing text immediately.]"
+      const fullPrompt = systemPrompt ? `${directive}\n\n${systemPrompt}\n\n${finalPrompt}` : `${directive}\n\n${finalPrompt}`
       await this.agyDaemon.executeTurn(fullPrompt, payload, res)
       return
     }
