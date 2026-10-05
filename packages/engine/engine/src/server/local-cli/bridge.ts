@@ -53,10 +53,18 @@ export function parseToolCallsFromText(rawText: string): ParsedToolCall[] {
 }
 
 export function stripToolCallsFromText(rawText: string): string {
-  return rawText
+  let cleaned = rawText
     .replace(/```tool_call[\s\S]*?```/gi, "")
     .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
-    .trim()
+
+  // Sanitize accidental raw Excel cell dumps or JSON sheet maps:
+  // e.g. mula":null},{"ref":"S1","value":46313,... or {"sheets":[...]} or {"ref":"..."}
+  cleaned = cleaned.replace(/(?:\{?"?for)?mula"?\s*:\s*null\s*\}?,?\s*\{"ref"[\s\S]*?\}\s*\]?\s*\}?/gi, "")
+  cleaned = cleaned.replace(/\{"ref"\s*:\s*"[A-Z0-9]+"[^}]*\},?/gi, "")
+  cleaned = cleaned.replace(/\[\s*\{"ref"[\s\S]*?\}\s*\]/gi, "")
+  cleaned = cleaned.replace(/\{"sheets"\s*:\s*\[[\s\S]*?\]\s*\}/gi, "")
+
+  return cleaned.trim()
 }
 
 class AntigravityDaemonWorker {
@@ -219,6 +227,12 @@ class AntigravityDaemonWorker {
               }
 
               if (!turn.inToolCall) {
+                // If the model starts spewing raw cell dumps, suppress streaming to user bubble!
+                const isCellDump = /\{"ref"\s*:|formula"\s*:\s*null/i.test(turn.accumulatedText)
+                if (isCellDump) {
+                  turn.inToolCall = true
+                }
+
                 const toolCallMatch = turn.accumulatedText.match(/```tool_call|<tool_call>/i)
                 if (toolCallMatch && toolCallMatch.index !== undefined) {
                   turn.inToolCall = true
@@ -228,7 +242,7 @@ class AntigravityDaemonWorker {
                     turn.streamedText += chunkToStream
                     this.writeStreamChunk(res, turn.model, chunkToStream)
                   }
-                } else {
+                } else if (!isCellDump) {
                   // Buffer up to 15 chars to avoid leaking partial "```tool_call" or "<tool_call>"
                   const safeEnd = Math.max(0, turn.accumulatedText.length - 15)
                   if (safeEnd > turn.streamedText.length) {
@@ -405,8 +419,9 @@ class AntigravityDaemonWorker {
     // Process next queued turn if any
     this.processQueue()
 
-    // Periodically recycle daemon after 30 turns for memory hygiene
-    if (this.turnCount >= 30 && !this.currentTurn && this.turnQueue.length === 0) {
+    // Always recycle daemon worker after each completed turn so agy context never compounds duplicate history!
+    // this.prewarm() inside recycle() immediately prepares the next worker in warm standby (0ms delay).
+    if (!this.currentTurn && this.turnQueue.length === 0) {
       this.recycle()
     }
   }
@@ -860,7 +875,9 @@ class LocalCliBridge {
 {"name": "<tool_name>", "arguments": { <args> }}
 \`\`\`
 - Arunaki's host engine will execute your tool call and supply the result back to you in the next turn.
-- To inspect or modify files, ALWAYS output the appropriate tool call instead of guessing or falsely claiming the file was already updated.`
+- To inspect or modify files, ALWAYS output the appropriate tool call instead of guessing or falsely claiming the file was already updated.
+- NEVER regurgitate, paste, or dump raw JSON structures, cell maps (e.g. {"ref":"...", "value":...}), or raw tool results in your chat response. Always communicate in clean, human-readable Indonesian/English and clean markdown tables.
+- CRITICAL CONVERSATION RULE: Always answer the user's latest question directly. If the user asks whether a specific item or file (e.g. ORDER.txt) was included, answer their question directly with a clear Yes/No and brief explanation instead of blindly repeating a previous confirmation table!`
     }
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
