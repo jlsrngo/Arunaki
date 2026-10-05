@@ -630,7 +630,7 @@ class LocalCliBridge {
     // ── Google Antigravity CLI (agy) Persistent Daemon ───
     if (isAntigravity) {
       const directive =
-        "[SYSTEM INSTRUCTION: You are serving as a pure LLM completion provider for Arunaki. DO NOT invoke any internal tools or execute shell commands. Output your direct answer or document processing text immediately.]"
+        "[SYSTEM INSTRUCTION: You are serving as a pure LLM completion provider for Arunaki. DO NOT invoke any internal tools or execute shell commands. Always wrap your preliminary thought process, calculations, and document plan inside <think>...</think> tags at the very beginning of your response. Then provide your direct response or output after </think>.]"
       const fullPrompt = systemPrompt ? `${directive}\n\n${systemPrompt}\n\n${finalPrompt}` : `${directive}\n\n${finalPrompt}`
       await this.agyDaemon.executeTurn(fullPrompt, payload, res)
       return
