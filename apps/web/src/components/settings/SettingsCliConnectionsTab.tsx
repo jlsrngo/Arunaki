@@ -59,9 +59,9 @@ function CircularQuotaRing({
           strokeLinecap="round"
           className={cn(
             percent > 20
-              ? "text-teal-400"
+              ? "text-white"
               : percent > 0
-              ? "text-amber-400"
+              ? "text-zinc-300"
               : "text-zinc-700"
           )}
           fill="none"
@@ -2193,7 +2193,7 @@ export function SettingsCliConnectionsTab({
 
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="bg-[#0b1316] border border-[#1b2b31] rounded-2xl max-w-2xl md:max-w-[700px] w-full p-6 md:p-7 shadow-2xl relative text-left">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-2xl md:max-w-[700px] w-full p-6 md:p-7 shadow-2xl relative text-left">
               {/* Header */}
               <div className="flex items-start justify-between mb-5">
                 <div>
@@ -2202,13 +2202,13 @@ export function SettingsCliConnectionsTab({
                       {isEn ? `${providerName} — Models & Usage` : `${providerName} — Model & Penggunaan`}
                     </h3>
                     {isTargetLoggedIn ? (
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-950/60 border border-teal-800/40 text-[10.5px] text-teal-300 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                      <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700/80 text-[10.5px] text-zinc-300 font-medium shadow-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)] animate-pulse" />
                         <span>{isEn ? "Live Telemetry" : "Telemetri Langsung"}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-700/60 text-[10.5px] text-zinc-400 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                      <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[10.5px] text-zinc-500 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
                         <span>{isEn ? "Not Connected" : "Belum Terhubung"}</span>
                       </div>
                     )}
@@ -2220,7 +2220,7 @@ export function SettingsCliConnectionsTab({
                         className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                         title={isEn ? "Refresh quota and credits data" : "Segarkan data kuota dan kredit"}
                       >
-                        <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingQuota && "animate-spin text-teal-400")} />
+                        <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingQuota && "animate-spin text-white")} />
                       </button>
                     )}
                   </div>
@@ -2242,9 +2242,9 @@ export function SettingsCliConnectionsTab({
 
               {/* ── Condition: Not Connected State ── */}
               {!isTargetLoggedIn ? (
-                <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-6 text-center space-y-4 my-3">
-                  <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 mx-auto flex items-center justify-center text-amber-400">
-                    <AlertTriangle className="w-5 h-5" />
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 text-center space-y-4 my-3">
+                  <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 mx-auto flex items-center justify-center text-zinc-400">
+                    <AlertTriangle className="w-5 h-5 text-zinc-300" />
                   </div>
                   <div>
                     <h4 className="text-base font-semibold text-white">
@@ -2278,19 +2278,19 @@ export function SettingsCliConnectionsTab({
                     <div className="text-xs font-semibold text-zinc-300 mb-2">
                       {isEn ? "Plan" : "Paket"}
                     </div>
-                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-white">
                             {isEn ? `Your Plan: ${currentQuota.plan}` : `Paket Anda: ${currentQuota.plan}`}
                           </span>
                           {data.antigravity?.accountEmail && isAntigravity && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300">
                               {data.antigravity.accountEmail}
                             </span>
                           )}
                           {data.claude?.email && target === "claude" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300">
                               {data.claude.email}
                             </span>
                           )}
@@ -2316,7 +2316,7 @@ export function SettingsCliConnectionsTab({
                             window.open("https://platform.openai.com/account/billing", "_blank");
                           }
                         }}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#124950] hover:bg-[#165a63] text-teal-200 border border-teal-500/40 cursor-pointer transition-all shadow-sm shrink-0"
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 cursor-pointer transition-all shadow-sm shrink-0"
                       >
                         {isEn ? "Upgrade" : "Tingkatkan"}
                       </button>
@@ -2328,7 +2328,7 @@ export function SettingsCliConnectionsTab({
                     <div className="text-xs font-semibold text-zinc-300 mb-2">
                       {isEn ? "Model Credits" : "Kredit Model"}
                     </div>
-                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] p-4 flex items-center justify-between gap-4">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
                       <div>
                         <div className="text-sm font-medium text-white">
                           {isEn ? "Enable AI Credit Overages" : "Aktifkan Overage Kredit AI"}
@@ -2351,14 +2351,14 @@ export function SettingsCliConnectionsTab({
                         className={cn(
                           "w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
                           overagesEnabled
-                            ? "bg-teal-600 border-teal-500"
+                            ? "bg-white border-white"
                             : "bg-zinc-800 border-zinc-700 hover:border-zinc-600"
                         )}
                       >
                         <div
                           className={cn(
-                            "w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-                            overagesEnabled ? "translate-x-5" : "translate-x-0"
+                            "w-5 h-5 rounded-full shadow-sm transition-transform duration-200",
+                            overagesEnabled ? "translate-x-5 bg-zinc-950" : "translate-x-0 bg-white"
                           )}
                         />
                       </button>
@@ -2371,7 +2371,7 @@ export function SettingsCliConnectionsTab({
                       <span>{isAntigravity ? (isEn ? "Gemini Models" : "Model Gemini") : (isEn ? `${providerName} Models` : `Model ${providerName}`)}</span>
                       <Info className="w-3.5 h-3.5 text-zinc-500" />
                     </div>
-                    <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 divide-y divide-zinc-800/80">
                       <div className="flex items-center justify-between py-3 px-4">
                         <div>
                           <div className="text-sm font-medium text-white">
@@ -2419,7 +2419,7 @@ export function SettingsCliConnectionsTab({
                         <span>{isEn ? "Claude and GPT models" : "Model Claude dan GPT"}</span>
                         <Info className="w-3.5 h-3.5 text-zinc-500" />
                       </div>
-                      <div className="rounded-xl border border-[#1b2b31] bg-[#0f1b20] divide-y divide-[#1b2b31]/80">
+                      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 divide-y divide-zinc-800/80">
                         <div className="flex items-center justify-between py-3 px-4">
                           <div>
                             <div className="text-sm font-medium text-white">
@@ -2464,7 +2464,7 @@ export function SettingsCliConnectionsTab({
               )}
 
               {/* Footer */}
-              <div className="mt-5 pt-3 border-t border-[#1b2b31] flex items-center justify-between text-[11px] text-zinc-500">
+              <div className="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500">
                 <span>{isEn ? "Arunaki Workstation Quota Telemetry" : "Telemetri Kuota Workstation Arunaki"}</span>
                 <button
                   type="button"
