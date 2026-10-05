@@ -125,6 +125,8 @@ export const AntigravityStatusItem = Schema.Struct({
   geminiVersion: Schema.optional(Schema.UndefinedOr(Schema.String)),
   path: Schema.optional(Schema.UndefinedOr(Schema.String)),
   environment: Schema.String,
+  loggedIn: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  accountEmail: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
 export const LocalCliStatus = Schema.Struct({
@@ -151,7 +153,7 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literals(["claude", "gemini", "antigravity", "agy", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"]),
+  target: Schema.Literals(["claude", "gemini", "antigravity", "agy", "antigravity-logout", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"]),
 })
 
 export const LocalCliLoginResult = Schema.Struct({

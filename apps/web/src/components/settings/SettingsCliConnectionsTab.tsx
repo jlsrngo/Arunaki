@@ -9,6 +9,8 @@ import {
   SlidersHorizontal,
   X,
   Wifi,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -45,6 +47,8 @@ interface AntigravityStatus {
   geminiVersion?: string;
   path?: string;
   environment: string;
+  loggedIn?: boolean;
+  accountEmail?: string;
 }
 
 interface NineRouterStatus {
@@ -184,6 +188,7 @@ export function SettingsCliConnectionsTab({
   const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
   const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
   const [isOpeningAntigravityTerminal, setIsOpeningAntigravityTerminal] = useState(false);
+  const [isLoggingOutAntigravity, setIsLoggingOutAntigravity] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState<Record<string, string>>({});
@@ -371,11 +376,35 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Terminal Window Opened", {
-          description: "Google Antigravity CLI (agy) opened in a new terminal window.",
+        toast.info("Google Sign-In Triggered", {
+          description: "Follow the login instructions in your browser/terminal to complete authentication.",
         });
+
+        // Poll for login completion
+        let attempts = 0;
+        const pollTimer = setInterval(async () => {
+          attempts++;
+          try {
+            const statusRes = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
+            if (statusRes.ok) {
+              const statusJson = await statusRes.json();
+              const agy = statusJson.data?.antigravity;
+              if (agy?.loggedIn) {
+                clearInterval(pollTimer);
+                fetchStatus();
+                toast.success("Signed in to Google Antigravity!", {
+                  description: `Active account: ${agy.accountEmail || "Google Account"}`,
+                });
+                if (!isGeminiActive) {
+                  handleConnectTarget("antigravity", "Google Antigravity");
+                }
+              }
+            }
+          } catch {}
+          if (attempts >= 25) clearInterval(pollTimer);
+        }, 1500);
       } else {
-        toast.error("Could not launch Antigravity terminal", {
+        toast.error("Could not launch Antigravity login", {
           description: json.data?.message || "Please run 'agy' manually in your terminal.",
         });
       }
@@ -383,6 +412,31 @@ export function SettingsCliConnectionsTab({
       toast.error("Failed to launch Antigravity CLI", { description: err.message });
     } finally {
       setIsOpeningAntigravityTerminal(false);
+    }
+  };
+
+  const handleAntigravityLogout = async () => {
+    setIsLoggingOutAntigravity(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "antigravity-logout" }),
+      });
+      const json = await res.json();
+      if (json.data?.success) {
+        toast.info("Logged Out", {
+          description: "Google Antigravity credentials cleared. You can now login with a new account.",
+        });
+        await handleDisconnect("antigravity", "Google Antigravity");
+        fetchStatus();
+      } else {
+        toast.error("Logout failed", { description: json.data?.message });
+      }
+    } catch (err: any) {
+      toast.error("Failed to logout", { description: err.message });
+    } finally {
+      setIsLoggingOutAntigravity(false);
     }
   };
 
@@ -1236,13 +1290,25 @@ export function SettingsCliConnectionsTab({
                 <span className="font-semibold text-sm text-[var(--text-primary)]">Google Antigravity CLI</span>
                 <span className={cn(
                   "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.antigravity?.cliInstalled || data.antigravity?.detected ? "bg-zinc-200" : "bg-zinc-700"
+                  data.antigravity?.loggedIn
+                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                    : data.antigravity?.cliInstalled || data.antigravity?.detected
+                    ? "bg-amber-400"
+                    : "bg-zinc-700"
                 )} />
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.antigravity?.cliInstalled ? "Ready (agy v1.107)" : "Ready"}
+                <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
+                  {data.antigravity?.loggedIn && data.antigravity.accountEmail
+                    ? `Logged in: ${data.antigravity.accountEmail}`
+                    : data.antigravity?.cliInstalled
+                    ? `Ready to login (${data.antigravity.agyVersion ? `agy v${data.antigravity.agyVersion}` : "agy"})`
+                    : "Not installed"}
                 </span>
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Google DeepMind • Antigravity CLI (agy)</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5 truncate">
+                {data.antigravity?.loggedIn && data.antigravity.accountEmail
+                  ? `Google DeepMind • ${data.antigravity.accountEmail}`
+                  : "Google DeepMind • Antigravity CLI (agy)"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1286,16 +1352,41 @@ export function SettingsCliConnectionsTab({
               <Globe className="w-3 h-3" />
               Docs
             </button>
-            <button
-              type="button"
-              onClick={handleLaunchAntigravityTerminal}
-              disabled={isOpeningAntigravityTerminal}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-              title="Launch Google Gemini CLI in terminal to Login with Google"
-            >
-              {isOpeningAntigravityTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-              CLI
-            </button>
+            {!data.antigravity?.loggedIn ? (
+              <button
+                type="button"
+                onClick={handleLaunchAntigravityTerminal}
+                disabled={isOpeningAntigravityTerminal}
+                className="px-3 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-xs rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-sm"
+                title="Sign in with your Google account"
+              >
+                {isOpeningAntigravityTerminal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
+                <span>Login with Google</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleAntigravityLogout}
+                  disabled={isLoggingOutAntigravity}
+                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+                  title="Logout from current Google Account"
+                >
+                  {isLoggingOutAntigravity ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                  <span>Logout</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLaunchAntigravityTerminal}
+                  disabled={isOpeningAntigravityTerminal}
+                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+                  title="Open Antigravity CLI terminal"
+                >
+                  {isOpeningAntigravityTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
+                  <span>CLI</span>
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => handleToggleConnection("antigravity", isGeminiActive, "Google Gemini CLI")}

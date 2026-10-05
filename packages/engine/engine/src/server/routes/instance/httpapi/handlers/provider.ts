@@ -33,6 +33,8 @@ import {
   launchClaudeLoginTerminal,
   launchOpenCodeServer,
   launchTerminalWithCommand,
+  resolveAgyCommand,
+  logoutAntigravity,
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
 
@@ -482,7 +484,11 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           return { data: res }
         }
         if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy") {
-          const res = launchTerminalWithCommand("agy --help", "Google Antigravity CLI (agy)")
+          const res = launchTerminalWithCommand(resolveAgyCommand(), "Google Antigravity CLI (Login)")
+          return { data: res }
+        }
+        if (ctx.payload.target === "antigravity-logout") {
+          const res = logoutAntigravity()
           return { data: res }
         }
         if (ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {

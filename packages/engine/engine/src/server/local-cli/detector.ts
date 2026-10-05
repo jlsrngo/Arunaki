@@ -32,6 +32,8 @@ export interface AntigravityStatus {
   geminiVersion?: string
   path?: string
   environment: string
+  loggedIn?: boolean
+  accountEmail?: string
 }
 
 export interface NineRouterStatus {
@@ -237,7 +239,32 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
     if (cached) return cached
   }
   const geminiDir = path.join(os.homedir(), ".gemini")
+  const credsPath = path.join(geminiDir, "oauth_creds.json")
+  const accountsPath = path.join(geminiDir, "google_accounts.json")
   const detected = fs.existsSync(geminiDir)
+  let loggedIn = false
+  let accountEmail: string | undefined = undefined
+
+  if (fs.existsSync(credsPath)) {
+    try {
+      const creds = JSON.parse(fs.readFileSync(credsPath, "utf8"))
+      if (creds.access_token || creds.refresh_token) {
+        loggedIn = true
+      }
+    } catch {}
+  }
+
+  if (fs.existsSync(accountsPath)) {
+    try {
+      const acc = JSON.parse(fs.readFileSync(accountsPath, "utf8"))
+      if (typeof acc.active === "string" && acc.active.includes("@")) {
+        accountEmail = acc.active
+      } else if (acc.active?.email) {
+        accountEmail = acc.active.email
+      }
+    } catch {}
+  }
+
   let cliInstalled = false
   let agyVersion: string | undefined = undefined
   let geminiCliInstalled = false
@@ -267,12 +294,28 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
     geminiCliInstalled,
     geminiVersion,
     path: detected ? geminiDir : undefined,
+    loggedIn,
+    accountEmail,
     environment: cliInstalled
       ? `Google Antigravity CLI (${agyVersion ? `agy ${agyVersion}` : "agy"})`
       : geminiCliInstalled
       ? "Google Gemini CLI (@google/gemini-cli)"
       : "Google Antigravity IDE (Gemini Ecosystem)",
   }))
+}
+
+export function logoutAntigravity(): { success: boolean; message: string } {
+  const geminiDir = path.join(os.homedir(), ".gemini")
+  const credsPath = path.join(geminiDir, "oauth_creds.json")
+  const accountsPath = path.join(geminiDir, "google_accounts.json")
+  try {
+    if (fs.existsSync(credsPath)) fs.unlinkSync(credsPath)
+    if (fs.existsSync(accountsPath)) fs.unlinkSync(accountsPath)
+    setCached("antigravity", undefined as any)
+    return { success: true, message: "Logged out from Google Antigravity." }
+  } catch (err: any) {
+    return { success: false, message: `Failed to logout: ${err.message}` }
+  }
 }
 
 let opencodeProcess: any = null
