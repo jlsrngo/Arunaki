@@ -143,14 +143,23 @@ export function useWorkstationChat({
 }: UseWorkstationChatOptions) {
   const queryClient = useQueryClient();
 
-  const [reasoningEffort, setReasoningEffort] = useState(() => {
+  const [reasoningEffort, setReasoningEffortState] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("arunaki_reasoning_effort");
-      if (saved) return saved;
+      if (saved && (saved === "low" || saved === "medium" || saved === "high")) return saved;
       return "low";
     }
     return "low";
   });
+
+  const setReasoningEffort = useCallback((val: string) => {
+    setReasoningEffortState(val);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("arunaki_reasoning_effort", val);
+      }
+    } catch {}
+  }, []);
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
   const setStreamingState = useCallback((val: boolean) => {

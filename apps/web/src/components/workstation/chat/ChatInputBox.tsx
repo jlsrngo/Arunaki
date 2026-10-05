@@ -33,7 +33,6 @@ import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
 
 const EFFORT_OPTIONS = [
-  { key: "effortDefault", label: "Default", value: "" },
   { key: "effortLow", label: "Low", value: "low" },
   { key: "effortMedium", label: "Medium", value: "medium" },
   { key: "effortHigh", label: "High", value: "high" },
@@ -116,8 +115,8 @@ export const ChatInputBox = memo(function ChatInputBox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const currentEffortObj = EFFORT_OPTIONS.find((opt) => opt.value === reasoningEffort);
-  const currentEffortLabel = currentEffortObj ? t(currentEffortObj.key as any, currentEffortObj.label) : t("effortDefault", "Default");
+  const currentEffortObj = EFFORT_OPTIONS.find((opt) => opt.value === reasoningEffort) || EFFORT_OPTIONS[0];
+  const currentEffortLabel = t(currentEffortObj.key as any, currentEffortObj.label);
 
   const mentionResults = useMemo(() => {
     if (!showMentions) return [];
@@ -581,7 +580,10 @@ export const ChatInputBox = memo(function ChatInputBox({
                         key={opt.value || "natural"}
                         type="button"
                         onClick={() => {
-                          setReasoningEffort(opt.value);
+                          setReasoningEffort?.(opt.value);
+                          try {
+                            localStorage.setItem("arunaki_reasoning_effort", opt.value);
+                          } catch {}
                           setIsEffortDropdownOpen(false);
                         }}
                         className={cn(
