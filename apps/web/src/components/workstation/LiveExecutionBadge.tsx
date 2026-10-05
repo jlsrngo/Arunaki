@@ -349,7 +349,7 @@ export function MessageThoughtBadge({
                 {hasRunningTool
                   ? `Executing ${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}...`
                   : failedToolCount > 0 && completedToolCount === 0
-                  ? `Blocked ${failedToolCount} script task${failedToolCount > 1 ? "s" : ""}`
+                  ? `Failed ${failedToolCount} document task${failedToolCount > 1 ? "s" : ""}`
                   : `Executed ${completedToolCount}/${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}`}
               </span>
             </div>
@@ -385,7 +385,7 @@ export function MessageThoughtBadge({
                       {step.label}
                     </span>
                     <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-amber-400 animate-pulse" : isFailed ? "text-rose-400 font-medium" : "text-[var(--text-dim)]")}>
-                      {isRunning ? "running..." : isFailed ? "blocked" : "done"}
+                      {isRunning ? "running..." : isFailed ? "failed" : "done"}
                     </span>
                   </div>
                 );
