@@ -1,6 +1,6 @@
 import http from "node:http"
 import crossSpawn from "cross-spawn"
-import { checkClaudeStatus, resolveAgyCommand, getCliQuota } from "./detector"
+import { checkClaudeStatus, resolveAgyCommand } from "./detector"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -411,7 +411,7 @@ class LocalCliBridge {
     if (this.isRunning) return Promise.resolve(true)
 
     return new Promise((resolve) => {
-      this.server = http.createServer(async (req, res) => {
+      this.server = http.createServer((req, res) => {
         const parsedUrl = new URL(req.url ?? "/", `http://${req.headers.host || "127.0.0.1"}`)
 
         // Set CORS headers
@@ -449,14 +449,6 @@ class LocalCliBridge {
               ],
             }),
           )
-          return
-        }
-
-        if (req.method === "GET" && (parsedUrl.pathname === "/v1/quota" || parsedUrl.pathname === "/quota")) {
-          const target = parsedUrl.searchParams.get("target") || "antigravity"
-          const quota = await getCliQuota(target)
-          res.writeHead(200, { "Content-Type": "application/json" })
-          res.end(JSON.stringify({ data: quota }))
           return
         }
 
