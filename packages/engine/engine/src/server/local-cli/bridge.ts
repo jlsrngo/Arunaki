@@ -1,6 +1,6 @@
 import http from "node:http"
 import crossSpawn from "cross-spawn"
-import { checkClaudeStatus, resolveAgyCommand } from "./detector"
+import { checkClaudeStatus, resolveAgyCommand, getCliQuota } from "./detector"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -449,6 +449,13 @@ class LocalCliBridge {
               ],
             }),
           )
+          return
+        }
+
+        if (req.method === "GET" && (parsedUrl.pathname === "/v1/quota" || parsedUrl.pathname === "/quota")) {
+          const target = parsedUrl.searchParams.get("target") || "antigravity"
+          res.writeHead(200, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ data: getCliQuota(target) }))
           return
         }
 
