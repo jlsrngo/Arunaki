@@ -9,6 +9,7 @@ import { Auth, type AnyRoute } from "@arunaki/llm/route"
 import { Context, Effect, Layer, Schema } from "effect"
 import { produce } from "immer"
 import { Catalog } from "../../catalog"
+import { Config } from "../../config"
 import { Credential } from "../../credential"
 import { Integration } from "../../integration"
 import { ModelV2 } from "../../model"
@@ -197,11 +198,15 @@ export const locationLayer = Layer.effect(
   Effect.gen(function* () {
     const catalog = yield* Catalog.Service
     const integrations = yield* Integration.Service
+    const config = yield* Config.Service
     return Service.of({
       resolve: Effect.fn("SessionRunnerModel.resolve")(function* (session) {
         // Location plugins populate and filter the catalog asynchronously during layer startup.
+        const entries = yield* config.entries()
+        const disabledProviders = new Set(Config.latest(entries, "disabled_providers") ?? [])
+
         const defaultModel = session.model ? undefined : yield* catalog.model.default()
-        const allAvailable = yield* catalog.model.available()
+        const allAvailable = (yield* catalog.model.available()).filter((m) => !disabledProviders.has(m.providerID))
         const withKey = allAvailable.filter((m) => {
           const key = m.request.body.apiKey ?? m.api.settings?.apiKey
           return (
@@ -221,11 +226,26 @@ export const locationLayer = Layer.effect(
           requestedID = requestedID.split(",")[0].trim() as typeof requestedID
         }
 
+        const requestedProviderID = session.model?.providerID
+        const isCliProvider = (pid?: string) =>
+          pid === "antigravity" ||
+          pid === "gemini-cli" ||
+          pid === "gemini" ||
+          pid === "claude-code" ||
+          pid === "codex" ||
+          pid === "opencode" ||
+          pid === "9router" ||
+          pid === "ollama" ||
+          pid === "lmstudio"
+
         const isFreeRequested = requestedID?.endsWith(":free") ?? false
+        // CLI / subscription agents have zero per-token cost, so they are always safe even if :free was requested
+        const isFreeRequired = isFreeRequested && !isCliProvider(requestedProviderID)
+
         const matchesModel = (candidate: (typeof allAvailable)[number]) => {
           if (candidate.providerID !== session.model?.providerID) return false
-          // CRITICAL: If user requested a :free model, NEVER match a non-free model!
-          if (isFreeRequested && !candidate.id.endsWith(":free")) return false
+          // CRITICAL: If user requested a :free model, NEVER match a non-free model (unless CLI agent)!
+          if (isFreeRequired && !candidate.id.endsWith(":free")) return false
           const cId = candidate.id
           const rId = requestedID!
           if (cId === rId || cId.toLowerCase() === rId.toLowerCase()) return true
@@ -236,26 +256,29 @@ export const locationLayer = Layer.effect(
         }
 
         // Filter fallback pools strictly if a :free model was requested to prevent accidental paid charges
-        const candidateWithKey = isFreeRequested ? withKey.filter((m) => m.id.endsWith(":free")) : withKey
-        const candidateAllAvailable = isFreeRequested
+        const candidateWithKey = isFreeRequired ? withKey.filter((m) => m.id.endsWith(":free")) : withKey
+        const candidateAllAvailable = isFreeRequired
           ? allAvailable.filter((m) => m.id.endsWith(":free"))
           : allAvailable
 
+        // Strict provider scope: if user/session specified a provider, NEVER fall back to a different provider!
         const selected = session.model && requestedID
           ? allAvailable.find(matchesModel) ??
-            candidateWithKey.find((m) => m.providerID === session.model?.providerID && supported(m)) ??
-            candidateWithKey.find(supported) ??
-            candidateAllAvailable.find((m) => m.providerID === session.model?.providerID && supported(m)) ??
-            (isFreeRequested
-              ? candidateAllAvailable.find(supported)
-              : (defaultModel && supported(defaultModel) ? defaultModel : allAvailable.find(supported)))
+            (requestedProviderID
+              ? candidateWithKey.find((m) => m.providerID === requestedProviderID && supported(m)) ??
+                candidateAllAvailable.find((m) => m.providerID === requestedProviderID && supported(m)) ??
+                allAvailable.find((m) => m.providerID === requestedProviderID && supported(m))
+              : candidateWithKey.find(supported) ??
+                candidateAllAvailable.find(supported) ??
+                allAvailable.find(supported))
           : defaultModel && supported(defaultModel)
             ? defaultModel
             : withKey.find((m) =>
-                session.model?.providerID ? m.providerID === session.model.providerID && supported(m) : supported(m),
+                requestedProviderID ? m.providerID === requestedProviderID && supported(m) : supported(m),
               ) ??
-              withKey.find(supported) ??
-              allAvailable.find(supported)
+              (requestedProviderID
+                ? allAvailable.find((m) => m.providerID === requestedProviderID && supported(m))
+                : withKey.find(supported) ?? allAvailable.find(supported))
         if (!selected) return yield* new ModelNotSelectedError({ sessionID: session.id })
         const provider = yield* catalog.provider.get(selected.providerID)
         const connection = yield* integrations.connection.active(
@@ -271,4 +294,8 @@ export const locationLayer = Layer.effect(
   }),
 )
 
-export const node = makeLocationNode({ service: Service, layer: locationLayer, deps: [Catalog.node, Integration.node] })
+export const node = makeLocationNode({
+  service: Service,
+  layer: locationLayer,
+  deps: [Catalog.node, Integration.node, Config.node],
+})

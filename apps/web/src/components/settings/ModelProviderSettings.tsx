@@ -254,13 +254,25 @@ export function ModelProviderSettings({
           body: JSON.stringify({ active: false }),
         }).catch(() => {});
 
-        const cliTargets = ["claude-code", "gemini", "opencode", "codex", "9router"];
+        const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router"];
         const lastCli = localStorage.getItem("arunaki_last_active_cli");
         const targetCli = (lastCli && cliTargets.includes(lastCli))
           ? lastCli
-          : (providers.find((p) => cliTargets.includes(p.id))?.id || "claude-code");
+          : (providers.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
 
         localStorage.setItem("arunaki_active_provider", targetCli);
+
+        const cliDefaultModels: Record<string, string> = {
+          "claude-code": localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet",
+          gemini: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+          antigravity: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+          "gemini-cli": localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+          codex: "o3-mini",
+          opencode: "opencode/big-pickle",
+          "9router": "cx/gpt-5.6-terra",
+        };
+        const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
+        localStorage.setItem("arunaki_active_model", nextModel);
 
         // Aktifkan target CLI di backend jika terdaftar
         await apiFetch(`${API_BASE}/providers/${targetCli}/state${directoryQuery()}`, {

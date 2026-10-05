@@ -52,30 +52,82 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     }
   }
 
+  const isModelValidForProvider = (providerId: string, modelId: string): boolean => {
+    if (!modelId) return false;
+    const clean = modelId.trim().toLowerCase();
+    if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
+      return clean.startsWith("gemini") && !clean.endsWith(":free");
+    }
+    if (providerId === "claude-code") {
+      return clean.startsWith("claude") && !clean.endsWith(":free");
+    }
+    if (providerId === "codex") {
+      return (clean.startsWith("o1") || clean.startsWith("o3") || clean.startsWith("gpt-4")) && !clean.endsWith(":free");
+    }
+    if (providerId === "kenari") {
+      return !clean.startsWith("gemini") && !clean.startsWith("claude");
+    }
+    return true;
+  };
+
+  const getFallbackModelForProvider = (providerId: string): string => {
+    if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
+      return localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash";
+    }
+    if (providerId === "claude-code") {
+      return localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet";
+    }
+    if (providerId === "codex") {
+      return "o3-mini";
+    }
+    if (providerId === "opencode") {
+      return "opencode/big-pickle";
+    }
+    if (providerId === "9router") {
+      return "cx/gpt-5.6-terra";
+    }
+    if (providerId === "kenari") {
+      return "mimo-v2-5:free";
+    }
+    return "default";
+  };
+
   const specific =
-    localStorage.getItem("arunaki_active_model") ||
-    localStorage.getItem(`arunaki_provider_model_${p}`);
+    localStorage.getItem(`arunaki_provider_model_${p}`) ||
+    (p === "antigravity" || p === "gemini" || p === "gemini-cli"
+      ? localStorage.getItem("arunaki_cli_model_antigravity")
+      : p === "claude-code"
+      ? localStorage.getItem("arunaki_cli_model_claude")
+      : null) ||
+    localStorage.getItem("arunaki_active_model");
+
   if (specific && specific.trim()) {
     const trimmed = specific.trim();
     const firstModel = trimmed.includes(",") ? trimmed.split(",")[0].trim() : trimmed;
-    if (firstModel && (p !== "kenari" || !firstModel.toLowerCase().includes("gemini"))) {
+    if (firstModel && isModelValidForProvider(p, firstModel)) {
+      localStorage.setItem("arunaki_active_model", firstModel);
       return { providerID: p, id: firstModel };
     }
   }
+
   const pool = localStorage.getItem(`arunaki_provider_models_${p}`);
   if (pool && pool.trim()) {
     const list = pool
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    if (list.length > 0 && (p !== "kenari" || !list[0].toLowerCase().includes("gemini"))) {
-      localStorage.setItem("arunaki_active_model", list[0]);
-      return { providerID: p, id: list[0] };
+    const valid = list.find((m) => isModelValidForProvider(p, m));
+    if (valid) {
+      localStorage.setItem("arunaki_active_model", valid);
+      return { providerID: p, id: valid };
     }
   }
+
+  const fallback = getFallbackModelForProvider(p);
+  localStorage.setItem("arunaki_active_model", fallback);
   return {
     providerID: p,
-    id: p === "kenari" ? "mimo-v2-5:free" : p === "antigravity" ? "gemini-3.8-flash" : "default",
+    id: fallback,
   };
 }
 

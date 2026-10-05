@@ -1210,18 +1210,7 @@ const layer = Layer.effect(
             const bypassAgentCheck = lastUserMsg?.parts.some((p) => p.type === "agent") ?? false
             const promptOps = yield* ops()
 
-            // Deterministic Zero-Tools on Casual Greeting / Small Talk
-            const isCasual = isCasualGreetingOrChat(lastUserMsg, step)
-            if (isCasual) {
-              yield* Effect.logInfo("casual greeting/chat detected, enforcing zero-tools", {
-                "session.id": sessionID,
-                step,
-              })
-            }
-
-            const tools = isCasual
-              ? {}
-              : yield* SessionTools.resolve({
+            const tools = yield* SessionTools.resolve({
                   agent,
                   session,
                   model,
@@ -1280,7 +1269,7 @@ const layer = Layer.effect(
               ],
               tools,
               model,
-              toolChoice: isCasual ? "none" : format.type === "json_schema" ? "required" : undefined,
+              toolChoice: format.type === "json_schema" ? "required" : undefined,
             })
 
             if (structured !== undefined) {
