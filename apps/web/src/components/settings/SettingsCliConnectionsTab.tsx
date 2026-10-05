@@ -186,12 +186,11 @@ export function SettingsCliConnectionsTab({
   });
 
   const [loading, setLoading] = useState(false);
-  const [isOpeningClaudeTerminal, setIsOpeningClaudeTerminal] = useState(false);
-  const [isStarting9Router, setIsStarting9Router] = useState(false);
-  const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
-  const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
   const [isLoggingOutAntigravity, setIsLoggingOutAntigravity] = useState(false);
   const [showAntigravityLoginModal, setShowAntigravityLoginModal] = useState(false);
+  const [activeAuthModalTarget, setActiveAuthModalTarget] = useState<
+    "claude" | "codex" | "opencode" | "antigravity" | "nineRouter" | null
+  >(null);
   const [isSigningInEmail, setIsSigningInEmail] = useState(false);
   const [isSigningInCli, setIsSigningInCli] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
@@ -271,7 +270,7 @@ export function SettingsCliConnectionsTab({
 
 
   const handleLaunchClaudeTerminal = async () => {
-    setIsOpeningClaudeTerminal(true);
+    setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
@@ -280,23 +279,23 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Terminal Window Opened", {
-          description: "Claude Code CLI opened in a new terminal window.",
+        toast.info("Jendela Terminal Terbuka", {
+          description: "Claude Code CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Could not launch terminal automatically", {
-          description: "Please run 'claude' manually in your terminal.",
+        toast.error("Tidak dapat membuka terminal otomatis", {
+          description: "Silakan jalankan 'claude' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch Claude terminal", { description: err.message });
+      toast.error("Gagal membuka terminal Claude", { description: err.message });
     } finally {
-      setIsOpeningClaudeTerminal(false);
+      setIsSigningInCli(false);
     }
   };
 
   const handleLaunchCodexTerminal = async () => {
-    setIsOpeningCodexTerminal(true);
+    setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
@@ -305,23 +304,23 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Terminal Window Opened", {
-          description: "OpenAI Codex CLI opened in a new terminal window.",
+        toast.info("Jendela Terminal Terbuka", {
+          description: "OpenAI Codex CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Could not launch terminal", {
-          description: "Please run 'codex' manually in terminal.",
+        toast.error("Tidak dapat membuka terminal", {
+          description: "Silakan jalankan 'codex' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch Codex terminal", { description: err.message });
+      toast.error("Gagal membuka terminal Codex", { description: err.message });
     } finally {
-      setIsOpeningCodexTerminal(false);
+      setIsSigningInCli(false);
     }
   };
 
   const handleLaunchOpenCodeTerminal = async () => {
-    setIsOpeningOpenCodeTerminal(true);
+    setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
@@ -330,23 +329,23 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Terminal Window Opened", {
-          description: "OpenCode CLI opened in a new terminal window.",
+        toast.info("Jendela Terminal Terbuka", {
+          description: "OpenCode CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Could not launch terminal", {
-          description: "Please run 'opencode' manually in terminal.",
+        toast.error("Tidak dapat membuka terminal", {
+          description: "Silakan jalankan 'opencode' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to launch OpenCode terminal", { description: err.message });
+      toast.error("Gagal membuka terminal OpenCode", { description: err.message });
     } finally {
-      setIsOpeningOpenCodeTerminal(false);
+      setIsSigningInCli(false);
     }
   };
 
   const handleLaunch9Router = async () => {
-    setIsStarting9Router(true);
+    setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
@@ -355,19 +354,19 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Terminal Window Opened", {
-          description: "9Router started in a new terminal window.",
+        toast.info("Jendela Terminal Terbuka", {
+          description: "9Router dijalankan pada jendela terminal baru.",
         });
         setTimeout(fetchStatus, 2500);
       } else {
-        toast.error("Could not launch terminal", {
-          description: "Please run '9router start' manually in terminal.",
+        toast.error("Tidak dapat membuka terminal", {
+          description: "Silakan jalankan '9router start' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Failed to start 9Router", { description: err.message });
+      toast.error("Gagal menjalankan 9Router", { description: err.message });
     } finally {
-      setIsStarting9Router(false);
+      setIsSigningInCli(false);
     }
   };
 
@@ -987,12 +986,12 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={handleLaunchClaudeTerminal}
-              disabled={isOpeningClaudeTerminal || !data.claude.installed}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-30"
+              onClick={() => setActiveAuthModalTarget("claude")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="Pilih metode otentikasi Claude (Email vs CLI)"
             >
-              {isOpeningClaudeTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-              CLI
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Auth Method</span>
             </button>
             <button
               type="button"
@@ -1115,12 +1114,12 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={handleLaunchCodexTerminal}
-              disabled={isOpeningCodexTerminal || !data.codex?.installed}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-30"
+              onClick={() => setActiveAuthModalTarget("codex")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="Pilih metode otentikasi OpenAI Codex (Email vs CLI)"
             >
-              {isOpeningCodexTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-              CLI
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Auth Method</span>
             </button>
             <button
               type="button"
@@ -1243,12 +1242,12 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={handleLaunchOpenCodeTerminal}
-              disabled={isOpeningOpenCodeTerminal || !data.opencode.installed}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-30"
+              onClick={() => setActiveAuthModalTarget("opencode")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="Pilih metode otentikasi OpenCode (Cloud Web vs Terminal)"
             >
-              {isOpeningOpenCodeTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-              CLI
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Auth Method</span>
             </button>
             <button
               type="button"
@@ -1529,12 +1528,12 @@ export function SettingsCliConnectionsTab({
             </button>
             <button
               type="button"
-              onClick={handleLaunch9Router}
-              disabled={isStarting9Router || !data.nineRouter.installed}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-30"
+              onClick={() => setActiveAuthModalTarget("nineRouter")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="Kelola otentikasi gateway 9Router (Web Dashboard vs Terminal)"
             >
-              {isStarting9Router ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-              Terminal
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Auth Method</span>
             </button>
             <button
               type="button"
@@ -1570,162 +1569,333 @@ export function SettingsCliConnectionsTab({
         </div>
       </div>
 
-      {/* ── Antigravity Login Method Selection Modal (Monochrome & Bahasa Indonesia) ── */}
-      {showAntigravityLoginModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-left">
-            <button
-              type="button"
-              onClick={() => setShowAntigravityLoginModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-              title="Tutup"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* ── Multi-Provider Auth Modal (Pure Monochrome & Bahasa Indonesia) ── */}
+      {(() => {
+        const currentTarget = activeAuthModalTarget || (showAntigravityLoginModal ? "antigravity" : null);
+        if (!currentTarget) return null;
 
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white font-bold text-sm">
-                A
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-white">
-                  Autentikasi Google Antigravity
-                </h3>
-                <p className="text-xs text-zinc-400">
-                  Pilih metode autentikasi untuk menghubungkan model Gemini ke Arunaki.
-                </p>
-              </div>
-            </div>
+        const closeModal = () => {
+          setActiveAuthModalTarget(null);
+          setShowAntigravityLoginModal(false);
+        };
 
-            {data.antigravity?.loggedIn && (
-              <div className="my-3 px-3.5 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
-                  <span className="text-zinc-300">
-                    Akun aktif saat ini: <strong className="text-white">{data.antigravity.accountEmail || "Google Account"}</strong>
-                  </span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                  Terhubung
-                </span>
-              </div>
-            )}
+        const config = (() => {
+          switch (currentTarget) {
+            case "claude":
+              return {
+                title: "Autentikasi Anthropic Claude",
+                subtitle: "Pilih metode autentikasi akun Claude Pro / Team ke workstation Arunaki.",
+                badgeLetter: "C",
+                accountActiveText: data.claude?.email ? `Akun aktif: ${data.claude.email}` : undefined,
+                isLoggedIn: Boolean(data.claude?.loggedIn),
+                emailLabel: "Masuk via Web (Claude.ai)",
+                emailBadge: "Web Portal",
+                emailDesc: "Masuk langsung ke portal akun Anthropic Claude via peramban web tanpa memerlukan jendela terminal.",
+                emailWarningTitle: "Peringatan (Web):",
+                emailWarningText: "Membuka peramban untuk otorisasi akun Anthropic. Penggunaan token akun konsumen di pihak ketiga tunduk pada kebijakan privasi & layanan Anthropic.",
+                emailButton: "Buka Portal Claude (Web)",
+                onEmailAction: () => {
+                  window.open("https://claude.ai/login", "_blank");
+                  closeModal();
+                },
+                cliLabel: "Masuk via CLI (Terminal)",
+                cliBadge: "Claude Code",
+                cliDesc: "Menjalankan perintah 'claude auth login --claudeai' di terminal untuk otentikasi lokal.",
+                cliTradeoffTitle: "Pertimbangan (Terminal CLI):",
+                cliTradeoffText: "Membuka jendela konsol terminal untuk inisialisasi login awal. Token disimpan lokal di PC (~/.claude.json) dan bebas biaya per-token.",
+                cliButton: "Buka Terminal Claude",
+                onCliAction: () => {
+                  handleLaunchClaudeTerminal();
+                  closeModal();
+                },
+              };
+            case "codex":
+              return {
+                title: "Autentikasi OpenAI Codex",
+                subtitle: "Pilih metode autentikasi akun OpenAI / ChatGPT Plus ke workstation Arunaki.",
+                badgeLetter: "O",
+                accountActiveText: undefined,
+                isLoggedIn: Boolean(data.codex?.installed),
+                emailLabel: "Masuk via Web (OpenAI Portal)",
+                emailBadge: "Web Portal",
+                emailDesc: "Masuk langsung via akun ChatGPT / OpenAI di peramban web tanpa membuka konsol terminal.",
+                emailWarningTitle: "Peringatan (Web Portal):",
+                emailWarningText: "Membuka peramban untuk sesi akun OpenAI. Memerlukan akun OpenAI aktif dengan akses model reasoning (o3-mini, o1, gpt-4o).",
+                emailButton: "Buka Portal OpenAI (Web)",
+                onEmailAction: () => {
+                  window.open("https://platform.openai.com/api-keys", "_blank");
+                  closeModal();
+                },
+                cliLabel: "Masuk via CLI (Terminal)",
+                cliBadge: "@openai/codex",
+                cliDesc: "Menggunakan paket CLI global '@openai/codex' melalui konsol lokal di PC Anda.",
+                cliTradeoffTitle: "Pertimbangan (Terminal CLI):",
+                cliTradeoffText: "Memerlukan instalasi global npm '@openai/codex'. Menjalankan interaksi konsol langsung di PC Anda.",
+                cliButton: "Buka Terminal Codex",
+                onCliAction: () => {
+                  handleLaunchCodexTerminal();
+                  closeModal();
+                },
+              };
+            case "opencode":
+              return {
+                title: "Autentikasi OpenCode Agent",
+                subtitle: "Pilih metode autentikasi untuk menghubungkan model OpenCode ke Arunaki.",
+                badgeLetter: "OC",
+                accountActiveText: data.opencode?.authenticatedProviders?.length
+                  ? `Penyedia terhubung: ${data.opencode.authenticatedProviders.join(", ")}`
+                  : undefined,
+                isLoggedIn: Boolean(data.opencode?.serverRunning || data.opencode?.authenticatedProviders?.length),
+                emailLabel: "Masuk via Web (Groq Hub)",
+                emailBadge: "Cloud Free API",
+                emailDesc: "Menghubungkan kunci penyedia cloud gratis (Groq / 9Router) langsung via web tanpa terminal.",
+                emailWarningTitle: "Peringatan (Cloud API):",
+                emailWarningText: "Menggunakan cloud inference eksternal (Groq Llama 3.3 / Qwen). Memerlukan koneksi internet stabil ke endpoint cloud.",
+                emailButton: "Buka Konsol Groq (Web)",
+                onEmailAction: () => {
+                  window.open("https://console.groq.com/keys", "_blank");
+                  closeModal();
+                },
+                cliLabel: "Masuk via CLI (Terminal)",
+                cliBadge: "OpenCode CLI",
+                cliDesc: "Menjalankan server daemon OpenCode lokal di port 4097 dengan sesi interaktif.",
+                cliTradeoffTitle: "Pertimbangan (Terminal CLI):",
+                cliTradeoffText: "Menjalankan proses latar belakang lokal di port 4097. Membutuhkan runtime terminal aktif di PC.",
+                cliButton: "Buka Terminal OpenCode",
+                onCliAction: () => {
+                  handleLaunchOpenCodeTerminal();
+                  closeModal();
+                },
+              };
+            case "nineRouter":
+              return {
+                title: "Integrasi 9Router Gateway",
+                subtitle: "Hubungkan gateway multi-akun 9Router lokal ke Arunaki.",
+                badgeLetter: "9R",
+                accountActiveText: data.nineRouter?.running ? "Gateway 9Router sedang berjalan di port 20128" : undefined,
+                isLoggedIn: Boolean(data.nineRouter?.running),
+                emailLabel: "Dashboard Web 9Router",
+                emailBadge: "Web Dashboard",
+                emailDesc: "Buka dashboard lokal 9Router di peramban web untuk login email Google, Claude, OpenAI, dan Grok secara visual.",
+                emailWarningTitle: "Peringatan (Dashboard):",
+                emailWarningText: "Membuka portal lokal 9Router di port 20128. Pastikan layanan 9Router sudah berjalan sebelum membuka tautan.",
+                emailButton: "Buka Dashboard 9Router (Web)",
+                onEmailAction: () => {
+                  window.open("http://localhost:20128", "_blank");
+                  closeModal();
+                },
+                cliLabel: "Jalankan via Terminal",
+                cliBadge: "9router start",
+                cliDesc: "Memulai gateway lokal 9Router melalui jendela konsol terminal.",
+                cliTradeoffTitle: "Pertimbangan (Terminal):",
+                cliTradeoffText: "Membuka terminal untuk menjalankan server proxy lokal pada port 20128.",
+                cliButton: "Mulai 9Router di Terminal",
+                onCliAction: () => {
+                  handleLaunch9Router();
+                  closeModal();
+                },
+              };
+            case "antigravity":
+            default:
+              return {
+                title: "Autentikasi Google Antigravity",
+                subtitle: "Pilih metode autentikasi untuk menghubungkan model Gemini ke Arunaki.",
+                badgeLetter: "A",
+                accountActiveText: data.antigravity?.accountEmail ? `Akun aktif saat ini: ${data.antigravity.accountEmail}` : undefined,
+                isLoggedIn: Boolean(data.antigravity?.loggedIn),
+                emailLabel: "Masuk via Email",
+                emailBadge: "Web OAuth",
+                emailDesc: "Masuk langsung menggunakan akun Google Anda melalui peramban web tanpa membuka konsol terminal.",
+                emailWarningTitle: "Peringatan (Web OAuth):",
+                emailWarningText: "Membuka peramban eksternal untuk otorisasi Google Cloud. Memerlukan web callback di port 8085 dan pembaruan token berkala secara online.",
+                emailButton: "Masuk via Email (Browser)",
+                onEmailAction: handleAntigravityEmailLogin,
+                cliLabel: "Masuk via CLI",
+                cliBadge: "Terminal agy",
+                cliDesc: "Menggunakan aplikasi Antigravity CLI lokal yang sudah terpasang dan tersinkronisasi di komputer.",
+                cliTradeoffTitle: "Pertimbangan (Terminal CLI):",
+                cliTradeoffText: "Membuka jendela konsol terminal fisik (wt/cmd) untuk inisialisasi login awal. Memberikan latensi paling minimal (~17ms) & langsung membaca sesi akun aktif PC.",
+                cliButton: "Buka Terminal CLI",
+                onCliAction: handleAntigravityCliLogin,
+              };
+          }
+        })();
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
-              {/* Opsi 1: Masuk via Email (Browser OAuth) */}
-              <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <span className="font-semibold text-sm text-white">Masuk via Email</span>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                      Web OAuth
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
-                    Masuk langsung menggunakan akun Google Anda melalui peramban web tanpa membuka konsol terminal.
-                  </p>
-
-                  {/* Kotak Peringatan (Monochrome) */}
-                  <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
-                    <div className="flex items-start gap-1.5 font-medium text-white mb-1">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                      <span>Peringatan (Web OAuth):</span>
-                    </div>
-                    <p className="text-[10.5px] text-zinc-400 leading-normal">
-                      Membuka peramban eksternal untuk otorisasi Google Cloud. Memerlukan web callback di port 8085 dan pembaruan token berkala secara online.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAntigravityEmailLogin}
-                  disabled={isSigningInEmail}
-                  className="w-full py-2 px-3 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 border border-white"
-                >
-                  {isSigningInEmail ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-950" />
-                      <span>Membuka Peramban...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Masuk via Email (Browser)</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Opsi 2: Masuk via CLI Terminal */}
-              <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-                        <Terminal className="w-4 h-4" />
-                      </div>
-                      <span className="font-semibold text-sm text-white">Masuk via CLI</span>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                      Terminal agy
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
-                    Menggunakan aplikasi Antigravity CLI lokal yang sudah terpasang dan tersinkronisasi di komputer.
-                  </p>
-
-                  {/* Kotak Pertimbangan (Monochrome) */}
-                  <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
-                    <div className="flex items-start gap-1.5 font-medium text-white mb-1">
-                      <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                      <span>Pertimbangan (Terminal CLI):</span>
-                    </div>
-                    <p className="text-[10.5px] text-zinc-400 leading-normal">
-                      Membuka jendela konsol terminal fisik (wt/cmd) untuk inisialisasi login. Latensi paling minimal (~17ms) &amp; langsung membaca sesi akun aktif PC.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAntigravityCliLogin}
-                  disabled={isSigningInCli}
-                  className="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 hover:text-white border border-zinc-700 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
-                >
-                  {isSigningInCli ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-300" />
-                      <span>Membuka Terminal...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Terminal className="w-3.5 h-3.5" />
-                      <span>Buka Terminal CLI</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
-              <span>Integrasi Workstation Arunaki</span>
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-left">
               <button
                 type="button"
-                onClick={() => setShowAntigravityLoginModal(false)}
-                className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                onClick={closeModal}
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Tutup"
               >
-                Tutup
+                <X className="w-4 h-4" />
               </button>
+
+              <div className="flex items-center gap-2.5 mb-1.5">
+                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white font-bold text-sm">
+                  {config.badgeLetter}
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">
+                    {config.title}
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    {config.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              {config.accountActiveText && (
+                <div className="my-3 px-3.5 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
+                    <span className="text-zinc-300">
+                      {config.accountActiveText}
+                    </span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
+                    Terhubung
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+                {/* Opsi 1: Masuk via Email / Web */}
+                <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                          <Mail className="w-4 h-4" />
+                        </div>
+                        <span className="font-semibold text-sm text-white">{config.emailLabel}</span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
+                        {config.emailBadge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
+                      {config.emailDesc}
+                    </p>
+
+                    {/* Kotak Peringatan (Monochrome) */}
+                    <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
+                      <div className="flex items-start gap-1.5 font-medium text-white mb-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+                        <span>{config.emailWarningTitle}</span>
+                      </div>
+                      <p className="text-[10.5px] text-zinc-400 leading-normal">
+                        {config.emailWarningText}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={config.onEmailAction}
+                    disabled={isSigningInEmail}
+                    className="w-full py-2 px-3 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 border border-white"
+                  >
+                    {isSigningInEmail ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-950" />
+                        <span>Membuka Peramban...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>{config.emailButton}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Opsi 2: Masuk via CLI Terminal */}
+                <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                          <Terminal className="w-4 h-4" />
+                        </div>
+                        <span className="font-semibold text-sm text-white">{config.cliLabel}</span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
+                        {config.cliBadge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
+                      {config.cliDesc}
+                    </p>
+
+                    {/* Kotak Pertimbangan (Monochrome) */}
+                    <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
+                      <div className="flex items-start gap-1.5 font-medium text-white mb-1">
+                        <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+                        <span>{config.cliTradeoffTitle}</span>
+                      </div>
+                      <p className="text-[10.5px] text-zinc-400 leading-normal">
+                        {config.cliTradeoffText}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={config.onCliAction}
+                    disabled={isSigningInCli}
+                    className="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 hover:text-white border border-zinc-700 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {isSigningInCli ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-300" />
+                        <span>Membuka Terminal...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Terminal className="w-3.5 h-3.5" />
+                        <span>{config.cliButton}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 9Router Gateway Hub Link (Optional centralized login) */}
+              {currentTarget !== "nineRouter" && (
+                <div className="mt-3.5 p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
+                    <span className="text-zinc-300">
+                      Kelola multi-akun terpusat seperti di 9Router (Google, Claude, Codex, Grok)?
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.open("http://localhost:20128", "_blank")}
+                    className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] rounded-lg cursor-pointer shrink-0 font-medium"
+                  >
+                    Buka 9Router
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-4 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
+                <span>Integrasi Workstation Arunaki</span>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
