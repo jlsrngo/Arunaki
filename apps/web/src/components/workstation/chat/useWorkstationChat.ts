@@ -95,10 +95,9 @@ export function useWorkstationChat({
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("arunaki_reasoning_effort");
       if (saved) return saved;
-      const showThinking = localStorage.getItem("arunaki_show_thinking") !== "false";
-      return showThinking ? "high" : "";
+      return "low";
     }
-    return "high";
+    return "low";
   });
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
@@ -611,7 +610,7 @@ export function useWorkstationChat({
     }
 
     const activeModel = resolveActiveSingleModel();
-    const effectiveVariant = reasoningEffort || "medium";
+    const effectiveVariant = reasoningEffort || "low";
 
     try {
       const session = await createSession({
@@ -975,7 +974,7 @@ export function useWorkstationChat({
     const activeModel = resolveActiveSingleModel();
 
     let chatIdToUse = activeChatId;
-    const effectiveVariant = reasoningEffort || "medium";
+    const effectiveVariant = reasoningEffort || "low";
 
     // Strict Folder-Session Isolation Guard: verify that existing session matches activeFolder
     if (chatIdToUse && activeFolder) {
@@ -1866,7 +1865,7 @@ export function useWorkstationChat({
 
       await sendPrompt(chatIdToUse, userText, {
         files: filesToSend,
-        variant: reasoningEffort || "medium",
+        variant: reasoningEffort || "low",
         signal: abortCtrl.signal,
       });
       // Prompt was accepted by the engine. Streaming is now in progress over SSE.
