@@ -486,6 +486,7 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
             if (lines.length > 0) return resolve(lines)
           }
           resolve([
+            "opencode/big-pickle",
             "groq/llama-3.3-70b-versatile",
             "groq/openai/gpt-oss-120b",
             "groq/qwen/qwen3.8-27b",
@@ -496,6 +497,7 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
         })
         proc.on("error", () => {
           resolve([
+            "opencode/big-pickle",
             "groq/llama-3.3-70b-versatile",
             "groq/openai/gpt-oss-120b",
             "groq/qwen/qwen3.8-27b",
@@ -503,7 +505,7 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
           ])
         })
       } catch {
-        resolve(["groq/llama-3.3-70b-versatile", "groq/openai/gpt-oss-120b"])
+        resolve(["opencode/big-pickle", "groq/llama-3.3-70b-versatile", "groq/openai/gpt-oss-120b"])
       }
     })
   }

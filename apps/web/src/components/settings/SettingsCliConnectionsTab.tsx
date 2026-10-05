@@ -89,6 +89,7 @@ interface SettingsCliConnectionsTabProps {
 const PRESET_MODELS: Record<string, string[]> = {
   claude: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
   opencode: [
+    "opencode/big-pickle",
     "groq/llama-3.3-70b-versatile",
     "groq/openai/gpt-oss-120b",
     "groq/qwen/qwen3.8-27b",
@@ -135,6 +136,7 @@ const MODEL_METADATA: Record<string, ModelMeta> = {
   "gpt-4o-mini": { label: "GPT-4o-mini", badge: "Fast", speed: "Fast" },
 
   // OpenCode
+  "opencode/big-pickle": { label: "Big Pickle", badge: "Reasoning", speed: "Smart" },
   "groq/llama-3.3-70b-versatile": { label: "Llama 3.3 70B", badge: "Groq", speed: "Fast" },
   "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq", speed: "Fast" },
   "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Groq", speed: "Fast" },
