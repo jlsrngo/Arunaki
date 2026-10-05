@@ -483,9 +483,34 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = launchTerminalWithCommand("codex", "OpenAI Codex CLI (ChatGPT)")
           return { data: res }
         }
-        if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy") {
+        if (ctx.payload.target === "antigravity-cli") {
           const res = launchTerminalWithCommand(resolveAgyCommand(), "Google Antigravity CLI (Login)")
           return { data: res }
+        }
+        if (ctx.payload.target === "antigravity" || ctx.payload.target === "antigravity-oauth" || ctx.payload.target === "agy") {
+          const status = checkAntigravityStatus(true)
+          if (status.loggedIn) {
+            return {
+              data: {
+                success: true,
+                message: `Already authenticated with Google as ${status.accountEmail || "active user"}.`,
+              },
+            }
+          }
+          const authUrl =
+            "https://accounts.google.com/o/oauth2/v2/auth?client_id=884354919052-36trc1jjb3tguiac32ov6cod268c5blh.apps.googleusercontent.com&redirect_uri=http%3A%2F%2F127.0.0.1%3A8085%2Foauth2callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile%20openid&access_type=offline"
+          try {
+            if (process.platform === "win32") {
+              crossSpawn("cmd.exe", ["/c", "start", '""', authUrl], { windowsHide: true })
+            } else if (process.platform === "darwin") {
+              crossSpawn("open", [authUrl])
+            } else {
+              crossSpawn("xdg-open", [authUrl])
+            }
+            return { data: { success: true, message: "Opened Google Sign-In in your browser." } }
+          } catch (e: any) {
+            return { data: { success: false, message: e.message } }
+          }
         }
         if (ctx.payload.target === "antigravity-logout") {
           const res = logoutAntigravity()

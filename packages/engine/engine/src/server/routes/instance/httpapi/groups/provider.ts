@@ -153,7 +153,20 @@ export const LocalCliStatus = Schema.Struct({
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
 
 export const LocalCliLoginInput = Schema.Struct({
-  target: Schema.Literals(["claude", "gemini", "antigravity", "agy", "antigravity-logout", "opencode", "opencode-server", "opencode-terminal", "9router", "codex"]),
+  target: Schema.Literals([
+    "claude",
+    "gemini",
+    "antigravity",
+    "antigravity-oauth",
+    "antigravity-cli",
+    "agy",
+    "antigravity-logout",
+    "opencode",
+    "opencode-server",
+    "opencode-terminal",
+    "9router",
+    "codex",
+  ]),
 })
 
 export const LocalCliLoginResult = Schema.Struct({

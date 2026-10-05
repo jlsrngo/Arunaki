@@ -11,6 +11,9 @@ import {
   Wifi,
   LogIn,
   LogOut,
+  Mail,
+  AlertTriangle,
+  Scale,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -187,8 +190,10 @@ export function SettingsCliConnectionsTab({
   const [isStarting9Router, setIsStarting9Router] = useState(false);
   const [isOpeningOpenCodeTerminal, setIsOpeningOpenCodeTerminal] = useState(false);
   const [isOpeningCodexTerminal, setIsOpeningCodexTerminal] = useState(false);
-  const [isOpeningAntigravityTerminal, setIsOpeningAntigravityTerminal] = useState(false);
   const [isLoggingOutAntigravity, setIsLoggingOutAntigravity] = useState(false);
+  const [showAntigravityLoginModal, setShowAntigravityLoginModal] = useState(false);
+  const [isSigningInEmail, setIsSigningInEmail] = useState(false);
+  const [isSigningInCli, setIsSigningInCli] = useState(false);
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [customInput, setCustomInput] = useState<Record<string, string>>({});
@@ -366,54 +371,80 @@ export function SettingsCliConnectionsTab({
     }
   };
 
-  const handleLaunchAntigravityTerminal = async () => {
-    setIsOpeningAntigravityTerminal(true);
+  const startAntigravityPoll = () => {
+    let attempts = 0;
+    const pollTimer = setInterval(async () => {
+      attempts++;
+      try {
+        const statusRes = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
+        if (statusRes.ok) {
+          const statusJson = await statusRes.json();
+          const agy = statusJson.data?.antigravity;
+          if (agy?.loggedIn) {
+            clearInterval(pollTimer);
+            fetchStatus();
+            setShowAntigravityLoginModal(false);
+            toast.success("Signed in to Google Antigravity!", {
+              description: `Active account: ${agy.accountEmail || "Google Account"}`,
+            });
+            if (!isGeminiActive) {
+              handleConnectTarget("antigravity", "Google Antigravity");
+            }
+          }
+        }
+      } catch {}
+      if (attempts >= 25) clearInterval(pollTimer);
+    }, 1500);
+  };
+
+  const handleAntigravityEmailLogin = async () => {
+    setIsSigningInEmail(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity" }),
+        body: JSON.stringify({ target: "antigravity-oauth" }),
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Google Sign-In Triggered", {
-          description: "Follow the login instructions in your browser/terminal to complete authentication.",
+        toast.info("Google OAuth Browser Opened", {
+          description: "Silakan selesaikan otentikasi akun Google di browser Anda.",
         });
-
-        // Poll for login completion
-        let attempts = 0;
-        const pollTimer = setInterval(async () => {
-          attempts++;
-          try {
-            const statusRes = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
-            if (statusRes.ok) {
-              const statusJson = await statusRes.json();
-              const agy = statusJson.data?.antigravity;
-              if (agy?.loggedIn) {
-                clearInterval(pollTimer);
-                fetchStatus();
-                toast.success("Signed in to Google Antigravity!", {
-                  description: `Active account: ${agy.accountEmail || "Google Account"}`,
-                });
-                if (!isGeminiActive) {
-                  handleConnectTarget("antigravity", "Google Antigravity");
-                }
-              }
-            }
-          } catch {}
-          if (attempts >= 25) clearInterval(pollTimer);
-        }, 1500);
+        startAntigravityPoll();
       } else {
-        toast.error("Could not launch Antigravity login", {
-          description: json.data?.message || "Please run 'agy' manually in your terminal.",
-        });
+        toast.error("Gagal membuka Google OAuth", { description: json.data?.message });
       }
     } catch (err: any) {
-      toast.error("Failed to launch Antigravity CLI", { description: err.message });
+      toast.error("Gagal memulai login email", { description: err.message });
     } finally {
-      setIsOpeningAntigravityTerminal(false);
+      setIsSigningInEmail(false);
     }
   };
+
+  const handleAntigravityCliLogin = async () => {
+    setIsSigningInCli(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "antigravity-cli" }),
+      });
+      const json = await res.json();
+      if (json.data?.success) {
+        toast.info("Antigravity Terminal Opened", {
+          description: "Jendela terminal dibuka untuk otentikasi CLI.",
+        });
+        startAntigravityPoll();
+      } else {
+        toast.error("Gagal membuka CLI terminal", { description: json.data?.message });
+      }
+    } catch (err: any) {
+      toast.error("Gagal memulai login CLI", { description: err.message });
+    } finally {
+      setIsSigningInCli(false);
+    }
+  };
+
 
   const handleAntigravityLogout = async () => {
     setIsLoggingOutAntigravity(true);
@@ -1355,16 +1386,24 @@ export function SettingsCliConnectionsTab({
             {!data.antigravity?.loggedIn ? (
               <button
                 type="button"
-                onClick={handleLaunchAntigravityTerminal}
-                disabled={isOpeningAntigravityTerminal}
+                onClick={() => setShowAntigravityLoginModal(true)}
                 className="px-3 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-xs rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-sm"
-                title="Sign in with your Google account"
+                title="Choose sign in method with Google or CLI"
               >
-                {isOpeningAntigravityTerminal ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
-                <span>Login with Google</span>
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Login</span>
               </button>
             ) : (
               <>
+                <button
+                  type="button"
+                  onClick={() => setShowAntigravityLoginModal(true)}
+                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+                  title="Switch or view login method (Email vs CLI)"
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  <span>Auth Method</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleAntigravityLogout}
@@ -1374,16 +1413,6 @@ export function SettingsCliConnectionsTab({
                 >
                   {isLoggingOutAntigravity ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
                   <span>Logout</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLaunchAntigravityTerminal}
-                  disabled={isOpeningAntigravityTerminal}
-                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-                  title="Open Antigravity CLI terminal"
-                >
-                  {isOpeningAntigravityTerminal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />}
-                  <span>CLI</span>
                 </button>
               </>
             )}
@@ -1540,6 +1569,160 @@ export function SettingsCliConnectionsTab({
           </div>
         </div>
       </div>
+
+      {/* ── Antigravity Login Method Selection Modal ───────────── */}
+      {showAntigravityLoginModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-left">
+            <button
+              type="button"
+              onClick={() => setShowAntigravityLoginModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-1.5">
+              <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-100 font-bold text-sm">
+                A
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-zinc-100">
+                  Google Antigravity Authentication
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Pilih cara otentikasi akun Google Anda untuk menghubungkan model Gemini ke Arunaki.
+                </p>
+              </div>
+            </div>
+
+            {data.antigravity?.loggedIn && (
+              <div className="my-3 px-3 py-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between text-xs">
+                <span className="text-emerald-300">
+                  Akun aktif saat ini: <strong>{data.antigravity.accountEmail || "Google Account"}</strong>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">
+                  Terhubung
+                </span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+              {/* Option 1: Login via Email (Browser OAuth) */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border border-zinc-800 hover:border-emerald-500/50 bg-zinc-950/60 transition-all group">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <span className="font-semibold text-sm text-zinc-100">Login via Email</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 font-medium">
+                      Web OAuth
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
+                    Masuk langsung menggunakan akun Google Anda melalui browser web tanpa membuka terminal.
+                  </p>
+
+                  {/* Warning */}
+                  <div className="p-2.5 rounded-lg bg-amber-950/25 border border-amber-500/30 text-amber-200/90 text-[11px] leading-relaxed mb-3">
+                    <div className="flex items-start gap-1.5 font-medium text-amber-300 mb-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                      <span>Warning (Email OAuth):</span>
+                    </div>
+                    <p className="text-[10.5px] text-amber-200/80">
+                      Membuka browser eksternal untuk otentikasi Google Cloud. Memerlukan web callback di port 8085 dan refresh token berkala secara online.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAntigravityEmailLogin}
+                  disabled={isSigningInEmail}
+                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isSigningInEmail ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membuka Browser...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Masuk via Email (OAuth)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Option 2: Connect via CLI Terminal */}
+              <div className="flex flex-col justify-between p-4 rounded-xl border border-zinc-800 hover:border-sky-500/50 bg-zinc-950/60 transition-all group">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                        <Terminal className="w-4 h-4" />
+                      </div>
+                      <span className="font-semibold text-sm text-zinc-100">Login via CLI</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 font-medium">
+                      Terminal agy
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">
+                    Menggunakan binary Antigravity CLI lokal yang sudah terpasang dan tersinkronisasi di komputer.
+                  </p>
+
+                  {/* Trade-off */}
+                  <div className="p-2.5 rounded-lg bg-sky-950/25 border border-sky-500/30 text-sky-200/90 text-[11px] leading-relaxed mb-3">
+                    <div className="flex items-start gap-1.5 font-medium text-sky-300 mb-1">
+                      <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-sky-400" />
+                      <span>Trade-off (CLI Terminal):</span>
+                    </div>
+                    <p className="text-[10.5px] text-sky-200/80">
+                      Membuka jendela konsol terminal fisik (wt/cmd) untuk inisialisasi login. Latensi paling minimal (~17ms) &amp; langsung membaca sesi akun aktif PC.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAntigravityCliLogin}
+                  disabled={isSigningInCli}
+                  className="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 font-medium text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isSigningInCli ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membuka Terminal...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>Buka Terminal CLI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>Arunaki Workstation Integration</span>
+              <button
+                type="button"
+                onClick={() => setShowAntigravityLoginModal(false)}
+                className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
