@@ -582,7 +582,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "antigravity-local-session",
-            model: ctx.payload.model || "gemini-3.8-flash, gemini-2.5-flash, gemini-2.5-pro",
+            model: ctx.payload.model || "gemini-3.8-flash, gemini-3.1-pro, gemini-3.7-flash, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-5-5",
           })
         }
         if (ctx.payload.target === "codex") {

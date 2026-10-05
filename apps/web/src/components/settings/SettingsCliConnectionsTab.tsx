@@ -99,12 +99,12 @@ const PRESET_MODELS: Record<string, string[]> = {
   ],
   codex: ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"],
   antigravity: [
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
     "gemini-3.8-flash",
+    "gemini-3.1-pro",
     "gemini-3.7-flash",
+    "claude-sonnet-5-5",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
   ],
   nineRouter: ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"],
 };
@@ -116,13 +116,15 @@ interface ModelMeta {
 }
 
 const MODEL_METADATA: Record<string, ModelMeta> = {
-  // Google Gemini CLI (@google/gemini-cli)
+  // Google Antigravity CLI (agy)
+  "gemini-3.8-flash": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
+  "gemini-3.1-pro": { label: "Gemini 3.1 Pro", badge: "Reasoning" },
+  "gemini-3.7-flash": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
+  "claude-sonnet-5-5": { label: "Claude Sonnet 5.5", badge: "Thinking", speed: "Smart" },
   "gemini-2.5-flash": { label: "Gemini 2.5 Flash", badge: "Fast", speed: "Fast" },
   "gemini-2.5-pro": { label: "Gemini 2.5 Pro", badge: "Reasoning" },
   "gemini-1.5-flash": { label: "Gemini 1.5 Flash", badge: "Lightweight", speed: "Fast" },
   "gemini-1.5-pro": { label: "Gemini 1.5 Pro", badge: "Deep Analysis" },
-  "gemini-3.8-flash": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
-  "gemini-3.7-flash": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
 
   // Claude Code CLI
   "claude-3-7-sonnet": { label: "Claude 3.7 Sonnet", badge: "Hybrid Reasoning", speed: "Fast" },

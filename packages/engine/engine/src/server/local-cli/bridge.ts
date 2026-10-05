@@ -22,6 +22,17 @@ class AntigravityDaemonWorker {
   private stdoutBuffer = ""
   private stderrBuffer = ""
   private turnCount = 0
+  private spawnedModel = "gemini-3.8-flash-high"
+
+  private resolveAgyModel(target?: string): string {
+    const lower = (target || "").toLowerCase()
+    if (lower.includes("pro")) return "gemini-3.1-pro-high"
+    if (lower.includes("3.7")) return "gemini-3.7-flash-high"
+    if (lower.includes("3.6")) return "gemini-3.6-flash-high"
+    if (lower.includes("claude-sonnet") || lower.includes("sonnet")) return "claude-sonnet-5-5-high"
+    if (lower.includes("claude-opus") || lower.includes("opus")) return "claude-opus-5-5-high"
+    return "gemini-3.8-flash-high"
+  }
 
   public prewarm(): void {
     if (!this.child && !this.isStarting) {
@@ -31,9 +42,17 @@ class AntigravityDaemonWorker {
     }
   }
 
-  public async ensureProcess(): Promise<any> {
+  public async ensureProcess(targetModel?: string): Promise<any> {
+    const desiredModel = this.resolveAgyModel(targetModel)
     if (this.child && !this.child.killed && this.child.stdin?.writable) {
-      return this.child
+      if (this.spawnedModel === desiredModel) {
+        return this.child
+      }
+      try {
+        this.child.stdin?.end()
+        this.child.kill()
+      } catch {}
+      this.child = null
     }
 
     if (this.isStarting) {
@@ -54,12 +73,21 @@ class AntigravityDaemonWorker {
     this.stdoutBuffer = ""
     this.stderrBuffer = ""
     this.turnCount = 0
+    this.spawnedModel = desiredModel
 
     try {
       const cmd = resolveAgyCommand()
       const child = crossSpawn(
         cmd,
-        ["--input-format", "stream-json", "--output-format", "stream-json", "--dangerously-skip-permissions"],
+        [
+          "--model",
+          desiredModel,
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--dangerously-skip-permissions",
+        ],
         {
           stdio: ["pipe", "pipe", "pipe"],
         },
@@ -297,7 +325,7 @@ class AntigravityDaemonWorker {
     }
 
     try {
-      const child = await this.ensureProcess()
+      const child = await this.ensureProcess(payload.model)
       this.stderrBuffer = ""
       this.currentTurn = {
         stream: Boolean(payload.stream),
@@ -410,6 +438,9 @@ class LocalCliBridge {
               object: "list",
               data: [
                 { id: "gemini-3.8-flash", object: "model", owned_by: "antigravity-cli" },
+                { id: "gemini-3.1-pro", object: "model", owned_by: "antigravity-cli" },
+                { id: "gemini-3.7-flash", object: "model", owned_by: "antigravity-cli" },
+                { id: "claude-sonnet-5-5", object: "model", owned_by: "antigravity-cli" },
                 { id: "gemini-2.5-flash", object: "model", owned_by: "antigravity-cli" },
                 { id: "gemini-2.5-pro", object: "model", owned_by: "antigravity-cli" },
                 { id: "claude-3-7-sonnet", object: "model", owned_by: "claude-cli" },
@@ -558,7 +589,10 @@ class LocalCliBridge {
     const isAntigravity =
       requestedModel.includes("gemini") ||
       requestedModel.includes("antigravity") ||
-      requestedModel.includes("agy")
+      requestedModel.includes("agy") ||
+      requestedModel.includes("pro") ||
+      requestedModel.includes("claude-sonnet") ||
+      requestedModel.includes("claude-opus")
 
     const messages = payload.messages ?? []
     let systemPrompt = ""

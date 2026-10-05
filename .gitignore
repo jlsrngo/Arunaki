@@ -38,6 +38,8 @@ scratch/
 **/.arunaki/attachments/
 **/.arunaki/uploads/
 **/.arunaki-backups/
+.arunaki-backup/
+**/.arunaki-backup/
 
 # Root-level local business files
 REKAPAN TERBARU*.txt
