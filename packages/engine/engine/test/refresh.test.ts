@@ -1,0 +1,130 @@
+import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import {
+  refreshCredential,
+  checkBeforeRequest,
+  scheduleBackgroundRefresh,
+  stopBackgroundRefresh,
+} from "../src/server/local-cli/refresh"
+import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
+
+describe("Token Refresh", () => {
+  beforeEach(() => {
+    stopBackgroundRefresh()
+  })
+
+  afterEach(() => {
+    stopBackgroundRefresh()
+  })
+
+  it("codex: refresh pakai RT TERBARU + encoding form + client_id benar", async () => {
+    const calls: any[] = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: any, init: any) => {
+      calls.push({ url: String(url), body: String(init.body) })
+      return new Response(
+        JSON.stringify({
+          access_token: "new-at",
+          refresh_token: "new-rt",
+          expires_in: 3600,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as any
+
+    try {
+      const cred: DiscoveredCredential = {
+        provider: "codex",
+        displayName: "OpenAI Codex",
+        type: "oauth",
+        accessToken: "old-at",
+        refreshToken: "rt-LATEST",
+        sourcePath: "mock",
+        lastRefreshAt: Date.now() - 7.2e6,
+      }
+      const out = await refreshCredential(cred)
+      expect(calls[0].url).toContain("https://auth.openai.com/oauth/token")
+      expect(calls[0].body).toContain("grant_type=refresh_token")
+      expect(calls[0].body).toContain("refresh_token=rt-LATEST")
+      expect(calls[0].body).toContain("client_id=app_EMoamEEZ73f0CkXaXp7hrann")
+      expect(out?.accessToken).toBe("new-at")
+      expect(out?.refreshToken).toBe("new-rt")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("claude: refresh encoding JSON + client_id Claude Code", async () => {
+    const calls: any[] = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: any, init: any) => {
+      calls.push({ url: String(url), body: String(init.body) })
+      return new Response(
+        JSON.stringify({
+          access_token: "sk-ant-oat02-new",
+          refresh_token: "rt2",
+          expires_in: 86400,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as any
+
+    try {
+      const cred: DiscoveredCredential = {
+        provider: "claude",
+        displayName: "Claude Code",
+        type: "oauth",
+        accessToken: "sk-ant-oat01-old",
+        refreshToken: "rt1",
+        sourcePath: "mock",
+        lastRefreshAt: 0,
+      }
+      const out = await refreshCredential(cred)
+      expect(calls[0].url).toContain("https://api.anthropic.com/v1/oauth/token")
+      const parsed = JSON.parse(calls[0].body)
+      expect(parsed.grant_type).toBe("refresh_token")
+      expect(parsed.client_id).toBe("9d1c250a-e61b-44d9-88ed-5944d1962f5e")
+      expect(out?.accessToken).toContain("sk-ant-oat02-new")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("proaktif: tidak refresh bila masih jauh dari lead; refresh bila < lead", async () => {
+    // expiresAt 2 jam lagi, codex lead 10 menit → no-op
+    const credFar: DiscoveredCredential = {
+      provider: "codex",
+      displayName: "Codex",
+      type: "oauth",
+      accessToken: "at",
+      refreshToken: "rt",
+      sourcePath: "mock",
+      expiresAt: Date.now() + 7.2e6,
+      lastRefreshAt: Date.now(),
+    }
+    expect(await checkBeforeRequest(credFar)).toBe(false)
+
+    // expiresAt 5 menit lagi (lead 10 menit) → refresh dipanggil
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ access_token: "n", refresh_token: "r", expires_in: 3600 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })) as any
+
+    try {
+      const credSoon: DiscoveredCredential = {
+        provider: "codex",
+        displayName: "Codex",
+        type: "oauth",
+        accessToken: "old",
+        refreshToken: "rt",
+        sourcePath: "mock",
+        expiresAt: Date.now() + 5 * 60_000,
+      }
+      expect(await checkBeforeRequest(credSoon)).toBe(true)
+      expect(credSoon.accessToken).toBe("n")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+})
