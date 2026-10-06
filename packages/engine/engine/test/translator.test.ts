@@ -2,10 +2,10 @@ import { describe, it, expect } from "bun:test"
 import { openaiToAnthropic, anthropicSseToOpenAI } from "../src/server/local-cli/translator"
 
 describe("OpenAI ⇄ Anthropic translator", () => {
-  it("mempertahankan tools + tool_choice", () => {
+  it("preserves tools + tool_choice", () => {
     const body = openaiToAnthropic({
       model: "claude-sonnet-4-5",
-      messages: [{ role: "user", content: "hitung" }],
+      messages: [{ role: "user", content: "calculate" }],
       tools: [
         {
           type: "function",
@@ -36,7 +36,7 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     const body = openaiToAnthropic({
       model: "m",
       messages: [
-        { role: "user", content: "luas" },
+        { role: "user", content: "area" },
         {
           role: "assistant",
           content: null,
@@ -71,11 +71,11 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     })
   })
 
-  it("tool result paralel digabung ke SATU pesan user dengan tool_result di depan", () => {
+  it("parallel tool results are merged into ONE user message with tool_result in front", () => {
     const body = openaiToAnthropic({
       model: "m",
       messages: [
-        { role: "user", content: "dua file" },
+        { role: "user", content: "two files" },
         {
           role: "assistant",
           content: null,
@@ -84,9 +84,9 @@ describe("OpenAI ⇄ Anthropic translator", () => {
             { id: "call_2", type: "function", function: { name: "b", arguments: "{}" } },
           ],
         },
-        { role: "tool", tool_call_id: "call_1", content: "satu" },
-        { role: "tool", tool_call_id: "call_2", content: "dua" },
-        { role: "user", content: "lanjut" },
+        { role: "tool", tool_call_id: "call_1", content: "one" },
+        { role: "tool", tool_call_id: "call_2", content: "two" },
+        { role: "user", content: "continue" },
       ],
     })
     expect(body).not.toBeNull()
@@ -96,16 +96,16 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     expect(last.content[0].type).toBe("tool_result")
     expect(last.content[0].tool_use_id).toBe("call_1")
     expect(last.content[1].tool_use_id).toBe("call_2")
-    expect(last.content[2]).toEqual({ type: "text", text: "lanjut" })
+    expect(last.content[2]).toEqual({ type: "text", text: "continue" })
   })
 
-  it("pesan tanpa konten valid dibuang, tidak menghasilkan content: []", () => {
+  it("messages without valid content are discarded, avoiding empty content: []", () => {
     const body = openaiToAnthropic({
       model: "m",
       messages: [
         { role: "user", content: [{ type: "unknown_part" }] },
         { role: "assistant", content: "" },
-        { role: "user", content: "oke" },
+        { role: "user", content: "ok" },
       ],
     })
     expect(body).not.toBeNull()
@@ -118,7 +118,7 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     const events = [
       { type: "message_start", message: { id: "msg_1", usage: { input_tokens: 10 } } },
       { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
-      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "halo" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "hello" } },
       {
         type: "content_block_start",
         index: 1,
@@ -137,7 +137,7 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     const out = await anthropicSseToOpenAI(events, { id: "chatcmpl-1", created: 1, model: "m" })
     const chunks = out.filter((s) => s.startsWith("data: ") && !s.includes("[DONE]")).map((s) => JSON.parse(s.slice(6)))
     const text = chunks.map((c) => c.choices?.[0]?.delta?.content ?? "").join("")
-    expect(text).toBe("halo")
+    expect(text).toBe("hello")
     const toolHead = chunks.find((c) => c.choices?.[0]?.delta?.tool_calls?.[0]?.id === "call_9")
     expect(toolHead.choices[0].delta.tool_calls[0].function.name).toBe("calc")
     const last = out[out.length - 1]

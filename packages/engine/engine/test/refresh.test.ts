@@ -16,7 +16,7 @@ describe("Token Refresh", () => {
     stopBackgroundRefresh()
   })
 
-  it("codex: refresh pakai RT TERBARU + encoding JSON tanpa scope (9Router parity)", async () => {
+  it("codex: refresh using latest RT + JSON encoding without scope (9Router parity)", async () => {
     const calls: any[] = []
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (url: any, init: any) => {
@@ -55,7 +55,7 @@ describe("Token Refresh", () => {
     }
   })
 
-  it("invalid_grant → tidak pernah coba refresh lagi (re-auth required)", async () => {
+  it("invalid_grant → never attempts refresh again (re-auth required)", async () => {
     let calls = 0
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => {
@@ -116,8 +116,8 @@ describe("Token Refresh", () => {
     }
   })
 
-  it("proaktif: tidak refresh bila masih jauh dari lead; refresh bila < lead", async () => {
-    // expiresAt 2 jam lagi, codex lead 10 menit → no-op
+  it("proactive: does not refresh when far from lead; refreshes when < lead", async () => {
+    // expiresAt in 2 hours, codex lead 10 minutes → no-op
     const credFar: DiscoveredCredential = {
       provider: "codex",
       displayName: "Codex",
@@ -130,7 +130,7 @@ describe("Token Refresh", () => {
     }
     expect(await checkBeforeRequest(credFar)).toBe(false)
 
-    // expiresAt 5 menit lagi (lead 10 menit) → refresh dipanggil
+    // expiresAt in 5 minutes (lead 10 minutes) → refresh is invoked
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () =>
       new Response(JSON.stringify({ access_token: "n", refresh_token: "r", expires_in: 3600 }), {

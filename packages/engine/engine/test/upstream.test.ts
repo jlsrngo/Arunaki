@@ -62,7 +62,7 @@ function sseResponse(lines: string[], status = 200) {
 }
 
 const CODEX_STREAM = [
-  `data: ${JSON.stringify({ type: "response.output_text.delta", delta: "hai" })}\n\n`,
+  `data: ${JSON.stringify({ type: "response.output_text.delta", delta: "hi" })}\n\n`,
   `data: ${JSON.stringify({
     type: "response.output_item.added",
     output_index: 0,
@@ -81,13 +81,13 @@ const CODEX_STREAM = [
 
 const CLAUDE_STREAM = [
   `data: ${JSON.stringify({ type: "message_start", message: { usage: { input_tokens: 4 } } })}\n\n`,
-  `data: ${JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "hai" } })}\n\n`,
+  `data: ${JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "hi" } })}\n\n`,
   `data: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 2 } })}\n\n`,
   `data: ${JSON.stringify({ type: "message_stop" })}\n\n`,
 ]
 
 describe("Upstream request builders", () => {
-  it("codex → chatgpt.com/backend-api/codex/responses (BUKAN api.openai.com)", () => {
+  it("codex → chatgpt.com/backend-api/codex/responses (NOT api.openai.com)", () => {
     const cred: DiscoveredCredential = {
       provider: "codex",
       displayName: "Codex",
@@ -129,7 +129,7 @@ describe("Upstream request builders", () => {
     expect(anthropicUrl).toContain("?beta=true")
   })
 
-  it("anthropic api key → x-api-key raw (tanpa Bearer)", () => {
+  it("anthropic api key → raw x-api-key (without Bearer)", () => {
     const cred: DiscoveredCredential = {
       provider: "claude",
       displayName: "Claude",
@@ -180,7 +180,7 @@ describe("Upstream request builders", () => {
     expect(completeChunk).toContain("[DONE]")
   })
 
-  it("chatToResponses selalu stream:true (klien non-stream diterjemahkan balik)", () => {
+  it("chatToResponses always sets stream:true (non-stream clients translated back)", () => {
     const res = chatToResponses({
       model: "gpt-5.1-codex",
       messages: [{ role: "user", content: "hi" }],
@@ -189,21 +189,21 @@ describe("Upstream request builders", () => {
     expect(res.stream).toBe(true)
   })
 
-  it("chatToResponses: system/developer di-hoist ke instructions, bukan message input", () => {
+  it("chatToResponses: system/developer hoisted to instructions, not message input", () => {
     const res = chatToResponses({
       model: "gpt-5.1-codex",
       messages: [
-        { role: "system", content: "规则 A" },
+        { role: "system", content: "rule A" },
         { role: "developer", content: "rule B" },
         { role: "user", content: "hi" },
       ],
     })
-    expect(res.instructions).toBe("规则 A\n\nrule B")
+    expect(res.instructions).toBe("rule A\n\nrule B")
     expect(res.input).toHaveLength(1)
     expect(res.input[0].role).toBe("user")
   })
 
-  it("tool id diumumkan dari output_item.added SEBELUM argumen delta", () => {
+  it("tool id announced in output_item.added BEFORE argument deltas", () => {
     const ctx = { id: "c1", created: 1, model: "gpt-5.1-codex" }
     const added = JSON.parse(
       mapCodexEventToOpenAI(
@@ -231,11 +231,11 @@ describe("Upstream request builders", () => {
     expect(delta.choices[0].delta.tool_calls[0].id).toBeUndefined()
   })
 
-  it("chunksToCompletion menggabungkan stream jadi satu chat.completion", () => {
+  it("chunksToCompletion aggregates stream into single chat.completion", () => {
     const ctx = { id: "c1", created: 1, model: "gpt-5.1-codex" }
     const chunks = [
-      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "halo " }, ctx)!,
-      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "dunia" }, ctx)!,
+      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "hello " }, ctx)!,
+      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "world" }, ctx)!,
       mapCodexEventToOpenAI(
         {
           type: "response.output_item.added",
@@ -260,7 +260,7 @@ describe("Upstream request builders", () => {
       )!,
     ]
     const body = chunksToCompletion(chunks, "gpt-5.1-codex")
-    expect(body.choices[0].message.content).toBe("halo dunia")
+    expect(body.choices[0].message.content).toBe("hello world")
     expect(body.choices[0].message.tool_calls[0]).toMatchObject({
       id: "call_1",
       function: { name: "calc", arguments: '{"x":2}' },
@@ -270,7 +270,7 @@ describe("Upstream request builders", () => {
     expect(chunksToCompletion([], "m")).toBeNull()
   })
 
-  it("fast-path codex: upstream 500 → return false, tidak ada byte ke klien (fallback aman)", async () => {
+  it("fast-path codex: upstream 500 → return false, no bytes to client (safe fallback)", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => new Response("boom", { status: 500 })) as any
     const { res, state } = fakeRes()
@@ -289,7 +289,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path codex: stream client menerima SSE + [DONE]", async () => {
+  it("fast-path codex: stream client receives SSE + [DONE]", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => sseResponse(CODEX_STREAM)) as any
     const { res, state } = fakeRes()
@@ -309,7 +309,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path codex: klien non-stream menerima satu JSON chat.completion", async () => {
+  it("fast-path codex: non-stream client receives single JSON chat.completion", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => sseResponse(CODEX_STREAM)) as any
     const { res, state } = fakeRes()
@@ -323,7 +323,7 @@ describe("Upstream request builders", () => {
       expect(state.head?.["Content-Type"]).toBe("application/json")
       const body = JSON.parse(state.body)
       expect(body.object).toBe("chat.completion")
-      expect(body.choices[0].message.content).toBe("hai")
+      expect(body.choices[0].message.content).toBe("hi")
       expect(body.choices[0].message.tool_calls[0].id).toBe("call_1")
       expect(body.choices[0].finish_reason).toBe("tool_calls")
       expect(body.usage.total_tokens).toBe(5)
@@ -332,7 +332,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path codex: 401 → refresh → retry sekali lalu sukses", async () => {
+  it("fast-path codex: 401 → refresh → retry once and succeed", async () => {
     let call = 0
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (url: any) => {
@@ -360,7 +360,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path claude: non-streamiagregasi jadi JSON, stream tetap SSE", async () => {
+  it("fast-path claude: non-stream aggregates into JSON, stream remains SSE", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => sseResponse(CLAUDE_STREAM)) as any
     try {
@@ -375,7 +375,7 @@ describe("Upstream request builders", () => {
       expect(json.state.head?.["Content-Type"]).toBe("application/json")
       const parsed = JSON.parse(json.state.body)
       expect(parsed.object).toBe("chat.completion")
-      expect(parsed.choices[0].message.content).toBe("hai")
+      expect(parsed.choices[0].message.content).toBe("hi")
 
       const stream = fakeRes()
       expect(
@@ -392,7 +392,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path claude: upstream 401 tanpa refresh token → return false", async () => {
+  it("fast-path claude: upstream 401 without refresh token → return false", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => new Response("nope", { status: 401 })) as any
     const { res, state } = fakeRes()

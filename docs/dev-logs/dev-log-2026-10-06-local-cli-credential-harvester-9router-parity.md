@@ -5,41 +5,41 @@
 **Phase:** Phase 105 (Local CLI Credential Harvester & 9Router Parity)
 
 ## What
-Menerapkan arsitektur 9Router secara 1:1 pada layer koneksi CLI lokal Arunaki untuk memanen akun subscription dan kredensial aktif dari disk, menerapkan 3-tier token refreshing, streaming upstream langsung ke API resmi vendor tanpa latensi subprocess `claude -p`, mendukung translasi `tools` / `tool_calls` secara penuh, dan menyediakan tombol 1-klik untuk menginjeksi konfigurasi CLI lokal.
+Implemented 9Router architecture 1:1 on Arunaki's local CLI connection layer to harvest active subscription accounts and credentials from disk, apply 3-tier token refreshing, stream upstream directly to official vendor APIs without `claude -p` subprocess latency, fully support `tools` / `tool_calls` translation, and provide a 1-click button to inject local CLI configuration.
 
 1. **Credential Harvester & Store (`credential-store.ts`, `harvester.ts`)**:
-   - Membaca disk caches: OpenAI Codex (`~/.codex/auth.json`), Claude Code (`~/.claude/.credentials.json` dan `settings.json`), AWS Kiro AI (`~/.aws/sso/cache/*.json`), Cursor IDE (`state.vscdb` dibaca menggunakan `bun:sqlite` readonly ItemTable).
-   - Menyimpan status dan token rotasi pada state internal Arunaki `~/.arunaki/local-cli-credentials.json` tanpa pernah memodifikasi file konfigurasi user.
+   - Reads disk caches: OpenAI Codex (`~/.codex/auth.json`), Claude Code (`~/.claude/.credentials.json` and `settings.json`), AWS Kiro AI (`~/.aws/sso/cache/*.json`), Cursor IDE (`state.vscdb` read using `bun:sqlite` readonly ItemTable).
+   - Stores status and rotation tokens in Arunaki's internal state `~/.arunaki/local-cli-credentials.json` without modifying user configuration files.
 2. **Token Refresh Module (`refresh.ts`)**:
-   - Single-flight lock per akun provider untuk mencegah burst concurrent request.
-   - 3 Lapis Refresh: Proaktif (lead time check sebelum request), Background (interval 5 menit dengan jitter), dan Reaktif (auto-refresh saat 401/403 dengan token rotasi).
+   - Single-flight lock per account provider to prevent burst concurrent requests.
+   - 3 Refresh Tiers: Proactive (lead time check before request), Background (5-minute interval with jitter), and Reactive (auto-refresh on 401/403 with token rotation).
 3. **Upstream Direct Executors (`upstream.ts`)**:
-   - ChatGPT Responses API di `https://chatgpt.com/backend-api/codex/responses` dengan `ChatGPT-Account-ID`, `originator: codex_cli_rs`, dan session isolation.
-   - Anthropic Messages API di `https://api.anthropic.com/v1/messages?beta=true` dengan header `Anthropic-Beta` lengkap dan `Authorization: Bearer <token>` atau `x-api-key`.
+   - ChatGPT Responses API at `https://chatgpt.com/backend-api/codex/responses` with `ChatGPT-Account-ID`, `originator: codex_cli_rs`, and session isolation.
+   - Anthropic Messages API at `https://api.anthropic.com/v1/messages?beta=true` with full `Anthropic-Beta` headers and `Authorization: Bearer <token>` or `x-api-key`.
 4. **Full Two-Way Translator (`translator.ts`)**:
-   - Pemetaan utuh OpenAI Chat ⇄ Anthropic Messages dengan preserve `tools`, `tool_choice`, `assistant.tool_calls` → `tool_use`, dan pesan respon `role: "tool"` → user turn dengan `tool_result` + `tool_use_id`.
-   - Streaming parser Anthropic SSE ke OpenAI completion chunk beserta `finish_reason: "tool_calls"` dan token usage.
+   - Full mapping of OpenAI Chat ⇄ Anthropic Messages preserving `tools`, `tool_choice`, `assistant.tool_calls` → `tool_use`, and `role: "tool"` response messages → user turn with `tool_result` + `tool_use_id`.
+   - Streaming parser from Anthropic SSE to OpenAI completion chunks including `finish_reason: "tool_calls"` and token usage.
 5. **Fast-Path Routing & Pre-Flight Fallback (`bridge.ts`)**:
-   - Menyisipkan fast-path untuk OpenAI-family (`gpt-*`, `o1/o3`, `codex`) dan Claude CLI sebelum spawning subprocess.
-   - Mematuhi aturan pre-flight fallback: fallback ke rantai lama (`claude -p` / daemon / 9Router port 20128) HANYA terjadi sebelum `res.writeHead` dipanggil.
+   - Inserts fast-path for OpenAI-family (`gpt-*`, `o1/o3`, `codex`) and Claude CLI before spawning subprocesses.
+   - Adheres to pre-flight fallback rules: fallback to the legacy chain (`claude -p` / daemon / 9Router port 20128) ONLY occurs before `res.writeHead` is called.
 6. **Safe 1-Click CLI Config Auto-Injector (`injector.ts`)**:
-   - Injeksi aman `~/.claude/settings.json` (JSONC-tolerant parser dengan fallback abort bila parse rusak, dan auto-backup `.bak-9router`).
-   - Injeksi aman `~/.codex/config.toml` (menambahkan root `model_provider = "arunaki"` dan section `[model_providers.arunaki]`).
-   - Reset handler untuk mengembalikan konfigurasi ke kondisi semula.
+   - Safe injection into `~/.claude/settings.json` (JSONC-tolerant parser with fallback abort on parse error, and auto-backup `.bak-9router`).
+   - Safe injection into `~/.codex/config.toml` (adds root `model_provider = "arunaki"` and `[model_providers.arunaki]` section).
+   - Reset handler to restore configuration to previous state.
 7. **HTTP API Handlers & UI Badges (`groups/provider.ts`, `handlers/provider.ts`, `SettingsCliConnectionsTab.tsx`)**:
-   - Endpoint `localCliDiscovered`: mengembalikan metadata credential non-sensitif (token rahasia tidak pernah diekspos ke browser).
-   - Endpoint `localCliRefresh`: manual trigger refresh.
-   - Endpoint `localCliInject`: 1-klik injeksi / reset konfigurasi CLI.
-   - UI: Badge `"Auto-Imported · Ready"` disertai sisa masa berlaku token (`Expires in Xh/Xm`), tombol `"Refresh now"` dan `"Auto-Configure CLI"`, serta banner status ringkasan cache.
+   - Endpoint `localCliDiscovered`: returns non-sensitive credential metadata (secret tokens are never exposed to the browser).
+   - Endpoint `localCliRefresh`: manual refresh trigger.
+   - Endpoint `localCliInject`: 1-click CLI config injection / reset.
+   - UI: Badge `"Auto-Imported · Ready"` with remaining token TTL countdown (`Expires in Xh/Xm`), `"Refresh now"` and `"Auto-Configure CLI"` buttons, plus cache summary status banner.
 
 ## Files Changed
-- `packages/engine/engine/src/server/local-cli/credential-store.ts` (created) — isolasi penyimpanan kredensial lokal
-- `packages/engine/engine/src/server/local-cli/harvester.ts` (created) — scanner kredensial disk Codex, Claude, Kiro, Cursor
+- `packages/engine/engine/src/server/local-cli/credential-store.ts` (created) — local credential storage isolation
+- `packages/engine/engine/src/server/local-cli/harvester.ts` (created) — disk credential scanner for Codex, Claude, Kiro, Cursor
 - `packages/engine/engine/src/server/local-cli/refresh.ts` (created) — 3-tier single-flight token refresh
 - `packages/engine/engine/src/server/local-cli/upstream.ts` (created) — per-provider direct HTTP streaming executor
-- `packages/engine/engine/src/server/local-cli/translator.ts` (created) — dua arah format & tool-calling translator
-- `packages/engine/engine/src/server/local-cli/bridge.ts` (modified) — fast-path routing dengan pre-flight fallback
-- `packages/engine/engine/src/server/local-cli/injector.ts` (created) — safe 1-click config injection dengan backup
+- `packages/engine/engine/src/server/local-cli/translator.ts` (created) — two-way format & tool-calling translator
+- `packages/engine/engine/src/server/local-cli/bridge.ts` (modified) — fast-path routing with pre-flight fallback
+- `packages/engine/engine/src/server/local-cli/injector.ts` (created) — safe 1-click config injection with backup
 - `packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts` (modified) — schema & route definition
 - `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts` (modified) — Effect API handlers
 - `apps/web/src/components/settings/SettingsCliConnectionsTab.tsx` (modified) — UI badges, countdown, refresh & injector buttons
@@ -57,64 +57,64 @@ Menerapkan arsitektur 9Router secara 1:1 pada layer koneksi CLI lokal Arunaki un
 - `npm run build -w apps/web`: ✅ Passed (29.96s) with 0 TypeScript compilation errors
 
 ## Notes
-- Kredensial rahasia (access token, refresh token) disimpan hanya di server lokal (`~/.arunaki/local-cli-credentials.json`) dan tidak pernah dikirim ke web frontend.
-- Provider binary (Kiro EventStream, Cursor protobuf) tidak dimasukkan ke fast-path direct melainkan diteruskan ke rantai 9Router port 20128 sesuai arsitektur acuan.
+- Secret credentials (access token, refresh token) are stored strictly on the local server (`~/.arunaki/local-cli-credentials.json`) and never transmitted to the web frontend.
+- Binary providers (Kiro EventStream, Cursor protobuf) are not routed via direct fast-path; instead they are forwarded to the 9Router chain on port 20128 per reference architecture.
 
 ---
 
-## Errata & Post-Review Fixes (2026-10-06 malam)
+## Errata & Post-Review Fixes (2026-10-06 evening)
 
-Review 1:1 terhadap source 9Router (`open-sse/`) menemukan 3 bug P1 + beberapa klaim laporan yang perlu dikoreksi. Semua sudah diperbaiki pada commit `fix(local-cli)` berikutnya.
+A 1:1 review against the 9Router source (`open-sse/`) identified 3 P1 bugs + several report claims requiring correction. All were fixed in subsequent `fix(local-cli)` commits.
 
-### Bug P1 yang diperbaiki
+### Fixed P1 Bugs
 
-1. **Tool result paralel → HTTP 400** (`translator.ts`).
-   Sebelumnya setiap `role: "tool"` menjadi pesan `user` terpisah. Anthropic mewajibkan seluruh `tool_result` dari satu assistant turn berada dalam **satu** pesan user (dan mendahului konten lain), dengan role alternating. Sekarang: pesan ber-role sama digabung, `tool_result` dipindahkan ke depan, pesan tanpa konten valid dibuang. Setara 9Router `translator/request/openai-to-claude.js` (pass "Merge consecutive same-role messages" + "Fix tool_use/tool_result ordering").
-2. **Respons non-stream rusak / kosong** (`upstream.ts`, `translator.ts`).
-   Request `stream:false` sebelumnya tetap memicu parsing SSE — respons Codex 200-kosong dan respons Claude terkirim sebagai SSE kosong. Sekarang upstream **selalu** `stream: true` (paritas 9Router `request/openai-responses.js`) dan hasil stream diagregasi menjadi satu body `chat.completion` JSON oleh `chunksToCompletion()`; bila agregasi gagal, tidak ada byte yang ditulis ke klien sehingga pre-flight fallback tetap berjalan.
-3. **Tool call stream Codex salah urutan & dobel** (`upstream.ts`).
-   `id`/`name` sebelumnya dipancarkan dari `response.output_item.done` (setelah seluruh argumen delta) dan selalu `index: 0`. Sekarang dipancarkan dari `response.output_item.added` (paritas 9Router `translator/response/openai-responses.js`) dengan `output_index` asli; argumen hanya dari `function_call_arguments.delta`.
+1. **Parallel tool results → HTTP 400** (`translator.ts`).
+   Previously, each `role: "tool"` became an isolated `user` message. Anthropic requires all `tool_result` blocks from a single assistant turn to reside within a **single** user message (preceding any other content), with alternating roles. Now: consecutive messages with the same role are merged, `tool_result` blocks are hoisted to the front, and messages without valid content are pruned. Parity with 9Router `translator/request/openai-to-claude.js` (passes "Merge consecutive same-role messages" + "Fix tool_use/tool_result ordering").
+2. **Broken / empty non-stream response** (`upstream.ts`, `translator.ts`).
+   Previously, `stream: false` requests still triggered SSE parsing — resulting in empty 200 responses for Codex and empty SSE streams for Claude. Now upstream requests **always** set `stream: true` (9Router parity `request/openai-responses.js`), and stream chunks are aggregated into a single `chat.completion` JSON body by `chunksToCompletion()`. If aggregation fails, zero bytes are written to the client, allowing pre-flight fallback to proceed.
+3. **Codex stream tool call out-of-order & duplicated** (`upstream.ts`).
+   `id`/`name` were previously emitted from `response.output_item.done` (after all delta arguments) and always hardcoded to `index: 0`. Now they are emitted from `response.output_item.added` (9Router parity `translator/response/openai-responses.js`) with the original `output_index`; arguments are accumulated strictly from `function_call_arguments.delta`.
 
-### Perbaikan lain
+### Other Improvements
 
-- **Codex refresh → JSON tanpa `scope`** (`refresh.ts`), mengikuti jalur yang benar-benar dieksekusi 9Router (`tokenRefresh/providers.js refreshCodexToken`), bukan `encoding: form` yang ditulis registry-nya.
-- **Error refresh permanen**: `invalid_grant` / `refresh_token_reused` / `refresh_token_expired` / `refresh_token_invalidated` ditandai permanen (setara `classifyOAuthRefreshError`) → credential dimasukkan ke daftar re-auth dan **tidak pernah memanggil jaringan lagi**, mencegah rotasi refresh-token ulang yang dapat mencabut seluruh sesi OpenAI.
-- **`MAX_REFRESH_AGE_MS` dipakai** di `checkBeforeRequest` (sebelumnya dead code) untuk memaksa refresh token berumur > 8 hari.
-- **Response `localCliInject`** (`handlers/provider.ts`): mengembalikan `action` dari payload (sebelumnya `res.action` tidak ada di `InjectResult` → 6 error typecheck).
-- **`HttpApiError.badRequest` → `new HttpApiError.BadRequest({})`** (4 tempat, pre-existing) dan import `crossSpawn` yang hilang — keduanya adalah crash runtime (`ReferenceError`) pada handler `localCliLogin` / `localCliConnect`.
-- `chatToResponses` tetap `stream: true` untuk semua payload.
+- **Codex refresh → JSON without `scope`** (`refresh.ts`), following 9Router's actual runtime execution (`tokenRefresh/providers.js refreshCodexToken`), rather than the `encoding: form` stated in its registry.
+- **Permanent refresh errors**: `invalid_grant` / `refresh_token_reused` / `refresh_token_expired` / `refresh_token_invalidated` are flagged as permanent (equivalent to `classifyOAuthRefreshError`) → credentials are moved to the re-auth list and **never invoke network calls again**, preventing infinite refresh-token rotation loops that could revoke entire OpenAI sessions.
+- **`MAX_REFRESH_AGE_MS` enforced** in `checkBeforeRequest` (previously dead code) to force refreshing tokens older than 8 days.
+- **`localCliInject` response** (`handlers/provider.ts`): returns `action` from payload (previously `res.action` was missing from `InjectResult` → 6 typecheck errors).
+- **`HttpApiError.badRequest` → `new HttpApiError.BadRequest({})`** (4 occurrences, pre-existing) and missing `crossSpawn` import fixed — both were runtime crashes (`ReferenceError`) on `localCliLogin` / `localCliConnect` handlers.
+- `chatToResponses` remains `stream: true` for all payloads.
 
-### Koreksi klaim laporan ini
+### Report Claim Corrections
 
-- ❌ *"Discovered live Codex & Claude OAuth credentials from host machine"* — **tidak dapat direproduksi**. `~/.codex/auth.json` dan `~/.claude/.credentials.json` tidak ada di mesin ini; `scanLocalCredentials()` mengembalikan `null` untuk semua provider. Entri yang ada berasal dari `~/.arunaki/local-cli-credentials.json` (data tersimpan yang sudah basi) — dan karena hasil scan di-merge dengan store, badge **"Auto-Imported · Ready" bisa tampil dari data yang sudah tidak valid di disk**.
-- ⚠️ *"Reset mengembalikan konfigurasi ke kondisi semula"* — reset menghapus section `arunaki`, tetapi **nilai `model_provider` sebelumnya tidak dipulihkan**; file backup `.bak-9router` tetap menjadi cara pemulihan penuh.
-- ⚠️ *"Full parity"* — `refreshCursor()` masih stub (selalu `null` → tombol Refresh Cursor gagal), Kiro refresh hanya meniru 1 dari 3 jalur 9Router, dan `system`/`developer` message belum di-hoist ke field `instructions` (9Router `request/openai-responses.js`).
-- ⚠️ `fastpath.test.ts` hanya memeriksa regex dan pembacaan `null`, **tidak menguji routing/fallback** yang justru jalur paling berisiko.
+- ❌ *"Discovered live Codex & Claude OAuth credentials from host machine"* — **could not be reproduced**. `~/.codex/auth.json` and `~/.claude/.credentials.json` were not present on this machine; `scanLocalCredentials()` returns `null` for all providers. Stored entries originated from `~/.arunaki/local-cli-credentials.json` (stale saved data) — and because scan results merge with the store, the **"Auto-Imported · Ready" badge could display based on stale disk data**.
+- ⚠️ *"Reset restores configuration to previous state"* — reset removes the `arunaki` section, but **the previous `model_provider` value is not restored**; the `.bak-9router` backup file remains the full recovery method.
+- ⚠️ *"Full parity"* — `refreshCursor()` was still a stub (always `null` → Refresh Cursor button failed), Kiro refresh mirrored only 1 of 3 9Router paths, and `system`/`developer` messages were not yet hoisted to the `instructions` field (9Router `request/openai-responses.js`).
+- ⚠️ `fastpath.test.ts` only checked regexes and reading `null`, **without testing routing/fallback**, which is the most critical path.
 
-## Tests (setelah perbaikan)
-- `bun test --timeout 30000 test/translator.test.ts test/upstream.test.ts test/refresh.test.ts test/harvester.test.ts test/fastpath.test.ts test/injector.test.ts`: ✅ **29 passed, 0 failed** (4.96s) — 6 test baru menutup 3 bug P1 di atas.
-- `npm run build -w apps/web`: ✅ 0 error (44.20s)
-- `bun run typecheck`: 51 error tersisa, **semuanya pre-existing** dan berada di luar area local-cli (3 error `ProviderV2` di `handlers/provider.ts` baris 107/120/135, plus error `../core/*`, `session/*`, `tool/*`). Sebelum perbaikan: 65 error (6 di antaranya milik kode Phase 105).
-- Suite test penuh (`bun run test`) tidak selesai dalam batas waktu tool (>25 menit, 173 file). Observasi: 45 failure di suite **yang tidak disentuh** (`config`, `mcp`, `plugin.openai-ws`, `project.instance-bootstrap`, `project.vcs`, `provider.amazon-bedrock`) — semuanya `beforeEach/afterEach hook timed out`. Diverifikasi independen: `httpapi-provider/providers/ui` gagal 9/11 **identik dengan tree bersih (tanpa perubahan Phase 105)**, jadi pre-existing.
+## Tests (after fixes)
+- `bun test --timeout 30000 test/translator.test.ts test/upstream.test.ts test/refresh.test.ts test/harvester.test.ts test/fastpath.test.ts test/injector.test.ts`: ✅ **29 passed, 0 failed** (4.96s) — 6 new tests covering the 3 P1 bugs above.
+- `npm run build -w apps/web`: ✅ 0 errors (44.20s)
+- `bun run typecheck`: 51 remaining errors, **all pre-existing** and outside local-cli (3 `ProviderV2` errors in `handlers/provider.ts` lines 107/120/135, plus `../core/*`, `session/*`, `tool/*`). Before fixes: 65 errors (6 of which belonged to Phase 105 code).
+- Full test suite (`bun run test`) timed out (>25 minutes, 173 files). Observation: 45 failures in **untouched suites** (`config`, `mcp`, `plugin.openai-ws`, `project.instance-bootstrap`, `project.vcs`, `provider.amazon-bedrock`) — all due to `beforeEach/afterEach hook timed out`. Independently verified: `httpapi-provider/providers/ui` fails 9/11 **identically on a clean tree (without Phase 105 changes)**, therefore pre-existing.
 
 ---
 
-## Round 3 — Sisa Item Review (2026-10-06)
+## Round 3 — Remaining Review Items (2026-10-06)
 
 1. **Hoist `system`/`developer` → `instructions`** (`upstream.ts`).
-   `chatToResponses` kini mengumpulkan system/developer text ke field `instructions` (gabung `\n\n`) dan tidak lagi mengirimnya sebagai `message` di `input` — paritas 9Router `request/openai-responses.js`.
-2. **Kiro refresh: JSON body camelCase** (`refresh.ts`).
-   Dikoreksi ke jalur yang benar-benar dipakai 9Router `refreshKiroToken` (AWS Identity Center): `Content-Type: application/json` dengan `{clientId, clientSecret, refreshToken, grantType:"refresh_token"}` ke `oidc.<region>.amazonaws.com/token`. Sebelumnya form-urlencoded `client_id`/`grant_type` — request itu akan ditolak AWS. Ditambah: error permanen diklasifikasi, `profileArn` dipertahankan dari respons.
-   - **Catatan parity**: 9Router punya 3 cabang (external_idp / AWS+profileArn / social). Cabang `external_idp` tidak bisa dipakai karena butuh `authMethod` + `tokenEndpoint` Microsoft yang tidak pernah di-harvest; cabang `social` (`prod.<region>.auth.desktop.kiro.dev/refreshToken`) hanya berlaku untuk token kiro-cli social yang juga tidak di-harvest. Kiro masih **tidak masuk fast-path**, jadi `profileArn` tidak dipakai untuk request API.
-3. **`refreshCursor` dihapus** + `REFRESH_UNSUPPORTED = ["cursor"]`.
-   9Router sendiri **tidak punya** handler refresh untuk cursor (`REFRESH_HANDLERS` di `tokenRefresh.js`) — tidak ada endpoint publik, token hanya di `state.vscdb`. Stub yang selalu `null` diganti dengan daftar eksplisit, dan `POST /local-cli/refresh` kini melaporkan "No refresh endpoint for: cursor" alih-alih "Failed".
-4. **Badge tidak lagi berbohong "Ready"** (`SettingsCliConnectionsTab.tsx`).
-   Entri store memang sengaja disimpan walau cache CLI hilang (supaya tombol Refresh bisa memulihkan), tapi badge sekarang 4 state: `Auto-Imported · Ready` / `Expiring soon` (<15 mnt) / `Expired · Refresh required` (merah) / `Active · no expiry data` (untuk kiro/cursor yang tidak punya `expiresAt`). Email codex dipindah ke teks terpisah.
-5. **Test fast-path yang sebenarnya** (`test/upstream.test.ts`, +7 test).
-   Sebelumnya `fastpath.test.ts` hanya menguji regex. Sekarang diuji dengan `fetch` dimock + `ServerResponse` palsu: pre-flight fallback (upstream 500 → `false`, nol byte tertulis), stream SSE + `[DONE]`, non-stream → satu JSON `chat.completion` (codex **dan** claude), 401 → refresh → retry sekali (fetch dipanggil 3×), dan 401 tanpa refresh token → `false`.
+   `chatToResponses` now aggregates system/developer text into the `instructions` field (joined with `\n\n`) and no longer sends it as a `message` in `input` — parity with 9Router `request/openai-responses.js`.
+2. **Kiro refresh: camelCase JSON body** (`refresh.ts`).
+   Corrected to the exact path used by 9Router's `refreshKiroToken` (AWS Identity Center): `Content-Type: application/json` with `{clientId, clientSecret, refreshToken, grantType:"refresh_token"}` sent to `oidc.<region>.amazonaws.com/token`. Previously form-urlencoded `client_id`/`grant_type` — which AWS rejects. Additionally: permanent errors classified, `profileArn` preserved from response.
+   - **Parity note**: 9Router has 3 branches (external_idp / AWS+profileArn / social). The `external_idp` branch cannot be used because it requires Microsoft `authMethod` + `tokenEndpoint` that are never harvested; the `social` branch (`prod.<region>.auth.desktop.kiro.dev/refreshToken`) only applies to kiro-cli social tokens which are also not harvested. Kiro is still **not on the fast-path**, so `profileArn` is not used for API requests.
+3. **Removed `refreshCursor`** + `REFRESH_UNSUPPORTED = ["cursor"]`.
+   9Router itself **does not have** a refresh handler for cursor (`REFRESH_HANDLERS` in `tokenRefresh.js`) — there is no public endpoint; tokens exist solely in `state.vscdb`. The stub returning `null` was replaced with an explicit unsupported list, and `POST /local-cli/refresh` now reports "No refresh endpoint for: cursor" instead of "Failed".
+4. **Badges no longer falsely claim "Ready"** (`SettingsCliConnectionsTab.tsx`).
+   Store entries are intentionally retained even if the CLI cache is missing (allowing the Refresh button to restore them), but badges now display 4 clear states: `Auto-Imported · Ready` / `Expiring soon` (<15m) / `Expired · Refresh required` (red) / `Active · No expiry data` (for kiro/cursor without `expiresAt`). Codex email moved to a separate text line.
+5. **Real fast-path tests** (`test/upstream.test.ts`, +7 tests).
+   Previously `fastpath.test.ts` only tested regexes. It now tests with mocked `fetch` + mock `ServerResponse`: pre-flight fallback (upstream 500 → `false`, zero bytes written), SSE stream + `[DONE]`, non-stream → single JSON `chat.completion` (both Codex **and** Claude), 401 → refresh → retry once (fetch called 3×), and 401 without refresh token → `false`.
 
-## Tests (round 3)
-- 6 file local-cli: ✅ **36 passed, 0 failed** (dari 29 → 36)
-- `npm run build -w apps/web`: ✅ 0 error (39.67s)
-- `bun run typecheck`: 51 error, **semuanya pre-existing**, 0 di `local-cli`/UI.
-- `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 fail — **terbukti pre-existing** (identik di tree bersih).
+## Tests (Round 3)
+- 6 local-cli test files: ✅ **36 passed, 0 failed** (from 29 → 36)
+- `npm run build -w apps/web`: ✅ 0 errors (39.67s)
+- `bun run typecheck`: 51 errors, **all pre-existing**, 0 in `local-cli`/UI.
+- `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 failed — **proven pre-existing** (identical on clean tree).

@@ -196,7 +196,7 @@ async function refreshKiro(cred: DiscoveredCredential): Promise<DiscoveredCreden
 // refresh list beats a fake network call; add one when Cursor ships an endpoint.
 export const REFRESH_UNSUPPORTED = ["cursor"] as const
 
-/** Lapis 1 — Proaktif sebelum request */
+/** Tier 1 — Proactive check before request */
 export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<boolean> {
   if (!cred.refreshToken) return false
   const lead = REFRESH_LEAD_MS[cred.provider] ?? 60_000
@@ -215,7 +215,7 @@ export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<bo
   return false
 }
 
-/** Lapis 3 — Reaktif dengan retry maksimal 3x untuk 401/403 */
+/** Tier 3 — Reactive retry up to 3x for 401/403 */
 export async function refreshWithRetry(
   cred: DiscoveredCredential,
   maxRetries = 3,
@@ -233,7 +233,7 @@ export async function refreshWithRetry(
   return null
 }
 
-/** Lapis 2 — Background tick scheduler */
+/** Tier 2 — Background tick scheduler */
 let timer: ReturnType<typeof setInterval> | null = null
 
 export function scheduleBackgroundRefresh(intervalMs = 5 * 60_000): void {

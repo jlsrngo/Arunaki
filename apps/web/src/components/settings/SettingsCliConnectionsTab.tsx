@@ -366,12 +366,12 @@ export function SettingsCliConnectionsTab({
     const state = credentialState(d.expiresAt);
     const label =
       state === "expired"
-        ? isEn ? "Expired · Refresh required" : "Kedaluwarsa · perlu refresh"
+        ? "Expired · Refresh required"
         : state === "expiring"
-        ? isEn ? "Expiring soon" : "Segera kedaluwarsa"
+        ? "Expiring soon"
         : state === "active"
-        ? isEn ? "Active · no expiry data" : "Aktif · tanpa data masa berlaku"
-        : isEn ? "Auto-Imported · Ready" : "Auto-Import · Siap";
+        ? "Active · No expiry data"
+        : "Auto-Imported · Ready";
     const suffix = state === "ready" && formatExpiry(d.expiresAt) ? ` (${formatExpiry(d.expiresAt)})` : "";
     return (
       <span
@@ -466,16 +466,20 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Jendela Terminal Terbuka", {
-          description: "Claude Code CLI dibuka pada jendela terminal baru.",
+        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
+          description: isEn
+            ? "Claude Code CLI opened in a new terminal window."
+            : "Claude Code CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Tidak dapat membuka terminal otomatis", {
-          description: "Silakan jalankan 'claude' secara manual di terminal.",
+        toast.error(isEn ? "Cannot open terminal automatically" : "Tidak dapat membuka terminal otomatis", {
+          description: isEn
+            ? "Please run 'claude' manually in your terminal."
+            : "Silakan jalankan 'claude' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Gagal membuka terminal Claude", { description: err.message });
+      toast.error(isEn ? "Failed to open Claude terminal" : "Gagal membuka terminal Claude", { description: err.message });
     } finally {
       setIsSigningInCli(false);
     }
@@ -491,16 +495,20 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Jendela Terminal Terbuka", {
-          description: "OpenAI Codex CLI dibuka pada jendela terminal baru.",
+        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
+          description: isEn
+            ? "OpenAI Codex CLI opened in a new terminal window."
+            : "OpenAI Codex CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Tidak dapat membuka terminal", {
-          description: "Silakan jalankan 'codex' secara manual di terminal.",
+        toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
+          description: isEn
+            ? "Please run 'codex' manually in your terminal."
+            : "Silakan jalankan 'codex' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Gagal membuka terminal Codex", { description: err.message });
+      toast.error(isEn ? "Failed to open Codex terminal" : "Gagal membuka terminal Codex", { description: err.message });
     } finally {
       setIsSigningInCli(false);
     }
@@ -516,16 +524,20 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Jendela Terminal Terbuka", {
-          description: "OpenCode CLI dibuka pada jendela terminal baru.",
+        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
+          description: isEn
+            ? "OpenCode CLI opened in a new terminal window."
+            : "OpenCode CLI dibuka pada jendela terminal baru.",
         });
       } else {
-        toast.error("Tidak dapat membuka terminal", {
-          description: "Silakan jalankan 'opencode' secara manual di terminal.",
+        toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
+          description: isEn
+            ? "Please run 'opencode' manually in your terminal."
+            : "Silakan jalankan 'opencode' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Gagal membuka terminal OpenCode", { description: err.message });
+      toast.error(isEn ? "Failed to open OpenCode terminal" : "Gagal membuka terminal OpenCode", { description: err.message });
     } finally {
       setIsSigningInCli(false);
     }
@@ -541,17 +553,21 @@ export function SettingsCliConnectionsTab({
       });
       const json = await res.json();
       if (json.data?.success) {
-        toast.info("Jendela Terminal Terbuka", {
-          description: "9Router dijalankan pada jendela terminal baru.",
+        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
+          description: isEn
+            ? "9Router started in a new terminal window."
+            : "9Router dijalankan pada jendela terminal baru.",
         });
         setTimeout(fetchStatus, 2500);
       } else {
-        toast.error("Tidak dapat membuka terminal", {
-          description: "Silakan jalankan '9router start' secara manual di terminal.",
+        toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
+          description: isEn
+            ? "Please run '9router start' manually in your terminal."
+            : "Silakan jalankan '9router start' secara manual di terminal.",
         });
       }
     } catch (err: any) {
-      toast.error("Gagal menjalankan 9Router", { description: err.message });
+      toast.error(isEn ? "Failed to start 9Router" : "Gagal menjalankan 9Router", { description: err.message });
     } finally {
       setIsSigningInCli(false);
     }
@@ -594,14 +610,16 @@ export function SettingsCliConnectionsTab({
       const json = await res.json();
       if (json.data?.success) {
         toast.info("Google OAuth Browser Opened", {
-          description: "Silakan selesaikan otentikasi akun Google di browser Anda.",
+          description: isEn
+            ? "Please complete Google account authentication in your browser."
+            : "Silakan selesaikan otentikasi akun Google di browser Anda.",
         });
         startAntigravityPoll();
       } else {
-        toast.error("Gagal membuka Google OAuth", { description: json.data?.message });
+        toast.error(isEn ? "Failed to open Google OAuth" : "Gagal membuka Google OAuth", { description: json.data?.message });
       }
     } catch (err: any) {
-      toast.error("Gagal memulai login email", { description: err.message });
+      toast.error(isEn ? "Failed to initiate email login" : "Gagal memulai login email", { description: err.message });
     } finally {
       setIsSigningInEmail(false);
     }
@@ -618,14 +636,16 @@ export function SettingsCliConnectionsTab({
       const json = await res.json();
       if (json.data?.success) {
         toast.info("Antigravity Terminal Opened", {
-          description: "Jendela terminal dibuka untuk otentikasi CLI.",
+          description: isEn
+            ? "Terminal window opened for CLI authentication."
+            : "Jendela terminal dibuka untuk otentikasi CLI.",
         });
         startAntigravityPoll();
       } else {
-        toast.error("Gagal membuka CLI terminal", { description: json.data?.message });
+        toast.error(isEn ? "Failed to open CLI terminal" : "Gagal membuka CLI terminal", { description: json.data?.message });
       }
     } catch (err: any) {
-      toast.error("Gagal memulai login CLI", { description: err.message });
+      toast.error(isEn ? "Failed to initiate CLI login" : "Gagal memulai login CLI", { description: err.message });
     } finally {
       setIsSigningInCli(false);
     }
