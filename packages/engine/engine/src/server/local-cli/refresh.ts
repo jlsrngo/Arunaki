@@ -18,12 +18,49 @@ const MAX_REFRESH_AGE_MS: Record<string, number> = {
 
 const inFlight = new Map<string, Promise<DiscoveredCredential | null>>()
 
-export async function refreshCredential(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
+/** Keys whose refresh token is dead — re-auth required, never hit the network again. */
+const reauthRequired = new Set<string>()
+
+// 9Router tokenRefresh/providers.js classifyOAuthRefreshError
+const PERMANENT_MARKERS = [
+  "refresh_token_expired",
+  "refresh_token_reused",
+  "refresh_token_invalidated",
+  "invalid_grant",
+]
+
+export class PermanentRefreshError extends Error {}
+
+function permanentMarker(status: number, errorText: string): string | null {
+  let parsed: any = null
+  try {
+    parsed = errorText ? JSON.parse(errorText) : null
+  } catch {
+    parsed = null
+  }
+  const code = parsed?.error?.code || parsed?.error || parsed?.error_code || ""
+  const description = parsed?.error_description || parsed?.message || errorText || ""
+  const combined = `${code} ${description}`.toLowerCase()
+  return PERMANENT_MARKERS.find((m) => combined.includes(m)) ?? null
+}
+
+export function refreshCredential(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   const key = `${cred.provider}:${cred.sourcePath}`
+  if (reauthRequired.has(key)) return Promise.resolve(null)
   const existing = inFlight.get(key)
   if (existing) return existing
 
-  const p = doRefresh(cred).finally(() => inFlight.delete(key))
+  const p = doRefresh(cred)
+    .catch((err) => {
+      if (err instanceof PermanentRefreshError) {
+        reauthRequired.add(key)
+        console.error(
+          `[TokenRefresh] ${cred.provider}: refresh token unrecoverable (${err.message}) — re-auth required.`,
+        )
+      }
+      return null
+    })
+    .finally(() => inFlight.delete(key))
   inFlight.set(key, p)
   return p
 }
@@ -43,29 +80,29 @@ async function doRefresh(cred: DiscoveredCredential): Promise<DiscoveredCredenti
         return null
     }
   } catch (err: any) {
+    if (err instanceof PermanentRefreshError) throw err
     console.warn(`[TokenRefresh] ${cred.provider} refresh failed:`, err?.message)
     return null
   }
 }
 
-// OPENAI/ChatGPT — FORM encoding, refresh token TERBARU
+// OPENAI/ChatGPT — JSON body, no scope (9Router tokenRefresh/providers.js refreshCodexToken)
 async function refreshCodex(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   if (!cred.refreshToken) return null
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: cred.refreshToken,
-    client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
-    scope: "openid profile email offline_access",
-  })
-
   const res = await fetch("https://auth.openai.com/oauth/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+      grant_type: "refresh_token",
+      refresh_token: cred.refreshToken,
+    }),
   })
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "")
+    const marker = permanentMarker(res.status, errText)
+    if (marker) throw new PermanentRefreshError(marker)
     console.warn(`[TokenRefresh] Codex refresh HTTP ${res.status}:`, errText)
     return null
   }
@@ -97,6 +134,8 @@ async function refreshClaude(cred: DiscoveredCredential): Promise<DiscoveredCred
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "")
+    const marker = permanentMarker(res.status, errText)
+    if (marker) throw new PermanentRefreshError(marker)
     console.warn(`[TokenRefresh] Claude refresh HTTP ${res.status}:`, errText)
     return null
   }
@@ -154,7 +193,11 @@ async function refreshCursor(cred: DiscoveredCredential): Promise<DiscoveredCred
 export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<boolean> {
   if (!cred.refreshToken) return false
   const lead = REFRESH_LEAD_MS[cred.provider] ?? 60_000
-  const soon = cred.expiresAt ? cred.expiresAt - Date.now() < lead : !cred.lastRefreshAt
+  const maxAge = MAX_REFRESH_AGE_MS[cred.provider]
+  const tooOld =
+    maxAge != null && cred.lastRefreshAt != null && Date.now() - cred.lastRefreshAt > maxAge
+  const soon =
+    tooOld || (cred.expiresAt ? cred.expiresAt - Date.now() < lead : !cred.lastRefreshAt)
   if (!soon) return false
 
   const next = await refreshCredential(cred)

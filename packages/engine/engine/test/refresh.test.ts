@@ -16,7 +16,7 @@ describe("Token Refresh", () => {
     stopBackgroundRefresh()
   })
 
-  it("codex: refresh pakai RT TERBARU + encoding form + client_id benar", async () => {
+  it("codex: refresh pakai RT TERBARU + encoding JSON tanpa scope (9Router parity)", async () => {
     const calls: any[] = []
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (url: any, init: any) => {
@@ -43,11 +43,38 @@ describe("Token Refresh", () => {
       }
       const out = await refreshCredential(cred)
       expect(calls[0].url).toContain("https://auth.openai.com/oauth/token")
-      expect(calls[0].body).toContain("grant_type=refresh_token")
-      expect(calls[0].body).toContain("refresh_token=rt-LATEST")
-      expect(calls[0].body).toContain("client_id=app_EMoamEEZ73f0CkXaXp7hrann")
+      const parsed = JSON.parse(calls[0].body)
+      expect(parsed.grant_type).toBe("refresh_token")
+      expect(parsed.refresh_token).toBe("rt-LATEST")
+      expect(parsed.client_id).toBe("app_EMoamEEZ73f0CkXaXp7hrann")
+      expect(parsed.scope).toBeUndefined()
       expect(out?.accessToken).toBe("new-at")
       expect(out?.refreshToken).toBe("new-rt")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("invalid_grant → tidak pernah coba refresh lagi (re-auth required)", async () => {
+    let calls = 0
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => {
+      calls++
+      return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 })
+    }) as any
+
+    try {
+      const cred: DiscoveredCredential = {
+        provider: "codex",
+        displayName: "Codex",
+        type: "oauth",
+        accessToken: "at",
+        refreshToken: "dead-rt",
+        sourcePath: "mock-permanent-error",
+      }
+      expect(await refreshCredential(cred)).toBeNull()
+      expect(await refreshCredential(cred)).toBeNull()
+      expect(calls).toBe(1)
     } finally {
       globalThis.fetch = realFetch
     }

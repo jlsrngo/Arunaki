@@ -9,6 +9,7 @@ import { markInstanceForDisposal } from "../lifecycle"
 
 import { mapValues } from "remeda"
 import { Duration, Effect, Exit, Schema } from "effect"
+import crossSpawn from "cross-spawn"
 import { HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
@@ -576,7 +577,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         if (ctx.payload.target === "claude") {
           const status = yield* Effect.promise(() => checkClaudeStatus())
           if (!status.installed) {
-            return yield* HttpApiError.badRequest({ message: "Claude Code CLI is not installed on this system." })
+            console.warn("[local-cli] Claude Code CLI is not installed on this system.")
+            return yield* new HttpApiError.BadRequest({})
           }
           return yield* upsert("claude-code", {
             name: "Claude Code CLI (Local Subscription)",
@@ -589,7 +591,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         if (ctx.payload.target === "opencode") {
           const status = yield* Effect.promise(() => checkOpenCodeStatus())
           if (!status.installed) {
-            return yield* HttpApiError.badRequest({ message: "OpenCode CLI is not installed." })
+            console.warn("[local-cli] OpenCode CLI is not installed.")
+            return yield* new HttpApiError.BadRequest({})
           }
           return yield* upsert("opencode", {
             name: "OpenCode CLI Agent",
@@ -602,7 +605,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         if (ctx.payload.target === "groq-sync") {
           const key = getOpenCodeGroqKey()
           if (!key) {
-            return yield* HttpApiError.badRequest({ message: "No Groq API key found in OpenCode auth cache." })
+            console.warn("[local-cli] No Groq API key found in OpenCode auth cache.")
+            return yield* new HttpApiError.BadRequest({})
           }
           return yield* upsert("groq", {
             name: "Groq Cloud (Synced from OpenCode)",
@@ -640,7 +644,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             model: ctx.payload.model || "o3-mini, o1, gpt-4o, gpt-4o-mini",
           })
         }
-        return yield* HttpApiError.badRequest({ message: "Invalid target" })
+        console.warn(`[local-cli] Invalid connect target: ${ctx.payload.target}`)
+        return yield* new HttpApiError.BadRequest({})
       },
     )
 
@@ -736,9 +741,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             data: {
               success: res.success,
               message: res.message,
-              action: res.action,
+              action,
               path: res.path,
-              backupCreated: res.backupCreated,
             },
           }
         }
@@ -749,9 +753,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             data: {
               success: res.success,
               message: res.message,
-              action: res.action,
+              action,
               path: res.path,
-              backupCreated: res.backupCreated,
             },
           }
         }
@@ -764,7 +767,6 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             success,
             message: `Claude: ${r1.message} | Codex: ${r2.message}`,
             action,
-            backupCreated: r1.backupCreated || r2.backupCreated,
           },
         }
       },

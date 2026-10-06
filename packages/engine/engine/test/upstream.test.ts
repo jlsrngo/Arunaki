@@ -4,6 +4,7 @@ import {
   buildAnthropicHeaders,
   chatToResponses,
   mapCodexEventToOpenAI,
+  chunksToCompletion,
   anthropicUrl,
 } from "../src/server/local-cli/upstream"
 import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
@@ -100,5 +101,81 @@ describe("Upstream request builders", () => {
     }
     const completeChunk = mapCodexEventToOpenAI(completeEv, ctx)
     expect(completeChunk).toContain("[DONE]")
+  })
+
+  it("chatToResponses selalu stream:true (klien non-stream diterjemahkan balik)", () => {
+    const res = chatToResponses({
+      model: "gpt-5.1-codex",
+      messages: [{ role: "user", content: "hi" }],
+      stream: false,
+    })
+    expect(res.stream).toBe(true)
+  })
+
+  it("tool id diumumkan dari output_item.added SEBELUM argumen delta", () => {
+    const ctx = { id: "c1", created: 1, model: "gpt-5.1-codex" }
+    const added = JSON.parse(
+      mapCodexEventToOpenAI(
+        {
+          type: "response.output_item.added",
+          output_index: 1,
+          item: { type: "function_call", id: "fc_1", call_id: "call_abc", name: "calc" },
+        },
+        ctx,
+      )!.slice(6),
+    )
+    expect(added.choices[0].delta.tool_calls[0]).toMatchObject({
+      index: 1,
+      id: "call_abc",
+      function: { name: "calc", arguments: "" },
+    })
+
+    const delta = JSON.parse(
+      mapCodexEventToOpenAI(
+        { type: "response.function_call_arguments.delta", output_index: 1, delta: "{\"x\":" },
+        ctx,
+      )!.slice(6),
+    )
+    expect(delta.choices[0].delta.tool_calls[0].index).toBe(1)
+    expect(delta.choices[0].delta.tool_calls[0].id).toBeUndefined()
+  })
+
+  it("chunksToCompletion menggabungkan stream jadi satu chat.completion", () => {
+    const ctx = { id: "c1", created: 1, model: "gpt-5.1-codex" }
+    const chunks = [
+      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "halo " }, ctx)!,
+      mapCodexEventToOpenAI({ type: "response.output_text.delta", delta: "dunia" }, ctx)!,
+      mapCodexEventToOpenAI(
+        {
+          type: "response.output_item.added",
+          output_index: 0,
+          item: { type: "function_call", call_id: "call_1", name: "calc" },
+        },
+        ctx,
+      )!,
+      mapCodexEventToOpenAI(
+        { type: "response.function_call_arguments.delta", output_index: 0, delta: "{\"x\":2}" },
+        ctx,
+      )!,
+      mapCodexEventToOpenAI(
+        {
+          type: "response.completed",
+          response: {
+            output: [{ type: "function_call" }],
+            usage: { input_tokens: 3, output_tokens: 4, total_tokens: 7 },
+          },
+        },
+        ctx,
+      )!,
+    ]
+    const body = chunksToCompletion(chunks, "gpt-5.1-codex")
+    expect(body.choices[0].message.content).toBe("halo dunia")
+    expect(body.choices[0].message.tool_calls[0]).toMatchObject({
+      id: "call_1",
+      function: { name: "calc", arguments: '{"x":2}' },
+    })
+    expect(body.choices[0].finish_reason).toBe("tool_calls")
+    expect(body.usage.total_tokens).toBe(7)
+    expect(chunksToCompletion([], "m")).toBeNull()
   })
 })

@@ -71,6 +71,49 @@ describe("OpenAI ⇄ Anthropic translator", () => {
     })
   })
 
+  it("tool result paralel digabung ke SATU pesan user dengan tool_result di depan", () => {
+    const body = openaiToAnthropic({
+      model: "m",
+      messages: [
+        { role: "user", content: "dua file" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            { id: "call_1", type: "function", function: { name: "a", arguments: "{}" } },
+            { id: "call_2", type: "function", function: { name: "b", arguments: "{}" } },
+          ],
+        },
+        { role: "tool", tool_call_id: "call_1", content: "satu" },
+        { role: "tool", tool_call_id: "call_2", content: "dua" },
+        { role: "user", content: "lanjut" },
+      ],
+    })
+    expect(body).not.toBeNull()
+    expect(body.messages.map((m: any) => m.role)).toEqual(["user", "assistant", "user"])
+    const last = body.messages[2]
+    expect(last.content.filter((c: any) => c.type === "tool_result")).toHaveLength(2)
+    expect(last.content[0].type).toBe("tool_result")
+    expect(last.content[0].tool_use_id).toBe("call_1")
+    expect(last.content[1].tool_use_id).toBe("call_2")
+    expect(last.content[2]).toEqual({ type: "text", text: "lanjut" })
+  })
+
+  it("pesan tanpa konten valid dibuang, tidak menghasilkan content: []", () => {
+    const body = openaiToAnthropic({
+      model: "m",
+      messages: [
+        { role: "user", content: [{ type: "unknown_part" }] },
+        { role: "assistant", content: "" },
+        { role: "user", content: "oke" },
+      ],
+    })
+    expect(body).not.toBeNull()
+    for (const m of body.messages) {
+      expect(m.content.length).toBeGreaterThan(0)
+    }
+  })
+
   it("stream Anthropic → OpenAI: tool_use delta + finish_reason + usage", async () => {
     const events = [
       { type: "message_start", message: { id: "msg_1", usage: { input_tokens: 10 } } },

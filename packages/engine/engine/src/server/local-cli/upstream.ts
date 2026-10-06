@@ -102,7 +102,9 @@ export function chatToResponses(p: any): any {
   const out: any = {
     model: p.model,
     input,
-    stream: p.stream !== false,
+    // Always stream upstream (9Router request/openai-responses.js) and translate back
+    // for non-stream clients — the Responses parser only understands SSE.
+    stream: true,
     store: false,
   }
   if (p.temperature != null) out.temperature = p.temperature
@@ -148,14 +150,20 @@ export function mapCodexEventToOpenAI(
       choices: [
         {
           index: 0,
-          delta: { tool_calls: [{ index: 0, function: { arguments: ev.delta } }] },
+          delta: {
+            tool_calls: [
+              { index: ev.output_index ?? 0, function: { arguments: ev.delta } },
+            ],
+          },
           finish_reason: null,
         },
       ],
     })
   }
 
-  if (ev.type === "response.output_item.done" && ev.item?.type === "function_call") {
+  // Announce id/name up front (9Router response/openai-responses.js emits
+  // output_item.added) — never after the argument deltas.
+  if (ev.type === "response.output_item.added" && ev.item?.type === "function_call") {
     return sse({
       id: ctx.id,
       object: "chat.completion.chunk",
@@ -167,10 +175,10 @@ export function mapCodexEventToOpenAI(
           delta: {
             tool_calls: [
               {
-                index: 0,
-                id: ev.item.call_id,
+                index: ev.output_index ?? 0,
+                id: ev.item.call_id || ev.item.id,
                 type: "function",
-                function: { name: ev.item.name, arguments: ev.item.arguments ?? "" },
+                function: { name: ev.item.name, arguments: "" },
               },
             ],
           },
@@ -204,6 +212,86 @@ export function mapCodexEventToOpenAI(
   return null
 }
 
+/** Aggregate translated chat.completion.chunk SSE into a single chat.completion body. */
+export function chunksToCompletion(chunks: string[], model: string): any | null {
+  let text = ""
+  let finish: string | null = null
+  let usage: any
+  let parsed = 0
+  const tools: any[] = []
+
+  for (const c of chunks) {
+    for (const line of c.split("\n")) {
+      if (!line.startsWith("data: ")) continue
+      const raw = line.slice(6).trim()
+      if (!raw || raw === "[DONE]") continue
+      let o: any
+      try {
+        o = JSON.parse(raw)
+      } catch {
+        continue
+      }
+      if (o.error) return null
+      parsed++
+      const choice = o.choices?.[0]
+      if (choice?.delta?.content) text += choice.delta.content
+      for (const tc of choice?.delta?.tool_calls ?? []) {
+        const i = tc.index ?? 0
+        const t = tools[i] ??= {
+          index: i,
+          type: "function",
+          id: undefined,
+          function: { name: undefined, arguments: "" },
+        }
+        if (tc.id) t.id = tc.id
+        if (tc.function?.name) t.function.name = tc.function.name
+        if (tc.function?.arguments) t.function.arguments += tc.function.arguments
+      }
+      if (choice?.finish_reason) finish = choice.finish_reason
+      if (o.usage) usage = o.usage
+    }
+  }
+
+  if (!parsed) return null
+  const message: any = { role: "assistant", content: text }
+  if (tools.length) {
+    if (tools.some((t) => !t.id)) return null
+    message.tool_calls = tools
+  }
+  return {
+    id: `chatcmpl-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [{ index: 0, message, finish_reason: finish || "stop" }],
+    ...(usage ? { usage } : {}),
+  }
+}
+
+/** Collecting stand-in for http.ServerResponse used by non-stream requests. */
+function bufferSink(): { chunks: string[]; res: http.ServerResponse } {
+  const chunks: string[] = []
+  const res = {
+    headersSent: true,
+    write: (c: string) => {
+      chunks.push(String(c))
+      return true
+    },
+    writeHead: () => res,
+    end: () => res,
+  } as unknown as http.ServerResponse
+  return { chunks, res }
+}
+
+async function fetchCodex(req: CodexRequest): Promise<Response> {
+  return fetch(req.url, {
+    method: "POST",
+    headers: req.headers,
+    body: req.body,
+    signal: AbortSignal.timeout(60000),
+  })
+}
+
 export async function streamDirectCodexCompletion(
   payload: any,
   res: http.ServerResponse,
@@ -214,15 +302,12 @@ export async function streamDirectCodexCompletion(
   // 1. Proactive check
   await checkBeforeRequest(cred)
 
+  const wantsStream = payload.stream !== false
+
   let req = buildCodexRequest(payload, cred)
   let upstreamRes: Response
   try {
-    upstreamRes = await fetch(req.url, {
-      method: "POST",
-      headers: req.headers,
-      body: req.body,
-      signal: AbortSignal.timeout(60000),
-    })
+    upstreamRes = await fetchCodex(req)
   } catch (err: any) {
     console.warn("[FastPath:Codex] Network error:", err?.message)
     return false
@@ -235,12 +320,7 @@ export async function streamDirectCodexCompletion(
     if (refreshed) {
       req = buildCodexRequest(payload, refreshed)
       try {
-        upstreamRes = await fetch(req.url, {
-          method: "POST",
-          headers: req.headers,
-          body: req.body,
-          signal: AbortSignal.timeout(60000),
-        })
+        upstreamRes = await fetchCodex(req)
       } catch {
         return false
       }
@@ -255,13 +335,17 @@ export async function streamDirectCodexCompletion(
   }
 
   // Write headers
-  if (!res.headersSent) {
+  if (wantsStream && !res.headersSent) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     })
   }
+
+  const buffered = wantsStream ? { chunks: [] as string[], res } : bufferSink()
+  const sink = buffered.res
+  const chunks = buffered.chunks
 
   const ctx = {
     id: `chatcmpl-codex-${Date.now()}`,
@@ -272,6 +356,7 @@ export async function streamDirectCodexCompletion(
   const reader = upstreamRes.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ""
+  let failed = false
 
   try {
     while (true) {
@@ -288,17 +373,36 @@ export async function streamDirectCodexCompletion(
         try {
           const ev = JSON.parse(raw)
           const chunk = mapCodexEventToOpenAI(ev, ctx)
-          if (chunk) res.write(chunk)
+          if (chunk) sink.write(chunk)
         } catch {}
       }
     }
   } catch (err: any) {
-    if (res.headersSent) {
-      res.write(`data: ${JSON.stringify({ error: { message: err?.message } })}\n\ndata: [DONE]\n\n`)
+    if (wantsStream) {
+      if (res.headersSent) {
+        res.write(
+          `data: ${JSON.stringify({ error: { message: err?.message } })}\n\ndata: [DONE]\n\n`,
+        )
+        res.end()
+      }
+      return true
     }
-  } finally {
-    res.end()
+    failed = true
   }
+
+  if (wantsStream) {
+    res.end()
+    return true
+  }
+  if (failed) return false
+
+  const body = chunksToCompletion(chunks, ctx.model)
+  if (!body) {
+    console.warn("[FastPath:Codex] Could not aggregate non-stream response")
+    return false
+  }
+  if (!res.headersSent) res.writeHead(200, { "Content-Type": "application/json" })
+  res.end(JSON.stringify(body))
   return true
 }
 
@@ -359,5 +463,20 @@ export async function streamDirectAnthropicCompletion(
   }
 
   // Stream translation
-  return await streamAnthropicToOpenAI(upstreamRes, res, payload)
+  if (payload.stream !== false) {
+    return await streamAnthropicToOpenAI(upstreamRes, res, payload)
+  }
+
+  // Non-stream client: aggregate the upstream SSE into one JSON body. Nothing has
+  // been written to the real response yet, so a failed aggregation still falls back.
+  const buffered = bufferSink()
+  await streamAnthropicToOpenAI(upstreamRes, buffered.res, payload)
+  const body = chunksToCompletion(buffered.chunks, payload.model || "claude-3-5-sonnet")
+  if (!body) {
+    console.warn("[FastPath:Claude] Could not aggregate non-stream response")
+    return false
+  }
+  if (!res.headersSent) res.writeHead(200, { "Content-Type": "application/json" })
+  res.end(JSON.stringify(body))
+  return true
 }

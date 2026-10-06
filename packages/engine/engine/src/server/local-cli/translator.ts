@@ -90,11 +90,33 @@ export function openaiToAnthropic(payload: any): any | null {
     }
   }
 
+  // Anthropic requires: role alternation, all tool_result of one assistant turn inside
+  // a single following user message (leading the content), and non-empty content.
+  const normalized: any[] = []
+  for (const m of anthropicMessages) {
+    if (!m.content.length) continue
+    const prev = normalized[normalized.length - 1]
+    if (prev && prev.role === m.role) {
+      prev.content.push(...m.content)
+      continue
+    }
+    normalized.push({ role: m.role, content: m.content })
+  }
+  for (const m of normalized) {
+    if (m.role !== "user" || m.content[0].type === "tool_result") continue
+    const tools = m.content.filter((c: any) => c.type === "tool_result")
+    if (tools.length) {
+      m.content = [...tools, ...m.content.filter((c: any) => c.type !== "tool_result")]
+    }
+  }
+  if (!normalized.length) return null
+
   const out: any = {
     model: payload.model || "claude-3-5-sonnet-latest",
-    messages: anthropicMessages,
+    messages: normalized,
     max_tokens: payload.max_tokens ?? payload.max_completion_tokens ?? 4096,
-    stream: payload.stream !== false,
+    // Always stream upstream; non-stream clients get an aggregated JSON body.
+    stream: true,
   }
 
   if (systemPrompt) {
