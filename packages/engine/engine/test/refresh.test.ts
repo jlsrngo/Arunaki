@@ -1,19 +1,28 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import fs from "fs"
+import path from "path"
+import os from "os"
 import {
   refreshCredential,
   checkBeforeRequest,
   scheduleBackgroundRefresh,
   stopBackgroundRefresh,
 } from "../src/server/local-cli/refresh"
-import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
+import { setCustomStorePath, type DiscoveredCredential } from "../src/server/local-cli/credential-store"
+
+const testStorePath = path.join(os.tmpdir(), "test-cli-creds.json")
 
 describe("Token Refresh", () => {
   beforeEach(() => {
+    setCustomStorePath(testStorePath)
     stopBackgroundRefresh()
   })
 
   afterEach(() => {
     stopBackgroundRefresh()
+    setCustomStorePath(null)
+    try {
+      if (fs.existsSync(testStorePath)) fs.unlinkSync(testStorePath)
+    } catch {}
   })
 
   it("codex: refresh using latest RT + JSON encoding without scope (9Router parity)", async () => {

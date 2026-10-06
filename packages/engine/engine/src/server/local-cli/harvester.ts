@@ -200,6 +200,10 @@ export async function scanLocalCredentials(forceRefresh = false): Promise<Record
   // Merge with previously saved state (which may contain fresh refreshed tokens)
   const stored = await loadAllCredentials()
   for (const [k, v] of Object.entries(stored)) {
+    // Prevent mock test fixtures or deleted files from resurrecting as live credentials
+    if (v.sourcePath === "mock" || (v.sourcePath && !fs.existsSync(v.sourcePath))) {
+      continue
+    }
     if (!results[k]) {
       results[k] = v
     } else if (v.lastRefreshAt && (!results[k].lastRefreshAt || v.lastRefreshAt > results[k].lastRefreshAt!)) {

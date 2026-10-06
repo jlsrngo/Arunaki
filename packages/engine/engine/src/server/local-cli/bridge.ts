@@ -1272,6 +1272,21 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
         return
       }
 
+      // If client requested SSE streaming, start SSE stream immediately and keep socket alive with pings
+      let keepAliveTimer: ReturnType<typeof setInterval> | null = null
+      if (payload.stream) {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        })
+        keepAliveTimer = setInterval(() => {
+          try {
+            res.write(": keep-alive\n\n")
+          } catch {}
+        }, 2000)
+      }
+
       try {
         const sessionRes = await fetch(`http://127.0.0.1:${this.openCodeDaemon.port}/session`, {
           method: "POST",
@@ -1311,10 +1326,21 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
           },
         )
 
+        if (keepAliveTimer) {
+          clearInterval(keepAliveTimer)
+          keepAliveTimer = null
+        }
+
         if (!msgRes.ok) {
           const errText = await msgRes.text().catch(() => "")
-          res.writeHead(msgRes.status, { "Content-Type": "application/json" })
-          res.end(errText || JSON.stringify({ error: { message: `OpenCode server error: ${msgRes.status}` } }))
+          if (res.headersSent) {
+            res.write(`data: ${JSON.stringify({ error: { message: `OpenCode server error: ${msgRes.status}` } })}\n\n`)
+            res.write("data: [DONE]\n\n")
+            res.end()
+          } else {
+            res.writeHead(msgRes.status, { "Content-Type": "application/json" })
+            res.end(errText || JSON.stringify({ error: { message: `OpenCode server error: ${msgRes.status}` } }))
+          }
           return
         }
 
@@ -1335,8 +1361,18 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
         })
         return
       } catch (err: any) {
-        res.writeHead(500, { "Content-Type": "application/json" })
-        res.end(JSON.stringify({ error: { message: `OpenCode native execution error: ${err.message}` } }))
+        if (keepAliveTimer) {
+          clearInterval(keepAliveTimer)
+          keepAliveTimer = null
+        }
+        if (res.headersSent) {
+          res.write(`data: ${JSON.stringify({ error: { message: `OpenCode native execution error: ${err.message}` } })}\n\n`)
+          res.write("data: [DONE]\n\n")
+          res.end()
+        } else {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: { message: `OpenCode native execution error: ${err.message}` } }))
+        }
         return
       }
     }

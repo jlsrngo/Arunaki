@@ -27,6 +27,11 @@ const PERMANENT_MARKERS = [
   "refresh_token_reused",
   "refresh_token_invalidated",
   "invalid_grant",
+  "token_expired",
+  "could not validate your token",
+  "please try signing in again",
+  "invalid_client",
+  "unauthorized",
 ]
 
 export class PermanentRefreshError extends Error {}
@@ -54,6 +59,8 @@ export function refreshCredential(cred: DiscoveredCredential): Promise<Discovere
     .catch((err) => {
       if (err instanceof PermanentRefreshError) {
         reauthRequired.add(key)
+        cred.expiresAt = 0
+        persistCredential(cred).catch(() => {})
         console.error(
           `[TokenRefresh] ${cred.provider}: refresh token unrecoverable (${err.message}) — re-auth required.`,
         )
@@ -243,8 +250,12 @@ export function scheduleBackgroundRefresh(intervalMs = 5 * 60_000): void {
       const creds = await loadAllCredentials()
       for (const cred of Object.values(creds)) {
         if (!cred.refreshToken) continue
+        const key = `${cred.provider}:${cred.sourcePath}`
+        if (reauthRequired.has(key)) continue
+        if (cred.sourcePath === "mock") continue
         const horizon = cred.expiresAt ? cred.expiresAt - Date.now() : Infinity
-        if (horizon > 30 * 60_000) continue
+        // Only refresh tokens that are still active but nearing expiration (0 < horizon < 30m)
+        if (horizon <= 0 || horizon > 30 * 60_000) continue
 
         // Jitter to avoid hammering vendor servers simultaneously
         const jitter =

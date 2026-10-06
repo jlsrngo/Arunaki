@@ -19,7 +19,14 @@ export interface DiscoveredCredential {
   lastRefreshAt?: number
 }
 
+let customStorePath: string | null = process.env.ARUNAKI_CREDENTIAL_STORE_PATH || null
+
+export function setCustomStorePath(p: string | null): void {
+  customStorePath = p
+}
+
 function getStorePath(): string {
+  if (customStorePath) return customStorePath
   const baseDir = path.join(os.homedir(), ".arunaki")
   try {
     if (!fs.existsSync(baseDir)) {
@@ -41,6 +48,7 @@ export async function loadAllCredentials(): Promise<Record<string, DiscoveredCre
 }
 
 export async function persistCredential(cred: DiscoveredCredential): Promise<void> {
+  if (cred.sourcePath === "mock") return
   const storePath = getStorePath()
   const all = await loadAllCredentials()
   all[cred.provider] = {
@@ -56,8 +64,12 @@ export async function persistCredential(cred: DiscoveredCredential): Promise<voi
 
 export async function saveAllCredentials(creds: Record<string, DiscoveredCredential>): Promise<void> {
   const storePath = getStorePath()
+  const cleanCreds: Record<string, DiscoveredCredential> = {}
+  for (const [k, v] of Object.entries(creds)) {
+    if (v.sourcePath !== "mock") cleanCreds[k] = v
+  }
   try {
-    fs.writeFileSync(storePath, JSON.stringify(creds, null, 2), "utf8")
+    fs.writeFileSync(storePath, JSON.stringify(cleanCreds, null, 2), "utf8")
   } catch (err: any) {
     console.warn("[CredentialStore] Failed to save credentials:", err.message)
   }
