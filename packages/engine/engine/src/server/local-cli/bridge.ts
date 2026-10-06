@@ -581,10 +581,87 @@ class AntigravityDaemonWorker {
   }
 }
 
+class OpenCodeDaemonWorker {
+  private child: any = null
+  private isStarting = false
+  public readonly port = 4097
+
+  public async ensureServer(): Promise<boolean> {
+    try {
+      const res = await fetch(`http://127.0.0.1:${this.port}/api/health`, {
+        signal: AbortSignal.timeout(600),
+      })
+      if (res.ok) return true
+    } catch {}
+
+    if (this.isStarting) {
+      for (let i = 0; i < 25; i++) {
+        await new Promise((r) => setTimeout(r, 200))
+        try {
+          const res = await fetch(`http://127.0.0.1:${this.port}/api/health`, {
+            signal: AbortSignal.timeout(600),
+          })
+          if (res.ok) return true
+        } catch {}
+      }
+      return false
+    }
+
+    this.isStarting = true
+    try {
+      const child = crossSpawn("opencode", ["serve", "--port", String(this.port)], {
+        stdio: "ignore",
+        windowsHide: true,
+      })
+      this.child = child
+      child.on("close", () => {
+        if (this.child === child) {
+          this.child = null
+          this.isStarting = false
+        }
+      })
+      child.on("error", () => {
+        if (this.child === child) {
+          this.child = null
+          this.isStarting = false
+        }
+      })
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 200))
+        try {
+          const res = await fetch(`http://127.0.0.1:${this.port}/api/health`, {
+            signal: AbortSignal.timeout(600),
+          })
+          if (res.ok) {
+            this.isStarting = false
+            return true
+          }
+        } catch {}
+      }
+    } catch {
+      this.isStarting = false
+      return false
+    }
+    this.isStarting = false
+    return false
+  }
+
+  public stop(): void {
+    if (this.child) {
+      try {
+        this.child.kill()
+      } catch {}
+      this.child = null
+    }
+  }
+}
+
 class LocalCliBridge {
   private server: http.Server | null = null
   private isRunning = false
   private agyDaemon = new AntigravityDaemonWorker()
+  private openCodeDaemon = new OpenCodeDaemonWorker()
 
   public get running(): boolean {
     return this.isRunning
@@ -596,6 +673,7 @@ class LocalCliBridge {
 
   public prewarmAgyWorker(): void {
     this.agyDaemon.prewarm()
+    this.openCodeDaemon.ensureServer().catch(() => {})
   }
 
   public start(): Promise<boolean> {
@@ -689,8 +767,9 @@ class LocalCliBridge {
 
       this.server.listen(LOCAL_BRIDGE_PORT, "127.0.0.1", () => {
         this.isRunning = true
-        // Pre-warm Antigravity daemon worker on bridge start
+        // Pre-warm Antigravity and OpenCode daemon workers on bridge start
         this.agyDaemon.prewarm()
+        this.openCodeDaemon.ensureServer().catch(() => {})
         resolve(true)
       })
     })
@@ -698,6 +777,7 @@ class LocalCliBridge {
 
   public stop(): Promise<void> {
     this.agyDaemon.stop()
+    this.openCodeDaemon.stop()
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
@@ -1092,7 +1172,101 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
       return
     }
 
-    // 2. OpenCode with Groq Integration (reads key from ~/.local/share/opencode/auth.json)
+    // 2. OpenCode Native / Built-in Model (Big Pickle, Nemotron, MiMo, etc. via OpenCode Server port 4097)
+    const isOpenCodeNative =
+      rawModel.includes("pickle") ||
+      rawModel.startsWith("opencode/") ||
+      rawModel.includes("fledge") ||
+      rawModel.includes("ling") ||
+      rawModel.includes("longcat") ||
+      rawModel.includes("mimo") ||
+      rawModel.includes("muse-spark") ||
+      rawModel.includes("space-bunny") ||
+      rawModel === "opencode" ||
+      rawModel === "big-pickle"
+
+    if (isOpenCodeNative) {
+      const serverReady = await this.openCodeDaemon.ensureServer()
+      if (!serverReady) {
+        res.writeHead(503, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            error: {
+              message: "OpenCode server could not be started on port 4097. Please run 'opencode serve --port 4097' in terminal.",
+              type: "opencode_server_offline",
+            },
+          }),
+        )
+        return
+      }
+
+      try {
+        const sessionRes = await fetch(`http://127.0.0.1:${this.openCodeDaemon.port}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        })
+        const session = await sessionRes.json()
+
+        const modelId = rawModel.replace(/^opencode\//, "") || "big-pickle"
+
+        let promptText = ""
+        if (systemPrompt || toolsDirective) {
+          promptText += `[SYSTEM INSTRUCTION: ${systemPrompt || ""} ${toolsDirective || ""}]\n\n`
+        }
+
+        const convoParts: string[] = []
+        for (const msg of payload.messages ?? []) {
+          if (msg.role === "system") continue
+          const roleLabel = msg.role === "user" ? "User" : "Assistant"
+          const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)
+          convoParts.push(`${roleLabel}: ${content}`)
+        }
+        promptText += convoParts.join("\n\n") || "Hello"
+
+        const msgRes = await fetch(`http://127.0.0.1:${this.openCodeDaemon.port}/session/${session.id}/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: {
+              providerID: "opencode",
+              modelID: modelId,
+            },
+            parts: [{ type: "text", text: promptText }],
+          }),
+        })
+
+        if (!msgRes.ok) {
+          const errText = await msgRes.text().catch(() => "")
+          res.writeHead(msgRes.status, { "Content-Type": "application/json" })
+          res.end(errText || JSON.stringify({ error: { message: `OpenCode server error: ${msgRes.status}` } }))
+          return
+        }
+
+        const msgData = await msgRes.json()
+        const text = msgData.parts
+          ?.filter((p: any) => p.type === "text")
+          ?.map((p: any) => p.text)
+          ?.join("\n") || ""
+        const reasoning = msgData.parts
+          ?.filter((p: any) => p.type === "reasoning")
+          ?.map((p: any) => p.text)
+          ?.join("\n") || ""
+
+        const fullReply = reasoning ? `<think>\n${reasoning}\n</think>\n\n${text}` : text
+        this.sendCompletionResponse(res, payload, fullReply || "Hello from OpenCode!", "opencode", {
+          input_tokens: msgData.info?.tokens?.input,
+          output_tokens: msgData.info?.tokens?.output,
+        })
+        return
+      } catch (err: any) {
+        res.writeHead(500, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ error: { message: `OpenCode native execution error: ${err.message}` } }))
+        return
+      }
+    }
+
+    // 3. OpenCode with Groq Integration (reads key from ~/.local/share/opencode/auth.json)
     const groqKey = getOpenCodeGroqKey()
     if (groqKey) {
       let groqModel = "openai/gpt-oss-120b"

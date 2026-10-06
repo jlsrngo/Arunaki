@@ -138,12 +138,12 @@ const MODEL_METADATA: Record<string, ModelMeta> = {
   "gpt-4o-mini": { label: "GPT-4o-mini", badge: "Fast", speed: "Fast" },
 
   // OpenCode
-  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Reasoning", speed: "Ultra Fast" },
-  "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Reasoning", speed: "Ultra Fast" },
-  "groq/openai/gpt-oss-20b": { label: "GPT-OSS 20B", badge: "Fast", speed: "Ultra Fast" },
-  "opencode/big-pickle": { label: "Big Pickle", badge: "Reasoning", speed: "Smart" },
-  "9router/ComboMaut": { label: "ComboMaut", badge: "Proxy" },
-  "opencode/nemotron-3.5-lightning-free": { label: "Nemotron 3.5", badge: "Free" },
+  "opencode/big-pickle": { label: "Big Pickle", badge: "Zen Built-in", speed: "Reasoning" },
+  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq LPU", speed: "Ultra Fast" },
+  "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Groq LPU", speed: "Ultra Fast" },
+  "groq/openai/gpt-oss-20b": { label: "GPT-OSS 20B", badge: "Groq LPU", speed: "Ultra Fast" },
+  "opencode/nemotron-3.5-lightning-free": { label: "Nemotron 3.5", badge: "Zen Built-in" },
+  "9router/ComboMaut": { label: "ComboMaut", badge: "9Router Proxy" },
 
   // 9Router
   "cx/gpt-5.6-terra": { label: "GPT-5.6 Terra", badge: "Flagship", speed: "Fast" },
@@ -665,9 +665,22 @@ export function SettingsCliConnectionsTab({
           }).catch(() => null);
           if (directRes && directRes.ok) {
             const elapsed = Math.max(Date.now() - startMs, 12);
+            let opencodeDetail = "OpenCode CLI bridge active (port 20188)";
+            if (target === "opencode") {
+              const currentModel = (selectedModels.opencode || "").toLowerCase();
+              if (currentModel.includes("pickle") || currentModel.startsWith("opencode/")) {
+                opencodeDetail = "OpenCode CLI bridge active (OpenCode Zen / Big Pickle)";
+              } else if (currentModel.includes("groq") || currentModel.includes("qwen") || currentModel.includes("gpt-oss")) {
+                opencodeDetail = "OpenCode CLI bridge active (Groq Cloud LPU)";
+              } else if (currentModel.includes("9router")) {
+                opencodeDetail = "OpenCode CLI bridge active (9Router Gateway)";
+              } else {
+                opencodeDetail = `OpenCode CLI bridge active (${data.opencode?.hasGroq ? "Groq Cloud" : "port 20188"})`;
+              }
+            }
             const detail =
               target === "opencode"
-                ? `OpenCode CLI bridge active (${data.opencode?.hasGroq ? "Groq Cloud" : "port 20188"})`
+                ? opencodeDetail
                 : `Google Antigravity CLI bridge active (${data.antigravity?.agyVersion ? `agy ${data.antigravity.agyVersion}` : "port 20188"})`;
             setPingResults((prev) => ({
               ...prev,
