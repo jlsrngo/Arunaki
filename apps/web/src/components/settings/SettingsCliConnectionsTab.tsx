@@ -158,36 +158,52 @@ export function SettingsCliConnectionsTab({
   onRefresh,
 }: SettingsCliConnectionsTabProps) {
   // 1. All React Hooks declared unconditionally at top level (React Rules of Hooks)
-  const [data, setData] = useState<LocalCliData>({
-    claude: { installed: true, version: "2.1.202", loggedIn: false },
-    opencode: {
-      installed: true,
-      version: "1.18.30",
-      serverRunning: false,
-      serverPort: 4097,
-      authenticatedProviders: ["9router", "groq"],
-      hasGroq: true,
-      has9Router: true,
-    },
-    antigravity: {
-      detected: true,
-      path: "C:\\Users\\AMD\\.gemini",
-      environment: "Google Antigravity IDE (Gemini Ecosystem)",
-    },
-    nineRouter: {
-      installed: true,
-      version: "0.5.35",
-      running: false,
-      url: "http://localhost:20128/v1",
-      models: [],
-    },
-    codex: {
-      installed: false,
-      isCloudOnly: false,
-      message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
-    },
-    bridgePort: 20188,
-    bridgeRunning: true,
+  const [data, setData] = useState<LocalCliData>(() => {
+    try {
+      const saved = localStorage.getItem("arunaki_cached_local_cli_status");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object" && parsed.antigravity) {
+          return parsed;
+        }
+      }
+    } catch {}
+
+    const savedEmail = localStorage.getItem("arunaki_agy_email") || undefined;
+    return {
+      claude: { installed: true, version: "2.1.202", loggedIn: false },
+      opencode: {
+        installed: true,
+        version: "1.18.30",
+        serverRunning: false,
+        serverPort: 4097,
+        authenticatedProviders: ["9router", "groq"],
+        hasGroq: true,
+        has9Router: true,
+      },
+      antigravity: {
+        detected: true,
+        cliInstalled: true,
+        agyInstalled: true,
+        loggedIn: true,
+        accountEmail: savedEmail,
+        environment: "Google Antigravity CLI (agy)",
+      },
+      nineRouter: {
+        installed: true,
+        version: "0.5.35",
+        running: false,
+        url: "http://localhost:20128/v1",
+        models: [],
+      },
+      codex: {
+        installed: false,
+        isCloudOnly: false,
+        message: "OpenAI Codex CLI (@openai/codex) is not installed. Run 'npm i -g @openai/codex'.",
+      },
+      bridgePort: 20188,
+      bridgeRunning: true,
+    };
   });
 
   const { language } = useI18n();
@@ -227,15 +243,24 @@ export function SettingsCliConnectionsTab({
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
-          setData((prev) => ({
-            ...prev,
-            ...json.data,
-            claude: { ...prev.claude, ...json.data.claude },
-            opencode: { ...prev.opencode, ...json.data.opencode },
-            antigravity: { ...prev.antigravity, ...json.data.antigravity },
-            nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
-            codex: { ...prev.codex, ...json.data.codex },
-          }));
+          setData((prev) => {
+            const updated = {
+              ...prev,
+              ...json.data,
+              claude: { ...prev.claude, ...json.data.claude },
+              opencode: { ...prev.opencode, ...json.data.opencode },
+              antigravity: { ...prev.antigravity, ...json.data.antigravity },
+              nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
+              codex: { ...prev.codex, ...json.data.codex },
+            };
+            try {
+              localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
+              if (updated.antigravity?.accountEmail) {
+                localStorage.setItem("arunaki_agy_email", updated.antigravity.accountEmail);
+              }
+            } catch {}
+            return updated;
+          });
         }
       }
     } catch {
@@ -660,6 +685,27 @@ export function SettingsCliConnectionsTab({
       const res = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
       const json = await res.json().catch(() => ({}));
       const local = json.data || data;
+
+      if (json.data) {
+        setData((prev) => {
+          const updated = {
+            ...prev,
+            ...json.data,
+            claude: { ...prev.claude, ...json.data.claude },
+            opencode: { ...prev.opencode, ...json.data.opencode },
+            antigravity: { ...prev.antigravity, ...json.data.antigravity },
+            nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
+            codex: { ...prev.codex, ...json.data.codex },
+          };
+          try {
+            localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
+            if (updated.antigravity?.accountEmail) {
+              localStorage.setItem("arunaki_agy_email", updated.antigravity.accountEmail);
+            }
+          } catch {}
+          return updated;
+        });
+      }
 
       let isLive = false;
       let detail = "";
@@ -1338,6 +1384,8 @@ export function SettingsCliConnectionsTab({
                     ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
                     : data.antigravity?.cliInstalled || data.antigravity?.detected
                     ? "bg-amber-400"
+                    : loading
+                    ? "bg-amber-400/60 animate-pulse"
                     : "bg-zinc-700"
                 )} />
                 <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
@@ -1345,6 +1393,8 @@ export function SettingsCliConnectionsTab({
                     ? `${isEn ? "Logged in: " : "Masuk: "}${data.antigravity.accountEmail}`
                     : data.antigravity?.cliInstalled
                     ? `${isEn ? "Ready to login" : "Siap masuk"} (${data.antigravity.agyVersion ? `agy v${data.antigravity.agyVersion}` : "agy"})`
+                    : loading
+                    ? (isEn ? "Checking status..." : "Memeriksa status...")
                     : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
               </div>

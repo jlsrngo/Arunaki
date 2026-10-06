@@ -56,7 +56,7 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     if (!modelId) return false;
     const clean = modelId.trim().toLowerCase();
     if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-      return clean.startsWith("gemini") && !clean.endsWith(":free");
+      return (clean.startsWith("gemini") || clean.startsWith("claude")) && !clean.endsWith(":free");
     }
     if (providerId === "claude-code") {
       return clean.startsWith("claude") && !clean.endsWith(":free");

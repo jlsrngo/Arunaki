@@ -80,9 +80,19 @@ function getCached<T>(key: string): T | undefined {
   return undefined
 }
 
-function setCached<T>(key: string, data: T, ttlMs = 45000): T {
+function setCached<T>(key: string, data: T, ttlMs = 120000): T {
   statusCache.set(key, { data, expires: Date.now() + ttlMs })
   return data
+}
+
+export function prewarmLocalCliStatus(): void {
+  try {
+    checkAntigravityStatus(true)
+    checkClaudeStatus().catch(() => {})
+    checkOpenCodeStatus().catch(() => {})
+    checkNineRouterStatus().catch(() => {})
+    checkCodexStatus().catch(() => {})
+  } catch {}
 }
 
 export async function checkClaudeStatus(forceRefresh = false): Promise<ClaudeStatus> {
@@ -271,21 +281,28 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
   let geminiCliInstalled = false
   let geminiVersion: string | undefined = undefined
 
+  const agyCmd = resolveAgyCommand()
+  if (path.isAbsolute(agyCmd) && fs.existsSync(agyCmd)) {
+    cliInstalled = true
+  }
+
   try {
-    const proc = crossSpawn.sync(resolveAgyCommand(), ["--version"])
+    const proc = crossSpawn.sync(agyCmd, ["--version"], { timeout: 1500, windowsHide: true })
     if (proc.status === 0 || proc.stdout?.toString().trim()) {
       cliInstalled = true
       agyVersion = proc.stdout?.toString().trim().split("\n")[0]
     }
   } catch {}
 
-  try {
-    const geminiProc = crossSpawn.sync("gemini", ["--version"])
-    if (geminiProc.status === 0 || geminiProc.stdout?.toString().trim()) {
-      geminiCliInstalled = true
-      geminiVersion = geminiProc.stdout?.toString().trim().split("\n")[0]
-    }
-  } catch {}
+  if (!cliInstalled) {
+    try {
+      const geminiProc = crossSpawn.sync("gemini", ["--version"], { timeout: 1500, windowsHide: true })
+      if (geminiProc.status === 0 || geminiProc.stdout?.toString().trim()) {
+        geminiCliInstalled = true
+        geminiVersion = geminiProc.stdout?.toString().trim().split("\n")[0]
+      }
+    } catch {}
+  }
 
   return setCached("antigravity", clean({
     detected: detected || cliInstalled || geminiCliInstalled,
@@ -302,7 +319,7 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
       : geminiCliInstalled
       ? "Google Gemini CLI (@google/gemini-cli)"
       : "Google Antigravity IDE (Gemini Ecosystem)",
-  }))
+  }), 120000)
 }
 
 export function logoutAntigravity(): { success: boolean; message: string } {
