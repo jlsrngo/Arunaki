@@ -89,7 +89,12 @@ const apiKey = (model: ModelV2.Info, credential?: Credential.Value) => {
   if (model.providerID === "kenari" || model.api.url?.includes("kenari.id")) {
     return Auth.value("kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333")
   }
-  if (model.providerID === "antigravity" || model.api.url?.includes("20188")) {
+  if (
+    model.providerID === "antigravity" ||
+    model.providerID === "opencode" ||
+    model.providerID === "9router" ||
+    model.api.url?.includes("20188")
+  ) {
     return Auth.value("antigravity-local-session")
   }
 }
@@ -217,7 +222,9 @@ export const locationLayer = Layer.effect(
             m.providerID === "antigravity" ||
             m.providerID === "gemini-cli" ||
             m.providerID === "claude-code" ||
-            m.providerID === "codex"
+            m.providerID === "codex" ||
+            m.providerID === "opencode" ||
+            m.providerID === "9router"
           )
         })
         // Sanitize requested model ID in case it contains commas or is a pool

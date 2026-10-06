@@ -90,11 +90,10 @@ interface SettingsCliConnectionsTabProps {
 const PRESET_MODELS: Record<string, string[]> = {
   claude: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
   opencode: [
-    "opencode/big-pickle",
-    "groq/llama-3.3-70b-versatile",
     "groq/openai/gpt-oss-120b",
     "groq/qwen/qwen3.8-27b",
-    "groq/llama-3.1-8b-instant",
+    "groq/openai/gpt-oss-20b",
+    "opencode/big-pickle",
     "9router/ComboMaut",
     "opencode/nemotron-3.5-lightning-free",
   ],
@@ -139,11 +138,10 @@ const MODEL_METADATA: Record<string, ModelMeta> = {
   "gpt-4o-mini": { label: "GPT-4o-mini", badge: "Fast", speed: "Fast" },
 
   // OpenCode
+  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Reasoning", speed: "Ultra Fast" },
+  "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Reasoning", speed: "Ultra Fast" },
+  "groq/openai/gpt-oss-20b": { label: "GPT-OSS 20B", badge: "Fast", speed: "Ultra Fast" },
   "opencode/big-pickle": { label: "Big Pickle", badge: "Reasoning", speed: "Smart" },
-  "groq/llama-3.3-70b-versatile": { label: "Llama 3.3 70B", badge: "Groq", speed: "Fast" },
-  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq", speed: "Fast" },
-  "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Groq", speed: "Fast" },
-  "groq/llama-3.1-8b-instant": { label: "Llama 3.1 8B", badge: "Groq", speed: "Fast" },
   "9router/ComboMaut": { label: "ComboMaut", badge: "Proxy" },
   "opencode/nemotron-3.5-lightning-free": { label: "Nemotron 3.5", badge: "Free" },
 
@@ -525,7 +523,7 @@ export function SettingsCliConnectionsTab({
       id: "opencode",
       name: "OpenCode CLI Agent",
       type: "openai-compatible",
-      baseUrl: "http://localhost:20128/v1",
+      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
       apiKey: "opencode-local-session",
     },
     antigravity: {
@@ -591,12 +589,15 @@ export function SettingsCliConnectionsTab({
         }).catch(() => {});
       }
 
-      // If Claude or Google Antigravity, also notify bridge/local-cli
-      if (target === "claude" || target === "antigravity") {
+      // If Claude, OpenCode, or Google Antigravity, also notify bridge/local-cli
+      if (target === "claude" || target === "antigravity" || target === "opencode") {
         await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target: target === "claude" ? "claude" : "antigravity", model: chosenModel }),
+          body: JSON.stringify({
+            target: target === "claude" ? "claude" : target === "opencode" ? "opencode" : "antigravity",
+            model: chosenModel,
+          }),
         }).catch(() => {});
       }
 
@@ -657,18 +658,20 @@ export function SettingsCliConnectionsTab({
     setTestingPingTarget(target);
     const startMs = Date.now();
     try {
-      if (target === "antigravity") {
+      if (target === "antigravity" || target === "opencode") {
         try {
           const directRes = await fetch("http://127.0.0.1:20188/v1/models", {
             signal: AbortSignal.timeout(1200),
           }).catch(() => null);
           if (directRes && directRes.ok) {
             const elapsed = Math.max(Date.now() - startMs, 12);
-            const agyVer = data.antigravity?.agyVersion ? `agy ${data.antigravity.agyVersion}` : "port 20188";
-            const detail = `Google Antigravity CLI bridge active (${agyVer})`;
+            const detail =
+              target === "opencode"
+                ? `OpenCode CLI bridge active (${data.opencode?.hasGroq ? "Groq Cloud" : "port 20188"})`
+                : `Google Antigravity CLI bridge active (${data.antigravity?.agyVersion ? `agy ${data.antigravity.agyVersion}` : "port 20188"})`;
             setPingResults((prev) => ({
               ...prev,
-              antigravity: {
+              [target]: {
                 success: true,
                 timeMs: elapsed,
                 message: detail,

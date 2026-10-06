@@ -64,6 +64,18 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     if (providerId === "codex") {
       return (clean.startsWith("o1") || clean.startsWith("o3") || clean.startsWith("gpt-4")) && !clean.endsWith(":free");
     }
+    if (providerId === "opencode") {
+      return (
+        clean.includes("opencode") ||
+        clean.includes("groq") ||
+        clean.includes("gpt-oss") ||
+        clean.includes("qwen") ||
+        clean.includes("pickle") ||
+        clean.includes("nemotron") ||
+        clean.includes("9router") ||
+        clean.includes("combomaut")
+      );
+    }
     if (providerId === "kenari") {
       return !clean.startsWith("gemini") && !clean.startsWith("claude");
     }
@@ -81,7 +93,7 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
       return "o3-mini";
     }
     if (providerId === "opencode") {
-      return "opencode/big-pickle";
+      return localStorage.getItem("arunaki_cli_model_opencode") || "groq/openai/gpt-oss-120b";
     }
     if (providerId === "9router") {
       return "cx/gpt-5.6-terra";

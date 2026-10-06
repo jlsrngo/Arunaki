@@ -171,6 +171,8 @@ export async function checkOpenCodeStatus(forceRefresh = false): Promise<OpenCod
     try {
       const verProc = crossSpawn("opencode", ["--version"], {
         stdio: ["ignore", "pipe", "pipe"],
+        timeout: 1500,
+        windowsHide: true,
       })
       let verOut = ""
       verProc.stdout?.on("data", (d: Buffer) => (verOut += d.toString()))
@@ -495,7 +497,11 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
   if (target === "opencode") {
     return new Promise((resolve) => {
       try {
-        const proc = crossSpawn("opencode", ["models"], { stdio: ["ignore", "pipe", "pipe"] })
+        const proc = crossSpawn("opencode", ["models"], {
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 1500,
+          windowsHide: true,
+        })
         let stdout = ""
         proc.stdout?.on("data", (d: Buffer) => (stdout += d.toString()))
         proc.on("close", (code) => {

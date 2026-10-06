@@ -548,9 +548,9 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           return yield* upsert("opencode", {
             name: "OpenCode CLI Agent",
             type: "openai-compatible",
-            baseUrl: "http://localhost:20128/v1",
+            baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "opencode-local-session",
-            model: "claude-3-5-sonnet, deepseek-r1, llama-3.3-70b-versatile",
+            model: ctx.payload.model || "groq/openai/gpt-oss-120b, groq/qwen/qwen3.8-27b, opencode/big-pickle",
           })
         }
         if (ctx.payload.target === "groq-sync") {

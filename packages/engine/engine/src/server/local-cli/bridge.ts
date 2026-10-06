@@ -1,6 +1,6 @@
 import http from "node:http"
 import crossSpawn from "cross-spawn"
-import { checkClaudeStatus, resolveAgyCommand } from "./detector"
+import { checkClaudeStatus, resolveAgyCommand, getOpenCodeGroqKey } from "./detector"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -614,6 +614,14 @@ class LocalCliBridge {
                 { id: "claude-3-7-sonnet", object: "model", owned_by: "claude-cli" },
                 { id: "claude-3-5-sonnet", object: "model", owned_by: "claude-cli" },
                 { id: "claude-3-5-haiku", object: "model", owned_by: "claude-cli" },
+                { id: "groq/openai/gpt-oss-120b", object: "model", owned_by: "opencode" },
+                { id: "openai/gpt-oss-120b", object: "model", owned_by: "opencode" },
+                { id: "groq/qwen/qwen3.8-27b", object: "model", owned_by: "opencode" },
+                { id: "qwen/qwen3.8-27b", object: "model", owned_by: "opencode" },
+                { id: "groq/openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
+                { id: "openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
+                { id: "opencode/big-pickle", object: "model", owned_by: "opencode" },
+                { id: "9router/ComboMaut", object: "model", owned_by: "opencode" },
               ],
             }),
           )
@@ -893,6 +901,22 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
       return
     }
 
+    // ── OpenCode CLI Agent / Groq / 9Router ──────────────
+    const isOpenCode =
+      requestedModel.includes("opencode") ||
+      requestedModel.includes("groq") ||
+      requestedModel.includes("pickle") ||
+      requestedModel.includes("nemotron") ||
+      requestedModel.includes("qwen") ||
+      requestedModel.includes("gpt-oss") ||
+      requestedModel.includes("combomaut") ||
+      requestedModel.includes("9router")
+
+    if (isOpenCode) {
+      await this.handleOpenCodeCompletion(payload, res, systemPrompt, toolsDirective)
+      return
+    }
+
     // Append tools directive to systemPrompt for Claude Code as well
     if (toolsDirective) {
       systemPrompt += (systemPrompt ? "\n" : "") + toolsDirective
@@ -979,6 +1003,173 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
       res.writeHead(500, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ error: { message: `Claude CLI process error: ${err.message}` } }))
     })
+  }
+
+  private async handleOpenCodeCompletion(
+    payload: any,
+    res: http.ServerResponse,
+    systemPrompt: string,
+    toolsDirective: string,
+  ) {
+    const rawModel = (payload.model || "").toLowerCase()
+    const is9Router = rawModel.includes("9router") || rawModel.includes("combomaut")
+
+    // 1. Try 9Router gateway on port 20128 if 9Router model requested
+    if (is9Router) {
+      try {
+        const checkRes = await fetch("http://localhost:20128/v1/models", { signal: AbortSignal.timeout(600) })
+        if (checkRes.ok) {
+          const forwardRes = await fetch("http://localhost:20128/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer 9router",
+            },
+            body: JSON.stringify(payload),
+          })
+          if (forwardRes.ok && payload.stream && forwardRes.body) {
+            if (!res.headersSent) {
+              res.writeHead(200, {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                Connection: "keep-alive",
+              })
+            }
+            const reader = forwardRes.body.getReader()
+            const decoder = new TextDecoder()
+            try {
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                res.write(decoder.decode(value, { stream: true }))
+              }
+            } finally {
+              res.end()
+            }
+            return
+          } else {
+            const data = await forwardRes.json()
+            res.writeHead(forwardRes.status, { "Content-Type": "application/json" })
+            res.end(JSON.stringify(data))
+            return
+          }
+        }
+      } catch {}
+    }
+
+    // 2. OpenCode with Groq Integration (reads key from ~/.local/share/opencode/auth.json)
+    const groqKey = getOpenCodeGroqKey()
+    if (groqKey) {
+      let groqModel = "openai/gpt-oss-120b"
+      if (rawModel.includes("qwen")) {
+        groqModel = "qwen/qwen3.8-27b"
+      } else if (rawModel.includes("20b")) {
+        groqModel = "openai/gpt-oss-20b"
+      }
+
+      const messages: any[] = []
+      if (systemPrompt || toolsDirective) {
+        messages.push({
+          role: "system",
+          content: [
+            systemPrompt,
+            toolsDirective,
+            "[SYSTEM INSTRUCTION: You are Arunaki Workstation's intelligent document assistant powered by OpenCode and Groq. Answer directly, concisely, and helpfully.]",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        })
+      }
+
+      for (const msg of payload.messages ?? []) {
+        if (msg.role === "system") continue
+        messages.push(msg)
+      }
+
+      const groqPayload: any = {
+        model: groqModel,
+        messages,
+        stream: Boolean(payload.stream),
+        temperature: payload.temperature ?? 0.2,
+      }
+
+      if (Array.isArray(payload.tools) && payload.tools.length > 0) {
+        groqPayload.tools = payload.tools
+        if (payload.tool_choice) groqPayload.tool_choice = payload.tool_choice
+      }
+
+      try {
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify(groqPayload),
+        })
+
+        if (!groqRes.ok) {
+          const errText = await groqRes.text().catch(() => "")
+          console.error("[LocalCliBridge] Groq API error:", groqRes.status, errText)
+          if (!res.headersSent) {
+            res.writeHead(groqRes.status, { "Content-Type": "application/json" })
+            res.end(errText || JSON.stringify({ error: { message: `Groq error: ${groqRes.status}` } }))
+          } else {
+            res.end()
+          }
+          return
+        }
+
+        if (payload.stream && groqRes.body) {
+          if (!res.headersSent) {
+            res.writeHead(200, {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+            })
+          }
+          const reader = groqRes.body.getReader()
+          const decoder = new TextDecoder()
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              const chunk = decoder.decode(value, { stream: true })
+              res.write(chunk)
+            }
+          } finally {
+            res.end()
+          }
+          return
+        } else {
+          const json = await groqRes.json()
+          res.writeHead(200, { "Content-Type": "application/json" })
+          res.end(JSON.stringify(json))
+          return
+        }
+      } catch (err: any) {
+        console.error("[LocalCliBridge] OpenCode Groq error:", err?.message)
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: { message: `OpenCode Groq connection failed: ${err?.message}` } }))
+        } else {
+          res.end()
+        }
+        return
+      }
+    }
+
+    // 3. Fallback: prompt for provider
+    res.writeHead(401, { "Content-Type": "application/json" })
+    res.end(
+      JSON.stringify({
+        error: {
+          message:
+            "OpenCode CLI requires an active provider (Groq Cloud or 9Router). Run 'opencode providers' or add an API key.",
+          type: "opencode_unauthenticated",
+        },
+      }),
+    )
   }
 }
 

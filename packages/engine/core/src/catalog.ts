@@ -75,7 +75,14 @@ const layer = Layer.effect(
       if (integration?.connections.length) return true
       if (provider.id === "kenari") return true
       if (provider.id === "ollama" || provider.id === "lmstudio") return true
-      if (provider.id === "antigravity" || provider.id === "gemini-cli" || provider.id === "claude-code" || provider.id === "codex") return true
+      if (
+        provider.id === "antigravity" ||
+        provider.id === "gemini-cli" ||
+        provider.id === "claude-code" ||
+        provider.id === "codex" ||
+        provider.id === "opencode" ||
+        provider.id === "9router"
+      ) return true
       return false
     }
 
