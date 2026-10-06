@@ -11,14 +11,15 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-// Enable GPU hardware acceleration & zero-copy rasterization for smooth UI rendering
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-
 // Windows requires explicit AppUserModelId for desktop notifications in Action Center
 if (process.platform === 'win32') {
   app.setAppUserModelId('Arunaki');
 }
+
+// Gracefully handle Chromium network service or GPU helper process restarts without terminating Electron
+app.on('child-process-gone', (_event, details) => {
+  console.warn('[main] Child process gone (recovering):', details.type, details.reason);
+});
 
 // Load .env manually since dotenv might not be installed
 try {
