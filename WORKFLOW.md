@@ -3681,6 +3681,28 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] Direct bridge SSE test (`test-bridge-tools.cjs`): ✅ Emitted `tool_calls` delta (`read: LAPORAN-HARIAN.txt`) and `finish_reason: "tool_calls"`.
 - [x] Multi-turn test with tool result (`test-bridge-tools-turn2.cjs`): ✅ Emitted `edit` tool call with updated calculations and `finish_reason: "tool_calls"`.
 
+---
+
+## Phase 104: OpenCode CLI Daemon & 9Router 1:1 Parity Integration ✅ DONE
+
+**Goal:** Menghubungkan OpenCode (Zen / Big Pickle) secara mandiri dan menyelaraskan integrasi dengan 9Router gateway (`http://localhost:20128`) secara 1:1, sehingga Arunaki mendukung multi-account routing, free models (`oc/*`, `kr/*`, `vx/*`, `ComboMaut`), dan CLI bridge tanpa galat transport.
+
+### 104.1 Root Cause Diagnosis & Riset Arsitektur 9Router
+- [x] Meriset website resmi `https://9router.com/` dan repositori `decolua/9router`. 9Router adalah reverse proxy lokal (`http://localhost:20128`) yang mengagregasikan akun subscription (Claude Code, Google Antigravity, OpenAI Codex) dan model gratis/tier-3 (`oc/`, `kr/`, `vx/`, `ComboMaut`).
+- [x] Mendiagnosis galat `HTTP transport failed` pada OpenCode: engine Arunaki sebelumnya mencoba menghubungi cloud endpoint Zen yang membutuhkan token, alih-alih local bridge.
+- [x] Menemukan bahwa payload `tools` pada `opencode serve --port 4097` memicu respons kosong pada daemon internal OpenCode; pembersihan payload ini memulihkan streaming `<think>` dan respon teks.
+
+### 104.2 Implementasi & Penyelarasan
+- [x] **`packages/engine/core/src/catalog.ts`**: Menambahkan deteksi `isLocalOrCli` di `projectModel` agar endpoint provider CLI (`opencode`, `antigravity`, `claude-code`, `9router`) diarahkan ke local bridge `http://127.0.0.1:20188/v1` dengan package `@ai-sdk/openai-compatible`.
+- [x] **`packages/engine/core/src/session/runner/model.ts`**: Menambahkan rute eksplisit CLI provider di `fromCatalogModel`.
+- [x] **`packages/engine/engine/src/server/local-cli/bridge.ts`**: Memperbaiki routing model agar prefix 9Router (`oc/*`, `kr/*`, `vx/*`, `cx/*`, `ComboMaut`) diteruskan ke `20128` dan tidak tertukar dengan Antigravity daemon.
+- [x] **`apps/web/src/components/settings/SettingsCliConnectionsTab.tsx`**: Menambahkan model preset 9Router, tombol pintas 1-klik ke Web Dashboard (`http://localhost:20128`), link dokumentasi `9router.com`, dan instruksi instalasi terminal (`npm i -g 9router && 9router`).
+
+### 104.3 Verifikasi
+- [x] Live turn prompt sesi `ses_ef09e6108ffeLWAcMbJt7fPCIe` dengan OpenCode Big Pickle: ✅ HTTP 200, streaming reasoning `<think>` dan teks selesai dalam ~14 detik.
+- [x] `npm run build -w apps/web`: ✅ Passed dengan 0 error TypeScript & bundling Vite sukses.
+
+
 
 
 

@@ -1,4 +1,7 @@
 import http from "node:http"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 import crossSpawn from "cross-spawn"
 import { checkClaudeStatus, resolveAgyCommand, getOpenCodeGroqKey } from "./detector"
 
@@ -581,10 +584,21 @@ class AntigravityDaemonWorker {
   }
 }
 
+
+
 class OpenCodeDaemonWorker {
   private child: any = null
   private isStarting = false
   public readonly port = 4097
+
+  // Empty sandbox dir so OpenCode never loads repo instructions or touches user files.
+  public readonly sandboxDir = (() => {
+    const dir = path.join(os.tmpdir(), "arunaki-opencode-sandbox")
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+    } catch {}
+    return dir
+  })()
 
   public async ensureServer(): Promise<boolean> {
     try {
@@ -610,6 +624,7 @@ class OpenCodeDaemonWorker {
     this.isStarting = true
     try {
       const child = crossSpawn("opencode", ["serve", "--port", String(this.port)], {
+        cwd: this.sandboxDir,
         stdio: "ignore",
         windowsHide: true,
       })
@@ -722,6 +737,7 @@ class LocalCliBridge {
                 { id: "groq/openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
                 { id: "openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
                 { id: "opencode/big-pickle", object: "model", owned_by: "opencode" },
+                { id: "big-pickle", object: "model", owned_by: "opencode" },
                 { id: "9router/ComboMaut", object: "model", owned_by: "9router" },
               ],
             }),
@@ -911,13 +927,31 @@ class LocalCliBridge {
 
   private async handleChatCompletion(payload: any, res: http.ServerResponse) {
     const requestedModel = (payload.model || "").toLowerCase()
+    const is9RouterModel =
+      requestedModel.includes("9router") ||
+      requestedModel.includes("combomaut") ||
+      requestedModel.startsWith("oc/") ||
+      requestedModel.startsWith("kr/") ||
+      requestedModel.startsWith("vx/") ||
+      requestedModel.startsWith("cx/")
+
+    const isOpenCodeModel =
+      is9RouterModel ||
+      requestedModel.includes("opencode") ||
+      requestedModel.includes("groq") ||
+      requestedModel.includes("pickle") ||
+      requestedModel.includes("nemotron") ||
+      requestedModel.includes("qwen") ||
+      requestedModel.includes("gpt-oss")
+
     const isAntigravity =
-      requestedModel.includes("gemini") ||
-      requestedModel.includes("antigravity") ||
-      requestedModel.includes("agy") ||
-      requestedModel.includes("pro") ||
-      requestedModel.includes("claude-sonnet") ||
-      requestedModel.includes("claude-opus")
+      !isOpenCodeModel &&
+      (requestedModel.includes("gemini") ||
+        requestedModel.includes("antigravity") ||
+        requestedModel.includes("agy") ||
+        requestedModel.includes("pro") ||
+        requestedModel.includes("claude-sonnet") ||
+        requestedModel.includes("claude-opus"))
 
     const messages = payload.messages ?? []
     let systemPrompt = ""
@@ -1115,7 +1149,13 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
     toolsDirective: string,
   ) {
     const rawModel = (payload.model || "").toLowerCase()
-    const is9Router = rawModel.includes("9router") || rawModel.includes("combomaut")
+    const is9Router =
+      rawModel.includes("9router") ||
+      rawModel.includes("combomaut") ||
+      rawModel.startsWith("oc/") ||
+      rawModel.startsWith("kr/") ||
+      rawModel.startsWith("vx/") ||
+      rawModel.startsWith("cx/")
 
     // 1. 9Router gateway on port 20128 if 9Router model requested
     if (is9Router) {
@@ -1204,7 +1244,7 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
         const sessionRes = await fetch(`http://127.0.0.1:${this.openCodeDaemon.port}/session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: "{}",
+          body: JSON.stringify({ directory: this.openCodeDaemon.sandboxDir }),
         })
         const session = await sessionRes.json()
 
@@ -1224,17 +1264,20 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
         }
         promptText += convoParts.join("\n\n") || "Hello"
 
-        const msgRes = await fetch(`http://127.0.0.1:${this.openCodeDaemon.port}/session/${session.id}/message`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: {
-              providerID: "opencode",
-              modelID: modelId,
-            },
-            parts: [{ type: "text", text: promptText }],
-          }),
-        })
+        const msgRes = await fetch(
+          `http://127.0.0.1:${this.openCodeDaemon.port}/session/${session.id}/message?directory=${encodeURIComponent(this.openCodeDaemon.sandboxDir)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: {
+                providerID: "opencode",
+                modelID: modelId,
+              },
+              parts: [{ type: "text", text: promptText }],
+            }),
+          },
+        )
 
         if (!msgRes.ok) {
           const errText = await msgRes.text().catch(() => "")

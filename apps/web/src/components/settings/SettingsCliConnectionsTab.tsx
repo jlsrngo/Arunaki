@@ -106,7 +106,15 @@ const PRESET_MODELS: Record<string, string[]> = {
     "gemini-2.5-pro",
     "gemini-2.5-flash",
   ],
-  nineRouter: ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"],
+  nineRouter: [
+    "9router/ComboMaut",
+    "oc/big-pickle",
+    "oc/claude-sonnet-4.5",
+    "kr/claude-sonnet-4.5",
+    "vx/gemini-2.5-pro",
+    "deepseek-r1",
+    "cx/gpt-5.6-terra",
+  ],
 };
 
 interface ModelMeta {
@@ -143,12 +151,16 @@ const MODEL_METADATA: Record<string, ModelMeta> = {
   "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Groq LPU", speed: "Ultra Fast" },
   "groq/openai/gpt-oss-20b": { label: "GPT-OSS 20B", badge: "Groq LPU", speed: "Ultra Fast" },
   "opencode/nemotron-3.5-lightning-free": { label: "Nemotron 3.5", badge: "Zen Built-in" },
-  "9router/ComboMaut": { label: "ComboMaut", badge: "9Router Proxy" },
 
-  // 9Router
+  // 9Router (http://localhost:20128)
+  "9router/ComboMaut": { label: "ComboMaut", badge: "Smart Combo", speed: "Auto Fallback" },
+  "oc/big-pickle": { label: "OpenCode Big Pickle", badge: "Free (9Router)", speed: "Reasoning" },
+  "oc/claude-sonnet-4.5": { label: "Claude Sonnet 4.5", badge: "Free (9Router)" },
+  "kr/claude-sonnet-4.5": { label: "Kiro Claude Sonnet", badge: "Kiro AI (Free)" },
+  "vx/gemini-2.5-pro": { label: "Vertex Gemini 2.5 Pro", badge: "Vertex (Free)" },
+  "deepseek-r1": { label: "DeepSeek R1", badge: "Reasoning", speed: "Smart" },
   "cx/gpt-5.6-terra": { label: "GPT-5.6 Terra", badge: "Flagship", speed: "Fast" },
   "cx/gemini-2.5-pro": { label: "Gemini 2.5 Pro", badge: "Extended" },
-  "deepseek-r1": { label: "DeepSeek R1", badge: "Reasoning" },
 };
 
 export function SettingsCliConnectionsTab({
@@ -1577,7 +1589,7 @@ export function SettingsCliConnectionsTab({
                 </span>
               </div>
               <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                {isEn ? "Local gateway • Terminal only" : "Gateway lokal • Khusus terminal"}
+                {isEn ? "Smart AI Router • http://localhost:20128" : "Router AI Pintar • http://localhost:20128"}
               </p>
             </div>
           </div>
@@ -1611,6 +1623,23 @@ export function SettingsCliConnectionsTab({
                     : "Offline"
                   : (isEn ? "Test Ping" : "Uji Ping")}
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open("http://localhost:20128", "_blank")}
+              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title={isEn ? "Open 9Router Web Dashboard (localhost:20128)" : "Buka Dashboard Web 9Router (localhost:20128)"}
+            >
+              <Globe className="w-3 h-3" />
+              Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={() => window.open("https://9router.com", "_blank")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title="https://9router.com"
+            >
+              9router.com
             </button>
             <button
               type="button"
@@ -1813,14 +1842,14 @@ export function SettingsCliConnectionsTab({
                   closeModal();
                 },
                 cliLabel: isEn ? "Run via Terminal" : "Jalankan via Terminal",
-                cliBadge: "9router start",
+                cliBadge: "npm i -g 9router && 9router",
                 cliDesc: isEn
-                  ? "Start local 9Router gateway via console terminal window."
-                  : "Memulai gateway lokal 9Router melalui jendela konsol terminal.",
-                cliTradeoffTitle: isEn ? "Terminal Considerations:" : "Pertimbangan (Terminal):",
+                  ? "Start local 9Router gateway proxy via console terminal window."
+                  : "Mulai gateway proxy lokal 9Router melalui jendela konsol terminal.",
+                cliTradeoffTitle: isEn ? "CLI Setup & Command:" : "Petunjuk Instalasi & Perintah:",
                 cliTradeoffText: isEn
-                  ? "Opens a terminal to run local proxy server on port 20128."
-                  : "Membuka terminal untuk menjalankan server proxy lokal pada port 20128.",
+                  ? "Install globally via 'npm i -g 9router' and launch with '9router'. Exposes an OpenAI-compatible API at http://localhost:20128/v1 for unified CLI, Pro, and free models (ComboMaut, oc/*, kr/*, vx/*)."
+                  : "Pasang secara global via 'npm i -g 9router' dan jalankan dengan '9router'. Menyediakan API kompatibel OpenAI di http://localhost:20128/v1 untuk semua akun CLI, Pro, dan model gratis (ComboMaut, oc/*, kr/*, vx/*).",
                 cliButton: isEn ? "Start 9Router in Terminal" : "Mulai 9Router di Terminal",
                 onCliAction: () => {
                   handleLaunch9Router();

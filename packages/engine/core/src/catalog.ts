@@ -86,9 +86,34 @@ const layer = Layer.effect(
       return false
     }
 
+    const isLocalOrCli = (provider: ProviderV2.Info) =>
+      provider.id === "antigravity" ||
+      provider.id === "gemini-cli" ||
+      provider.id === "claude-code" ||
+      provider.id === "codex" ||
+      provider.id === "opencode" ||
+      provider.id === "9router" ||
+      (provider.api.url !== undefined && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(provider.api.url))
+
     const projectModel = (model: ModelV2.Info, provider: ProviderV2.Info) => {
-      const api =
-        model.api.type === "native" && !model.api.url && Object.keys(model.api.settings).length === 0
+      const isCli = isLocalOrCli(provider)
+      const bridgeUrl = "http://127.0.0.1:20188/v1"
+      const effectiveUrl = isCli
+        ? (provider.api.url && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(provider.api.url)
+            ? provider.api.url
+            : bridgeUrl)
+        : (provider.api.url || model.api.url)
+      const effectivePackage = isCli ? "@ai-sdk/openai-compatible" : (model.api.package || provider.api.package)
+
+      const api = isCli
+        ? {
+            ...model.api,
+            type: "aisdk" as const,
+            package: effectivePackage,
+            url: effectiveUrl,
+            settings: { ...provider.api.settings, ...model.api.settings },
+          }
+        : model.api.type === "native" && !model.api.url && Object.keys(model.api.settings).length === 0
           ? { ...provider.api, id: model.api.id }
           : model.api.type === "aisdk" && provider.api.type === "aisdk" && !model.api.url
             ? { ...model.api, url: provider.api.url, settings: { ...provider.api.settings, ...model.api.settings } }

@@ -158,6 +158,30 @@ export const fromCatalogModel = (
           Object.assign(draft.request.body, credential.metadata)
         })
   const key = apiKey(resolved, credential)
+  const isCli =
+    resolved.providerID === "opencode" ||
+    resolved.providerID === "antigravity" ||
+    resolved.providerID === "claude-code" ||
+    resolved.providerID === "9router" ||
+    resolved.providerID === "gemini-cli" ||
+    resolved.providerID === "codex"
+
+  if (isCli) {
+    const bridgeUrl = "http://127.0.0.1:20188/v1"
+    const targetUrl =
+      resolved.api.url && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(resolved.api.url)
+        ? resolved.api.url
+        : bridgeUrl
+    return Effect.succeed(
+      withDefaults(resolved, OpenAICompatibleChat.route)
+        .with({
+          endpoint: { baseURL: targetUrl },
+          auth: key === undefined ? Auth.bearer("antigravity-local-session") : Auth.bearer(key),
+        })
+        .model({ id: resolved.api.id }),
+    )
+  }
+
   if (resolved.api.type === "aisdk" && resolved.api.package === "@ai-sdk/openai") {
     return Effect.succeed(
       withDefaults(resolved, OpenAIResponses.route)

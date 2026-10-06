@@ -212,7 +212,29 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    // Local CLI providers MUST route through the Arunaki bridge. Older installs may have
+    // persisted a stale URL (e.g. OpenCode saved with 9Router's port 20128), which causes
+    // "HTTP transport failed" while the UI still shows "Connected". Heal it on read.
+    const BRIDGE_ROUTED_PROVIDERS = ["opencode", "antigravity", "claude-code"]
+    const healLocalCliProviders = Effect.fn("ProviderSettings.healLocalCliProviders")(function* () {
+      const config = yield* cfg.get()
+      const bridgeUrl = `http://127.0.0.1:${localCliBridge.port}/v1`
+      const patch: Record<string, ConfigProviderV1.Info> = {}
+      for (const id of BRIDGE_ROUTED_PROVIDERS) {
+        const existing = config.provider?.[id]
+        const current = existing?.options?.baseURL
+        if (!existing || !current || current === bridgeUrl) continue
+        if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(current)) continue
+        patch[id] = { ...existing, id, options: { ...(existing.options ?? {}), baseURL: bridgeUrl } }
+      }
+      if (Object.keys(patch).length === 0) return false
+      yield* cfg.update({ provider: patch })
+      yield* markInstanceForDisposal(yield* InstanceState.context)
+      return true
+    })
+
     const list = Effect.fn("ProviderSettings.list")(function* () {
+      yield* healLocalCliProviders().pipe(Effect.catch(() => Effect.succeed(false)))
       const config = yield* cfg.get()
       const disabled = new Set(config.disabled_providers ?? [])
       const entries = Object.entries(config.provider ?? {}).sort((a, b) => {
