@@ -95,4 +95,26 @@ Review 1:1 terhadap source 9Router (`open-sse/`) menemukan 3 bug P1 + beberapa k
 - `bun test --timeout 30000 test/translator.test.ts test/upstream.test.ts test/refresh.test.ts test/harvester.test.ts test/fastpath.test.ts test/injector.test.ts`: ✅ **29 passed, 0 failed** (4.96s) — 6 test baru menutup 3 bug P1 di atas.
 - `npm run build -w apps/web`: ✅ 0 error (44.20s)
 - `bun run typecheck`: 51 error tersisa, **semuanya pre-existing** dan berada di luar area local-cli (3 error `ProviderV2` di `handlers/provider.ts` baris 107/120/135, plus error `../core/*`, `session/*`, `tool/*`). Sebelum perbaikan: 65 error (6 di antaranya milik kode Phase 105).
-- Suite test penuh (`bun run test`) tidak dijalankan sampai selesai (dibatalkan manual karena durasi).
+- Suite test penuh (`bun run test`) tidak selesai dalam batas waktu tool (>25 menit, 173 file). Observasi: 45 failure di suite **yang tidak disentuh** (`config`, `mcp`, `plugin.openai-ws`, `project.instance-bootstrap`, `project.vcs`, `provider.amazon-bedrock`) — semuanya `beforeEach/afterEach hook timed out`. Diverifikasi independen: `httpapi-provider/providers/ui` gagal 9/11 **identik dengan tree bersih (tanpa perubahan Phase 105)**, jadi pre-existing.
+
+---
+
+## Round 3 — Sisa Item Review (2026-10-06)
+
+1. **Hoist `system`/`developer` → `instructions`** (`upstream.ts`).
+   `chatToResponses` kini mengumpulkan system/developer text ke field `instructions` (gabung `\n\n`) dan tidak lagi mengirimnya sebagai `message` di `input` — paritas 9Router `request/openai-responses.js`.
+2. **Kiro refresh: JSON body camelCase** (`refresh.ts`).
+   Dikoreksi ke jalur yang benar-benar dipakai 9Router `refreshKiroToken` (AWS Identity Center): `Content-Type: application/json` dengan `{clientId, clientSecret, refreshToken, grantType:"refresh_token"}` ke `oidc.<region>.amazonaws.com/token`. Sebelumnya form-urlencoded `client_id`/`grant_type` — request itu akan ditolak AWS. Ditambah: error permanen diklasifikasi, `profileArn` dipertahankan dari respons.
+   - **Catatan parity**: 9Router punya 3 cabang (external_idp / AWS+profileArn / social). Cabang `external_idp` tidak bisa dipakai karena butuh `authMethod` + `tokenEndpoint` Microsoft yang tidak pernah di-harvest; cabang `social` (`prod.<region>.auth.desktop.kiro.dev/refreshToken`) hanya berlaku untuk token kiro-cli social yang juga tidak di-harvest. Kiro masih **tidak masuk fast-path**, jadi `profileArn` tidak dipakai untuk request API.
+3. **`refreshCursor` dihapus** + `REFRESH_UNSUPPORTED = ["cursor"]`.
+   9Router sendiri **tidak punya** handler refresh untuk cursor (`REFRESH_HANDLERS` di `tokenRefresh.js`) — tidak ada endpoint publik, token hanya di `state.vscdb`. Stub yang selalu `null` diganti dengan daftar eksplisit, dan `POST /local-cli/refresh` kini melaporkan "No refresh endpoint for: cursor" alih-alih "Failed".
+4. **Badge tidak lagi berbohong "Ready"** (`SettingsCliConnectionsTab.tsx`).
+   Entri store memang sengaja disimpan walau cache CLI hilang (supaya tombol Refresh bisa memulihkan), tapi badge sekarang 4 state: `Auto-Imported · Ready` / `Expiring soon` (<15 mnt) / `Expired · Refresh required` (merah) / `Active · no expiry data` (untuk kiro/cursor yang tidak punya `expiresAt`). Email codex dipindah ke teks terpisah.
+5. **Test fast-path yang sebenarnya** (`test/upstream.test.ts`, +7 test).
+   Sebelumnya `fastpath.test.ts` hanya menguji regex. Sekarang diuji dengan `fetch` dimock + `ServerResponse` palsu: pre-flight fallback (upstream 500 → `false`, nol byte tertulis), stream SSE + `[DONE]`, non-stream → satu JSON `chat.completion` (codex **dan** claude), 401 → refresh → retry sekali (fetch dipanggil 3×), dan 401 tanpa refresh token → `false`.
+
+## Tests (round 3)
+- 6 file local-cli: ✅ **36 passed, 0 failed** (dari 29 → 36)
+- `npm run build -w apps/web`: ✅ 0 error (39.67s)
+- `bun run typecheck`: 51 error, **semuanya pre-existing**, 0 di `local-cli`/UI.
+- `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 fail — **terbukti pre-existing** (identik di tree bersih).

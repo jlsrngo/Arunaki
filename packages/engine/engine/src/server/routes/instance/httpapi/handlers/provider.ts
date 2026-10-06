@@ -42,7 +42,7 @@ import {
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
 import { scanLocalCredentials, invalidateCredentialCache } from "../../../../local-cli/harvester"
-import { refreshCredential } from "../../../../local-cli/refresh"
+import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
 import {
   injectClaudeSettings,
   injectCodexSettings,
@@ -684,24 +684,44 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           ? Object.keys(credentials)
           : [ctx.payload.target]
 
-        let refreshedCount = 0
+        const refreshedCount: string[] = []
+        const skipped: string[] = []
         let failedCount = 0
 
         for (const t of targets) {
           const cred = credentials[t]
           if (!cred) continue
+          if ((REFRESH_UNSUPPORTED as readonly string[]).includes(t)) {
+            skipped.push(t)
+            continue
+          }
           const next = yield* Effect.promise(() => refreshCredential(cred))
-          if (next) refreshedCount++
+          if (next) refreshedCount.push(t)
           else failedCount++
         }
 
         invalidateCredentialCache()
 
-        if (refreshedCount > 0) {
+        const notes = [
+          refreshedCount.length ? `Refreshed ${refreshedCount.length} credential(s).` : "",
+          skipped.length ? `No refresh endpoint for: ${skipped.join(", ")}.` : "",
+          failedCount ? `${failedCount} failed.` : "",
+        ].filter(Boolean)
+
+        if (refreshedCount.length > 0) {
           return {
             data: {
               success: true,
-              message: `Refreshed ${refreshedCount} credential(s) successfully.`,
+              message: `${notes.join(" ")} Refreshed: ${refreshedCount.join(", ")}.`,
+            },
+          }
+        }
+
+        if (skipped.length && !failedCount) {
+          return {
+            data: {
+              success: false,
+              message: notes.join(" "),
             },
           }
         }

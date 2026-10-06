@@ -59,8 +59,15 @@ const textOf = (content: any): string => {
 /** OpenAI chat -> ChatGPT Responses API format */
 export function chatToResponses(p: any): any {
   const input: any[] = []
+  // 9Router request/openai-responses.js hoists system/developer into `instructions`
+  const systemParts: string[] = []
   for (const m of p.messages ?? []) {
-    if (m.role === "system" || m.role === "user") {
+    if (m.role === "system" || m.role === "developer") {
+      const text = textOf(m.content)
+      if (text) systemParts.push(text)
+      continue
+    }
+    if (m.role === "user") {
       input.push({
         type: "message",
         role: m.role,
@@ -107,6 +114,7 @@ export function chatToResponses(p: any): any {
     stream: true,
     store: false,
   }
+  if (systemParts.length) out.instructions = systemParts.join("\n\n")
   if (p.temperature != null) out.temperature = p.temperature
   if (p.max_tokens != null) out.max_output_tokens = p.max_tokens
   if (Array.isArray(p.tools) && p.tools.length) {

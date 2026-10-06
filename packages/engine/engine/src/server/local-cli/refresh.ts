@@ -74,8 +74,6 @@ async function doRefresh(cred: DiscoveredCredential): Promise<DiscoveredCredenti
         return await refreshClaude(cred)
       case "kiro":
         return await refreshKiro(cred)
-      case "cursor":
-        return await refreshCursor(cred)
       default:
         return null
     }
@@ -155,39 +153,48 @@ async function refreshClaude(cred: DiscoveredCredential): Promise<DiscoveredCred
 async function refreshKiro(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   if (!cred.clientId || !cred.clientSecret || !cred.refreshToken) return null
   try {
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: cred.refreshToken,
-      client_id: cred.clientId,
-      client_secret: cred.clientSecret,
-    })
     const region = cred.region || "us-east-1"
+    // 9Router tokenRefresh/providers.js refreshKiroToken (AWS Identity Center branch):
+    // JSON body with camelCase keys, region-qualified OIDC endpoint.
     const res = await fetch(`https://oidc.${region}.amazonaws.com/token`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        clientId: cred.clientId,
+        clientSecret: cred.clientSecret,
+        refreshToken: cred.refreshToken,
+        grantType: "refresh_token",
+      }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "")
+      const marker = permanentMarker(res.status, errText)
+      if (marker) throw new PermanentRefreshError(marker)
+      console.warn(`[TokenRefresh] Kiro refresh HTTP ${res.status}:`, errText)
+      return null
+    }
     const data = await res.json()
     const refreshed: DiscoveredCredential = {
       ...cred,
       accessToken: data.accessToken || data.access_token,
       refreshToken: data.refreshToken || data.refresh_token || cred.refreshToken,
       expiresAt: data.expiresIn ? Date.now() + data.expiresIn * 1000 : undefined,
+      profileArn: data.profileArn || cred.profileArn,
       lastRefreshAt: Date.now(),
     }
     await persistCredential(refreshed)
     return refreshed
-  } catch {
+  } catch (err: any) {
+    if (err instanceof PermanentRefreshError) throw err
+    console.warn(`[TokenRefresh] Kiro refresh failed:`, err?.message)
     return null
   }
 }
 
-async function refreshCursor(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
-  // Cursor uses in-memory or state.vscdb token; if refresh endpoint available:
-  if (!cred.refreshToken) return null
-  return null
-}
+// ponytail: 9Router has no cursor refresh handler (REFRESH_HANDLERS) — Cursor CLI keeps
+// tokens in state.vscdb with no public refresh endpoint. Dropping the entry from the
+// refresh list beats a fake network call; add one when Cursor ships an endpoint.
+export const REFRESH_UNSUPPORTED = ["cursor"] as const
 
 /** Lapis 1 — Proaktif sebelum request */
 export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<boolean> {

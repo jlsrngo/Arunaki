@@ -344,6 +344,49 @@ export function SettingsCliConnectionsTab({
     return `${hours}h`;
   };
 
+  // A credential stays in the local store after its CLI cache is gone so Refresh can
+  // recover it — never label an already expired token "Ready".
+  const credentialState = (expiresAt?: number) => {
+    if (!expiresAt) return "active" as const;
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return "expired" as const;
+    if (diff < 15 * 60_000) return "expiring" as const;
+    return "ready" as const;
+  };
+
+  const CREDENTIAL_BADGE = {
+    ready: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    expiring: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    expired: "bg-red-500/10 text-red-400 border-red-500/20",
+    active: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+  };
+
+  const renderDiscoveredBadge = (d?: { hasToken: boolean; expiresAt?: number }) => {
+    if (!d?.hasToken) return null;
+    const state = credentialState(d.expiresAt);
+    const label =
+      state === "expired"
+        ? isEn ? "Expired · Refresh required" : "Kedaluwarsa · perlu refresh"
+        : state === "expiring"
+        ? isEn ? "Expiring soon" : "Segera kedaluwarsa"
+        : state === "active"
+        ? isEn ? "Active · no expiry data" : "Aktif · tanpa data masa berlaku"
+        : isEn ? "Auto-Imported · Ready" : "Auto-Import · Siap";
+    const suffix = state === "ready" && formatExpiry(d.expiresAt) ? ` (${formatExpiry(d.expiresAt)})` : "";
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border",
+          CREDENTIAL_BADGE[state],
+        )}
+      >
+        <Sparkles className="w-2.5 h-2.5" />
+        {label}
+        {suffix}
+      </span>
+    );
+  };
+
   const handleRefreshCred = async (target: "claude" | "codex" | "kiro" | "cursor" | "all") => {
     setRefreshingTarget(target);
     setRefreshErrors((prev) => {
@@ -1130,13 +1173,7 @@ export function SettingsCliConnectionsTab({
                     ? (isEn ? "Login required" : "Perlu masuk")
                     : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
-                {discoveredClaude?.hasToken && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    Auto-Imported · Ready
-                    {formatExpiry(discoveredClaude.expiresAt) ? ` (${formatExpiry(discoveredClaude.expiresAt)})` : ""}
-                  </span>
-                )}
+                {renderDiscoveredBadge(discoveredClaude)}
                 {refreshErrors.claude && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.claude}>
                     <AlertTriangle className="w-2.5 h-2.5" />
@@ -1297,12 +1334,9 @@ export function SettingsCliConnectionsTab({
                 <span className="text-[11px] text-[var(--text-muted)]">
                   {data.codex?.installed || discoveredCodex?.hasToken ? (isEn ? "Ready" : "Siap") : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
-                {discoveredCodex?.hasToken && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    Auto-Imported · Ready
-                    {discoveredCodex.accountEmail ? ` (${discoveredCodex.accountEmail})` : ""}
-                  </span>
+{renderDiscoveredBadge(discoveredCodex)}
+                {discoveredCodex?.accountEmail && (
+                  <span className="text-[10px] text-[var(--text-muted)]">{discoveredCodex.accountEmail}</span>
                 )}
                 {refreshErrors.codex && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.codex}>
