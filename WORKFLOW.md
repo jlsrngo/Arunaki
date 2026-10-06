@@ -3702,8 +3702,60 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] Live turn prompt sesi `ses_ef09e6108ffeLWAcMbJt7fPCIe` dengan OpenCode Big Pickle: ✅ HTTP 200, streaming reasoning `<think>` dan teks selesai dalam ~14 detik.
 - [x] `npm run build -w apps/web`: ✅ Passed dengan 0 error TypeScript & bundling Vite sukses.
 
+---
 
+## Phase 105: Local CLI Credential Harvester & 9Router Parity ✅ DONE
 
+**Goal:** Mengimplementasikan kapabilitas 9Router pada layer koneksi CLI lokal Arunaki secara 1:1, mencakup pemanenan kredensial dari disk (Codex, Claude, Kiro, Cursor), 3-tier token refreshing, streaming upstream langsung ke API resmi vendor tanpa spawn terminal (`claude -p`), translator tool_calls 2 arah, dan injektor konfigurasi CLI 1-klik yang aman.
 
+### 105.1 Credential Harvester & Store
+- [x] **`credential-store.ts`**: Menyimpan state kredensial hasil harvest dan refresh di `~/.arunaki/local-cli-credentials.json` tanpa memodifikasi file konfigurasi asli user.
+- [x] **`harvester.ts`**: Memanen token lokal dari:
+  - OpenAI Codex (`~/.codex/auth.json` format `{tokens:{access_token, refresh_token, account_id, id_token}}` dan `OPENAI_API_KEY`).
+  - Claude Code (`~/.claude/.credentials.json` OAuth token dan fallback `settings.json` ANTHROPIC_API_KEY).
+  - AWS Kiro AI (`~/.aws/sso/cache/*.json` token cache + client credentials OIDC).
+  - Cursor IDE (`state.vscdb` dibaca langsung melalui `bun:sqlite` readonly ItemTable).
 
+### 105.2 Token Refresh Module (3-Tier Paritas 9Router)
+- [x] **`refresh.ts`**:
+  - Single-flight mutex lock per akun provider untuk mencegah duplicate concurrent refresh.
+  - Lapis 1 (Proaktif): Pemeriksaan lead time sebelum setiap request (Codex: 10 menit, Claude: 4 jam).
+  - Lapis 2 (Background): Timer background dengan interval 5 menit + jitter untuk merefresh token mendekati masa kadaluarsa (≤30 menit).
+  - Lapis 3 (Reaktif): Penanganan 401/403 pada fast-path dengan auto-refresh token rotasi dan retry request upstream 1×.
 
+### 105.3 Upstream Executors & Two-Way Translator
+- [x] **`upstream.ts`**:
+  - Codex Upstream Executor ke endpoint resmi ChatGPT Responses API (`https://chatgpt.com/backend-api/codex/responses`) dengan header `ChatGPT-Account-ID`, `originator: codex_cli_rs`, dan konversi payload ke format Responses API.
+  - Anthropic Upstream Executor ke `https://api.anthropic.com/v1/messages?beta=true` dengan header `Anthropic-Beta` lengkap dan `Authorization: Bearer <token>` atau `x-api-key`.
+- [x] **`translator.ts`**:
+  - Translasi dua arah OpenAI Chat ⇄ Anthropic Messages lengkap dengan mempertahankan `tools`, `tool_choice`, `assistant.tool_calls` → `tool_use`, dan pesan balasan `role: "tool"` → user turn dengan `tool_result` + `tool_use_id`.
+  - Pemetaan streaming SSE Anthropic ke OpenAI chat completion chunk beserta `finish_reason: "tool_calls"` dan token usage.
+
+### 105.4 Fast-Path Routing di Bridge
+- [x] **`bridge.ts`**:
+  - Menyisipkan fast-path routing untuk OpenAI-family (`gpt-*`, `o1/o3`, `codex`) dan Claude CLI sebelum subprocess/daemon spawning.
+  - Mematuhi Pre-flight Fallback Rule: bila upstream mengembalikan non-200 sebelum `res.writeHead`, fallback transparan ke rantai lama (`claude -p` / daemon / 9Router port 20128). Bila header sudah terkirim, error di-emit sebagai chunk SSE.
+  - Integrasi lifecycle background refresh timer (`start()` / `stop()`).
+
+### 105.5 Safe 1-Click CLI Config Auto-Injector
+- [x] **`injector.ts`**:
+  - Injeksi aman `~/.claude/settings.json` (JSONC-tolerant parser, otomatis membuat `.bak-9router`, abort bila parse gagal untuk menjaga integritas file user).
+  - Injeksi aman `~/.codex/config.toml` (menambahkan `model_provider = "arunaki"` di root dan blok `[model_providers.arunaki]` dengan `wire_api = "chat"` ke port 20188).
+  - Fungsi reset untuk mengembalikan konfigurasi ke status semula.
+
+### 105.6 HTTP API & UI Integration
+- [x] **`groups/provider.ts` & `handlers/provider.ts`**:
+  - Menambahkan endpoint `localCliDiscovered` (mengembalikan metadata non-sensitif, token rahasia tidak pernah diekspos ke klien browser).
+  - Menambahkan field `discovered` pada `localCliStatus`.
+  - Menambahkan endpoint `localCliRefresh` untuk manual trigger token refresh.
+  - Menambahkan endpoint `localCliInject` untuk injeksi / reset konfigurasi CLI 1-klik.
+- [x] **`SettingsCliConnectionsTab.tsx`**:
+  - Menampilkan badge `"Auto-Imported · Ready"` pada kartu Claude Code dan Codex disertai sisa masa berlaku token (`Expires in Xh/Xm`).
+  - Menampilkan tombol `"Auto-Configure CLI"` dan `"Refresh now"`.
+  - Menampilkan banner ringkasan `"Discovered Local Caches"` untuk akun yang terdeteksi (Claude, Codex, Kiro, Cursor).
+  - Mematuhi React Rules of Hooks (semua hooks dideklarasikan di baris paling atas tanpa pengecualian).
+
+### 105.7 Verifikasi
+- [x] Seluruh 23 unit test spesifik (`harvester`, `refresh`, `upstream`, `translator`, `fastpath`, `injector`) PASS dalam 4.53s.
+- [x] Live scan pada komputer pengguna: ✅ Berhasil mendeteksi kredensial aktif `codex` (OAuth) dan `claude` (OAuth) secara otomatis.
+- [x] `npm run build -w apps/web`: ✅ Passed dalam 29.96s dengan 0 error kompilasi TypeScript.

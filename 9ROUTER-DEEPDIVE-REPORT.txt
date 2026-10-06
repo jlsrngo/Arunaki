@@ -1,0 +1,587 @@
+================================================================================
+9ROUTER — DEEP-DIVE REPORT
+Sumber: https://github.com/decolua/9router (clone lokal, 1716 file, 13.5 MB)
+        https://9router.com
+Tanggal: 2026-10-06
+Catatan: path repo dirujuk relatif terhadap root clone.
+================================================================================
+
+ISI
+----
+  PART 1 (PALING PENTING): MEKANISME LOGIN / AUTENTIKASI
+     1A. Arah CLI/IDE  -> 9Router        (bagaimana CLI "masuk")
+     1B. Arah 9Router  -> Provider       (bagaimana 9Router "login ke provider lain")
+         B1. OAuth authorization_code + PKCE
+         B2. Device Code flow
+         B3. IMPORT kredensial dari CLI/IDE yang sudah login (inti jawaban)
+         B4. API key manual
+         B5. No-auth provider
+         B6. MITM Bridge (integritas langganan IDE tanpa OAuth)
+         B7. Refresh token (proaktif + background + reaktif)
+     1C. Login Dashboard (JWT/bcrypt/OIDC/SAML)
+     1D. Ringkasan matriks autentikasi
+  PART 2: ARSITEKTUR & ALUR REQUEST
+  PART 3: ROUTING, COMBO, FALLBACK, TRANSLATOR, RTK
+  PART 4: DATABASE, CLI PACKAGE, DEPLOYMENT, TEST
+  PART 5: TEMUAN / CELAH / DOC STALE
+
+================================================================================
+PART 1 — MEKANISME LOGIN / AUTENTIKASI  (FOKUS UTAMA)
+================================================================================
+
+9Router adalah PROXY lokal. Ada DUA arah autentikasi yang sering tertukar:
+
+  (A) Client (Claude Code, Codex, Cursor, Cline...)  --> 9Router : pakai API key
+  (B) 9Router                                        --> Provider (Anthropic,
+      OpenAI, AWS Kiro, GitHub Copilot, Google, dll) : 9Router yang login
+
+CLI TIDAK PERNAH LOGIN LANGSUNG KE PROVIDER. CLI cukup kasih endpoint + API key
+ke 9Router; semua kredensial provider hidup di dalam 9Router.
+
+--------------------------------------------------------------------------------
+1A. ARAH CLI/IDE -> 9Router
+--------------------------------------------------------------------------------
+
+1) Endpoint yang disetel ke CLI:  http://localhost:20128/v1
+   Port default: 20128 (docs/README) / 20127 (script dev root — beda, lihat PART 5).
+
+2) API KEY berformat machine-bound.
+   File: src/shared/utils/apiKey.js
+     Format : sk-{machineId16}-{keyId6}-{crc8}
+     crc8   : HMAC-SHA256(API_KEY_SECRET, machineId + keyId) di-slice 8 char
+              -> key "terikat mesin" dan tidak bisa dipalsukan tanpa secret.
+     parseApiKey() juga menerima format lama "sk-{random8}".
+   Validasi: src/sse/services/auth.js:364 isValidApiKey() -> apiKeysRepo.validateApiKey
+   Ekstraksi (src/sse/services/auth.js:345):
+     - header "Authorization: Bearer sk-..."   (OpenAI-style)
+     - header "x-api-key sk-..."               (Anthropic-style)
+   Catatan: kalau REQUIRE_API_KEY tidak aktif, validasi bisa dilewati (local dev).
+
+3) Dua token "mesin" lain yang dipakai untuk komunikasi internal:
+   - x-9r-cli-token  : machineId di-salt "9r-cli-auth"
+                       -> membolehkan proses CLI lokal mengakses API dashboard
+                          yang biasanya butuh session (src/dashboardGuard.js:7).
+   - PEER_TOKEN      : 24 random byte per-process (custom-server.js:13),
+                       dipublikasikan sebagai NINEROUTER_PEER_TOKEN; dipakai
+                       MITM <-> server sebagai header x-9r-peer-token
+                       (di-strip custom-server.js:66-69 sebelum masuk Next).
+
+4) "Pemasangan" CLI ditulis OTOMATIS oleh dashboard (halaman CLI Tools).
+   Pola semua route: GET = deteksi & lapor, POST = merge HANYA field 9router,
+   DELETE = hapus HANYA field 9router (tidak pernah merusak config user).
+
+   a. Claude Code  -> src/app/api/cli-tools/claude-settings/route.js
+      Tulis ~/.claude/settings.json :
+         env.ANTHROPIC_BASE_URL = "http://localhost:20128/v1"  (selalu diakhiri /v1)
+         env.ANTHROPIC_AUTH_TOKEN = "sk-..."  (token lama user TIDAK ditimpa)
+         hasCompletedOnboarding = true
+         CLAUDE_CODE_AUTO_COMPACT_WINDOW (opsional)
+      Tulis ~/.claude.json : merge mcpServers (plugin "exa") -- disimpan di sini
+      karena Claude Code membaca mcpServers dari ~/.claude.json, bukan settings.json.
+      Reset menghapus 7 key env (RESET_ENV_KEYS).
+
+   b. OpenAI Codex -> src/app/api/cli-tools/codex-settings/route.js
+      Tulis ~/.codex/config.toml (pakai pustaka confbox, edit terstruktur):
+         model_provider = "9router"
+         [model_providers.9router]
+           base_url   = "http://localhost:20128/v1"
+           wire_api   = "responses"
+           http_headers.Authorization = "Bearer sk-..."
+         agents.default_subagent_model = ...
+      Alasan header statik: provider custom di Codex mengabaikan auth.json,
+      jadi API key harus dikirim sebagai header tetap.
+      DELETE hanya berlaku jika model_provider masih "9router".
+
+   c. Route sejenis: opencode, cline, copilot, kilo, droid, crush, grok-build,
+      openclaw, hermes, devin, deepseek-tui, jcode, forge, omp, pi, smelt,
+      cowork, codewhale, deepseek... (lihat src/app/api/cli-tools/*).
+
+5) CLI launcher `9router connect <url>` (cli/src/cli/commands/connect.js):
+   - login ke 9Router remote memakai password dashboard,
+   - membuat/memakai ulang API key bernama "cli-<hostname>",
+   - menulis config semua tool CLI (backup dulu jd *.bak-9router).
+
+--------------------------------------------------------------------------------
+1B. ARAH 9ROUTER -> PROVIDER  (bagaimana 9Router login ke provider lain)
+--------------------------------------------------------------------------------
+
+Enam jalur. Poin B3 adalah trik utamanya.
+
+--- B1. OAuth authorization_code + PKCE (login normal) -----------------------
+
+Registrasi 25 provider (src/lib/oauth/providers/index.js:34-60):
+  claude, codex, xai, grok-cli, muse, gemini-cli, antigravity, iflow, qoder,
+  qoder-cn, github, kiro, cursor, kimi, kilocode, cline, clinepass, gitlab,
+  codebuddy-cn, codebuddy-intl, kimchi, trae, windsurf, zed, glm
+
+API dinamis: src/app/api/oauth/[provider]/[action]/route.js
+  GET  : authorize | start-proxy | poll-status | stop-proxy | ide-status
+         | device-code
+  POST : register-session | exchange | poll | manual-code
+
+Alur (provider/index.js:91-147):
+  generateAuthData(name, redirectUri, meta)
+    -> generatePKCE()  (S256, src/lib/oauth/utils/pkce.js:8-39)
+    -> buildAuthUrl(config, redirectUri, state, codeChallenge)
+    -> user membuka authUrl di browser, authorize, kembali ke /callback
+       (src/app/callback/page.js)
+  exchangeTokens(name, code, redirectUri, codeVerifier, state, meta)
+    -> provider.exchangeToken(...)   -> token JSON
+    -> provider.postExchange(tokens) -> data tambahan (akun info, mint key, dll)
+    -> provider.mapTokens(tokens, extra) -> { accessToken, refreshToken,
+       expiresIn, ... providerSpecificData }
+    -> disimpan sebagai baris baru di tabel providerConnections.
+
+  flowType per provider: "authorization_code_pkce" | "device_code" | lainnya.
+  Pengecualian khusus (providers/index.js:96-125):
+    - Trae pakai loginTraceID sbg state callback, bukan PKCE state.
+    - Zed : codeVerifier membawa private key RSA encoded (bukan PKCE verifier),
+            config.systemId ikut di-thread sampai ke penyimpanan connection.
+    - "start-proxy"/"poll-status": untuk provider yang mewajibkan redirect ke
+      loopback port tetap (fixedPort), 9Router menjalankan auth proxy lokal
+      (src/lib/oauth/utils/server.js, 37.9KB) untuk menangkap callback.
+
+  Contoh konkret Claude (src/lib/oauth/providers/claude.js):
+    buildAuthUrl -> https://claude.ai/oauth/code/authorize ?
+      code=true & client_id=<milik Claude Code> & response_type=code
+      & redirect_uri & scope & code_challenge & code_challenge_method=S256 & state
+    exchangeToken -> POST tokenUrl JSON { code, state, grant_type:
+      "authorization_code", client_id, redirect_uri, code_verifier }
+    -> mapTokens -> { accessToken, refreshToken, expiresIn, scope }
+  Artinya: 9Router memakai client_id milik CLI resmi, sehingga login user
+  menghasilkan token berlangganan (Pro/Max) yang sah.
+
+--- B2. Device Code flow -----------------------------------------------------
+
+  requestDeviceCode() / pollForToken() (providers/index.js:152-220).
+  Polling sampai access_token muncul; "authorization_pending"/"slow_down"
+  bukan kegagalan. Setelah dapat token -> postExchange() untuk data tambahan.
+  Contoh: Kiro (AWS Builder ID / IDC), GitHub Copilot.
+  Pasca-success khusus Kiro: fetchKiroProfileArn(accessToken) kalau
+  profileArn kosong -> mencegah 403 (providers/index.js:192-196).
+  Kegagalan postExchange ditandai fatal:true karena device code one-shot.
+
+--- B3. IMPORT kredensial dari CLI/IDE yang SUDAH LOGIN di mesin  -------------
+  >>> INI JAWABAN UTAMA: 9Router tidak login sendiri, ia MENGAMBIL
+  >>> kredensial yang sudah dimiliki tools lain di mesin lokal. <<<
+  (Semua route auto-import dilindungi ALWAYS_PROTECTED di dashboardGuard.js:41-49
+   -> wajib session dashboard, tidak bisa diakses dari jaringan.)
+
+  a) KIRO  src/app/api/oauth/kiro/auto-import/route.js
+     - Baca direktori ~/.aws/sso/cache/ (Kiro IDE menyimpan SSO cache di sini).
+     - Cari file "kiro-auth-token.json" dulu, kalau tidak ada telusuri semua
+       *.json sampai ketemu refreshToken dengan prefix "aorAAAAAG".
+     - Untuk token IDC/organisasi: resolve clientId + clientSecret dari file
+       client registration yang dirujuk tokenData.clientIdHash (agar refresh
+       token bisa jalan).
+     - Pesan error kalau gagal: "Please login to Kiro IDE first."
+       -> ketergantungan eksplisit: user cukup login SEKALI di Kiro IDE.
+
+  b) CURSOR src/app/api/oauth/cursor/auto-import/route.js
+     - Baca SQLite "state.vscdb" milik Cursor:
+         mac    ~/Library/Application Support/Cursor/User/globalStorage/state.vscdb
+         win    %APPDATA%\Cursor\User\globalStorage\state.vscdb
+         linux  ~/.config/Cursor/User/globalStorage/state.vscdb
+     - Ambil key "cursorAuth/accessToken", "cursorAuth/token", machine-id keys.
+     (Ada juga cursor/import route untuk impor manual.)
+
+  c) CODEX src/app/api/oauth/codex/import-token + bulk-import
+     - Terima accessToken dari ~/.codex/auth.json (hasil login CLI Codex user),
+       bisa array / single / {accounts:[]} untuk multi-akun.
+     - Bulk import dijalankan SERIAL karena createProviderConnection membaca
+       max(priority) di dalam transaksi. Token tidak pernah di-echo balik.
+     - extractCodexAccountInfo(idToken) mengekstrak email + chatgptAccountId +
+       planType (backfill otomatis di providers/index.js:226-257).
+
+  d) Lainnya: zed/auto-import, xiaomi-mimo/auto-import, grok-cli/bulk-import,
+     kiro/import (manual), kiro/import-cli-proxy, kiro/api-key,
+     iflow/cookie (impor cookie browser), gitlab/pat (personal access token),
+     kiro/social-authorize + social-exchange (login via Google/GitHub),
+     cursor/auto-import.
+     Pola "auto-import" = deteksi file config lokal -> ekstrak token ->
+     buat providerConnections baris -> OAuth refresh ditangani 9Router.
+
+--- B4. API key manual --------------------------------------------------------
+  Provider berbayar (GLM, MiniMax, Kimi, OpenAI, Anthropic, DeepSeek, Groq,
+  xAI, Mistral, Azure, OpenRouter, dll) -> user menempel API key di dashboard.
+  Disimpan di kolom `data` JSON tabel providerConnections (authType "apikey").
+  Multi-akun per provider didukung: beberapa connection utk provider sama.
+
+--- B5. No-auth provider (OpenCode Free) --------------------------------------
+  src/sse/services/auth.js:47-71
+  Provider "noAuth" dibuatkan connection sintetis { id:"noauth",
+  accessToken:"public" } + otomatis memilih IP dari proxy pool bila ada.
+  Tidak perlu login sama sekali.
+
+--- B6. MITM Bridge (memakai langganan IDE TANPA OAuth) ------------------------
+  src/mitm/ (manager.js 32KB, server.js 15.9KB, handlers/*)
+  Ide: intercept trafik HTTPS lokal dari IDE (Antigravity, GitHub Copilot,
+  Kiro IDE, Cursor) lalu alihkan ke 9Router.
+
+  Mekanisme:
+   1. Generate local Root CA (node-forge/selfsigned) -> src/mitm/cert/
+      (generate.js, rootCA.js, install.js) -> dipasang ke trust store sistem.
+   2. Override DNS utk target host (src/mitm/dns/dnsConfig.js):
+        daily-cloudcode-pa.googleapis.com / cloudcode-pa.googleapis.com  (Antigravity)
+        api.individual.githubcopilot.com                                 (Copilot)
+        runtime.us-east-1.kiro.dev / q.us-east-1... / codewhisperer...   (Kiro)
+        api2.cursor.sh                                                   (Cursor)
+   3. HTTPS server lokal port 443 (Windows fallback 8443) dengan SNI callback
+      -> decrypt -> hanya "chat request" yang di-rewrite
+      (isChatRequest() punya case khusus Kiro via header x-amz-target),
+      selain itu dipassthrough utuh.
+   4. Request diubah & dikirim ke 9Router (src/mitm/handlers/base.js:19-37):
+        STRIP_HEADERS membuang "authorization" milik IDE
+        -> mengganti dengan Authorization: Bearer ${ROUTER_API_KEY}
+        -> POST http://localhost:20128/v1/chat/completions
+   5. Respons di-pipe balik sebagai SSE (base.js:43+ pipeSSE) sehingga IDE
+      merasa sedang bicara dgn vendor asli.
+   6. Proteksi loopback: header "x-request-source: local" (server.js:21),
+      health check GET /_mitm_health, PID+LOCK file, restart max 5x dgn
+      backoff [5s,10s,20s,30s,60s], password di-encrypt AES-256-GCM.
+
+  HASIL AKHIR: kredensial yang dipakai utk memberi jawaban adalah milik
+  9Router (route B1-B5), bukan token IDE yang di-strip. IDE hanya menjadi
+  "pintu masuk". (Catatan kebijakan ToS masing-masing tool tetap berlaku.)
+
+--- B7. Refresh token: bagaimana login tetap hidup -----------------------------
+
+  Tiga lapis:
+
+  (1) PROAKTIF per-request — src/sse/services/tokenRefresh.js:224
+      checkAndRefreshToken(provider, credentials) dipanggil di account loop
+      (src/sse/handlers/chat.js:255) SEBELUM request dikirim.
+      - Buffer kadaluarsa 5 menit (open-sse/services/tokenRefresh.js:43),
+        lead per-provider via getRefreshLeadMs().
+      - Penting: sebelum refresh, credential "mengadopsi" refresh token
+        terbaru dari DB (open-sse RT disimpan; OpenAI mencabut seluruh sesi
+        kalau refresh token dipakai dua kali) — tokenRefresh.js:230-247.
+      - Single-flight lock per "provider:connectionId" (oauthCredentialManager
+        .js:134-147) -> refresh paralel tidak duplikat.
+      - mergeRefreshedCredentials() menghitung ulang expiresAt +
+        lastRefreshAt.
+
+  (2) BACKGROUND scheduler — src/sse/services/backgroundTokenRefresh.js
+      Interval tiap 5 menit, delay awal 10s, lead 30 menit
+      (BACKGROUND_REFRESH_LEAD_MS). Kandidat: authType "oauth" + punya
+      refreshToken + expiry dalam max(providerLead, 30menit).
+      - Dijalankan SEKUENSIAL + jitter utk tidak membanjiri Google
+        (antigravity/gemini-cli: 12s + 0-4s; lainnya 1.5s + 0.2s).
+      - Fail-open per koneksi; dimatikan via DISABLE_BACKGROUND_TOKEN_REFRESH
+        atau saat build/edge runtime.
+
+  (3) REAKTIF di pipeline — open-sse/handlers/chatCore.js:424-469
+      HTTP 401/403 dari upstream -> refreshWithRetry(executor.refreshCredentials, 3)
+      -> mutasi credential di tengah retry (utk provider rotasi RT)
+      -> 1x percobaan execute ulang. Baru kalau masih gagal -> fallback akun.
+
+  Registry refresh: open-sse/services/tokenRefresh.js:135-160 REFRESH_HANDLERS
+  untuk gemini-cli, antigravity, claude, codex, iflow, github, kiro, xai,
+  grok-cli, gcli, codebuddy-cn/intl, trae, cline, clinepass, zed, windsurf,
+  kimi, vertex/vertex-partner (mint JWT service-account sendiri).
+  Executor-side grant: open-sse/executors/default.js:52-67 (JSON vs form encoding,
+  refreshIflow/Kiro/Cline/Kimi/Kilocode).
+  Codex punya maxRefreshAgeMs = 8 hari (refresh paksa walau belum expired).
+
+  Quota yang memicu fallback login-berikutnya:
+  - open-sse/services/usage/* (claude, codex, google, github, kiro, kimi, grok,
+    glm, deepseek, groq, minimax, zed, ...). Claude: endpoint OAuth utama +
+    User-Agent "claude-cli/<ver> (external, cli)" + cache 5 menit/token +
+    cooldown 180s sesudah 429 di endpoint quota.
+  - antigravityQuota.js: circuit breaker "3 strike 409/429 dalam 60 detik ->
+    blokir 15 menit" + cache {remainingPercentage, resetAt} yang dibaca oleh
+    pre-filter auth (auth.js:92-99) supaya akun habis dilewati tanpa request.
+
+--------------------------------------------------------------------------------
+1C. LOGIN DASHBOARD (UI web 9Router sendiri)
+--------------------------------------------------------------------------------
+  - Session: JWT HS256, 24 jam (src/lib/auth/dashboardSession.js).
+    Secret: env JWT_SECRET -> file DATA_DIR/jwt-secret -> generate random 32B
+    (mode 0o600). Cookie httpOnly, sameSite=lax.
+  - Password: bcrypt vs settings.password, fallback INITIAL_PASSWORD || "123456".
+  - Login limiter per-IP (loginLimiter.js) -> 429 + Retry-After.
+  - SSO: OIDC (auth/oidc/start|callback|test) dan SAML (auth/saml/start|acs|metadata|test).
+  - Remote default-password lockout (auth/login/route.js:67-88): instalasi baru,
+    tidak ada hash, tidak ada INITIAL_PASSWORD, request dari luar lokal ->
+    403 mustChangePassword, JWT TIDAK diterbitkan. Merujuk CVE-2026-56679
+    (JWT valid memperbolehkan attacker PATCH /api/settings & mematikan auth).
+  - Gerbang tunnel: login ditolak kalau Host cocok settings.tunnelUrl/
+    tailscaleUrl tapi tunnelDashboardAccess !== true.
+  - Path guard: src/dashboardGuard.js — PUBLIC_PREFIXES =
+    /v1, /v1beta, /api/v1, /api/v1beta, /codex, /responses (endpoints API
+    selalu terbuka utk API key), ALWAYS_PROTECTED = shutdown, settings/database,
+    version/update, oauth auto-import.
+
+--------------------------------------------------------------------------------
+1D. MATRIKS RINGKAS AUTENTIKASI
+--------------------------------------------------------------------------------
+  Siapa -> Siapa        Mekanisme                          File kunci
+  ---------------------  ---------------------------------  --------------------
+  CLI -> 9Router         API key sk-machine-crc + Bearer    shared/utils/apiKey.js
+  CLI -> 9Router local   x-9r-cli-token (machineId salted)  dashboardGuard.js
+  MITM -> 9Router        ROUTER_API_KEY + PEER_TOKEN        mitm/handlers/base.js
+  9Router -> Provider A  OAuth PKCE / device code           lib/oauth/providers/*
+  9Router -> Provider B  Curi/pinjam token dari CLI IDE     api/oauth/*/auto-import
+  9Router -> Provider C  API key tempelan (40+ provider)    providerConnections.data
+  9Router -> Provider D  tanpa auth (synthetic "noauth")    sse/services/auth.js
+  Browser -> Dashboard   JWT HS256 + bcrypt (+OIDC/SAML)    lib/auth/dashboardSession
+  Proses <-> Proses      PEER_TOKEN per-process             custom-server.js:13
+
+================================================================================
+PART 2 — ARSITEKTUR & ALUR REQUEST
+================================================================================
+
+Dua artifact dalam satu repo (CLAUDE.md):
+  1. 9router-app  (root package.json, private) : gateway Next.js + dashboard
+  2. 9router      (cli/package.json)           : launcher CLI yang di-publish npm,
+                                                 membundel build standalone app
+
+Stack: Next.js 16 App Router, React 19, Tailwind 4, SQLite (adapter bisa
+diganti), Express 5 (custom server), ESM JavaScript murni (TIDAK TypeScript).
+
+Boot:
+  custom-server.js
+    -> PEER_TOKEN, strip header berbahaya, start background token refresh
+    -> Next (output standalone)
+  src/instrumentation.js -> console log capture, catalog source, model catalog sync
+  src/app/layout.js -> bootstrap.js -> initializeApp.js
+       (STARTUP_DEFER_MS 3000; lewati saat NEXT_PHASE build)
+  Port: 20128 dashboard/API, 20129 updater, 8787 headroom, 443/8443 MITM.
+
+ALUR SATU REQUEST CHAT (jalur utama):
+  CLI POST /v1/chat/completions  (atau /v1/messages — dua-duanya -> handleChat)
+  1. src/app/api/v1/chat/completions/route.js : initTranslators(); handleChat()   (~30 baris, thin)
+  2. src/sse/handlers/chat.js:34 handleChat
+       - strip marker konteks Claude Code "[1m]"
+       - requireApiKey
+       - bypass warmup/probing (tidak membakar slot rotasi)
+       - detectRequiredCapabilities(body) -> {vision,pdf,audioInput,videoInput}
+       - kalau nama model = combo -> handleComboChat / handleFusionChat
+       - kalau bukan combo -> handleSingleModelChat
+  3. ACCOUNT LOOP (chat.js:235-343)
+       getProviderCredentials -> checkAndRefreshToken -> handleChatCore
+       gagal? markAccountUnavailable (cooldown/model lock) -> exclude -> ulang
+  4. open-sse/handlers/chatCore.js:63 handleChatCore  (inti pipeline)
+       detectFormat -> targetFormat (transport > model targetFormat > provider)
+       -> RTK khusus cursor (pre-translate) -> translateRequest (source -> openai -> target)
+       -> dedupeTools -> RTK / Headroom / Caveman / Ponytail / PXPIPE (semua fail-open)
+       -> anchorClaudeCache -> getExecutor(provider).execute()
+       -> 401/403: refreshWithRetry + 1 retry
+       -> streamingHandler / nonStreamingHandler: translateResponse per chunk SSE
+       -> saveUsageStats / requestDetail
+  5. Respons SSE diterjemahkan balik ke FORMAT ASAL client.
+
+Endpoint OpenAI-compatible yang disediakan (src/app/api/v1/*):
+  chat/completions, messages (+count_tokens), responses(+compact), models
+  (+info, +[...model]), embeddings, images/generations, audio/speech,
+  audio/transcriptions, audio/voices, search, web/fetch, systemone,
+  videos/(generations|edits|extensions|id). Ada juga /v1beta.
+  -> "9 Service Kinds": chat, embedding, TTS, STT, image, vision, video,
+     web search, web fetch.
+
+================================================================================
+PART 3 — ROUTING, COMBO, FALLBACK, TRANSLATOR, RTK
+================================================================================
+
+3.1 MODEL NAMING
+  Format: <prefix>/<model>  contoh: kr/claude-sonnet-4.5, cc/claude-opus-4-7,
+  glm/glm-4.7, oc/<auto>, cu/composer-2.5.
+  open-sse/services/model.js — parseModel() -> {provider, model}.
+  Kalau TIDAK ada "/" -> cek COMBO dulu (src/sse/services/model.js:71-76
+  mengembalikan provider:null sebagai sinyal "ini combo") -> baru alias ->
+  baru inferensi prefix regex (MODEL_PREFIX_PROVIDERS: gpt-* -> codex/openai,
+  claude-* -> anthropic, gemini-* -> gemini, deepseek-* -> openrouter).
+  User-defined provider node boleh bikin prefix sendiri kecuali
+  RESERVED_PROVIDER_PREFIXES (node bernama "openai" tidak bisa membajak builtin).
+
+3.2 FALLBACK (4 tingkat)
+  L0 model string -> combo / single / capacity-adapter
+  L1 MODEl dalam combo (open-sse/services/combo.js:280-382):
+     - rotasi round-robin dgn stickyLimit (state in-memory comboRotationState)
+     - reorderByCapabilities menstabil-kan urutan: model dgn capability lengkap
+       ke tier 0, hard-cap saja tier 1, sisanya tier 2 (model tidak pernah dibuang)
+     - cek error dgn checkFallbackError -> {shouldFallback, cooldownMs}
+     - 502/503/504 transient cooldown <=5s -> tidur dulu lalu coba berikutnya
+     - semua gagal -> 503 / status terakhir + retryAfter terkecil
+     Fusion strategy: fan-out paralel non-streaming -> panel quorum + grace
+     -> kalau >=2 jawaban -> panggil JUDGE LLM utk menyintesis (combo.js:547-625)
+  L1b capacity adapter: kalau tak ada model dgn modality yang diminta -> tambah
+     model pool + strip history sesuai context window adapter
+  L2 AKUN dalam satu provider (sse/services/auth.js getProviderCredentials):
+     strategi preferredConnectionId -> round-robin -> fill-first (priority).
+     Filter: exclude, model lock (modelLock_<model>/modelLock___all), codex
+     enabledModels, antigravity quota cache. Selector dijaga MUTEX.
+  L3 KLASIFIKASI ERROR (open-sse/services/accountFallback.js + config/errorConfig.js):
+     rules teks dulu baru status; 4xx selain 401/402/403/429 -> TIDAK fallback
+     (error per-request, mendingin akun justru menyembunyikan penyebab);
+     selain itu -> cooldown transient, bisa exponential backoff sampai batas.
+
+  PENTING: "3-tier Subscription -> Cheap -> Free" yang dipromosikan di README
+  adalah MEKANISME DOKUMEN/URUTAN COMBO MILIK USER, bukan kode. Grep
+  costTier/priceTier/PROVIDER_TIER tidak ada. Tiering terealisasi lewat
+  urutan combo + fallback akun + kategori registry ("free"|"freeTier"|"apikey"|"oauth").
+
+3.3 TRANSLATOR (open-sse/translator/)
+  Format (formats.js): openai, openai-responses, openai-response, claude,
+  gemini, gemini-cli, vertex, codex, antigravity, kiro, cursor, ollama, commandcode.
+  Desain PIVOT: request = source -> openai -> target; response = target -> openai
+  -> source. Kalau ada route langsung terdaftar (mis. claude:kiro) dipakai
+  langsung (hindari double-hop yang lossy).
+  Registrasi = side-effect import di bawah translator/index.js:308-329
+  (12 modul request, 11 response). ATURAN: file translator baru WAJIB diimport
+  di index.js kalau tidak, tidak akan pernah jalan.
+  concerns/ : thinkingUnified, toolCall, finishReason, modality, prefetch,
+  paramSupport, reasoning, message, chunk, json, image, usage, kiroConversation.
+  schema/ : roles, finishReasons, blocks (jangan hardcode string role/blok).
+  Normalisasi pre: stripContentTypes, normalizeThinkingConfig, ensureToolCallIds,
+  fixMissingToolResponses, captureThinking, captureSessionId.
+  Post: filterToOpenAIFormat / prepareClaudeRequest+ensureTrailingUserTurn /
+  tool cloaking utk provider OAuth (sk-ant-oat) + restore di response.
+  Native passthrough: kalau client & provider satu ekosistem -> TIDAK
+  ditranslasi sama sekali (chatCore.js:166-204).
+
+3.4 RTK TOKEN SAVER (open-sse/rtk/)
+  Hanya mengompres ISI tool_result (git diff, grep, ls, tree, log...) — tidak
+  pernah prose user/assistant. Deteksi otomatis dgn melihat 1KB pertama
+  (DETECT_WINDOW=1024). Filters: buildOutput, dedupLog, find, gitDiff, gitLog,
+  gitStatus, grep, ls, readNumbered, searchList, smartTruncate, tree.
+  Guard: safeApply -> apapun error = teks asli dikembalikan (fail-open),
+  tidak boleh menghasilkan output kosong/bertambah besar, skip < MIN_COMPRESS
+  atau > RAW_CAP. is_error dipertahankan.
+  Pemicu: pre-translate khusus cursor, post-translate utk sisanya, matikan per
+  request dgn header X-9Router-Token-Saver: off.
+  Saudara (semua fail-open): headroom (proxy kompresi eksternal /v1/compress
+  port 8787), caveman (hemat output sampe 65%), ponytail (prompt lazy senior dev),
+  pxpipe (kompresi konteks gambar, mode library in-process).
+
+3.5 PROVIDER REGISTRY (open-sse/providers/)
+  ~130 file provider, registry/index.js AUTO-GENERATED (jangan diedit tangan;
+  pakai scripts/migrate-registry.mjs / injectDisplayToRegistry.mjs).
+  Tiap entry: id, alias, aliases, category, format, baseUrl, auth, headers,
+  quirks, transports[], oauth{clientId,tokenUrl,refresh,maxRefreshAgeMs}, usage.
+  capabilities.js (667 baris): fallback urutan provider->model->pattern->default,
+  overlay models.dev + heuristik nama. default: contextWindow 200000,
+  maxOutput 64000.
+  Executors: open-sse/executors/ — DefaultExecutor + khusus antigravity, azure,
+  codex, cursor, gemini-cli, github, grok-cli, iflow, kiro, opencode-go, vertex,
+  windsurf, zed. Upstream binary/protobuf (kiro EventStream, cursor protobuf,
+  commandcode NDJSON) ditangani di executor, bukan translator.
+
+================================================================================
+PART 4 — DATABASE, CLI, DEPLOYMENT, TEST
+================================================================================
+
+4.1 DATABASE SQLite (src/lib/db/)
+  File: ${DATA_DIR}/db/data.sqlite  (DATA_DIR = env | %APPDATA%\9router | ~/.9router)
+  Driver chain (driver.js): bun:sqlite -> better-sqlite3 (optionalDependencies,
+  dilewati di Node >=24) -> node:sqlite (Node >=22.5) -> sql.js (WASM fallback).
+  Semua adapter punya surface sama {run,get,all,exec,transaction,checkpoint,close}.
+  PRAGMA: WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000.
+  Tabel: _meta, settings, providerConnections, providerNodes, proxyPools,
+  apiKeys, combos, kv, usageHistory, usageDaily, requestDetails.
+  Pola: 2 kolom data nyata + 1 kolom `data` TEXT JSON -> migrasi additive jarang perlu.
+  Migrasi: migrate.js (backup praperubahan saat SCHEMA_VERSION naik, import
+  sekali dari JSON legacy, syncSchema additive). Repository pattern wajib —
+  jangan panggil Prisma/SQL langsung dari bisnis.
+  Shim lama: src/lib/localDb.js, usageDb.js, disabledModelsDb.js, requestDetailsDb.js
+  tetap re-export (codebase lama tidak perlu diubah).
+
+4.2 COMBO
+  Tabel combos: name UNIQUE, kind, models JSON. API: api/combos (GET/POST),
+  /combos/[id] (GET/PUT/DELETE) — PUT/DELETE selalu resetComboRotation() supaya
+  kursor rotasi tidak basi. Presets (src/lib/comboPresets.js) membuat combo
+  dgn nama = ID model native client (mis. "claude-sonnet-5") berisi
+  "cc/claude-sonnet-5" -> CLI bisa menyebut nama aslinya tanpa prefix.
+
+4.3 CLI PACKAGE (cli/)
+  npm "9router" = launcher: kill proses lama -> spawn cli/app (server hasil
+  build standalone, --max-old-space-size=6144) -> cek update -> menu:
+  Update / Web UI / Terminal UI / Hide to Tray / Exit.
+  Crash self-heal: max 2 restart dgn backoff; gagal lagi -> MITM dimatikan
+  otomatis (settings.mitmEnabled=false di DB).
+  Subcommand: `9router connect <url>` dan `9router xai video`.
+  Terminal UI (cli/src/cli/terminalUI.js) memanggil HTTP API gateway.
+  Tray: Windows pakai PowerShell NotifyIcon, mac/linux systray2 + binary
+  arm64 yang di-pin sha256 (CI tray-binaries.yml menolak kalau sha beda).
+  Build (scripts/build-cli.js): sync versi -> next build -> salin standalone
+  ke cli/app -> bundle sql.js + open, STRIP better-sqlite3 (native dipasang di
+  ~/.9router/runtime utk hindari EBUSY saat update global).
+
+4.4 DEPLOYMENT
+  Localhost: npm i -g 9router -> port 20128.
+  Docker: node:22-alpine multi-stage, non-root, image decolua/9router &
+  ghcr.io/decolua/9router, volume $DATA_DIR, sidecar Headroom di compose.
+  VPS: build + PM2 + Nginx + Let's Encrypt (gitbook deployment/cloud.md).
+  Build produksi butuh swap 2GB sementara + MAKEFLAGS=-j1 (build native berat).
+  Cloudflare Workers: DISEBUT di README tapi script/deploy & folder cloud/
+  TIDAK ADA di repo ini (lihat PART 5).
+
+4.5 TEST (tests/ — paket terpisah)
+  Vitest 4, alias open-sse/ -> ../open-sse dan @/ -> ../src.
+  328 file *.test.js: unit 293, translator 34 (termasuk golden snapshot +
+  20 file bugs-*.test.js regresi bernomor issue), auth 1.
+  Jalankan: install root dulu -> cd tests -> npm install -> npx vitest run.
+  Suite tidak semuanya hijau (~938 pass / ~64 fail) -> pakai gate
+  tests/__baseline__/verify-no-regression.mjs dgn known-fails.txt (24 entri).
+  Baseline lain: verify-providers / verify-alias / verify-oauth-urls
+  (snapshot byte-to-byte utk registry).
+  TIDAK ADA job test di CI (hanya docker-publish, gitbook-pages, tray-binaries).
+
+4.6 YANG LAIN
+  Tunnel: Cloudflare (cloudflared) & Tailscale funnel + watchdog.
+  Proxy pools: deploy relay ke Vercel/Cloudflare/Deno, rotasi IP.
+  Headroom: proxy kompresi Python eksternal (port 8787), fail-open.
+  pxpipe: library in-process, loader dengan cache-bust ?v=<version>.
+  Updater: proses Node detached (port 20129) yang menjalankan `npm i -g`
+  sesudah app mati, lalu buka browser lagi.
+  Observability: requestDetailsRepo (buffer 20 baris, flush 5s, max 200 record,
+  header authorization/x-api-key/cookie/token DIHAPUS sebelum disimpan,
+  default ON kecuali OBSERVABILITY_ENABLED=false) + consoleLogBuffer.
+  Skills: skills/*/SKILL.md — definisi tool siap-pakai utk agent LLM
+  (chat/image/video/tts/stt/embeddings/web-search/web-fetch) yang menunjuk
+  ke REST endpoint 9Router via URL raw GitHub.
+
+================================================================================
+PART 5 — TEMUAN, CELAH, DAN DOKUMEN YANG BASI
+================================================================================
+
+1. docs/ARCHITECTURE.md masih menyebut persistensi "db.json" — padahal sudah
+   SQLite (CLAUDE.md menyatakan SQLite yang berlaku). GitBook juga basi.
+2. Deploy Cloudflare Workers dipromosikan di README/FAQ tapi tidak ada di repo
+   (script deploy:cloudflare & folder cloud/ absen; test embeddings.cloud
+   selalu gagal di checkout ini).
+3. Port default tidak konsisten: script root pakai 20127, semua docs 20128.
+4. DOCKER.md merujuk scripts/release.js yang tidak ada.
+5. tests/README.md hanya membahas suite embeddings lama (59 test) padahal
+   kini 328 file.
+6. "3-tier auto fallback" adalah fitur urutan combo + fallback akun, bukan
+   pemilih tier biaya otomatis di kode.
+7. State routing (comboRotationState, refreshLocks, quotaCache, selectionMutex,
+   usageCache) semuanya IN-MEMORY per-proses -> asumsi single-process;
+   scale horizontal akan merusak stickiness/cooldown.
+8. Default password "123456" + lockout remote sengaja (CVE-2026-56679) —
+   deployment publik wajib ganti INITIAL_PASSWORD/JWT_SECRET.
+9. API key mengandung machineId + HMAC; API_KEY_SECRET & MACHINE_ID_SALT
+   harus di-set di produksi.
+10. Regex nama combo diduplikat 3× (api/combos/route.js:7, [id]/route.js:6,
+    comboPresets.js:10) — rawan drift.
+11. Keamanan MITM: memasang Root CA sistem dan membaca trafik IDE lokal.
+    Ini area sensitif baik secara teknis maupun kebijakan pemakaian tiap vendor.
+
+--------------------------------------------------------------------------------
+KESIMPULAN SINGKAT (bagian login)
+--------------------------------------------------------------------------------
+9Router "bisa login ke CLI/provider lain" lewat empat strategi bertingkat:
+  (1) Meniru login OAuth resmi tiap vendor (PKCE/device-code) memakai
+      client_id milik CLI resmi -> token langganan sah.
+  (2) MENGAMBIL token yang SUDAH tersimpan di mesin user dari cache
+      Kiro (~/.aws/sso/cache), Cursor (state.vscdb), Codex (auth.json),
+      iFlow (cookie), dsb — inilah cara termurah & paling umum.
+  (3) Menerima API key tempelan utk 40+ provider berbayar.
+  (4) Menyamar sebagai endpoint lokal bagi CLI (endpoint + API key terikat
+      mesin) sehingga CLI cukup "login" ke 9Router sekali, dan 9Router yang
+      mengurus semua kredensial, refresh, quota, dan fallback di belakangnya.
+
+================================================================================
+END OF REPORT
+================================================================================
