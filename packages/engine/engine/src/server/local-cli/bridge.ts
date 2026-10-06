@@ -4,6 +4,9 @@ import os from "node:os"
 import path from "node:path"
 import crossSpawn from "cross-spawn"
 import { checkClaudeStatus, resolveAgyCommand, getOpenCodeGroqKey } from "./detector"
+import { readCodexCredential, readClaudeCredential } from "./harvester.js"
+import { streamDirectCodexCompletion, streamDirectAnthropicCompletion } from "./upstream.js"
+import { scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -786,6 +789,8 @@ class LocalCliBridge {
         // Pre-warm Antigravity and OpenCode daemon workers on bridge start
         this.agyDaemon.prewarm()
         this.openCodeDaemon.ensureServer().catch(() => {})
+        // Schedule background token refresh
+        scheduleBackgroundRefresh()
         resolve(true)
       })
     })
@@ -794,6 +799,7 @@ class LocalCliBridge {
   public stop(): Promise<void> {
     this.agyDaemon.stop()
     this.openCodeDaemon.stop()
+    stopBackgroundRefresh()
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
@@ -1027,6 +1033,21 @@ class LocalCliBridge {
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
 
+    // ── Fast-Path: Direct Codex / ChatGPT Responses API ──
+    const isOpenAIFamily =
+      /^(gpt-|o[1-9]|codex)/.test(requestedModel) && !isOpenCodeModel && !is9RouterModel
+    if (isOpenAIFamily) {
+      const codexCred = readCodexCredential()
+      if (codexCred?.accessToken) {
+        const ok = await streamDirectCodexCompletion(payload, res, codexCred)
+        if (ok) {
+          console.info(`[FastPath] codex direct stream completed for model: ${payload.model}`)
+          return
+        }
+        console.warn("[FastPath] codex direct stream pre-flight failed, falling back")
+      }
+    }
+
     // ── Google Antigravity CLI (agy) Persistent Daemon ───
     if (isAntigravity) {
       const directive =
@@ -1057,6 +1078,17 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
     // Append tools directive to systemPrompt for Claude Code as well
     if (toolsDirective) {
       systemPrompt += (systemPrompt ? "\n" : "") + toolsDirective
+    }
+
+    // ── Fast-Path: Direct Anthropic Messages API ─────────
+    const claudeCred = readClaudeCredential()
+    if (claudeCred?.accessToken) {
+      const ok = await streamDirectAnthropicCompletion(payload, res, claudeCred)
+      if (ok) {
+        console.info(`[FastPath] claude direct stream completed for model: ${payload.model}`)
+        return
+      }
+      console.warn("[FastPath] claude direct stream pre-flight failed, falling back to claude -p")
     }
 
     // ── Claude Code CLI Handler ──────────────────────────
