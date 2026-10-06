@@ -644,7 +644,7 @@ class LocalCliBridge {
                 { id: "groq/openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
                 { id: "openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
                 { id: "opencode/big-pickle", object: "model", owned_by: "opencode" },
-                { id: "9router/ComboMaut", object: "model", owned_by: "opencode" },
+                { id: "9router/ComboMaut", object: "model", owned_by: "9router" },
               ],
             }),
           )
@@ -1037,10 +1037,10 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
     const rawModel = (payload.model || "").toLowerCase()
     const is9Router = rawModel.includes("9router") || rawModel.includes("combomaut")
 
-    // 1. Try 9Router gateway on port 20128 if 9Router model requested
+    // 1. 9Router gateway on port 20128 if 9Router model requested
     if (is9Router) {
       try {
-        const checkRes = await fetch("http://localhost:20128/v1/models", { signal: AbortSignal.timeout(600) })
+        const checkRes = await fetch("http://localhost:20128/v1/models", { signal: AbortSignal.timeout(800) })
         if (checkRes.ok) {
           const forwardRes = await fetch("http://localhost:20128/v1/chat/completions", {
             method: "POST",
@@ -1078,6 +1078,18 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
           }
         }
       } catch {}
+
+      // 9Router is offline on port 20128
+      res.writeHead(503, { "Content-Type": "application/json" })
+      res.end(
+        JSON.stringify({
+          error: {
+            message: "9Router Local Gateway is not running on http://localhost:20128. Please run '9router start' in terminal or click Launch in Arunaki Settings.",
+            type: "gateway_offline",
+          },
+        }),
+      )
+      return
     }
 
     // 2. OpenCode with Groq Integration (reads key from ~/.local/share/opencode/auth.json)
