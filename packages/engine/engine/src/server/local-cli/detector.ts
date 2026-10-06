@@ -476,7 +476,7 @@ export function launchTerminalWithCommand(cmd: string, title = "Arunaki CLI"): {
 }
 
 export function launchClaudeLoginTerminal(): { success: boolean; message: string } {
-  return launchTerminalWithCommand("claude", "Claude Code CLI")
+  return launchTerminalWithCommand("claude auth login --claudeai", "Claude Code CLI (Login)")
 }
 
 export async function getCliSupportedModels(target: string): Promise<string[]> {

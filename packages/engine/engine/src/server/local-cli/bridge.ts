@@ -113,11 +113,16 @@ class AntigravityDaemonWorker {
       if (this.spawnedModel === desiredModel) {
         return this.child
       }
-      try {
-        this.child.stdin?.end()
-        this.child.kill()
-      } catch {}
+      const oldChild = this.child
       this.child = null
+      try {
+        oldChild.removeAllListeners("close")
+        oldChild.removeAllListeners("error")
+        if (oldChild.stdout) oldChild.stdout.removeAllListeners("data")
+        if (oldChild.stderr) oldChild.stderr.removeAllListeners("data")
+        oldChild.stdin?.end()
+        oldChild.kill()
+      } catch {}
     }
 
     if (this.isStarting) {
@@ -159,19 +164,27 @@ class AntigravityDaemonWorker {
       )
 
       child.stdout?.on("data", (chunk: Buffer) => {
-        this.handleStdout(chunk)
+        if (this.child === child) {
+          this.handleStdout(chunk)
+        }
       })
 
       child.stderr?.on("data", (chunk: Buffer) => {
-        this.stderrBuffer += chunk.toString()
+        if (this.child === child) {
+          this.stderrBuffer += chunk.toString()
+        }
       })
 
       child.on("close", (code: number | null) => {
-        this.handleExit(code)
+        if (this.child === child) {
+          this.handleExit(code)
+        }
       })
 
       child.on("error", (err: any) => {
-        this.handleError(err)
+        if (this.child === child) {
+          this.handleError(err)
+        }
       })
 
       this.child = child
@@ -536,22 +549,32 @@ class AntigravityDaemonWorker {
 
   public recycle(): void {
     if (this.child) {
-      try {
-        this.child.stdin?.end()
-        this.child.kill()
-      } catch {}
+      const oldChild = this.child
       this.child = null
+      try {
+        oldChild.removeAllListeners("close")
+        oldChild.removeAllListeners("error")
+        if (oldChild.stdout) oldChild.stdout.removeAllListeners("data")
+        if (oldChild.stderr) oldChild.stderr.removeAllListeners("data")
+        oldChild.stdin?.end()
+        oldChild.kill()
+      } catch {}
     }
     this.prewarm()
   }
 
   public stop(): void {
     if (this.child) {
-      try {
-        this.child.stdin?.end()
-        this.child.kill()
-      } catch {}
+      const oldChild = this.child
       this.child = null
+      try {
+        oldChild.removeAllListeners("close")
+        oldChild.removeAllListeners("error")
+        if (oldChild.stdout) oldChild.stdout.removeAllListeners("data")
+        if (oldChild.stderr) oldChild.stderr.removeAllListeners("data")
+        oldChild.stdin?.end()
+        oldChild.kill()
+      } catch {}
     }
     this.currentTurn = null
     this.turnQueue = []
