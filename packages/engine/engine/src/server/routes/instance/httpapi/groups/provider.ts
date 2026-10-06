@@ -148,9 +148,62 @@ export const LocalCliStatus = Schema.Struct({
   }))),
   bridgePort: Schema.Number,
   bridgeRunning: Schema.Boolean,
+  discovered: Schema.optional(Schema.UndefinedOr(Schema.Array(Schema.Struct({
+    provider: Schema.String,
+    displayName: Schema.String,
+    type: Schema.String,
+    sourcePath: Schema.String,
+    accountEmail: Schema.optional(Schema.UndefinedOr(Schema.String)),
+    accountId: Schema.optional(Schema.UndefinedOr(Schema.String)),
+    expiresAt: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+    lastRefreshAt: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+    hasToken: Schema.Boolean,
+  })))),
 })
 
 export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
+
+export const LocalCliDiscoveredItem = Schema.Struct({
+  provider: Schema.String,
+  displayName: Schema.String,
+  type: Schema.String,
+  sourcePath: Schema.String,
+  accountEmail: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  accountId: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  expiresAt: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+  lastRefreshAt: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+  hasToken: Schema.Boolean,
+})
+
+export const LocalCliDiscoveredEnvelope = Schema.Struct({
+  data: Schema.Array(LocalCliDiscoveredItem),
+})
+
+export const LocalCliRefreshInput = Schema.Struct({
+  target: Schema.Literals(["claude", "codex", "kiro", "cursor", "all"]),
+})
+
+export const LocalCliRefreshResult = Schema.Struct({
+  data: Schema.Struct({
+    success: Schema.Boolean,
+    message: Schema.String,
+  }),
+})
+
+export const LocalCliInjectInput = Schema.Struct({
+  target: Schema.Literals(["claude", "codex", "all"]),
+  action: Schema.optional(Schema.UndefinedOr(Schema.Literals(["inject", "reset"]))),
+})
+
+export const LocalCliInjectResult = Schema.Struct({
+  data: Schema.Struct({
+    success: Schema.Boolean,
+    message: Schema.String,
+    action: Schema.String,
+    path: Schema.optional(Schema.UndefinedOr(Schema.String)),
+    backupCreated: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  }),
+})
 
 export const LocalCliLoginInput = Schema.Struct({
   target: Schema.Literals([
@@ -394,6 +447,40 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "providers.localCliModels",
             summary: "Fetch local CLI models",
             description: "Automatically retrieve the actual available models configured for a local CLI or IDE.",
+          }),
+        ),
+        HttpApiEndpoint.get("localCliDiscovered", `${uiRoot}/local-cli/discovered`, {
+          query: WorkspaceRoutingQuery,
+          success: described(LocalCliDiscoveredEnvelope, "Discovered local CLI credentials metadata"),
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliDiscovered",
+            summary: "Get discovered CLI credentials",
+            description: "Scan local credential caches and return non-sensitive metadata for harvested credentials.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliRefresh", `${uiRoot}/local-cli/refresh`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliRefreshInput,
+          success: described(LocalCliRefreshResult, "Result of credential refresh operation"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliRefresh",
+            summary: "Refresh local CLI credential",
+            description: "Manually trigger token refresh for discovered local CLI credentials.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliInject", `${uiRoot}/local-cli/inject`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliInjectInput,
+          success: described(LocalCliInjectResult, "Result of CLI config injection"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliInject",
+            summary: "Inject or reset local CLI configuration",
+            description: "Safely configure local CLI tools (Claude, Codex) to route through Arunaki local bridge.",
           }),
         ),
       )

@@ -14,6 +14,7 @@ import {
   Mail,
   AlertTriangle,
   Scale,
+  Sparkles,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
@@ -70,6 +71,18 @@ interface CodexStatus {
   message?: string;
 }
 
+export interface DiscoveredCliItem {
+  provider: string;
+  displayName: string;
+  type: string;
+  sourcePath: string;
+  accountEmail?: string;
+  accountId?: string;
+  expiresAt?: number;
+  lastRefreshAt?: number;
+  hasToken: boolean;
+}
+
 interface LocalCliData {
   claude: ClaudeCliStatus;
   opencode: OpenCodeStatus;
@@ -78,6 +91,7 @@ interface LocalCliData {
   codex?: CodexStatus;
   bridgePort: number;
   bridgeRunning: boolean;
+  discovered?: DiscoveredCliItem[];
 }
 
 
@@ -245,6 +259,9 @@ export function SettingsCliConnectionsTab({
   const [pingResults, setPingResults] = useState<
     Record<string, { success: boolean; timeMs: number; message?: string }>
   >({});
+  const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
+  const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
+  const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -262,6 +279,7 @@ export function SettingsCliConnectionsTab({
               antigravity: { ...prev.antigravity, ...json.data.antigravity },
               nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
               codex: { ...prev.codex, ...json.data.codex },
+              discovered: json.data.discovered ?? prev.discovered,
             };
             try {
               localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
@@ -311,6 +329,89 @@ export function SettingsCliConnectionsTab({
   const is9RouterActive =
     nineRouterProvider?.active || localStorage.getItem("arunaki_active_provider") === "9router";
 
+  const discoveredClaude = data.discovered?.find((d) => d.provider === "claude");
+  const discoveredCodex = data.discovered?.find((d) => d.provider === "codex");
+  const discoveredKiro = data.discovered?.find((d) => d.provider === "kiro");
+  const discoveredCursor = data.discovered?.find((d) => d.provider === "cursor");
+
+  const formatExpiry = (expiresAt?: number) => {
+    if (!expiresAt) return null;
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return "Expired";
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h`;
+  };
+
+  const handleRefreshCred = async (target: "claude" | "codex" | "kiro" | "cursor" | "all") => {
+    setRefreshingTarget(target);
+    setRefreshErrors((prev) => {
+      const next = { ...prev };
+      delete next[target];
+      return next;
+    });
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/refresh${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.data?.success) {
+        toast.success(isEn ? "Credentials Refreshed" : "Kredensial Diperbarui", {
+          description: json.data.message,
+        });
+        await fetchStatus();
+      } else {
+        const msg = json.data?.message || (isEn ? "Failed to refresh token" : "Gagal memperbarui token");
+        setRefreshErrors((prev) => ({ ...prev, [target]: msg }));
+        toast.error(isEn ? "Token Refresh Failed" : "Gagal Refresh Token", {
+          description: msg,
+        });
+      }
+    } catch (err: any) {
+      setRefreshErrors((prev) => ({ ...prev, [target]: err.message }));
+      toast.error(isEn ? "Refresh Error" : "Kesalahan Refresh", {
+        description: err.message,
+      });
+    } finally {
+      setRefreshingTarget(null);
+    }
+  };
+
+  const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {
+    setInjectingTarget(target);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/inject${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target, action }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.data?.success) {
+        toast.success(
+          action === "inject"
+            ? (isEn ? "CLI Configured Successfully" : "CLI Berhasil Dikonfigurasi")
+            : (isEn ? "CLI Reset to Defaults" : "Konfigurasi CLI Dikembalikan"),
+          {
+            description: json.data.message,
+          }
+        );
+        await fetchStatus();
+      } else {
+        toast.error(isEn ? "Configuration Failed" : "Konfigurasi Gagal", {
+          description: json.data?.message || (isEn ? "Failed to update CLI configuration" : "Gagal memperbarui konfigurasi CLI"),
+        });
+      }
+    } catch (err: any) {
+      toast.error(isEn ? "Injector Error" : "Kesalahan Injector", {
+        description: err.message,
+      });
+    } finally {
+      setInjectingTarget(null);
+    }
+  };
 
   const handleLaunchClaudeTerminal = async () => {
     setIsSigningInCli(true);
@@ -1020,21 +1121,60 @@ export function SettingsCliConnectionsTab({
                 <span className="font-semibold text-sm text-[var(--text-primary)]">Claude</span>
                 <span className={cn(
                   "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.claude.loggedIn ? "bg-zinc-200" : data.claude.installed ? "bg-zinc-500" : "bg-zinc-700"
+                  data.claude.loggedIn || discoveredClaude?.hasToken ? "bg-zinc-200" : data.claude.installed ? "bg-zinc-500" : "bg-zinc-700"
                 )} />
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.claude.loggedIn
+                  {data.claude.loggedIn || discoveredClaude?.hasToken
                     ? (isEn ? "Ready" : "Siap")
                     : data.claude.installed
                     ? (isEn ? "Login required" : "Perlu masuk")
                     : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
+                {discoveredClaude?.hasToken && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Auto-Imported · Ready
+                    {formatExpiry(discoveredClaude.expiresAt) ? ` (${formatExpiry(discoveredClaude.expiresAt)})` : ""}
+                  </span>
+                )}
+                {refreshErrors.claude && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.claude}>
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Refresh failed
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Anthropic • Desktop app &amp; CLI</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {renderModelDropdown("claude", PRESET_MODELS.claude, "claude-code", isClaudeActive, "Claude")}
+            {discoveredClaude?.hasToken && (
+              <button
+                type="button"
+                onClick={() => handleRefreshCred("claude")}
+                disabled={refreshingTarget === "claude"}
+                className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
+                title="Refresh Claude OAuth token"
+              >
+                <RefreshCw className={cn("w-3 h-3", refreshingTarget === "claude" && "animate-spin text-zinc-400")} />
+                <span>{refreshingTarget === "claude" ? "Refreshing..." : "Refresh now"}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => handleInjectCli("claude")}
+              disabled={injectingTarget === "claude"}
+              className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
+              title="Auto-configure ~/.claude/settings.json to route through Arunaki bridge"
+            >
+              {injectingTarget === "claude" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <SlidersHorizontal className="w-3 h-3" />
+              )}
+              <span>Auto-Configure CLI</span>
+            </button>
             <button
               type="button"
               onClick={() => handleTestPing("claude", "Claude")}
@@ -1152,17 +1292,56 @@ export function SettingsCliConnectionsTab({
                 <span className="font-semibold text-sm text-[var(--text-primary)]">Codex</span>
                 <span className={cn(
                   "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.codex?.installed ? "bg-zinc-200" : "bg-zinc-700"
+                  data.codex?.installed || discoveredCodex?.hasToken ? "bg-zinc-200" : "bg-zinc-700"
                 )} />
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.codex?.installed ? (isEn ? "Ready" : "Siap") : (isEn ? "Not installed" : "Belum terpasang")}
+                  {data.codex?.installed || discoveredCodex?.hasToken ? (isEn ? "Ready" : "Siap") : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
+                {discoveredCodex?.hasToken && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Auto-Imported · Ready
+                    {discoveredCodex.accountEmail ? ` (${discoveredCodex.accountEmail})` : ""}
+                  </span>
+                )}
+                {refreshErrors.codex && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.codex}>
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    Refresh failed
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-[var(--text-muted)] mt-0.5">OpenAI • ChatGPT app &amp; CLI</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {renderModelDropdown("codex", PRESET_MODELS.codex, "codex", isCodexActive, "Codex")}
+            {discoveredCodex?.hasToken && (
+              <button
+                type="button"
+                onClick={() => handleRefreshCred("codex")}
+                disabled={refreshingTarget === "codex"}
+                className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
+                title="Refresh OpenAI / Codex OAuth token"
+              >
+                <RefreshCw className={cn("w-3 h-3", refreshingTarget === "codex" && "animate-spin text-zinc-400")} />
+                <span>{refreshingTarget === "codex" ? "Refreshing..." : "Refresh now"}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => handleInjectCli("codex")}
+              disabled={injectingTarget === "codex"}
+              className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
+              title="Auto-configure ~/.codex/config.toml to route through Arunaki bridge"
+            >
+              {injectingTarget === "codex" ? (
+                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+              ) : (
+                <SlidersHorizontal className="w-3 h-3" />
+              )}
+              <span>Auto-Configure CLI</span>
+            </button>
             <button
               type="button"
               onClick={() => handleTestPing("codex", "Codex")}
@@ -1682,6 +1861,30 @@ export function SettingsCliConnectionsTab({
             </button>
           </div>
         </div>
+        {(discoveredClaude?.hasToken || discoveredCodex?.hasToken || discoveredKiro?.hasToken || discoveredCursor?.hasToken) && (
+          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="min-w-0 text-xs text-zinc-400 flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-zinc-200">Discovered Local Caches:</span>
+                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code · OK</span>}
+                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT · OK</span>}
+                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO · OK</span>}
+                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE · OK</span>}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleRefreshCred("all")}
+              disabled={refreshingTarget === "all"}
+              className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shrink-0"
+              title="Refresh all harvested credentials"
+            >
+              <RefreshCw className={cn("w-3 h-3", refreshingTarget === "all" && "animate-spin text-zinc-400")} />
+              <span>{refreshingTarget === "all" ? "Refreshing..." : "Refresh All"}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Multi-Provider Auth Modal (Bilingual & Clean Monochrome) ── */}

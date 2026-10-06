@@ -15,6 +15,9 @@ import { InstanceHttpApi } from "../api"
 import {
   LocalCliConnectInput,
   LocalCliLoginInput,
+  LocalCliDiscoveredEnvelope,
+  LocalCliRefreshInput,
+  LocalCliInjectInput,
   ProviderAuthApiError,
   ProviderFetchModelsInput,
   ProviderStateInput,
@@ -37,6 +40,14 @@ import {
   logoutAntigravity,
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
+import { scanLocalCredentials, invalidateCredentialCache } from "../../../../local-cli/harvester"
+import { refreshCredential } from "../../../../local-cli/refresh"
+import {
+  injectClaudeSettings,
+  injectCodexSettings,
+  resetClaudeSettings,
+  resetCodexSettings,
+} from "../../../../local-cli/injector"
 
 function mapProviderAuthError<A, R>(self: Effect.Effect<A, ProviderAuth.Error, R>) {
   return self.pipe(
@@ -460,16 +471,28 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     )
 
     const localCliStatus = Effect.fn("ProviderSettings.localCliStatus")(function* () {
-      const [claude, opencode, opencodeRunning, nineRouter, codex] = yield* Effect.promise(() =>
+      const [claude, opencode, opencodeRunning, nineRouter, codex, scannedCredentials] = yield* Effect.promise(() =>
         Promise.all([
           checkClaudeStatus(),
           checkOpenCodeStatus(),
           checkOpenCodeServerRunning(4097),
           checkNineRouterStatus(),
           checkCodexStatus(),
+          scanLocalCredentials(),
         ]),
       )
       const antigravity = checkAntigravityStatus()
+      const discovered = Object.values(scannedCredentials).map((c) => ({
+        provider: c.provider,
+        displayName: c.displayName,
+        type: c.type,
+        sourcePath: c.sourcePath,
+        accountEmail: c.accountEmail,
+        accountId: c.accountId,
+        expiresAt: c.expiresAt,
+        lastRefreshAt: c.lastRefreshAt,
+        hasToken: !!c.accessToken,
+      }))
       return {
         data: {
           claude,
@@ -483,6 +506,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           codex,
           bridgePort: localCliBridge.port,
           bridgeRunning: localCliBridge.running,
+          discovered,
         },
       }
     })
@@ -632,6 +656,120 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    const localCliDiscovered = Effect.fnUntraced(function* () {
+      const scanned = yield* Effect.promise(() => scanLocalCredentials())
+      const data = Object.values(scanned).map((c) => ({
+        provider: c.provider,
+        displayName: c.displayName,
+        type: c.type,
+        sourcePath: c.sourcePath,
+        accountEmail: c.accountEmail,
+        accountId: c.accountId,
+        expiresAt: c.expiresAt,
+        lastRefreshAt: c.lastRefreshAt,
+        hasToken: !!c.accessToken,
+      }))
+      return { data }
+    })
+
+    const localCliRefresh = Effect.fnUntraced(
+      function* (ctx: { readonly payload: { readonly target: "claude" | "codex" | "kiro" | "cursor" | "all" } }) {
+        const credentials = yield* Effect.promise(() => scanLocalCredentials(true))
+        const targets = ctx.payload.target === "all"
+          ? Object.keys(credentials)
+          : [ctx.payload.target]
+
+        let refreshedCount = 0
+        let failedCount = 0
+
+        for (const t of targets) {
+          const cred = credentials[t]
+          if (!cred) continue
+          const next = yield* Effect.promise(() => refreshCredential(cred))
+          if (next) refreshedCount++
+          else failedCount++
+        }
+
+        invalidateCredentialCache()
+
+        if (refreshedCount > 0) {
+          return {
+            data: {
+              success: true,
+              message: `Refreshed ${refreshedCount} credential(s) successfully.`,
+            },
+          }
+        }
+
+        if (failedCount > 0) {
+          return {
+            data: {
+              success: false,
+              message: `Failed to refresh credentials for target: ${ctx.payload.target}.`,
+            },
+          }
+        }
+
+        return {
+          data: {
+            success: false,
+            message: `No credentials found to refresh for ${ctx.payload.target}.`,
+          },
+        }
+      },
+    )
+
+    const localCliInject = Effect.fnUntraced(
+      function* (ctx: {
+        readonly payload: {
+          readonly target: "claude" | "codex" | "all"
+          readonly action?: "inject" | "reset" | undefined
+        }
+      }) {
+        const action = ctx.payload.action || "inject"
+        const target = ctx.payload.target
+        const port = localCliBridge.port || 20188
+
+        if (target === "claude") {
+          const res = action === "reset" ? resetClaudeSettings() : injectClaudeSettings(undefined, port)
+          return {
+            data: {
+              success: res.success,
+              message: res.message,
+              action: res.action,
+              path: res.path,
+              backupCreated: res.backupCreated,
+            },
+          }
+        }
+
+        if (target === "codex") {
+          const res = action === "reset" ? resetCodexSettings() : injectCodexSettings(undefined, port)
+          return {
+            data: {
+              success: res.success,
+              message: res.message,
+              action: res.action,
+              path: res.path,
+              backupCreated: res.backupCreated,
+            },
+          }
+        }
+
+        const r1 = action === "reset" ? resetClaudeSettings() : injectClaudeSettings(undefined, port)
+        const r2 = action === "reset" ? resetCodexSettings() : injectCodexSettings(undefined, port)
+        const success = r1.success && r2.success
+        return {
+          data: {
+            success,
+            message: `Claude: ${r1.message} | Codex: ${r2.message}`,
+            action,
+            backupCreated: r1.backupCreated || r2.backupCreated,
+          },
+        }
+      },
+    )
+
     return handlers
       .handle("listUi", list)
       .handle("upsert", create)
@@ -645,5 +783,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("localCliLogin", localCliLogin)
       .handle("localCliConnect", localCliConnect)
       .handle("localCliModels", localCliModels)
+      .handle("localCliDiscovered", localCliDiscovered)
+      .handle("localCliRefresh", localCliRefresh)
+      .handle("localCliInject", localCliInject)
   }),
 )
