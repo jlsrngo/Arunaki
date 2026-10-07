@@ -729,6 +729,11 @@ export function launchClaudeLoginTerminal(): { success: boolean; message: string
 
 export async function getCliSupportedModels(target: string): Promise<string[]> {
   if (target === "antigravity" || target === "agy" || target === "gemini" || target === "gemini-cli") {
+    // Ask the account which models it can actually use; the list changes as Google ships
+    // and retires tiers, so a hardcoded array goes stale. Keep the old list as fallback.
+    const { fetchAntigravityModels } = await import("./upstream.js")
+    const live = await fetchAntigravityModels(await getAntigravityAuth())
+    if (live?.length) return live
     return [
       "gemini-2.5-flash",
       "gemini-2.5-pro",

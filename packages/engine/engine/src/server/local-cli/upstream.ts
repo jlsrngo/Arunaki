@@ -430,6 +430,63 @@ export function antigravityModelId(model: string): string {
   return ANTIGRAVITY_MODEL_MAP[model] ?? model
 }
 
+let modelCache: { models: string[]; fetchedAt: number } | null = null
+const MODEL_CACHE_TTL_MS = 30 * 60_000
+
+/**
+ * Live model catalogue from the account itself.
+ *
+ * The hardcoded map above goes stale the moment Google ships a model or retires a tier;
+ * `v1internal:fetchAvailableModels` (9Router registry/antigravity.js `quotaApiUrl`) answers
+ * with the ids the endpoint actually accepts — 37 of them on a free-tier account today,
+ * e.g. gemini-3.8-flash-{low,medium,high}, claude-opus-5-5-low, gemini-3.1-pro-low.
+ */
+export async function fetchAntigravityModels(auth: AntigravityAuth | null): Promise<string[] | null> {
+  if (!auth?.accessToken) return null
+  if (modelCache && Date.now() - modelCache.fetchedAt < MODEL_CACHE_TTL_MS) return modelCache.models
+
+  const projectId = auth.projectId || (await resolveAntigravityProjectId(auth.accessToken))
+  if (!projectId) return null
+
+  try {
+    const res = await fetch(`${ANTIGRAVITY_BASE}/v1internal:fetchAvailableModels`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": ANTIGRAVITY_IDE_UA,
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({ project: projectId }),
+      signal: AbortSignal.timeout(20000),
+    })
+    if (!res.ok) {
+      console.warn(`[Antigravity] fetchAvailableModels HTTP ${res.status}`)
+      return null
+    }
+    const data: any = await res.json()
+    // `models` is a keyed object (id -> metadata), not an array.
+    const raw = data?.models
+    const models = (
+      Array.isArray(raw)
+        ? raw.map((m: any) => (typeof m === "string" ? m : m?.name ?? m?.id))
+        : raw && typeof raw === "object"
+          ? Object.keys(raw)
+          : []
+    ).filter((m: unknown): m is string => typeof m === "string" && m.length > 0)
+
+    const deprecated = new Set<string>(
+      Array.isArray(data?.deprecatedModelIds) ? data.deprecatedModelIds : Object.keys(data?.deprecatedModelIds ?? {}),
+    )
+    const usable = models.filter((m) => !deprecated.has(m))
+    if (!usable.length) return null
+    modelCache = { models: usable, fetchedAt: Date.now() }
+    return usable
+  } catch (err: any) {
+    console.warn("[Antigravity] fetchAvailableModels failed:", err?.message)
+    return null
+  }
+}
+
 export interface AntigravityAuth {
   accessToken: string
   refreshToken?: string
