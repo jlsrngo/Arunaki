@@ -281,7 +281,7 @@ describe("Upstream request builders", () => {
     expect(chunksToCompletion([], "m")).toBeNull()
   })
 
-  it("antigravity: URL harian + project discovery tetap di host prod", () => {
+  it("antigravity: daily URL + project discovery stays on prod host", () => {
     expect(antigravityUrl(true)).toBe(
       "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
     )
@@ -307,15 +307,15 @@ describe("Upstream request builders", () => {
     expect(contents[0]).toEqual({ role: "user", parts: [{ text: "halo" }] })
     expect(contents[1].role).toBe("model")
     expect(contents[1].parts[0].functionCall).toMatchObject({ name: "read", args: { path: "a.txt" } })
-    // functionResponse harus role user dan digabung dengan turn berikutnya
+    // functionResponse must be user role and merged with next turn
     expect(contents[2].role).toBe("user")
-    // functionResponse dicocokkan lewat NAMA (tidak ada name di pesan tool OpenAI)
+    // functionResponse matched by NAME (no name field in OpenAI tool messages)
     expect(contents[2].parts[0].functionResponse.name).toBe("read")
     expect(contents[2].parts[0].functionResponse.response.content).toBe("isi")
     expect(contents[2].parts[1]).toEqual({ text: "lanjut" })
   })
 
-  it("antigravity: tools digabung satu group + nama disanitasi", () => {
+  it("antigravity: merges tools into single group + sanitizes name", () => {
     const tools = chatToAntigravityTools({
       tools: [
         { type: "function", function: { name: "read file", description: "d", parameters: { type: "object" } } },
@@ -328,7 +328,7 @@ describe("Upstream request builders", () => {
     expect(chatToAntigravityTools({ tools: [] })).toBeUndefined()
   })
 
-  it("antigravity: body tanpa requestType + toolConfig VALIDATED", () => {
+  it("antigravity: body without requestType + toolConfig VALIDATED", () => {
     const body = buildAntigravityBody(
       {
         model: "gemini-3.8-flash",
@@ -343,12 +343,12 @@ describe("Upstream request builders", () => {
     expect(body.userAgent).toBe("antigravity")
     expect(body.request.sessionId).toBe("ses_abc")
     expect(body.request.toolConfig).toEqual({ functionCallingConfig: { mode: "VALIDATED" } })
-    // requestType "agent" memicu 429 tanpa detail — wajib dihapus
+    // requestType "agent" triggers 429 without details — must be omitted
     expect("requestType" in body).toBe(false)
     expect("safetySettings" in body.request).toBe(false)
   })
 
-  it("antigravity: event Gemini → chunk OpenAI (teks + functionCall)", () => {
+  it("antigravity: Gemini event → OpenAI chunk (text + functionCall)", () => {
     const ctx = { id: "c1", created: 1, model: "gemini-3.8-flash" }
     const textChunk = mapAntigravityEvent(
       { candidates: [{ content: { parts: [{ text: "hai" }] } }] },
@@ -373,7 +373,7 @@ describe("Upstream request builders", () => {
     expect(usage).toContain('"total_tokens":10')
   })
 
-  it("fast-path antigravity: 403 → return false tanpa menulis", async () => {
+  it("fast-path antigravity: 403 → returns false without writing", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (url: any, init: any) => {
       const u = String(url)
@@ -400,7 +400,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path antigravity: stream SSE diteruskan + token OAuth dipakai", async () => {
+  it("fast-path antigravity: forwards SSE stream + uses OAuth token", async () => {
     const realFetch = globalThis.fetch
     let chatUrl = ""
     let authHeader = ""
@@ -435,7 +435,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path antigravity: tanpa project id → return false (fallback)", async () => {
+  it("fast-path antigravity: missing project id → returns false (fallback)", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (url: any) => {
       if (String(url).includes("loadCodeAssist")) {
@@ -457,7 +457,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("opencode zen: URL, header, dan fingerprint mengikuti 9Router", () => {
+  it("opencode zen: URL, headers, and fingerprint follow 9Router", () => {
     expect(opencodeUrlFor()).toBe("https://opencode.ai/zen/v1/chat/completions")
 
     const payload = { messages: [{ role: "user", content: "halo" }] }
@@ -469,12 +469,12 @@ describe("Upstream request builders", () => {
     expect(h["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
     expect(h["x-opencode-request"]).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
 
-    // Session stabil per percakapan (9Router: quota dihitung per session)
+    // Stable session per conversation (9Router: quota counted per session)
     expect(buildOpenCodeHeaders(payload)["x-opencode-session"]).toBe(
       h["x-opencode-session"],
     )
 
-    // Token akun menggantikan lane pooled
+    // Account token replaces pooled lane
     expect(buildOpenCodeHeaders(payload, "acct-token").Authorization).toBe(
       "Bearer acct-token",
     )
@@ -485,7 +485,7 @@ describe("Upstream request builders", () => {
     expect(names).toEqual(["bash", "glob", "grep", "read"])
     expect(body.tool_choice).toBe("none")
 
-    // Tool klien tetap dipertahankan, tidak diduplikasi
+    // Client tools are preserved, not duplicated
     const withTools: any = {
       tools: [{ type: "function", function: { name: "Bash" } }, { type: "function", function: { name: "read" } }],
     }
@@ -495,7 +495,7 @@ describe("Upstream request builders", () => {
     expect(got).toContain("glob")
   })
 
-  it("fast-path opencode: 403 → return false tanpa menulis ke klien", async () => {
+  it("fast-path opencode: 403 → returns false without writing to client", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () =>
       new Response(
@@ -516,7 +516,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path opencode: stream SSE diteruskan apa adanya", async () => {
+  it("fast-path opencode: forwards SSE stream as-is", async () => {
     const realFetch = globalThis.fetch
     const seen: any[] = []
     globalThis.fetch = (async (url: any, init: any) => {
@@ -535,7 +535,7 @@ describe("Upstream request builders", () => {
       )
       expect(handled).toBe(true)
       expect(seen[0].url).toBe("https://opencode.ai/zen/v1/chat/completions")
-      // stream dipaksa true, fingerprint tools ditambahkan
+      // stream forced to true, tool fingerprint added
       expect(seen[0].body.stream).toBe(true)
       expect(seen[0].body.model).toBe("big-pickle")
       expect(seen[0].body.tools.map((t: any) => t.function.name)).toContain("bash")
@@ -546,7 +546,7 @@ describe("Upstream request builders", () => {
     }
   })
 
-  it("fast-path opencode: non-stream diagregasi jadi chat.completion", async () => {
+  it("fast-path opencode: aggregates non-stream into chat.completion", async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () =>
       sseResponse([
