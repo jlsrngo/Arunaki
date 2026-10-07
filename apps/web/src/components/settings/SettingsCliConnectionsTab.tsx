@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Scale,
   Sparkles,
+  Gauge,
 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
@@ -261,6 +262,8 @@ export function SettingsCliConnectionsTab({
   >({});
   const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
   const [oauthTarget, setOauthTarget] = useState<string | null>(null);
+  const [quota, setQuota] = useState<QuotaReport[]>([]);
+  const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
   const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
 
@@ -301,6 +304,7 @@ export function SettingsCliConnectionsTab({
 
   useEffect(() => {
     fetchStatus();
+    fetchQuota();
   }, []);
 
   // Provider states
@@ -385,6 +389,136 @@ export function SettingsCliConnectionsTab({
         {label}
         {suffix}
       </span>
+    );
+  };
+
+  interface QuotaBucket {
+    id: string;
+    label: string;
+    remaining: number;
+    window: string;
+    resetAt?: number;
+    exhausted: boolean;
+  }
+  interface QuotaReport {
+    provider: string;
+    ok: boolean;
+    reason?: string;
+    buckets: QuotaBucket[];
+  }
+
+  // Live rate-limit windows straight from each vendor — nothing here is hardcoded.
+  const fetchQuota = async () => {
+    setQuotaLoading(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/quota${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const json = await res.json().catch(() => ({}));
+      setQuota(json.data ?? []);
+    } catch {
+      setQuota([]);
+    } finally {
+      setQuotaLoading(false);
+    }
+  };
+
+  const formatReset = (resetAt?: number) => {
+    if (!resetAt) return isEn ? "—" : "—";
+    const diff = resetAt - Date.now();
+    if (diff <= 0) return isEn ? "now" : "sekarang";
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return isEn ? `${mins}m` : `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return isEn ? `${hours}h ${mins % 60}m` : `${hours}j ${mins % 60}m`;
+    const days = Math.floor(hours / 24);
+    return isEn ? `${days}d ${hours % 24}h` : `${days}h ${hours % 24}j`;
+  };
+
+  const QUOTA_LABEL: Record<string, string> = isEn
+    ? { antigravity: "Antigravity", claude: "Claude Code", codex: "Codex" }
+    : { antigravity: "Antigravity", claude: "Claude Code", codex: "Codex" };
+
+  const renderQuotaPanel = () => {
+    const visible = quota.filter((q) => q.ok || q.reason !== "not-signed-in");
+    if (!visible.length && !quotaLoading) return null;
+    return (
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3 mb-3">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
+            <Gauge className="w-3.5 h-3.5" />
+            {isEn ? "Rate Limit Windows" : "Jendela Batas Rate"}
+          </div>
+          <button
+            type="button"
+            onClick={fetchQuota}
+            disabled={quotaLoading}
+            className="p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+            title={isEn ? "Refresh quota" : "Muat ulang kuota"}
+          >
+            <RefreshCw className={cn("w-3 h-3", quotaLoading && "animate-spin")} />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(["antigravity", "claude", "codex"] as const).map((provider) => {
+            const report = quota.find((q) => q.provider === provider);
+            return (
+              <div key={provider} className="min-w-0">
+                <div className="text-[10px] font-medium text-zinc-400 mb-1">
+                  {QUOTA_LABEL[provider] ?? provider}
+                </div>
+                {!report || !report.ok ? (
+                  <div className="text-[10px] text-zinc-600">
+                    {quotaLoading
+                      ? isEn ? "Loading..." : "Memuat..."
+                      : isEn ? "Sign in to view limits" : "Masuk untuk melihat batas"}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {report.buckets.map((b) => {
+                      const pct = Math.round(b.remaining * 100);
+                      const bar = b.exhausted
+                        ? "bg-red-500"
+                        : pct <= 20
+                          ? "bg-amber-500"
+                          : "bg-emerald-500";
+                      return (
+                        <div key={b.id + b.window} className="min-w-0">
+                          <div className="flex items-baseline justify-between gap-2 text-[10px]">
+                            <span className="truncate text-zinc-500">
+                              {b.label}
+                              {b.window === "5h" ? ` (${b.window})` : ""}
+                            </span>
+                            <span
+                              className={cn(
+                                "shrink-0 tabular-nums",
+                                b.exhausted ? "text-red-400" : "text-zinc-300",
+                              )}
+                            >
+                              {pct}% · {formatReset(b.resetAt)}
+                            </span>
+                          </div>
+                          <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
+                            <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {report.buckets.some((b) => b.exhausted) && (
+                      <div className="flex items-center gap-1 text-[10px] text-red-400 pt-0.5">
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        {isEn ? "Some models are exhausted" : "Sebagian model sudah habis"}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -1193,6 +1327,9 @@ export function SettingsCliConnectionsTab({
           <span>{isEn ? "Scan All Agents" : "Pindai Semua Agen"}</span>
         </button>
       </div>
+
+      {/* Live rate-limit windows, read straight from each vendor */}
+      {renderQuotaPanel()}
 
       {/* Connection list */}
       <div className="space-y-2 w-full">

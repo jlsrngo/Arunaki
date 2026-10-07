@@ -179,6 +179,28 @@ export const LocalCliDiscoveredEnvelope = Schema.Struct({
   data: Schema.Array(LocalCliDiscoveredItem),
 })
 
+export const LocalCliQuotaInput = Schema.Struct({})
+
+export const LocalCliQuotaResult = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      provider: Schema.String,
+      ok: Schema.Boolean,
+      reason: Schema.optional(Schema.UndefinedOr(Schema.String)),
+      buckets: Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          label: Schema.String,
+          remaining: Schema.Number,
+          window: Schema.String,
+          resetAt: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+          exhausted: Schema.Boolean,
+        }),
+      ),
+    }),
+  ),
+})
+
 export const LocalCliOauthStartInput = Schema.Struct({
   target: Schema.Literals(["claude", "codex", "antigravity"]),
   openBrowser: Schema.optional(Schema.Boolean),
@@ -508,6 +530,19 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "providers.localCliInject",
             summary: "Inject or reset local CLI configuration",
             description: "Safely configure local CLI tools (Claude, Codex) to route through Arunaki local bridge.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliQuota", `${uiRoot}/local-cli/quota`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliQuotaInput,
+          success: described(LocalCliQuotaResult, "Live quota for each connected subscription"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliQuota",
+            summary: "Read live quota for each CLI subscription",
+            description:
+              "Reports remaining rate-limit windows straight from each vendor (Antigravity, Claude, Codex). Values are read live and never hardcoded.",
           }),
         ),
         HttpApiEndpoint.post("localCliOauthStart", `${uiRoot}/local-cli/oauth/start`, {

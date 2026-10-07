@@ -21,6 +21,7 @@ import {
   LocalCliInjectInput,
   LocalCliOauthStartInput,
   LocalCliOauthStatusInput,
+  LocalCliQuotaInput,
   ProviderAuthApiError,
   ProviderFetchModelsInput,
   ProviderStateInput,
@@ -48,6 +49,7 @@ import { localCliBridge } from "../../../../local-cli/bridge"
 import { scanLocalCredentials, invalidateCredentialCache } from "../../../../local-cli/harvester"
 import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
 import { startOauthSession, getOauthResult } from "../../../../local-cli/oauth"
+import { fetchAllQuotas, invalidateQuotaCache } from "../../../../local-cli/quota"
 import {
   injectClaudeSettings,
   injectCodexSettings,
@@ -789,6 +791,13 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    const localCliQuota = Effect.fnUntraced(
+      function* (_ctx: { readonly payload: Record<string, never> }) {
+        const data = yield* Effect.promise(() => fetchAllQuotas())
+        return { data }
+      },
+    )
+
     const localCliOauthStart = Effect.fnUntraced(
       function* (ctx: { readonly payload: { readonly target: "claude" | "codex" | "antigravity"; readonly openBrowser?: boolean } }) {
         const session = yield* Effect.promise(() =>
@@ -829,6 +838,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("localCliDiscovered", localCliDiscovered)
       .handle("localCliRefresh", localCliRefresh)
       .handle("localCliInject", localCliInject)
+      .handle("localCliQuota", localCliQuota)
       .handle("localCliOauthStart", localCliOauthStart)
       .handle("localCliOauthStatus", localCliOauthStatus)
   }),
