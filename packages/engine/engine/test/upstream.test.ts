@@ -11,6 +11,7 @@ import {
   streamDirectOpenCodeCompletion,
   streamDirectAntigravityCompletion,
   antigravityUrl,
+  antigravityModelId,
   chatToAntigravityContents,
   chatToAntigravityTools,
   buildAntigravityBody,
@@ -346,6 +347,31 @@ describe("Upstream request builders", () => {
     // requestType "agent" triggers 429 without details — must be omitted
     expect("requestType" in body).toBe(false)
     expect("safetySettings" in body.request).toBe(false)
+  })
+
+  it("antigravity: model id dipetakan, suffix (medium) ditolak upstream", () => {
+    // The Cloud Code endpoint 404s on bare catalogue ids and also on 9Router's
+    // "(medium)" suffix; only the plain tier name is accepted.
+    expect(antigravityModelId("gemini-3.8-flash")).toBe("gemini-3.8-flash-medium")
+    expect(antigravityModelId("gemini-3.8-flash-low")).toBe("gemini-3.8-flash-low")
+    expect(antigravityModelId("gemini-3.1-pro")).toBe("gemini-pro-agent")
+    expect(antigravityModelId("tidak-dikenal")).toBe("tidak-dikenal")
+  })
+
+  it("antigravity: streamGenerateContent wraps the candidate inside response", () => {
+    const ctx = { id: "c1", created: 1, model: "gemini-3.8-flash" }
+    const wrapped = mapAntigravityEvent(
+      {
+        response: {
+          candidates: [{ content: { role: "model", parts: [{ text: "PONG" }] } }],
+          usageMetadata: { promptTokenCount: 9, candidatesTokenCount: 2, totalTokenCount: 68 },
+        },
+        modelVersion: "gemini-3.8-flash-n",
+      },
+      ctx,
+    )!
+    expect(wrapped).toContain("PONG")
+    expect(wrapped).toContain('"total_tokens":68')
   })
 
   it("antigravity: Gemini event → OpenAI chunk (text + functionCall)", () => {

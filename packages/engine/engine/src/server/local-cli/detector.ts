@@ -264,6 +264,15 @@ export async function getAntigravityAuth(force = false): Promise<typeof antigrav
   }
   antigravityAuthCheckedAt = Date.now()
 
+  // Credential Manager first: it is the Antigravity-scoped token (has cclog), unlike the
+  // ~/.gemini copy which Google refuses with 403 PERMISSION_DENIED.
+  const fromCredManager = readAntigravityCredentialManager()
+  if (fromCredManager?.accessToken) {
+    const fresh =
+      !fromCredManager.expiresAt || fromCredManager.expiresAt - Date.now() > 5 * 60_000
+    if (fresh) return (antigravityAuth = fromCredManager)
+  }
+
   const credsPath = path.join(os.homedir(), ".gemini", "oauth_creds.json")
   if (!fs.existsSync(credsPath)) return (antigravityAuth = null)
   let creds: any
@@ -563,6 +572,74 @@ export async function checkCodexStatus(): Promise<CodexStatus> {
       })
     }
   })
+}
+
+/**
+ * Antigravity's session lives in Windows Credential Manager, not in a readable file:
+ * the IDE's `globalStorage/state.vscdb` copy is encrypted (bzip2 + protobuf envelope
+ * keyed on "AuthStateWithContextSentinelKey"), but the same credential is stored in
+ * plaintext as `gemini:antigravity`. Reading it lets us talk to the Cloud Code API
+ * directly instead of routing every turn through the `agy` process (~2.8s vs ~12.7s).
+ *
+ * Windows-only; callers fall back to the `agy` worker elsewhere.
+ */
+export function readAntigravityCredentialManager(): {
+  accessToken: string
+  refreshToken?: string
+  expiresAt?: number
+} | null {
+  if (process.platform !== "win32") return null
+  try {
+    const { dlopen, FFIType, ptr, toBuffer } = require("bun:ffi") as typeof import("bun:ffi")
+
+    const lib = dlopen("advapi32.dll", {
+      CredReadW: {
+        args: [FFIType.ptr, FFIType.i32, FFIType.i32, FFIType.ptr],
+        returns: FFIType.i32,
+      },
+      // Declared as i64 rather than ptr: bun:ffi refuses to convert the bigint we read
+      // back from the out-pointer into a Pointer, and the callee only frees memory.
+      CredFree: { args: [FFIType.i64], returns: FFIType.void },
+    })
+
+    const target = Buffer.from("gemini:antigravity\0", "utf16le")
+    const out = Buffer.alloc(8)
+
+    const ok = lib.symbols.CredReadW(ptr(target), 1, 0, ptr(out))
+    if (!ok) return null
+
+    const credPtr = out.readBigInt64LE(0)
+    if (!credPtr) return null
+
+    // bun:ffi accepts a pointer (number/bigint) for toBuffer at runtime, but the bundled
+    // type only declares TypedArray/DataView, hence the local view helper.
+    const view = (address: number | bigint, length: number) =>
+      toBuffer(address as never, 0, length)
+
+    try {
+      // CREDENTIAL on x64: Flags 0, Type 4, TargetName 8, Comment 16, LastWritten 24,
+      // CredentialBlobSize 32, (pad 36), CredentialBlob 40.
+      const struct = view(credPtr, 96)
+      const size = struct.readUInt32LE(32)
+      if (!size || size > 65536) return null
+      const parsed = JSON.parse(view(struct.readBigUInt64LE(40), size).toString("utf8"))
+      const t = parsed?.token
+      if (!t?.access_token) return null
+      // `expiry` is an ISO-8601 string with offset, not an epoch number.
+      const parsedExpiry = typeof t.expiry === "string" ? Date.parse(t.expiry) : undefined
+      return {
+        accessToken: t.access_token,
+        refreshToken: t.refresh_token,
+        expiresAt: Number.isFinite(parsedExpiry) ? parsedExpiry : undefined,
+      }
+    } finally {
+      try {
+        lib.symbols.CredFree(credPtr)
+      } catch {}
+    }
+  } catch {
+    return null
+  }
 }
 
 /**

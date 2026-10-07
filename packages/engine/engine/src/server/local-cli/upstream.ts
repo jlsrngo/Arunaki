@@ -410,6 +410,26 @@ const CLOUD_CODE_PROD = "https://cloudcode-pa.googleapis.com"
 const LOAD_CODE_ASSIST_METADATA = { ideType: 9, platform: 5, pluginType: 2 }
 const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 65536
 
+/**
+ * The Cloud Code endpoint rejects the bare catalogue ids with 404 NOT_FOUND, but it
+ * does NOT accept the "(medium)" suffix that 9Router's registry `upstreamModelId` uses
+ * any more — verified live: `gemini-3.8-flash-medium` returns 200 while
+ * `gemini-3.8-flash-medium(medium)` returns 404. So map only what we have proven and
+ * pass everything else through; an unknown id just falls back to the `agy` worker.
+ */
+const ANTIGRAVITY_MODEL_MAP: Record<string, string> = {
+  "gemini-3.8-flash": "gemini-3.8-flash-medium",
+  "gemini-3.8-flash-high": "gemini-3.8-flash-high",
+  "gemini-3.8-flash-medium": "gemini-3.8-flash-medium",
+  "gemini-3.8-flash-low": "gemini-3.8-flash-low",
+  "gemini-3.1-pro": "gemini-pro-agent",
+  "gemini-3.1-pro-low": "gemini-pro-agent",
+}
+
+export function antigravityModelId(model: string): string {
+  return ANTIGRAVITY_MODEL_MAP[model] ?? model
+}
+
 export interface AntigravityAuth {
   accessToken: string
   refreshToken?: string
@@ -579,7 +599,7 @@ export function buildAntigravityBody(
 
   return {
     project: projectId,
-    model: String(payload.model || "gemini-3.8-flash"),
+    model: antigravityModelId(String(payload.model || "gemini-3.8-flash")),
     userAgent: "antigravity",
     requestId: `req-${sessionId}`,
     request,
@@ -588,7 +608,10 @@ export function buildAntigravityBody(
 
 /** Gemini SSE chunk -> OpenAI chat.completion.chunk. */
 export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number; model: string }): string | null {
-  const parts = ev?.candidates?.[0]?.content?.parts ?? []
+  // streamGenerateContent wraps the candidate under "response"; generateContent does not.
+  const body = ev?.response ?? ev
+  const candidate = body?.candidates?.[0]
+  const parts = candidate?.content?.parts ?? []
   const out: string[] = []
   for (const p of parts) {
     if (typeof p.text === "string" && p.text) {
@@ -615,7 +638,7 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
               delta: {
                 tool_calls: [
                   {
-                    index: (ev.candidates?.[0]?.content?.parts ?? []).indexOf(p),
+                    index: parts.indexOf(p),
                     id: p.functionCall.id ?? `call_${Math.random().toString(36).slice(2, 12)}`,
                     type: "function",
                     function: { name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) },
@@ -629,7 +652,8 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
       )
     }
   }
-  if (ev?.usageMetadata) {
+  const usageMeta = body?.usageMetadata
+  if (usageMeta) {
     out.push(
       sse({
         id: ctx.id,
@@ -638,9 +662,9 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
         model: ctx.model,
         choices: [{ index: 0, delta: {}, finish_reason: null }],
         usage: {
-          prompt_tokens: ev.usageMetadata.promptTokenCount ?? 0,
-          completion_tokens: ev.usageMetadata.candidatesTokenCount ?? 0,
-          total_tokens: ev.usageMetadata.totalTokenCount ?? 0,
+          prompt_tokens: usageMeta.promptTokenCount ?? 0,
+          completion_tokens: usageMeta.candidatesTokenCount ?? 0,
+          total_tokens: usageMeta.totalTokenCount ?? 0,
         },
       }),
     )
