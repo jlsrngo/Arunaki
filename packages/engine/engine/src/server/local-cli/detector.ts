@@ -235,7 +235,7 @@ export async function checkOpenCodeStatus(forceRefresh = false): Promise<OpenCod
  * The id_token audience of a stored credential tells you which client issued it; using
  * the other one returns 401.
  */
-function loadGoogleOAuthClient(): { clientId: string; clientSecret: string } | null {
+export function loadGoogleOAuthClient(): { clientId: string; clientSecret: string } | null {
   const envId = process.env.GOOGLE_OAUTH_CLIENT_ID
   const envSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
   if (envId && envSecret) return { clientId: envId, clientSecret: envSecret }

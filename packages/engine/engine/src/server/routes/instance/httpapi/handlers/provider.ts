@@ -19,6 +19,8 @@ import {
   LocalCliDiscoveredEnvelope,
   LocalCliRefreshInput,
   LocalCliInjectInput,
+  LocalCliOauthStartInput,
+  LocalCliOauthStatusInput,
   ProviderAuthApiError,
   ProviderFetchModelsInput,
   ProviderStateInput,
@@ -43,6 +45,7 @@ import {
 import { localCliBridge } from "../../../../local-cli/bridge"
 import { scanLocalCredentials, invalidateCredentialCache } from "../../../../local-cli/harvester"
 import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
+import { startOauthSession, getOauthResult } from "../../../../local-cli/oauth"
 import {
   injectClaudeSettings,
   injectCodexSettings,
@@ -791,6 +794,30 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    const localCliOauthStart = Effect.fnUntraced(
+      function* (ctx: { readonly payload: { readonly target: "claude" | "codex" | "antigravity"; readonly openBrowser?: boolean } }) {
+        const session = yield* Effect.promise(() =>
+          startOauthSession(ctx.payload.target, ctx.payload.openBrowser !== false),
+        )
+        return {
+          data: {
+            requestId: session.id,
+            target: session.target,
+            authUrl: session.authUrl,
+          },
+        }
+      },
+    )
+
+    const localCliOauthStatus = Effect.fnUntraced(
+      function* (ctx: { readonly payload: { readonly requestId: string } }) {
+        const result = getOauthResult(ctx.payload.requestId)
+        return {
+          data: result ?? { requestId: ctx.payload.requestId, status: "pending" as const },
+        }
+      },
+    )
+
     return handlers
       .handle("listUi", list)
       .handle("upsert", create)
@@ -807,5 +834,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("localCliDiscovered", localCliDiscovered)
       .handle("localCliRefresh", localCliRefresh)
       .handle("localCliInject", localCliInject)
+      .handle("localCliOauthStart", localCliOauthStart)
+      .handle("localCliOauthStatus", localCliOauthStatus)
   }),
 )

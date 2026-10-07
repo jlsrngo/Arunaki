@@ -179,6 +179,33 @@ export const LocalCliDiscoveredEnvelope = Schema.Struct({
   data: Schema.Array(LocalCliDiscoveredItem),
 })
 
+export const LocalCliOauthStartInput = Schema.Struct({
+  target: Schema.Literals(["claude", "codex", "antigravity"]),
+  openBrowser: Schema.optional(Schema.Boolean),
+})
+
+export const LocalCliOauthStartResult = Schema.Struct({
+  data: Schema.Struct({
+    requestId: Schema.String,
+    target: Schema.String,
+    authUrl: Schema.String,
+  }),
+})
+
+export const LocalCliOauthStatusInput = Schema.Struct({
+  requestId: Schema.String,
+})
+
+export const LocalCliOauthStatusResult = Schema.Struct({
+  data: Schema.Struct({
+    requestId: Schema.String,
+    target: Schema.optional(Schema.String),
+    status: Schema.Literals(["pending", "success", "error"]),
+    message: Schema.optional(Schema.String),
+    provider: Schema.optional(Schema.String),
+  }),
+})
+
 export const LocalCliRefreshInput = Schema.Struct({
   target: Schema.Literals(["claude", "codex", "kiro", "cursor", "all"]),
 })
@@ -481,6 +508,31 @@ export const ProviderApi = HttpApi.make("provider")
             identifier: "providers.localCliInject",
             summary: "Inject or reset local CLI configuration",
             description: "Safely configure local CLI tools (Claude, Codex) to route through Arunaki local bridge.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliOauthStart", `${uiRoot}/local-cli/oauth/start`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliOauthStartInput,
+          success: described(LocalCliOauthStartResult, "Browser sign-in started"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliOauthStart",
+            summary: "Start a browser sign-in for a CLI subscription",
+            description:
+              "Runs the vendor OAuth flow (Claude, Codex, Antigravity) so a fresh install can connect without the vendor CLI installed first. Returns an auth URL plus a request id to poll.",
+          }),
+        ),
+        HttpApiEndpoint.post("localCliOauthStatus", `${uiRoot}/local-cli/oauth/status`, {
+          query: WorkspaceRoutingQuery,
+          payload: LocalCliOauthStatusInput,
+          success: described(LocalCliOauthStatusResult, "Sign-in outcome"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "providers.localCliOauthStatus",
+            summary: "Poll the outcome of a CLI sign-in",
+            description: "Returns pending/success/error for a request id returned by localCliOauthStart.",
           }),
         ),
       )

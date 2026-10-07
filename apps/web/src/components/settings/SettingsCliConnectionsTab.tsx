@@ -260,6 +260,7 @@ export function SettingsCliConnectionsTab({
     Record<string, { success: boolean; timeMs: number; message?: string }>
   >({});
   const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
+  const [oauthTarget, setOauthTarget] = useState<string | null>(null);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
   const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
 
@@ -423,8 +424,55 @@ export function SettingsCliConnectionsTab({
     }
   };
 
-  const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {
-    setInjectingTarget(target);
+  // Browser sign-in for the CLI subscriptions, so a fresh install can connect without
+  // the vendor CLI being installed first. Polls until the vendor redirects back.
+  const handleOauthConnect = async (target: "claude" | "codex" | "antigravity") => {
+    setOauthTarget(target);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/oauth/start${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const json = await res.json().catch(() => ({}));
+      const requestId = json.data?.requestId;
+      const authUrl = json.data?.authUrl;
+      if (!requestId || !authUrl) {
+        throw new Error(json.data?.message || (isEn ? "Could not start sign-in" : "Gagal memulai login"));
+      }
+      window.open(authUrl, "_blank", "noopener,noreferrer");
+
+      const deadline = Date.now() + 10 * 60_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const poll = await apiFetch(`${API_BASE}/providers/local-cli/oauth/status${directoryQuery()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId }),
+        });
+        const out = (await poll.json().catch(() => ({})))?.data;
+        if (!out || out.status === "pending") continue;
+        if (out.status === "success") {
+          toast.success(isEn ? "Connected" : "Berhasil terhubung", {
+            description: out.message || `${target} is now connected.`,
+          });
+          await fetchStatus();
+        } else {
+          throw new Error(out.message || (isEn ? "Sign-in failed" : "Login gagal"));
+        }
+        return;
+      }
+      throw new Error(isEn ? "Sign-in timed out" : "Login kedaluwarsa");
+    } catch (err: any) {
+      toast.error(isEn ? "Sign-in failed" : "Login gagal", {
+        description: err?.message ?? String(err),
+      });
+    } finally {
+      setOauthTarget(null);
+    }
+  };
+
+  const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {    setInjectingTarget(target);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/inject${directoryQuery()}`, {
         method: "POST",
@@ -602,22 +650,10 @@ export function SettingsCliConnectionsTab({
   const handleAntigravityEmailLogin = async () => {
     setIsSigningInEmail(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity-oauth" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
-        toast.info("Google OAuth Browser Opened", {
-          description: isEn
-            ? "Please complete Google account authentication in your browser."
-            : "Silakan selesaikan otentikasi akun Google di browser Anda.",
-        });
-        startAntigravityPoll();
-      } else {
-        toast.error(isEn ? "Failed to open Google OAuth" : "Gagal membuka Google OAuth", { description: json.data?.message });
-      }
+      // Real OAuth round-trip: the previous version only opened a browser tab pointed at
+      // 127.0.0.1:8085, where nothing was listening, so the sign-in never completed.
+      await handleOauthConnect("antigravity");
+      startAntigravityPoll();
     } catch (err: any) {
       toast.error(isEn ? "Failed to initiate email login" : "Gagal memulai login email", { description: err.message });
     } finally {
@@ -1272,11 +1308,20 @@ export function SettingsCliConnectionsTab({
             <button
               type="button"
               onClick={() => setActiveAuthModalTarget("claude")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              disabled={oauthTarget === "claude"}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
               title={isEn ? "Choose Claude authentication method (Email vs CLI)" : "Pilih metode otentikasi Claude (Email vs CLI)"}
             >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{isEn ? "Auth Method" : "Metode Masuk"}</span>
+              {oauthTarget === "claude" ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <SlidersHorizontal className="w-3 h-3" />
+              )}
+              <span>
+                {oauthTarget === "claude"
+                  ? isEn ? "Signing in..." : "Menyambungkan..."
+                  : isEn ? "Auth Method" : "Metode Masuk"}
+              </span>
             </button>
             <button
               type="button"
@@ -1436,11 +1481,20 @@ export function SettingsCliConnectionsTab({
             <button
               type="button"
               onClick={() => setActiveAuthModalTarget("codex")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              disabled={oauthTarget === "codex"}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
               title={isEn ? "Choose OpenAI Codex authentication method (Email vs CLI)" : "Pilih metode otentikasi OpenAI Codex (Email vs CLI)"}
             >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{isEn ? "Auth Method" : "Metode Masuk"}</span>
+              {oauthTarget === "codex" ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <SlidersHorizontal className="w-3 h-3" />
+              )}
+              <span>
+                {oauthTarget === "codex"
+                  ? isEn ? "Signing in..." : "Menyambungkan..."
+                  : isEn ? "Auth Method" : "Metode Masuk"}
+              </span>
             </button>
             <button
               type="button"
@@ -1964,19 +2018,19 @@ export function SettingsCliConnectionsTab({
                   ? (isEn ? `Active account: ${data.claude.email}` : `Akun aktif: ${data.claude.email}`)
                   : undefined,
                 isLoggedIn: Boolean(data.claude?.loggedIn),
-                emailLabel: isEn ? "Sign in via Web (Claude.ai)" : "Masuk via Web (Claude.ai)",
-                emailBadge: "Web Portal",
+                emailLabel: isEn ? "Sign in via Browser (Arunaki)" : "Masuk via Browser (Arunaki)",
+                emailBadge: "OAuth",
                 emailDesc: isEn
-                  ? "Sign in directly to the Anthropic Claude portal via browser without opening a terminal."
-                  : "Masuk langsung ke portal akun Anthropic Claude via peramban web tanpa memerlukan jendela terminal.",
-                emailWarningTitle: isEn ? "Notice (Web Portal):" : "Peringatan (Web):",
+                  ? "Runs the Claude OAuth flow in your browser and stores the token in Arunaki. No terminal needed."
+                  : "Menjalankan alur OAuth Claude di peramban dan menyimpan tokennya di Arunaki. Tanpa terminal.",
+                emailWarningTitle: isEn ? "Notice:" : "Peringatan:",
                 emailWarningText: isEn
-                  ? "Opens browser for Anthropic account authorization. Consumer tokens on third-party services are subject to Anthropic's terms."
-                  : "Membuka peramban untuk otorisasi akun Anthropic. Penggunaan token akun konsumen di pihak ketiga tunduk pada kebijakan privasi & layanan Anthropic.",
-                emailButton: isEn ? "Open Claude Portal (Web)" : "Buka Portal Claude (Web)",
+                  ? "Opens the Anthropic authorization page and stores the token locally in Arunaki. Consumer tokens used through a third-party app remain subject to Anthropic's terms."
+                  : "Membuka halaman otorisasi Anthropic dan menyimpan token secara lokal di Arunaki. Penggunaan token akun konsumen lewat aplikasi pihak ketiga tetap tunduk pada kebijakan privasi & layanan Anthropic.",
+                emailButton: isEn ? "Sign in with Browser" : "Masuk via Browser",
                 onEmailAction: () => {
-                  window.open("https://claude.ai/login", "_blank");
                   closeModal();
+                  handleOauthConnect("claude");
                 },
                 cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
                 cliBadge: "Claude Code",
@@ -2002,19 +2056,19 @@ export function SettingsCliConnectionsTab({
                 badgeLetter: "O",
                 accountActiveText: undefined,
                 isLoggedIn: Boolean(data.codex?.installed),
-                emailLabel: isEn ? "Sign in via Web (OpenAI Portal)" : "Masuk via Web (OpenAI Portal)",
-                emailBadge: "Web Portal",
+                emailLabel: isEn ? "Sign in via Browser (Arunaki)" : "Masuk via Browser (Arunaki)",
+                emailBadge: "OAuth",
                 emailDesc: isEn
-                  ? "Sign in directly via ChatGPT / OpenAI in browser without opening a terminal."
-                  : "Masuk langsung via akun ChatGPT / OpenAI di peramban web tanpa membuka konsol terminal.",
-                emailWarningTitle: isEn ? "Notice (Web Portal):" : "Peringatan (Web Portal):",
+                  ? "Runs the ChatGPT OAuth flow in your browser and stores the token in Arunaki. No terminal needed."
+                  : "Menjalankan alur OAuth ChatGPT di peramban dan menyimpan tokennya di Arunaki. Tanpa terminal.",
+                emailWarningTitle: isEn ? "Notice:" : "Peringatan:",
                 emailWarningText: isEn
-                  ? "Opens browser for OpenAI account session. Requires an active OpenAI account with reasoning models (o3-mini, o1, gpt-4o)."
-                  : "Membuka peramban untuk sesi akun OpenAI. Memerlukan akun OpenAI aktif dengan akses model reasoning (o3-mini, o1, gpt-4o).",
-                emailButton: isEn ? "Open OpenAI Portal (Web)" : "Buka Portal OpenAI (Web)",
+                  ? "Opens the OpenAI authorization page and stores the token locally in Arunaki. Requires an active ChatGPT/OpenAI account."
+                  : "Membuka halaman otorisasi OpenAI dan menyimpan token secara lokal di Arunaki. Memerlukan akun ChatGPT/OpenAI aktif.",
+                emailButton: isEn ? "Sign in with Browser" : "Masuk via Browser",
                 onEmailAction: () => {
-                  window.open("https://platform.openai.com/api-keys", "_blank");
                   closeModal();
+                  handleOauthConnect("codex");
                 },
                 cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
                 cliBadge: "@openai/codex",

@@ -3,6 +3,7 @@ import {
   loadAllCredentials,
   persistCredential,
 } from "./credential-store.js"
+import { loadGoogleOAuthClient } from "./detector.js"
 
 // Lead per provider — from 9Router registry
 const REFRESH_LEAD_MS: Record<string, number> = {
@@ -81,6 +82,8 @@ async function doRefresh(cred: DiscoveredCredential): Promise<DiscoveredCredenti
         return await refreshClaude(cred)
       case "kiro":
         return await refreshKiro(cred)
+      case "antigravity":
+        return await refreshAntigravity(cred)
       default:
         return null
     }
@@ -194,6 +197,52 @@ async function refreshKiro(cred: DiscoveredCredential): Promise<DiscoveredCreden
   } catch (err: any) {
     if (err instanceof PermanentRefreshError) throw err
     console.warn(`[TokenRefresh] Kiro refresh failed:`, err?.message)
+    return null
+  }
+}
+
+// Google/Antigravity OAuth refresh — same client resolution as detector.getAntigravityAuth
+async function refreshAntigravity(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
+  if (!cred.refreshToken) return null
+  const client = loadGoogleOAuthClient()
+  if (!client) {
+    console.warn(
+      "[TokenRefresh] Antigravity: no OAuth client configured (GOOGLE_OAUTH_CLIENT_SECRET or ~/.arunaki/oauth-clients.json)",
+    )
+    return null
+  }
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: cred.refreshToken,
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "")
+      const marker = permanentMarker(res.status, errText)
+      if (marker) throw new PermanentRefreshError(marker)
+      console.warn(`[TokenRefresh] Antigravity refresh HTTP ${res.status}:`, errText.slice(0, 200))
+      return null
+    }
+    const data: any = await res.json()
+    const refreshed: DiscoveredCredential = {
+      ...cred,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || cred.refreshToken,
+      expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
+      lastRefreshAt: Date.now(),
+    }
+    await persistCredential(refreshed)
+    return refreshed
+  } catch (err: any) {
+    if (err instanceof PermanentRefreshError) throw err
+    console.warn(`[TokenRefresh] Antigravity refresh failed:`, err?.message)
     return null
   }
 }
