@@ -682,6 +682,34 @@ export function checkAntigravityCli(): { installed: boolean; signedIn: boolean }
 }
 
 /** Opens a real terminal running `agy` so the user can complete its Google sign-in. */
+/**
+ * Nudge `agy` so it refreshes its own stored credential, then re-read it.
+ *
+ * The Credential Manager copy carries a refresh_token, but spending it needs the
+ * Antigravity OAuth client — which we deliberately do not commit. Running any `agy`
+ * command makes it renew the shared credential itself (verified: an expired token went
+ * from -2 minutes to +60 minutes after `agy models`), so we borrow that path instead.
+ */
+export async function refreshAntigravityCredentialViaAgy(): Promise<boolean> {
+  const cmd = resolveAgyCommand()
+  if (!cmd || !fs.existsSync(cmd)) return false
+  const before = readAntigravityCredentialManager()?.accessToken
+  try {
+    crossSpawn.sync(cmd, ["models"], {
+      timeout: 45000,
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "ignore"],
+    })
+  } catch {
+    return false
+  }
+  // Drop the short-lived cache so the next read picks up whatever agy just wrote.
+  antigravityAuth = null
+  antigravityAuthCheckedAt = 0
+  const after = readAntigravityCredentialManager()?.accessToken
+  return Boolean(after) && after !== before
+}
+
 export function launchAntigravityLogin(): { success: boolean; message: string } {
   const cmd = resolveAgyCommand()
   if (!cmd || !fs.existsSync(cmd)) {

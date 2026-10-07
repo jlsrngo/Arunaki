@@ -767,8 +767,41 @@ export async function streamDirectAntigravityCompletion(
 
   if (!upstreamRes.ok || !upstreamRes.body) {
     const errText = await upstreamRes.text().catch(() => "")
-    console.warn(`[FastPath:Antigravity] HTTP ${upstreamRes.status}:`, errText.slice(0, 300))
-    return false
+    const status = upstreamRes.status
+    console.warn(`[FastPath:Antigravity] HTTP ${status}:`, errText.slice(0, 300))
+    if (status === 401 || status === 403) {
+      // The stored token expired. Let agy renew the shared credential, then retry once.
+      const { refreshAntigravityCredentialViaAgy, getAntigravityAuth } = await import("./detector.js")
+      const renewed = await refreshAntigravityCredentialViaAgy()
+      if (renewed) {
+        const fresh = await getAntigravityAuth(true)
+        if (fresh?.accessToken && fresh.accessToken !== auth.accessToken) {
+          const retryBody = buildAntigravityBody(payload, projectId, sessionId, true)
+          if (retryBody) {
+            try {
+              const retried = await fetch(antigravityUrl(true), {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${fresh.accessToken}`,
+                  "User-Agent": ANTIGRAVITY_IDE_UA,
+                },
+                body: JSON.stringify(retryBody),
+                signal: AbortSignal.timeout(120000),
+              })
+              if (retried.ok && retried.body) {
+                upstreamRes = retried
+              } else {
+                return false
+              }
+            } catch {
+              return false
+            }
+          }
+        }
+      }
+    }
+    if (!upstreamRes.ok || !upstreamRes.body) return false
   }
 
   const wantsStream = payload.stream !== false
