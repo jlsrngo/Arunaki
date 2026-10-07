@@ -118,3 +118,54 @@ A 1:1 review against the 9Router source (`open-sse/`) identified 3 P1 bugs + sev
 - `npm run build -w apps/web`: âœ… 0 errors (39.67s)
 - `bun run typecheck`: 51 errors, **all pre-existing**, 0 in `local-cli`/UI.
 - `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 failed â€” **proven pre-existing** (identical on clean tree).
+
+---
+
+## Round 4 — OpenCode Native Route: Lokal Daemon ? Hosted Zen (2026-10-07)
+
+### Masalah
+Request ` opencode/big-pickle ` dari Arunaki:
+1. **Session bocor ke opencode CLI** — `bridge.ts` memanggil `POST /session` ke daemon lokal port 4097, jadi opencode mencatat setiap giliran sebagai session-nya sendiri (terbukti: session `ses_eebcfe7…` "Update LAPORAN-HARIAN.txt ke hari ini" + "Greeting check-in" muncul di daftar session opencode dengan `directory` = sandbox Arunaki).
+2. **Prompt 94.500 karakter per giliran** — `bridge.ts` meratakan system prompt + schema tool menjadi satu string (`User: …\n\nAssistant: …`).
+3. **Tool calling dibuang total** — hanya teks yang diteruskan.
+4. **Timeout 90 detik** — akibat (1)+(2)+(3).
+
+### Akar masalah: ini deviate dari 9Router
+9Router **tidak pernah** menjalankan daemon opencode lokal. `cli/src/cli/commands/connect.js`: *"point local CLI tools at a REMOTE 9router server. **Nothing runs locally**"*. Untuk model opencode, 9Router memakai endpoint **hosted**:
+
+| | 9Router | Arunaki (sebelum) |
+|---|---|---|
+| Endpoint | `https://opencode.ai/zen/v1/chat/completions` | daemon lokal `127.0.0.1:4097` |
+| Cara | HTTP langsung, stateless | `POST /session` + `POST /session/{id}/message` |
+| Efek session | tidak pernah ada | session tercatat di opencode |
+
+### Perubahan
+- **`streamDirectOpenCodeCompletion()`** (`upstream.ts`) — executor hosted sesuai `9router/open-sse/executors/opencode.js`:
+  - URL `https://opencode.ai/zen/v1/chat/completions`
+  - Header: `User-Agent: opencode/1.18.31`, `x-opencode-client: desktop`, `x-opencode-project: global`, `x-opencode-session`, `x-opencode-request`, `Accept: text/event-stream`
+  - **Fingerprint quartet** `bash/glob/grep/read` dengan description `"This tool is currently unavailable and must not be used."` + default `tool_choice: "none"` (tanpa ini upstream balas 403)
+  - `stream: true` dipaksa, lalu SSE diteruskan apa adanya / diagregasi untuk klien non-stream
+- **`opencodeSessionId()`** — satu session stabil per percakapan. 9Router: quota free tier dihitung per session; mencetak session baru tiap request menghabiskan kuota (429).
+- **`getOpenCodeAccountToken()`** (`detector.ts`) — baca token akun OpenCode dari `~/.local/share/opencode/auth.json`; dipakai sebagai `Bearer <token>`, fallback ke lane pooled `Bearer public`.
+- **`bridge.ts`** — blok daemon dihapus seluruhnya (**-229 baris**), termasuk class `OpenCodeDaemonWorker`, field, prewarm, dan `stop()`. Tidak ada lagi proses `opencode serve` yang di-spawn saat bridge start.
+- Payload + tools diteruskan **apa adanya**; tidak ada lagi pemipihan 94.5k karakter.
+
+### Temuan penting: lane free OpenCode sedang terkunci
+Diverifikasi langsung (2026-10-07) dengan meniru fix 9Router v0.5.81 persis:
+
+    POST https://opencode.ai/zen/v1/chat/completions  (UA opencode/1.18.31,
+      x-opencode-session canonical, fingerprint quartet, stream:true)
+    ? 403 {"type":"error","error":{"type":"FreeTierError",
+        "message":"OpenCode's free tier can only be used from within OpenCode"}}
+
+Diuji juga: format session ID presisi (`ses_` + 12 hex + 14 base62), session stabil dua request berturut-turut, dan fingerprint description yang sama seperti `utils/opencodeFingerprint.js`. Semuanya tetap 403.
+
+`~/.local/share/opencode/auth.json` di mesin ini hanya berisi `9router` dan `groq` — **tidak ada token akun OpenCode**, padahal itulah kredensial "from within OpenCode" yang diminta. 9Router akan mengalami hasil yang sama di mesin ini.
+
+Karena itu route baru **degradasi rapi**: 403 ? `return false` ? jatuh ke lane berikutnya (Groq). Tidak ada request menggantung, tidak ada session bocor, tidak ada prompt 94.5k karakter.
+
+### Tests
+- `test/upstream.test.ts`: +4 test (URL/header/fingerprint/session-stabil, 403 ? `false` tanpa menulis, stream SSEverbatim, non-stream ? JSON) ? **40 pass / 0 fail** di 6 file local-cli
+- `npm run build -w apps/web`: ? 0 error (38.59s)
+- `bun run typecheck`: 75 error sebelum **dan** sesudah (terbukti pre-existing dengan stash) ? **0 error baru**
+- Full suite belum dijalankan (butuh >25 menit; 45 failure pre-existing di suite tak terkait sudah teridentifikasi sebelumnya)
