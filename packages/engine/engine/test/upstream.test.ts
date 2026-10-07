@@ -9,6 +9,12 @@ import {
   streamDirectCodexCompletion,
   streamDirectAnthropicCompletion,
   streamDirectOpenCodeCompletion,
+  streamDirectAntigravityCompletion,
+  antigravityUrl,
+  chatToAntigravityContents,
+  chatToAntigravityTools,
+  buildAntigravityBody,
+  mapAntigravityEvent,
   opencodeUrlFor,
   buildOpenCodeHeaders,
   applyOpenCodeFingerprint,
@@ -273,6 +279,182 @@ describe("Upstream request builders", () => {
     expect(body.choices[0].finish_reason).toBe("tool_calls")
     expect(body.usage.total_tokens).toBe(7)
     expect(chunksToCompletion([], "m")).toBeNull()
+  })
+
+  it("antigravity: URL harian + project discovery tetap di host prod", () => {
+    expect(antigravityUrl(true)).toBe(
+      "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+    )
+    expect(antigravityUrl(false)).toBe(
+      "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent",
+    )
+  })
+
+  it("antigravity: chat → contents/parts Gemini (role, functionCall, functionResponse)", () => {
+    const contents = chatToAntigravityContents({
+      messages: [
+        { role: "system", content: "sys" },
+        { role: "user", content: "halo" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [{ id: "c1", function: { name: "read", arguments: '{"path":"a.txt"}' } }],
+        },
+        { role: "tool", tool_call_id: "c1", content: "isi" },
+        { role: "user", content: "lanjut" },
+      ],
+    })
+    expect(contents[0]).toEqual({ role: "user", parts: [{ text: "halo" }] })
+    expect(contents[1].role).toBe("model")
+    expect(contents[1].parts[0].functionCall).toMatchObject({ name: "read", args: { path: "a.txt" } })
+    // functionResponse harus role user dan digabung dengan turn berikutnya
+    expect(contents[2].role).toBe("user")
+    // functionResponse dicocokkan lewat NAMA (tidak ada name di pesan tool OpenAI)
+    expect(contents[2].parts[0].functionResponse.name).toBe("read")
+    expect(contents[2].parts[0].functionResponse.response.content).toBe("isi")
+    expect(contents[2].parts[1]).toEqual({ text: "lanjut" })
+  })
+
+  it("antigravity: tools digabung satu group + nama disanitasi", () => {
+    const tools = chatToAntigravityTools({
+      tools: [
+        { type: "function", function: { name: "read file", description: "d", parameters: { type: "object" } } },
+        { type: "function", function: { name: "read_file", description: "d2" } },
+      ],
+    })
+    expect(tools).toHaveLength(1)
+    expect(tools![0].functionDeclarations).toHaveLength(1)
+    expect(tools![0].functionDeclarations[0].name).toBe("read_file")
+    expect(chatToAntigravityTools({ tools: [] })).toBeUndefined()
+  })
+
+  it("antigravity: body tanpa requestType + toolConfig VALIDATED", () => {
+    const body = buildAntigravityBody(
+      {
+        model: "gemini-3.8-flash",
+        messages: [{ role: "user", content: "hi" }],
+        tools: [{ type: "function", function: { name: "read", parameters: { type: "object", properties: {} } } }],
+      },
+      "proj-123",
+      "ses_abc",
+      true,
+    )
+    expect(body.project).toBe("proj-123")
+    expect(body.userAgent).toBe("antigravity")
+    expect(body.request.sessionId).toBe("ses_abc")
+    expect(body.request.toolConfig).toEqual({ functionCallingConfig: { mode: "VALIDATED" } })
+    // requestType "agent" memicu 429 tanpa detail — wajib dihapus
+    expect("requestType" in body).toBe(false)
+    expect("safetySettings" in body.request).toBe(false)
+  })
+
+  it("antigravity: event Gemini → chunk OpenAI (teks + functionCall)", () => {
+    const ctx = { id: "c1", created: 1, model: "gemini-3.8-flash" }
+    const textChunk = mapAntigravityEvent(
+      { candidates: [{ content: { parts: [{ text: "hai" }] } }] },
+      ctx,
+    )
+    expect(textChunk).toContain("hai")
+
+    const callChunk = mapAntigravityEvent(
+      { candidates: [{ content: { parts: [{ functionCall: { name: "read", args: { path: "a" }, id: "c9" } }] } }] },
+      ctx,
+    )!
+    const parsed = JSON.parse(callChunk.split("data: ")[1].split("\n")[0])
+    expect(parsed.choices[0].delta.tool_calls[0]).toMatchObject({
+      id: "c9",
+      function: { name: "read", arguments: '{"path":"a"}' },
+    })
+
+    const usage = mapAntigravityEvent(
+      { usageMetadata: { promptTokenCount: 4, candidatesTokenCount: 6, totalTokenCount: 10 } },
+      ctx,
+    )!
+    expect(usage).toContain('"total_tokens":10')
+  })
+
+  it("fast-path antigravity: 403 → return false tanpa menulis", async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: any, init: any) => {
+      const u = String(url)
+      if (u.includes("loadCodeAssist")) {
+        expect(init.headers.Authorization).toBe("Bearer ya29.token")
+        // Google's backend refuses to provision a project when these leak in
+        expect(init.headers["X-Goog-Api-Client"]).toBeUndefined()
+        expect(init.headers["Client-Metadata"]).toBeUndefined()
+        return new Response(JSON.stringify({ cloudaicompanionProject: "proj-live" }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ error: { code: 429 } }), { status: 403 })
+    }) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectAntigravityCompletion(
+        { model: "gemini-3.8-flash", messages: [{ role: "user", content: "hi" }], stream: true },
+        res,
+        { accessToken: "ya29.token" },
+      )
+      expect(handled).toBe(false)
+      expect(state.body).toBe("")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("fast-path antigravity: stream SSE diteruskan + token OAuth dipakai", async () => {
+    const realFetch = globalThis.fetch
+    let chatUrl = ""
+    let authHeader = ""
+    globalThis.fetch = (async (url: any, init: any) => {
+      const u = String(url)
+      if (u.includes("loadCodeAssist")) {
+        return new Response(JSON.stringify({ cloudaicompanionProject: "proj-live" }), { status: 200 })
+      }
+      chatUrl = u
+      authHeader = init.headers.Authorization
+      return sseResponse([
+        `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: "PING" }] } }] })}\n\n`,
+        `data: ${JSON.stringify({ usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 } })}\n\n`,
+      ])
+    }) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectAntigravityCompletion(
+        { model: "gemini-3.8-flash", messages: [{ role: "user", content: "hi" }], stream: true },
+        res,
+        { accessToken: "ya29.token" },
+      )
+      expect(handled).toBe(true)
+      expect(chatUrl).toBe(
+        "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
+      )
+      expect(authHeader).toBe("Bearer ya29.token")
+      expect(state.body).toContain("PING")
+      expect(state.body).toContain("[DONE]")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("fast-path antigravity: tanpa project id → return false (fallback)", async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: any) => {
+      if (String(url).includes("loadCodeAssist")) {
+        return new Response(JSON.stringify({}), { status: 200 })
+      }
+      throw new Error("should not reach chat")
+    }) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectAntigravityCompletion(
+        { model: "gemini-3.8-flash", messages: [{ role: "user", content: "hi" }], stream: true },
+        res,
+        { accessToken: "ya29.token" },
+      )
+      expect(handled).toBe(false)
+      expect(state.body).toBe("")
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 
   it("opencode zen: URL, header, dan fingerprint mengikuti 9Router", () => {

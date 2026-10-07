@@ -400,6 +400,373 @@ export async function streamDirectOpenCodeCompletion(
   return true
 }
 
+// --- Antigravity / Google Cloud Code (9Router antigravity.js + projectId.js) ---
+
+// Ide fingerprint is intentionally static (mirrors the IDE client, not the host OS).
+const ANTIGRAVITY_IDE_UA = "antigravity/ide/2.11.0 darwin/arm64"
+const ANTIGRAVITY_BASE = "https://daily-cloudcode-pa.googleapis.com"
+// Project discovery stays on PROD: the daily host rejects auth/onboarding calls.
+const CLOUD_CODE_PROD = "https://cloudcode-pa.googleapis.com"
+const LOAD_CODE_ASSIST_METADATA = { ideType: 9, platform: 5, pluginType: 2 }
+const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 65536
+
+export interface AntigravityAuth {
+  accessToken: string
+  refreshToken?: string
+  expiresAt?: number
+  projectId?: string
+}
+
+export function antigravityUrl(stream: boolean): string {
+  const action = stream ? "streamGenerateContent?alt=sse" : "generateContent"
+  return `${ANTIGRAVITY_BASE}/v1internal:${action}`
+}
+
+/** Real Antigravity resolves a real project bound to the account; random ids get the
+ *  account flagged by Google's anti-abuse systems (9Router services/projectId.js). */
+const projectIdCache = new Map<string, { projectId: string; fetchedAt: number }>()
+const PROJECT_CACHE_TTL_MS = 60 * 60 * 1000
+
+export async function resolveAntigravityProjectId(accessToken: string): Promise<string | null> {
+  const cached = projectIdCache.get(accessToken.slice(-24))
+  if (cached && Date.now() - cached.fetchedAt < PROJECT_CACHE_TTL_MS) return cached.projectId
+
+  const res = await fetch(`${CLOUD_CODE_PROD}/v1internal:loadCodeAssist`, {
+    method: "POST",
+    // Deliberately no X-Goog-Api-Client / Client-Metadata: Google's backend
+    // fingerprints them and silently refuses to provision a project.
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": ANTIGRAVITY_IDE_UA,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ metadata: LOAD_CODE_ASSIST_METADATA }),
+    signal: AbortSignal.timeout(15000),
+  })
+  if (!res.ok) {
+    console.warn("[Antigravity] loadCodeAssist failed:", res.status)
+    return null
+  }
+  const data: any = await res.json()
+  const raw = data?.cloudaicompanionProject
+  const projectId = typeof raw === "string" ? raw.trim() : typeof raw?.id === "string" ? raw.id.trim() : ""
+  if (!projectId) return null
+  projectIdCache.set(accessToken.slice(-24), { projectId, fetchedAt: Date.now() })
+  return projectId
+}
+
+/** OpenAI chat -> Gemini/Antigravity `contents` + `parts`. */
+export function chatToAntigravityContents(payload: any): any[] {
+  const contents: any[] = []
+  // Gemini matches functionResponse by name, not by id, so remember what each
+  // assistant turn asked for.
+  const toolNamesById = new Map<string, string>()
+
+  for (const m of payload.messages ?? []) {
+    if (m.role === "system" || m.role === "developer") continue
+    const role = m.role === "assistant" ? "model" : "user"
+    const parts: any[] = []
+
+    if (Array.isArray(m.content)) {
+      for (const part of m.content) {
+        if (part.type === "text" && part.text) parts.push({ text: part.text })
+        else if (part.type === "image_url" && part.image_url?.url?.startsWith("data:")) {
+          const [header, data] = part.image_url.url.split(",")
+          parts.push({
+            inlineData: { mimeType: header.replace("data:", "").replace(";base64", ""), data },
+          })
+        }
+      }
+    } else if (typeof m.content === "string" && m.content) {
+      parts.push({ text: m.content })
+    }
+
+    if (Array.isArray(m.tool_calls)) {
+      for (const tc of m.tool_calls) {
+        let args: any = {}
+        try {
+          args = typeof tc.function?.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function?.arguments || {}
+        } catch {
+          args = {}
+        }
+        if (tc.id && tc.function?.name) toolNamesById.set(tc.id, tc.function.name)
+        parts.push({ functionCall: { name: tc.function?.name, args, id: tc.id } })
+      }
+    }
+
+    if (m.role === "tool") {
+      const name = m.name ?? toolNamesById.get(m.tool_call_id) ?? "tool"
+      parts.length = 0
+      parts.push({
+        functionResponse: {
+          name,
+          response: { content: typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "") },
+        },
+      })
+    }
+
+    if (parts.length) contents.push({ role, parts })
+  }
+
+  // Gemini rejects empty turns and requires strict alternation on functionResponse.
+  const merged: any[] = []
+  for (const c of contents) {
+    const prev = merged[merged.length - 1]
+    if (prev && prev.role === c.role) prev.parts.push(...c.parts)
+    else merged.push({ role: c.role, parts: c.parts })
+  }
+  return merged
+}
+
+export function chatToAntigravityTools(payload: any): any[] | undefined {
+  if (!Array.isArray(payload.tools) || payload.tools.length === 0) return undefined
+  const seen = new Set<string>()
+  const declarations: any[] = []
+  for (const t of payload.tools) {
+    const fn = t.function || t
+    const name = String(fn.name ?? "").trim().replace(/[^A-Za-z0-9_.-]/g, "_")
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    declarations.push({
+      name,
+      description: fn.description || "",
+      parameters: fn.parameters || {
+        type: "object",
+        properties: { reason: { type: "string", description: "Brief explanation" } },
+        required: ["reason"],
+      },
+    })
+  }
+  return declarations.length ? [{ functionDeclarations: declarations }] : undefined
+}
+
+export function buildAntigravityBody(
+  payload: any,
+  projectId: string,
+  sessionId: string,
+  stream: boolean,
+): any {
+  const contents = chatToAntigravityContents(payload)
+  if (!contents.length) return null
+
+  const systemParts: string[] = []
+  for (const m of payload.messages ?? []) {
+    if (m.role !== "system" && m.role !== "developer") continue
+    const t = textOf(m.content)
+    if (t) systemParts.push(t)
+  }
+
+  const tools = chatToAntigravityTools(payload)
+  const maxOut = Math.min(
+    payload.max_tokens ?? payload.max_completion_tokens ?? MAX_ANTIGRAVITY_OUTPUT_TOKENS,
+    MAX_ANTIGRAVITY_OUTPUT_TOKENS,
+  )
+
+  const request: any = {
+    contents,
+    generationConfig: {
+      temperature: payload.temperature ?? undefined,
+      topP: payload.top_p ?? undefined,
+      maxOutputTokens: maxOut,
+    },
+    sessionId,
+  }
+  if (systemParts.length) request.systemInstruction = { parts: [{ text: systemParts.join("\n\n") }] }
+  if (tools) {
+    request.tools = tools
+    request.toolConfig = { functionCallingConfig: { mode: "VALIDATED" } }
+  }
+
+  return {
+    project: projectId,
+    model: String(payload.model || "gemini-3.8-flash"),
+    userAgent: "antigravity",
+    requestId: `req-${sessionId}`,
+    request,
+  }
+}
+
+/** Gemini SSE chunk -> OpenAI chat.completion.chunk. */
+export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number; model: string }): string | null {
+  const parts = ev?.candidates?.[0]?.content?.parts ?? []
+  const out: string[] = []
+  for (const p of parts) {
+    if (typeof p.text === "string" && p.text) {
+      out.push(
+        sse({
+          id: ctx.id,
+          object: "chat.completion.chunk",
+          created: ctx.created,
+          model: ctx.model,
+          choices: [{ index: 0, delta: { content: p.text }, finish_reason: null }],
+        }),
+      )
+    }
+    if (p.functionCall) {
+      out.push(
+        sse({
+          id: ctx.id,
+          object: "chat.completion.chunk",
+          created: ctx.created,
+          model: ctx.model,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: (ev.candidates?.[0]?.content?.parts ?? []).indexOf(p),
+                    id: p.functionCall.id ?? `call_${Math.random().toString(36).slice(2, 12)}`,
+                    type: "function",
+                    function: { name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        }),
+      )
+    }
+  }
+  if (ev?.usageMetadata) {
+    out.push(
+      sse({
+        id: ctx.id,
+        object: "chat.completion.chunk",
+        created: ctx.created,
+        model: ctx.model,
+        choices: [{ index: 0, delta: {}, finish_reason: null }],
+        usage: {
+          prompt_tokens: ev.usageMetadata.promptTokenCount ?? 0,
+          completion_tokens: ev.usageMetadata.candidatesTokenCount ?? 0,
+          total_tokens: ev.usageMetadata.totalTokenCount ?? 0,
+        },
+      }),
+    )
+  }
+  return out.length ? out.join("") : null
+}
+
+export async function streamDirectAntigravityCompletion(
+  payload: any,
+  res: http.ServerResponse,
+  auth: AntigravityAuth | null,
+): Promise<boolean> {
+  if (!auth?.accessToken) return false
+
+  const projectId = auth.projectId || (await resolveAntigravityProjectId(auth.accessToken))
+  if (!projectId) {
+    console.warn("[FastPath:Antigravity] Could not resolve a project id, falling back")
+    return false
+  }
+
+  const sessionId = opencodeSessionId(payload)
+  // Sending requestType:"agent" makes Google bucket the request into a
+  // detail-free 429, so the agent path must omit it (9Router antigravity.js).
+  const body = buildAntigravityBody(payload, projectId, sessionId, true)
+  if (!body) return false
+
+  let upstreamRes: Response
+  try {
+    upstreamRes = await fetch(antigravityUrl(true), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        "User-Agent": ANTIGRAVITY_IDE_UA,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
+    })
+  } catch (err: any) {
+    console.warn("[FastPath:Antigravity] Network error:", err?.message)
+    return false
+  }
+
+  if (!upstreamRes.ok || !upstreamRes.body) {
+    const errText = await upstreamRes.text().catch(() => "")
+    console.warn(`[FastPath:Antigravity] HTTP ${upstreamRes.status}:`, errText.slice(0, 300))
+    return false
+  }
+
+  const wantsStream = payload.stream !== false
+  const buffered = wantsStream ? { chunks: [] as string[], res } : bufferSink()
+  const sink = buffered.res
+  const chunks = buffered.chunks
+
+  if (wantsStream && !res.headersSent) {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    })
+  }
+
+  const ctx = {
+    id: `chatcmpl-antigravity-${Date.now()}`,
+    created: Math.floor(Date.now() / 1000),
+    model: payload.model || "gemini-3.8-flash",
+  }
+
+  const reader = upstreamRes.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        const raw = line.slice(6).trim()
+        if (!raw || raw === "[DONE]") continue
+        try {
+          const chunk = mapAntigravityEvent(JSON.parse(raw), ctx)
+          if (chunk) sink.write(chunk)
+        } catch {}
+      }
+    }
+  } catch (err: any) {
+    if (wantsStream) {
+      if (res.headersSent) {
+        res.write(
+          `data: ${JSON.stringify({ error: { message: err?.message } })}\n\ndata: [DONE]\n\n`,
+        )
+        res.end()
+      }
+      return true
+    }
+    return false
+  }
+
+  const tail = `${sse({
+    id: ctx.id,
+    object: "chat.completion.chunk",
+    created: ctx.created,
+    model: ctx.model,
+    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+  })}data: [DONE]\n\n`
+  sink.write(tail)
+
+  if (wantsStream) {
+    res.end()
+    return true
+  }
+
+  const completion = chunksToCompletion(chunks, ctx.model)
+  if (!completion) {
+    console.warn("[FastPath:Antigravity] Could not aggregate non-stream response")
+    return false
+  }
+  if (!res.headersSent) res.writeHead(200, { "Content-Type": "application/json" })
+  res.end(JSON.stringify(completion))
+  return true
+}
+
 /** Aggregate translated chat.completion.chunk SSE into a single chat.completion body. */
 export function chunksToCompletion(chunks: string[], model: string): any | null {
   let text = ""

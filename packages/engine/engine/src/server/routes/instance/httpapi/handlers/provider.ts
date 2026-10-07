@@ -626,7 +626,6 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           })
         }
         if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
-          localCliBridge.prewarmAgyWorker()
           return yield* upsert("antigravity", {
             name: "Google Antigravity CLI (Local Subscription)",
             type: "openai-compatible",

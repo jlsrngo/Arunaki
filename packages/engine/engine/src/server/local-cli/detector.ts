@@ -223,6 +223,107 @@ export async function checkOpenCodeStatus(forceRefresh = false): Promise<OpenCod
 }
 
 /**
+ * OAuth client used to refresh the Gemini/Antigravity access token.
+ *
+ * Deliberately NOT committed: GitHub secret scanning rejects the repo for embedded
+ * client secrets. These are Google's public installed-app credentials, so supply them
+ * out-of-band, either as env vars or in a local (gitignored) file:
+ *
+ *   GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET
+ *   ~/.arunaki/oauth-clients.json  ->  { "google": { "clientId": "...", "clientSecret": "..." } }
+ *
+ * The id_token audience of a stored credential tells you which client issued it; using
+ * the other one returns 401.
+ */
+function loadGoogleOAuthClient(): { clientId: string; clientSecret: string } | null {
+  const envId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const envSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  if (envId && envSecret) return { clientId: envId, clientSecret: envSecret }
+
+  try {
+    const local = path.join(os.homedir(), ".arunaki", "oauth-clients.json")
+    const parsed = JSON.parse(fs.readFileSync(local, "utf8"))
+    const g = parsed?.google
+    if (g?.clientId && g?.clientSecret) return { clientId: g.clientId, clientSecret: g.clientSecret }
+  } catch {}
+
+  return null
+}
+
+let antigravityAuth: { accessToken: string; refreshToken?: string; expiresAt?: number } | null = null
+let antigravityAuthCheckedAt = 0
+
+/**
+ * Access token for the Antigravity (Google AI Pro) subscription, refreshed when stale.
+ * 9Router refreshLeadMs is 5 minutes; we use a wider lead because a stale token here
+ * costs a failed round-trip plus a retry.
+ */
+export async function getAntigravityAuth(force = false): Promise<typeof antigravityAuth> {
+  if (!force && antigravityAuth && Date.now() - antigravityAuthCheckedAt < 60_000) {
+    return antigravityAuth
+  }
+  antigravityAuthCheckedAt = Date.now()
+
+  const credsPath = path.join(os.homedir(), ".gemini", "oauth_creds.json")
+  if (!fs.existsSync(credsPath)) return (antigravityAuth = null)
+  let creds: any
+  try {
+    creds = JSON.parse(fs.readFileSync(credsPath, "utf8"))
+  } catch {
+    return (antigravityAuth = null)
+  }
+
+  const expiresAt = typeof creds.expiry_date === "number" ? creds.expiry_date : undefined
+  const stillFresh = expiresAt != null && expiresAt - Date.now() > 5 * 60_000
+  if (stillFresh && creds.access_token) {
+    return (antigravityAuth = {
+      accessToken: creds.access_token,
+      refreshToken: creds.refresh_token,
+      expiresAt,
+    })
+  }
+  if (!creds.refresh_token) {
+    return (antigravityAuth = creds.access_token ? { accessToken: creds.access_token, expiresAt } : null)
+  }
+
+  const client = loadGoogleOAuthClient()
+  if (!client) {
+    console.warn(
+      "[Antigravity] Stored token expired and no OAuth client configured — set GOOGLE_OAUTH_CLIENT_ID/" +
+        "GOOGLE_OAUTH_CLIENT_SECRET or ~/.arunaki/oauth-clients.json, then re-run.",
+    )
+    return (antigravityAuth = creds.access_token ? { accessToken: creds.access_token, expiresAt } : null)
+  }
+
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: creds.refresh_token,
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) {
+      console.warn(`[Antigravity] token refresh HTTP ${res.status}`)
+      return (antigravityAuth = creds.access_token ? { accessToken: creds.access_token, expiresAt } : null)
+    }
+    const data: any = await res.json()
+    return (antigravityAuth = {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token ?? creds.refresh_token,
+      expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+    })
+  } catch (err: any) {
+    console.warn("[Antigravity] token refresh failed:", err?.message)
+    return (antigravityAuth = creds.access_token ? { accessToken: creds.access_token, expiresAt } : null)
+  }
+}
+
+/**
  * OpenCode account session from ~/.local/share/opencode/auth.json.
  * OpenCode Zen's free lane answers 403 "only from within OpenCode" unless the request
  * carries a real account token; the pooled `Bearer public` lane is the fallback
