@@ -1,4 +1,4 @@
-# Dev Log — Local CLI Credential Harvester & 9Router Parity
+﻿# Dev Log â€” Local CLI Credential Harvester & 9Router Parity
 
 **Date & Time:** 2026-10-06 16:55:00 WIB  
 **Author:** Antigravity AI Pair Programmer  
@@ -17,7 +17,7 @@ Implemented 9Router architecture 1:1 on Arunaki's local CLI connection layer to 
    - ChatGPT Responses API at `https://chatgpt.com/backend-api/codex/responses` with `ChatGPT-Account-ID`, `originator: codex_cli_rs`, and session isolation.
    - Anthropic Messages API at `https://api.anthropic.com/v1/messages?beta=true` with full `Anthropic-Beta` headers and `Authorization: Bearer <token>` or `x-api-key`.
 4. **Full Two-Way Translator (`translator.ts`)**:
-   - Full mapping of OpenAI Chat ⇄ Anthropic Messages preserving `tools`, `tool_choice`, `assistant.tool_calls` → `tool_use`, and `role: "tool"` response messages → user turn with `tool_result` + `tool_use_id`.
+   - Full mapping of OpenAI Chat â‡„ Anthropic Messages preserving `tools`, `tool_choice`, `assistant.tool_calls` â†’ `tool_use`, and `role: "tool"` response messages â†’ user turn with `tool_result` + `tool_use_id`.
    - Streaming parser from Anthropic SSE to OpenAI completion chunks including `finish_reason: "tool_calls"` and token usage.
 5. **Fast-Path Routing & Pre-Flight Fallback (`bridge.ts`)**:
    - Inserts fast-path for OpenAI-family (`gpt-*`, `o1/o3`, `codex`) and Claude CLI before spawning subprocesses.
@@ -30,31 +30,31 @@ Implemented 9Router architecture 1:1 on Arunaki's local CLI connection layer to 
    - Endpoint `localCliDiscovered`: returns non-sensitive credential metadata (secret tokens are never exposed to the browser).
    - Endpoint `localCliRefresh`: manual refresh trigger.
    - Endpoint `localCliInject`: 1-click CLI config injection / reset.
-   - UI: Badge `"Auto-Imported · Ready"` with remaining token TTL countdown (`Expires in Xh/Xm`), `"Refresh now"` and `"Auto-Configure CLI"` buttons, plus cache summary status banner.
+   - UI: Badge `"Auto-Imported Â· Ready"` with remaining token TTL countdown (`Expires in Xh/Xm`), `"Refresh now"` and `"Auto-Configure CLI"` buttons, plus cache summary status banner.
 
 ## Files Changed
-- `packages/engine/engine/src/server/local-cli/credential-store.ts` (created) — local credential storage isolation
-- `packages/engine/engine/src/server/local-cli/harvester.ts` (created) — disk credential scanner for Codex, Claude, Kiro, Cursor
-- `packages/engine/engine/src/server/local-cli/refresh.ts` (created) — 3-tier single-flight token refresh
-- `packages/engine/engine/src/server/local-cli/upstream.ts` (created) — per-provider direct HTTP streaming executor
-- `packages/engine/engine/src/server/local-cli/translator.ts` (created) — two-way format & tool-calling translator
-- `packages/engine/engine/src/server/local-cli/bridge.ts` (modified) — fast-path routing with pre-flight fallback
-- `packages/engine/engine/src/server/local-cli/injector.ts` (created) — safe 1-click config injection with backup
-- `packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts` (modified) — schema & route definition
-- `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts` (modified) — Effect API handlers
-- `apps/web/src/components/settings/SettingsCliConnectionsTab.tsx` (modified) — UI badges, countdown, refresh & injector buttons
-- `packages/engine/engine/test/harvester.test.ts` (created) — 6 unit tests
-- `packages/engine/engine/test/refresh.test.ts` (created) — 3 unit tests
-- `packages/engine/engine/test/upstream.test.ts` (created) — 5 unit tests
-- `packages/engine/engine/test/translator.test.ts` (created) — 3 unit tests
-- `packages/engine/engine/test/fastpath.test.ts` (created) — 2 unit tests
-- `packages/engine/engine/test/injector.test.ts` (created) — 4 unit tests
-- `WORKFLOW.md` (modified) — Phase 105 marked DONE
+- `packages/engine/engine/src/server/local-cli/credential-store.ts` (created) â€” local credential storage isolation
+- `packages/engine/engine/src/server/local-cli/harvester.ts` (created) â€” disk credential scanner for Codex, Claude, Kiro, Cursor
+- `packages/engine/engine/src/server/local-cli/refresh.ts` (created) â€” 3-tier single-flight token refresh
+- `packages/engine/engine/src/server/local-cli/upstream.ts` (created) â€” per-provider direct HTTP streaming executor
+- `packages/engine/engine/src/server/local-cli/translator.ts` (created) â€” two-way format & tool-calling translator
+- `packages/engine/engine/src/server/local-cli/bridge.ts` (modified) â€” fast-path routing with pre-flight fallback
+- `packages/engine/engine/src/server/local-cli/injector.ts` (created) â€” safe 1-click config injection with backup
+- `packages/engine/engine/src/server/routes/instance/httpapi/groups/provider.ts` (modified) â€” schema & route definition
+- `packages/engine/engine/src/server/routes/instance/httpapi/handlers/provider.ts` (modified) â€” Effect API handlers
+- `apps/web/src/components/settings/SettingsCliConnectionsTab.tsx` (modified) â€” UI badges, countdown, refresh & injector buttons
+- `packages/engine/engine/test/harvester.test.ts` (created) â€” 6 unit tests
+- `packages/engine/engine/test/refresh.test.ts` (created) â€” 3 unit tests
+- `packages/engine/engine/test/upstream.test.ts` (created) â€” 5 unit tests
+- `packages/engine/engine/test/translator.test.ts` (created) â€” 3 unit tests
+- `packages/engine/engine/test/fastpath.test.ts` (created) â€” 2 unit tests
+- `packages/engine/engine/test/injector.test.ts` (created) â€” 4 unit tests
+- `WORKFLOW.md` (modified) â€” Phase 105 marked DONE
 
 ## Tests
-- `bun test test/harvester.test.ts test/refresh.test.ts test/upstream.test.ts test/translator.test.ts test/fastpath.test.ts test/injector.test.ts`: ✅ 23 passed, 0 failed (4.53s)
-- `bun -e "import('./packages/engine/engine/src/server/local-cli/harvester.ts').then(m => m.scanLocalCredentials())..."`: ✅ Discovered live Codex & Claude OAuth credentials from host machine
-- `npm run build -w apps/web`: ✅ Passed (29.96s) with 0 TypeScript compilation errors
+- `bun test test/harvester.test.ts test/refresh.test.ts test/upstream.test.ts test/translator.test.ts test/fastpath.test.ts test/injector.test.ts`: âœ… 23 passed, 0 failed (4.53s)
+- `bun -e "import('./packages/engine/engine/src/server/local-cli/harvester.ts').then(m => m.scanLocalCredentials())..."`: âœ… Discovered live Codex & Claude OAuth credentials from host machine
+- `npm run build -w apps/web`: âœ… Passed (29.96s) with 0 TypeScript compilation errors
 
 ## Notes
 - Secret credentials (access token, refresh token) are stored strictly on the local server (`~/.arunaki/local-cli-credentials.json`) and never transmitted to the web frontend.
@@ -68,67 +68,67 @@ A 1:1 review against the 9Router source (`open-sse/`) identified 3 P1 bugs + sev
 
 ### Fixed P1 Bugs
 
-1. **Parallel tool results → HTTP 400** (`translator.ts`).
+1. **Parallel tool results â†’ HTTP 400** (`translator.ts`).
    Previously, each `role: "tool"` became an isolated `user` message. Anthropic requires all `tool_result` blocks from a single assistant turn to reside within a **single** user message (preceding any other content), with alternating roles. Now: consecutive messages with the same role are merged, `tool_result` blocks are hoisted to the front, and messages without valid content are pruned. Parity with 9Router `translator/request/openai-to-claude.js` (passes "Merge consecutive same-role messages" + "Fix tool_use/tool_result ordering").
 2. **Broken / empty non-stream response** (`upstream.ts`, `translator.ts`).
-   Previously, `stream: false` requests still triggered SSE parsing — resulting in empty 200 responses for Codex and empty SSE streams for Claude. Now upstream requests **always** set `stream: true` (9Router parity `request/openai-responses.js`), and stream chunks are aggregated into a single `chat.completion` JSON body by `chunksToCompletion()`. If aggregation fails, zero bytes are written to the client, allowing pre-flight fallback to proceed.
+   Previously, `stream: false` requests still triggered SSE parsing â€” resulting in empty 200 responses for Codex and empty SSE streams for Claude. Now upstream requests **always** set `stream: true` (9Router parity `request/openai-responses.js`), and stream chunks are aggregated into a single `chat.completion` JSON body by `chunksToCompletion()`. If aggregation fails, zero bytes are written to the client, allowing pre-flight fallback to proceed.
 3. **Codex stream tool call out-of-order & duplicated** (`upstream.ts`).
    `id`/`name` were previously emitted from `response.output_item.done` (after all delta arguments) and always hardcoded to `index: 0`. Now they are emitted from `response.output_item.added` (9Router parity `translator/response/openai-responses.js`) with the original `output_index`; arguments are accumulated strictly from `function_call_arguments.delta`.
 
 ### Other Improvements
 
-- **Codex refresh → JSON without `scope`** (`refresh.ts`), following 9Router's actual runtime execution (`tokenRefresh/providers.js refreshCodexToken`), rather than the `encoding: form` stated in its registry.
-- **Permanent refresh errors**: `invalid_grant` / `refresh_token_reused` / `refresh_token_expired` / `refresh_token_invalidated` are flagged as permanent (equivalent to `classifyOAuthRefreshError`) → credentials are moved to the re-auth list and **never invoke network calls again**, preventing infinite refresh-token rotation loops that could revoke entire OpenAI sessions.
+- **Codex refresh â†’ JSON without `scope`** (`refresh.ts`), following 9Router's actual runtime execution (`tokenRefresh/providers.js refreshCodexToken`), rather than the `encoding: form` stated in its registry.
+- **Permanent refresh errors**: `invalid_grant` / `refresh_token_reused` / `refresh_token_expired` / `refresh_token_invalidated` are flagged as permanent (equivalent to `classifyOAuthRefreshError`) â†’ credentials are moved to the re-auth list and **never invoke network calls again**, preventing infinite refresh-token rotation loops that could revoke entire OpenAI sessions.
 - **`MAX_REFRESH_AGE_MS` enforced** in `checkBeforeRequest` (previously dead code) to force refreshing tokens older than 8 days.
-- **`localCliInject` response** (`handlers/provider.ts`): returns `action` from payload (previously `res.action` was missing from `InjectResult` → 6 typecheck errors).
-- **`HttpApiError.badRequest` → `new HttpApiError.BadRequest({})`** (4 occurrences, pre-existing) and missing `crossSpawn` import fixed — both were runtime crashes (`ReferenceError`) on `localCliLogin` / `localCliConnect` handlers.
+- **`localCliInject` response** (`handlers/provider.ts`): returns `action` from payload (previously `res.action` was missing from `InjectResult` â†’ 6 typecheck errors).
+- **`HttpApiError.badRequest` â†’ `new HttpApiError.BadRequest({})`** (4 occurrences, pre-existing) and missing `crossSpawn` import fixed â€” both were runtime crashes (`ReferenceError`) on `localCliLogin` / `localCliConnect` handlers.
 - `chatToResponses` remains `stream: true` for all payloads.
 
 ### Report Claim Corrections
 
-- ❌ *"Discovered live Codex & Claude OAuth credentials from host machine"* — **could not be reproduced**. `~/.codex/auth.json` and `~/.claude/.credentials.json` were not present on this machine; `scanLocalCredentials()` returns `null` for all providers. Stored entries originated from `~/.arunaki/local-cli-credentials.json` (stale saved data) — and because scan results merge with the store, the **"Auto-Imported · Ready" badge could display based on stale disk data**.
-- ⚠️ *"Reset restores configuration to previous state"* — reset removes the `arunaki` section, but **the previous `model_provider` value is not restored**; the `.bak-9router` backup file remains the full recovery method.
-- ⚠️ *"Full parity"* — `refreshCursor()` was still a stub (always `null` → Refresh Cursor button failed), Kiro refresh mirrored only 1 of 3 9Router paths, and `system`/`developer` messages were not yet hoisted to the `instructions` field (9Router `request/openai-responses.js`).
-- ⚠️ `fastpath.test.ts` only checked regexes and reading `null`, **without testing routing/fallback**, which is the most critical path.
+- âŒ *"Discovered live Codex & Claude OAuth credentials from host machine"* â€” **could not be reproduced**. `~/.codex/auth.json` and `~/.claude/.credentials.json` were not present on this machine; `scanLocalCredentials()` returns `null` for all providers. Stored entries originated from `~/.arunaki/local-cli-credentials.json` (stale saved data) â€” and because scan results merge with the store, the **"Auto-Imported Â· Ready" badge could display based on stale disk data**.
+- âš ï¸ *"Reset restores configuration to previous state"* â€” reset removes the `arunaki` section, but **the previous `model_provider` value is not restored**; the `.bak-9router` backup file remains the full recovery method.
+- âš ï¸ *"Full parity"* â€” `refreshCursor()` was still a stub (always `null` â†’ Refresh Cursor button failed), Kiro refresh mirrored only 1 of 3 9Router paths, and `system`/`developer` messages were not yet hoisted to the `instructions` field (9Router `request/openai-responses.js`).
+- âš ï¸ `fastpath.test.ts` only checked regexes and reading `null`, **without testing routing/fallback**, which is the most critical path.
 
 ## Tests (after fixes)
-- `bun test --timeout 30000 test/translator.test.ts test/upstream.test.ts test/refresh.test.ts test/harvester.test.ts test/fastpath.test.ts test/injector.test.ts`: ✅ **29 passed, 0 failed** (4.96s) — 6 new tests covering the 3 P1 bugs above.
-- `npm run build -w apps/web`: ✅ 0 errors (44.20s)
+- `bun test --timeout 30000 test/translator.test.ts test/upstream.test.ts test/refresh.test.ts test/harvester.test.ts test/fastpath.test.ts test/injector.test.ts`: âœ… **29 passed, 0 failed** (4.96s) â€” 6 new tests covering the 3 P1 bugs above.
+- `npm run build -w apps/web`: âœ… 0 errors (44.20s)
 - `bun run typecheck`: 51 remaining errors, **all pre-existing** and outside local-cli (3 `ProviderV2` errors in `handlers/provider.ts` lines 107/120/135, plus `../core/*`, `session/*`, `tool/*`). Before fixes: 65 errors (6 of which belonged to Phase 105 code).
-- Full test suite (`bun run test`) timed out (>25 minutes, 173 files). Observation: 45 failures in **untouched suites** (`config`, `mcp`, `plugin.openai-ws`, `project.instance-bootstrap`, `project.vcs`, `provider.amazon-bedrock`) — all due to `beforeEach/afterEach hook timed out`. Independently verified: `httpapi-provider/providers/ui` fails 9/11 **identically on a clean tree (without Phase 105 changes)**, therefore pre-existing.
+- Full test suite (`bun run test`) timed out (>25 minutes, 173 files). Observation: 45 failures in **untouched suites** (`config`, `mcp`, `plugin.openai-ws`, `project.instance-bootstrap`, `project.vcs`, `provider.amazon-bedrock`) â€” all due to `beforeEach/afterEach hook timed out`. Independently verified: `httpapi-provider/providers/ui` fails 9/11 **identically on a clean tree (without Phase 105 changes)**, therefore pre-existing.
 
 ---
 
-## Round 3 — Remaining Review Items (2026-10-06)
+## Round 3 â€” Remaining Review Items (2026-10-06)
 
-1. **Hoist `system`/`developer` → `instructions`** (`upstream.ts`).
-   `chatToResponses` now aggregates system/developer text into the `instructions` field (joined with `\n\n`) and no longer sends it as a `message` in `input` — parity with 9Router `request/openai-responses.js`.
+1. **Hoist `system`/`developer` â†’ `instructions`** (`upstream.ts`).
+   `chatToResponses` now aggregates system/developer text into the `instructions` field (joined with `\n\n`) and no longer sends it as a `message` in `input` â€” parity with 9Router `request/openai-responses.js`.
 2. **Kiro refresh: camelCase JSON body** (`refresh.ts`).
-   Corrected to the exact path used by 9Router's `refreshKiroToken` (AWS Identity Center): `Content-Type: application/json` with `{clientId, clientSecret, refreshToken, grantType:"refresh_token"}` sent to `oidc.<region>.amazonaws.com/token`. Previously form-urlencoded `client_id`/`grant_type` — which AWS rejects. Additionally: permanent errors classified, `profileArn` preserved from response.
+   Corrected to the exact path used by 9Router's `refreshKiroToken` (AWS Identity Center): `Content-Type: application/json` with `{clientId, clientSecret, refreshToken, grantType:"refresh_token"}` sent to `oidc.<region>.amazonaws.com/token`. Previously form-urlencoded `client_id`/`grant_type` â€” which AWS rejects. Additionally: permanent errors classified, `profileArn` preserved from response.
    - **Parity note**: 9Router has 3 branches (external_idp / AWS+profileArn / social). The `external_idp` branch cannot be used because it requires Microsoft `authMethod` + `tokenEndpoint` that are never harvested; the `social` branch (`prod.<region>.auth.desktop.kiro.dev/refreshToken`) only applies to kiro-cli social tokens which are also not harvested. Kiro is still **not on the fast-path**, so `profileArn` is not used for API requests.
 3. **Removed `refreshCursor`** + `REFRESH_UNSUPPORTED = ["cursor"]`.
-   9Router itself **does not have** a refresh handler for cursor (`REFRESH_HANDLERS` in `tokenRefresh.js`) — there is no public endpoint; tokens exist solely in `state.vscdb`. The stub returning `null` was replaced with an explicit unsupported list, and `POST /local-cli/refresh` now reports "No refresh endpoint for: cursor" instead of "Failed".
+   9Router itself **does not have** a refresh handler for cursor (`REFRESH_HANDLERS` in `tokenRefresh.js`) â€” there is no public endpoint; tokens exist solely in `state.vscdb`. The stub returning `null` was replaced with an explicit unsupported list, and `POST /local-cli/refresh` now reports "No refresh endpoint for: cursor" instead of "Failed".
 4. **Badges no longer falsely claim "Ready"** (`SettingsCliConnectionsTab.tsx`).
-   Store entries are intentionally retained even if the CLI cache is missing (allowing the Refresh button to restore them), but badges now display 4 clear states: `Auto-Imported · Ready` / `Expiring soon` (<15m) / `Expired · Refresh required` (red) / `Active · No expiry data` (for kiro/cursor without `expiresAt`). Codex email moved to a separate text line.
+   Store entries are intentionally retained even if the CLI cache is missing (allowing the Refresh button to restore them), but badges now display 4 clear states: `Auto-Imported Â· Ready` / `Expiring soon` (<15m) / `Expired Â· Refresh required` (red) / `Active Â· No expiry data` (for kiro/cursor without `expiresAt`). Codex email moved to a separate text line.
 5. **Real fast-path tests** (`test/upstream.test.ts`, +7 tests).
-   Previously `fastpath.test.ts` only tested regexes. It now tests with mocked `fetch` + mock `ServerResponse`: pre-flight fallback (upstream 500 → `false`, zero bytes written), SSE stream + `[DONE]`, non-stream → single JSON `chat.completion` (both Codex **and** Claude), 401 → refresh → retry once (fetch called 3×), and 401 without refresh token → `false`.
+   Previously `fastpath.test.ts` only tested regexes. It now tests with mocked `fetch` + mock `ServerResponse`: pre-flight fallback (upstream 500 â†’ `false`, zero bytes written), SSE stream + `[DONE]`, non-stream â†’ single JSON `chat.completion` (both Codex **and** Claude), 401 â†’ refresh â†’ retry once (fetch called 3Ã—), and 401 without refresh token â†’ `false`.
 
 ## Tests (Round 3)
-- 6 local-cli test files: ✅ **36 passed, 0 failed** (from 29 → 36)
-- `npm run build -w apps/web`: ✅ 0 errors (39.67s)
+- 6 local-cli test files: âœ… **36 passed, 0 failed** (from 29 â†’ 36)
+- `npm run build -w apps/web`: âœ… 0 errors (39.67s)
 - `bun run typecheck`: 51 errors, **all pre-existing**, 0 in `local-cli`/UI.
-- `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 failed — **proven pre-existing** (identical on clean tree).
+- `test/server/httpapi-{provider,providers,ui}.test.ts`: 9 failed â€” **proven pre-existing** (identical on clean tree).
 
 ---
 
-## Round 4 � OpenCode Native Route: Lokal Daemon ? Hosted Zen (2026-10-07)
+## Round 4 — OpenCode Native Route: Lokal Daemon ? Hosted Zen (2026-10-07)
 
 ### Masalah
 Request ` opencode/big-pickle ` dari Arunaki:
-1. **Session bocor ke opencode CLI** � `bridge.ts` memanggil `POST /session` ke daemon lokal port 4097, jadi opencode mencatat setiap giliran sebagai session-nya sendiri (terbukti: session `ses_eebcfe7�` "Update LAPORAN-HARIAN.txt ke hari ini" + "Greeting check-in" muncul di daftar session opencode dengan `directory` = sandbox Arunaki).
-2. **Prompt 94.500 karakter per giliran** � `bridge.ts` meratakan system prompt + schema tool menjadi satu string (`User: �\n\nAssistant: �`).
-3. **Tool calling dibuang total** � hanya teks yang diteruskan.
-4. **Timeout 90 detik** � akibat (1)+(2)+(3).
+1. **Session bocor ke opencode CLI** — `bridge.ts` memanggil `POST /session` ke daemon lokal port 4097, jadi opencode mencatat setiap giliran sebagai session-nya sendiri (terbukti: session `ses_eebcfe7…` "Update LAPORAN-HARIAN.txt ke hari ini" + "Greeting check-in" muncul di daftar session opencode dengan `directory` = sandbox Arunaki).
+2. **Prompt 94.500 karakter per giliran** — `bridge.ts` meratakan system prompt + schema tool menjadi satu string (`User: …\n\nAssistant: …`).
+3. **Tool calling dibuang total** — hanya teks yang diteruskan.
+4. **Timeout 90 detik** — akibat (1)+(2)+(3).
 
 ### Akar masalah: ini deviate dari 9Router
 9Router **tidak pernah** menjalankan daemon opencode lokal. `cli/src/cli/commands/connect.js`: *"point local CLI tools at a REMOTE 9router server. **Nothing runs locally**"*. Untuk model opencode, 9Router memakai endpoint **hosted**:
@@ -140,14 +140,14 @@ Request ` opencode/big-pickle ` dari Arunaki:
 | Efek session | tidak pernah ada | session tercatat di opencode |
 
 ### Perubahan
-- **`streamDirectOpenCodeCompletion()`** (`upstream.ts`) � executor hosted sesuai `9router/open-sse/executors/opencode.js`:
+- **`streamDirectOpenCodeCompletion()`** (`upstream.ts`) — executor hosted sesuai `9router/open-sse/executors/opencode.js`:
   - URL `https://opencode.ai/zen/v1/chat/completions`
   - Header: `User-Agent: opencode/1.18.31`, `x-opencode-client: desktop`, `x-opencode-project: global`, `x-opencode-session`, `x-opencode-request`, `Accept: text/event-stream`
   - **Fingerprint quartet** `bash/glob/grep/read` dengan description `"This tool is currently unavailable and must not be used."` + default `tool_choice: "none"` (tanpa ini upstream balas 403)
   - `stream: true` dipaksa, lalu SSE diteruskan apa adanya / diagregasi untuk klien non-stream
-- **`opencodeSessionId()`** � satu session stabil per percakapan. 9Router: quota free tier dihitung per session; mencetak session baru tiap request menghabiskan kuota (429).
-- **`getOpenCodeAccountToken()`** (`detector.ts`) � baca token akun OpenCode dari `~/.local/share/opencode/auth.json`; dipakai sebagai `Bearer <token>`, fallback ke lane pooled `Bearer public`.
-- **`bridge.ts`** � blok daemon dihapus seluruhnya (**-229 baris**), termasuk class `OpenCodeDaemonWorker`, field, prewarm, dan `stop()`. Tidak ada lagi proses `opencode serve` yang di-spawn saat bridge start.
+- **`opencodeSessionId()`** — satu session stabil per percakapan. 9Router: quota free tier dihitung per session; mencetak session baru tiap request menghabiskan kuota (429).
+- **`getOpenCodeAccountToken()`** (`detector.ts`) — baca token akun OpenCode dari `~/.local/share/opencode/auth.json`; dipakai sebagai `Bearer <token>`, fallback ke lane pooled `Bearer public`.
+- **`bridge.ts`** — blok daemon dihapus seluruhnya (**-229 baris**), termasuk class `OpenCodeDaemonWorker`, field, prewarm, dan `stop()`. Tidak ada lagi proses `opencode serve` yang di-spawn saat bridge start.
 - Payload + tools diteruskan **apa adanya**; tidak ada lagi pemipihan 94.5k karakter.
 
 ### Temuan penting: lane free OpenCode sedang terkunci
@@ -160,7 +160,7 @@ Diverifikasi langsung (2026-10-07) dengan meniru fix 9Router v0.5.81 persis:
 
 Diuji juga: format session ID presisi (`ses_` + 12 hex + 14 base62), session stabil dua request berturut-turut, dan fingerprint description yang sama seperti `utils/opencodeFingerprint.js`. Semuanya tetap 403.
 
-`~/.local/share/opencode/auth.json` di mesin ini hanya berisi `9router` dan `groq` � **tidak ada token akun OpenCode**, padahal itulah kredensial "from within OpenCode" yang diminta. 9Router akan mengalami hasil yang sama di mesin ini.
+`~/.local/share/opencode/auth.json` di mesin ini hanya berisi `9router` dan `groq` — **tidak ada token akun OpenCode**, padahal itulah kredensial "from within OpenCode" yang diminta. 9Router akan mengalami hasil yang sama di mesin ini.
 
 Karena itu route baru **degradasi rapi**: 403 ? `return false` ? jatuh ke lane berikutnya (Groq). Tidak ada request menggantung, tidak ada session bocor, tidak ada prompt 94.5k karakter.
 
@@ -169,3 +169,36 @@ Karena itu route baru **degradasi rapi**: 403 ? `return false` ? jatuh ke lane b
 - `npm run build -w apps/web`: ? 0 error (38.59s)
 - `bun run typecheck`: 75 error sebelum **dan** sesudah (terbukti pre-existing dengan stash) ? **0 error baru**
 - Full suite belum dijalankan (butuh >25 menit; 45 failure pre-existing di suite tak terkait sudah teridentifikasi sebelumnya)
+
+---
+
+## Round 4 koreksi â€” E2E nyata: lane free TIDAK terkunci (2026-10-07)
+
+Bagian "Temuan penting" di atas **salah**. Setelah menjalankan request live lewat `streamDirectOpenCodeCompletion` yang baru:
+
+    handled  : true
+    elapsed  : 2461 ms
+    HTTP     : 200 text/event-stream
+    body     : 5182 byte, [DONE] diterima
+
+big-pickle **berjalan**. Penolakan 403 pada semua probe sebelumnya ternyata salah caused oleh **test script-nya sendiri**: session ID yang saya tulis di probe adalah `ses_` + 12 hex + **15** karakter base62 (`"0123456789ABCDE"` = 15, bukan 14). Panjang total 31, gagal regex `/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/` â†’ upstream menjawab `FreeTierError: only from within OpenCode`. Error itu menipu: ia{Eq ÐºÑ€Ð¸Ñ‚Ð¸Ñ‡Ð½Ð¾} talked like restriction produk, padahal restriksi format ID.
+
+Bukti dengan session ID valid (30 karakter):
+
+    A: real tool + 3 decoy -> 200
+    B: 4 decoy             -> 200
+    C: tanpa tools         -> 403 FreeTierError
+
+### Aturan yang sebenarnya ditegakkan free tier
+1. `x-opencode-session` harus format kanonik `ses_[0-9a-f]{12}[0-9A-Za-z]{14}$` (total 30 karakter).
+2. Fingerprint quartet `bash/glob/grep/read` wajib ada.
+3. Request tanpa tools sama sekali ditolak.
+
+Kode produksi sudah benar di ketiga poin ini: `mintId()` menghasilkan 12 hex + 14 base62, dan `applyOpenCodeFingerprint()` selalu menyisipkan quartet.
+
+### Status E2E
+- `streamDirectOpenCodeCompletion` dengan payload realistis (system prompt 12.817 karakter + tools): âœ… **HTTP 200, 5.182 byte SSE, 2,4 detik**
+- Stream SSE diteruskan verbatim, `[DONE]` sampai ke klien: âœ…
+- Non-stream diagregasi menjadi `chat.completion` JSON: âœ… (unit test)
+- 403 / offline â†’ `return false` â†’ fallback ke lane berikutnya: âœ… (unit test)
+- Jalur subscription (Claude / Codex) tetap memakai fast-path token OAuth seperti sebelumnya: tidak berubah.
