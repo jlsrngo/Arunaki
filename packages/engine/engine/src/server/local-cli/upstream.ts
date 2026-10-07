@@ -220,6 +220,186 @@ export function mapCodexEventToOpenAI(
   return null
 }
 
+// --- OpenCode Zen (9Router open-sse/executors/opencode.js) ---------------------
+
+const OPENCODE_BASE = "https://opencode.ai"
+const OPENCODE_UA = "opencode/1.18.31"
+// Free tier rejects requests without this exact quartet (403 FreeTierError).
+const OPENCODE_FINGERPRINT_TOOLS = ["bash", "glob", "grep", "read"]
+const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+/** 9Router: quota is accounted per upstream session, and re-minting one per request
+ *  burns it (429), so derive one stable id per conversation instead. */
+const opencodeSessions = new Map<string, string>()
+
+function fnv(seed: string, salt: number): number {
+  let h = salt >>> 0
+  for (const b of new TextEncoder().encode(seed)) h = Math.imul(h ^ b, 0x01000193) >>> 0
+  return h >>> 0
+}
+
+function mintId(prefix: "ses" | "msg", seed: string): string {
+  const h1 = fnv(seed, 0x811c9dc5)
+  const h2 = fnv(seed, 0x85ebca6b)
+  const hex = (h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0")).slice(0, 12)
+  let rand = ""
+  for (let i = 0; i < 14; i++) rand += BASE62[(h1 >>> (i * 2)) % 62]
+  return `${prefix}_${hex}${rand}`
+}
+
+export function opencodeSessionId(payload: any): string {
+  const first = (payload?.messages ?? []).find((m: any) => m.role === "user")
+  const seed = typeof first?.content === "string" ? first.content : JSON.stringify(first?.content ?? "")
+  const existing = opencodeSessions.get(seed)
+  if (existing) return existing
+  const id = mintId("ses", seed || "arunaki")
+  opencodeSessions.set(seed, id)
+  if (opencodeSessions.size > 500) {
+    const oldest = opencodeSessions.keys().next().value
+    if (oldest !== undefined) opencodeSessions.delete(oldest)
+  }
+  return id
+}
+
+function mintRequestId(sessionId: string, payload: any): string {
+  const last = (payload?.messages ?? []).filter((m: any) => m.role === "user").pop()
+  const tail = typeof last?.content === "string" ? last.content : JSON.stringify(last?.content ?? "")
+  return mintId("msg", `${sessionId}:${tail}`)
+}
+
+export function opencodeUrlFor(): string {
+  // 9Router routes Responses/Messages-only models elsewhere; we expose the chat lane
+  // (big-pickle and friends) and let anything else fall through.
+  return `${OPENCODE_BASE}/zen/v1/chat/completions`
+}
+
+/** `accountToken` = the user's OpenCode account session from auth.json. Without it the
+ *  free lane answers 403 "only from within OpenCode" — same as 9Router's pooled lane. */
+export function buildOpenCodeHeaders(payload: any, accountToken?: string): Record<string, string> {
+  const session = opencodeSessionId(payload)
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accountToken || "public"}`,
+    "User-Agent": OPENCODE_UA,
+    "x-opencode-client": "desktop",
+    "x-opencode-session": session,
+    "x-opencode-request": mintRequestId(session, payload),
+    "x-opencode-project": "global",
+    Accept: "text/event-stream",
+  }
+}
+
+/** 9Router applyFingerprintTools: append the missing quartet and default tool_choice. */
+export function applyOpenCodeFingerprint(body: any): void {
+  if (!body || typeof body !== "object") return
+  const hadClientTools = Array.isArray(body.tools) && body.tools.length > 0
+  const list = Array.isArray(body.tools) ? body.tools.slice() : []
+  const present = new Set(
+    list.map((t: any) => String(t?.function?.name ?? t?.name ?? "").trim().toLowerCase()),
+  )
+  for (const name of OPENCODE_FINGERPRINT_TOOLS) {
+    if (present.has(name)) continue
+    list.push({
+      type: "function",
+      function: {
+        name,
+        description: "This tool is currently unavailable and must not be used.",
+        parameters: { type: "object", properties: {} },
+      },
+    })
+  }
+  body.tools = list
+  if (!body.tool_choice) body.tool_choice = hadClientTools ? undefined : "none"
+}
+
+export async function streamDirectOpenCodeCompletion(
+  payload: any,
+  res: http.ServerResponse,
+  accountToken?: string,
+): Promise<boolean> {
+  const model = String(payload.model || "big-pickle").replace(/^opencode\//, "")
+  const body: any = { ...payload, model, stream: true }
+  delete body.stream_options
+  applyOpenCodeFingerprint(body)
+
+  let upstreamRes: Response
+  try {
+    upstreamRes = await fetch(opencodeUrlFor(), {
+      method: "POST",
+      headers: buildOpenCodeHeaders(payload, accountToken),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    })
+  } catch (err: any) {
+    console.warn("[FastPath:OpenCode] Network error:", err?.message)
+    return false
+  }
+
+  // Pre-flight: fall back before any byte reaches the client.
+  if (!upstreamRes.ok || !upstreamRes.body) {
+    const errText = await upstreamRes.text().catch(() => "")
+    console.warn(`[FastPath:OpenCode] HTTP ${upstreamRes.status}:`, errText.slice(0, 300))
+    return false
+  }
+
+  const wantsStream = payload.stream !== false
+  const buffered = wantsStream ? { chunks: [] as string[], res } : bufferSink()
+  const sink = buffered.res
+  const chunks = buffered.chunks
+
+  if (wantsStream && !res.headersSent) {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    })
+  }
+
+  const reader = upstreamRes.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+      for (const line of lines) {
+        // Forward verbatim: upstream already speaks OpenAI chat.completion chunks, so
+        // [DONE] and error frames must survive untouched.
+        if (line.trim()) sink.write(`${line}\n\n`)
+      }
+    }
+  } catch (err: any) {
+    if (wantsStream) {
+      if (res.headersSent) {
+        res.write(
+          `data: ${JSON.stringify({ error: { message: err?.message } })}\n\ndata: [DONE]\n\n`,
+        )
+        res.end()
+      }
+      return true
+    }
+    return false
+  }
+
+  if (wantsStream) {
+    res.end()
+    return true
+  }
+
+  const completion = chunksToCompletion(chunks, model)
+  if (!completion) {
+    console.warn("[FastPath:OpenCode] Could not aggregate non-stream response")
+    return false
+  }
+  if (!res.headersSent) res.writeHead(200, { "Content-Type": "application/json" })
+  res.end(JSON.stringify(completion))
+  return true
+}
+
 /** Aggregate translated chat.completion.chunk SSE into a single chat.completion body. */
 export function chunksToCompletion(chunks: string[], model: string): any | null {
   let text = ""

@@ -8,6 +8,11 @@ import {
   anthropicUrl,
   streamDirectCodexCompletion,
   streamDirectAnthropicCompletion,
+  streamDirectOpenCodeCompletion,
+  opencodeUrlFor,
+  buildOpenCodeHeaders,
+  applyOpenCodeFingerprint,
+  opencodeSessionId,
 } from "../src/server/local-cli/upstream"
 import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
 
@@ -268,6 +273,123 @@ describe("Upstream request builders", () => {
     expect(body.choices[0].finish_reason).toBe("tool_calls")
     expect(body.usage.total_tokens).toBe(7)
     expect(chunksToCompletion([], "m")).toBeNull()
+  })
+
+  it("opencode zen: URL, header, dan fingerprint mengikuti 9Router", () => {
+    expect(opencodeUrlFor()).toBe("https://opencode.ai/zen/v1/chat/completions")
+
+    const payload = { messages: [{ role: "user", content: "halo" }] }
+    const h = buildOpenCodeHeaders(payload)
+    expect(h["User-Agent"]).toBe("opencode/1.18.31")
+    expect(h["x-opencode-client"]).toBe("desktop")
+    expect(h["x-opencode-project"]).toBe("global")
+    expect(h.Authorization).toBe("Bearer public")
+    expect(h["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
+    expect(h["x-opencode-request"]).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
+
+    // Session stabil per percakapan (9Router: quota dihitung per session)
+    expect(buildOpenCodeHeaders(payload)["x-opencode-session"]).toBe(
+      h["x-opencode-session"],
+    )
+
+    // Token akun menggantikan lane pooled
+    expect(buildOpenCodeHeaders(payload, "acct-token").Authorization).toBe(
+      "Bearer acct-token",
+    )
+
+    const body: any = { model: "big-pickle", messages: [] }
+    applyOpenCodeFingerprint(body)
+    const names = body.tools.map((t: any) => t.function.name)
+    expect(names).toEqual(["bash", "glob", "grep", "read"])
+    expect(body.tool_choice).toBe("none")
+
+    // Tool klien tetap dipertahankan, tidak diduplikasi
+    const withTools: any = {
+      tools: [{ type: "function", function: { name: "Bash" } }, { type: "function", function: { name: "read" } }],
+    }
+    applyOpenCodeFingerprint(withTools)
+    const got = withTools.tools.map((t: any) => t.function.name.toLowerCase())
+    expect(got.filter((n: string) => n === "read")).toHaveLength(1)
+    expect(got).toContain("glob")
+  })
+
+  it("fast-path opencode: 403 → return false tanpa menulis ke klien", async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({ error: { type: "FreeTierError", message: "only from within OpenCode" } }),
+        { status: 403 },
+      )) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectOpenCodeCompletion(
+        { model: "opencode/big-pickle", messages: [{ role: "user", content: "hi" }], stream: true },
+        res,
+      )
+      expect(handled).toBe(false)
+      expect(state.head).toBeUndefined()
+      expect(state.body).toBe("")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("fast-path opencode: stream SSE diteruskan apa adanya", async () => {
+    const realFetch = globalThis.fetch
+    const seen: any[] = []
+    globalThis.fetch = (async (url: any, init: any) => {
+      seen.push({ url: String(url), body: JSON.parse(String(init.body)), headers: init.headers })
+      return sseResponse([
+        `data: ${JSON.stringify({ id: "c1", choices: [{ index: 0, delta: { content: "hai" } }] })}\n\n`,
+        `data: ${JSON.stringify({ id: "c1", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n`,
+        "data: [DONE]\n\n",
+      ])
+    }) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectOpenCodeCompletion(
+        { model: "opencode/big-pickle", messages: [{ role: "user", content: "hi" }], stream: true },
+        res,
+      )
+      expect(handled).toBe(true)
+      expect(seen[0].url).toBe("https://opencode.ai/zen/v1/chat/completions")
+      // stream dipaksa true, fingerprint tools ditambahkan
+      expect(seen[0].body.stream).toBe(true)
+      expect(seen[0].body.model).toBe("big-pickle")
+      expect(seen[0].body.tools.map((t: any) => t.function.name)).toContain("bash")
+      expect(state.body).toContain("hai")
+      expect(state.body).toContain("[DONE]")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it("fast-path opencode: non-stream diagregasi jadi chat.completion", async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      sseResponse([
+        `data: ${JSON.stringify({ id: "c1", choices: [{ index: 0, delta: { content: "hai" } }] })}\n\n`,
+        `data: ${JSON.stringify({
+          id: "c1",
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+          usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        })}\n\n`,
+      ])) as any
+    const { res, state } = fakeRes()
+    try {
+      const handled = await streamDirectOpenCodeCompletion(
+        { model: "opencode/big-pickle", messages: [{ role: "user", content: "hi" }], stream: false },
+        res,
+      )
+      expect(handled).toBe(true)
+      expect(state.head?.["Content-Type"]).toBe("application/json")
+      const body = JSON.parse(state.body)
+      expect(body.object).toBe("chat.completion")
+      expect(body.choices[0].message.content).toBe("hai")
+      expect(body.usage.total_tokens).toBe(3)
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 
   it("fast-path codex: upstream 500 → return false, no bytes to client (safe fallback)", async () => {

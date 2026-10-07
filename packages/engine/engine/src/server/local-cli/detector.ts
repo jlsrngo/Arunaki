@@ -222,6 +222,25 @@ export async function checkOpenCodeStatus(forceRefresh = false): Promise<OpenCod
   })
 }
 
+/**
+ * OpenCode account session from ~/.local/share/opencode/auth.json.
+ * OpenCode Zen's free lane answers 403 "only from within OpenCode" unless the request
+ * carries a real account token; the pooled `Bearer public` lane is the fallback
+ * (same shape as 9Router's opencode.js executor).
+ */
+export function getOpenCodeAccountToken(): string | undefined {
+  try {
+    const authPath = path.join(os.homedir(), ".local", "share", "opencode", "auth.json")
+    if (!fs.existsSync(authPath)) return undefined
+    const auth = JSON.parse(fs.readFileSync(authPath, "utf8"))
+    const entry = auth.opencode ?? auth["opencode-zen"]
+    const token = entry?.refresh ?? entry?.key ?? entry?.access ?? entry?.token
+    return typeof token === "string" && token ? token : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function getOpenCodeGroqKey(): string | undefined {
   const authPath = path.join(os.homedir(), ".local", "share", "opencode", "auth.json")
   if (fs.existsSync(authPath)) {
