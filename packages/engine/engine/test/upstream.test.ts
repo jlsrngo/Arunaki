@@ -329,6 +329,42 @@ describe("Upstream request builders", () => {
     expect(chatToAntigravityTools({ tools: [] })).toBeUndefined()
   })
 
+  it("antigravity: drops JSON Schema keywords Cloud Code rejects", () => {
+    const tools = chatToAntigravityTools({
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "edit_file",
+            description: "edit",
+            parameters: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                target: {
+                  allOf: [{ type: "object", properties: { path: { type: "string" } } }],
+                },
+                offset: { type: ["integer", "null"], exclusiveMinimum: 0 },
+                diff: { oneOf: [{ type: "string" }, { type: "null" }] },
+                mode: { enum: ["a", "b"], default: "a", $schema: "http://json-schema.org/draft-07/schema#" },
+              },
+              required: ["target", "offset", "missing"],
+            },
+          },
+        },
+      ],
+    })
+    const params = tools![0].functionDeclarations[0].parameters
+    // Cloud Code answers "Cannot find field" for anyOf-allOf/oneOf or exclusive bounds.
+    expect(JSON.stringify(params)).not.toMatch(/all_of|allOf|oneOf|additionalProperties|exclusiveM/)
+    expect(params.properties.target).toEqual({ type: "object", properties: { path: { type: "string" } } })
+    expect(params.properties.offset).toEqual({ type: "integer", nullable: true, minimum: 0 })
+    expect(params.properties.diff).toEqual({ type: "string", nullable: true })
+    expect(params.properties.mode).toEqual({ enum: ["a", "b"], default: "a" })
+    // A required key whose schema vanished would be rejected too.
+    expect(params.required).toEqual(["target", "offset"])
+  })
+
   it("antigravity: body without requestType + toolConfig VALIDATED", () => {
     const body = buildAntigravityBody(
       {

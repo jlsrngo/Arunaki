@@ -595,6 +595,70 @@ export function chatToAntigravityContents(payload: any): any[] {
   return merged
 }
 
+// Cloud Code validates tool parameters against a far smaller Schema proto than the one
+// JSON Schema generators emit: it accepts `anyOf` but has no `allOf`/`oneOf`, and no
+// exclusive-bound variants. Anything extra comes back as "Unknown name ... Cannot find field."
+const GEMINI_SCHEMA_KEYS = new Set([
+  "type", "format", "title", "description", "nullable", "enum", "default", "example",
+  "properties", "required", "items", "anyOf",
+  "minimum", "maximum", "minItems", "maxItems",
+  "minLength", "maxLength", "pattern",
+  "minProperties", "maxProperties",
+])
+
+export function sanitizeGeminiSchema(schema: any): any {
+  if (Array.isArray(schema)) return schema.map(sanitizeGeminiSchema)
+  if (!schema || typeof schema !== "object") return schema
+
+  // `allOf` is nearly always plain object composition, so a shallow merge keeps every
+  // property. Later branches win, which is how JSON Schema composes object members.
+  let node: any = Array.isArray(schema.allOf)
+    ? schema.allOf.reduce((acc: any, part: any) => ({ ...acc, ...(part ?? {}) }), { ...schema })
+    : { ...schema }
+  delete node.allOf
+
+  // Gemini keeps `anyOf` but not `oneOf`; either way one branch has to be chosen, and a
+  // union that includes null means the field is optional rather than constrained.
+  const branches = Array.isArray(node.oneOf) ? node.oneOf : node.anyOf
+  delete node.oneOf
+  delete node.anyOf
+  if (Array.isArray(branches) && branches.length) {
+    node = { ...(branches.find((b: any) => b && b.type !== "null") ?? branches[0] ?? {}), ...node }
+    if (branches.some((b: any) => b?.type === "null")) node.nullable = true
+  }
+
+  if (Array.isArray(node.type)) {
+    const concrete = node.type.filter((t: any) => t !== "null")
+    if (concrete.length !== node.type.length) node.nullable = true
+    node.type = concrete[0]
+  }
+
+  if (typeof node.exclusiveMinimum === "number" && node.minimum === undefined) {
+    node.minimum = node.exclusiveMinimum
+  }
+  if (typeof node.exclusiveMaximum === "number" && node.maximum === undefined) {
+    node.maximum = node.exclusiveMaximum
+  }
+  delete node.exclusiveMinimum
+  delete node.exclusiveMaximum
+
+  if (node.properties && typeof node.properties === "object") {
+    node.properties = Object.fromEntries(
+      Object.entries(node.properties).map(([k, v]) => [k, sanitizeGeminiSchema(v)]),
+    )
+    // A property that sanitized down to nothing would leave `required` dangling.
+    if (Array.isArray(node.required)) {
+      node.required = node.required.filter((k: any) => node.properties[k] !== undefined)
+    }
+  }
+  if (node.items) node.items = sanitizeGeminiSchema(node.items)
+
+  for (const key of Object.keys(node)) {
+    if (!GEMINI_SCHEMA_KEYS.has(key)) delete node[key]
+  }
+  return node
+}
+
 export function chatToAntigravityTools(payload: any): any[] | undefined {
   if (!Array.isArray(payload.tools) || payload.tools.length === 0) return undefined
   const seen = new Set<string>()
@@ -607,7 +671,7 @@ export function chatToAntigravityTools(payload: any): any[] | undefined {
     declarations.push({
       name,
       description: fn.description || "",
-      parameters: fn.parameters || {
+      parameters: sanitizeGeminiSchema(fn.parameters) ?? {
         type: "object",
         properties: { reason: { type: "string", description: "Brief explanation" } },
         required: ["reason"],
