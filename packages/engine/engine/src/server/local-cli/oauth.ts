@@ -22,6 +22,19 @@ interface OauthSpec {
   tokenUrl: string
   scopes: string[]
   callbackPath: string
+  /**
+   * Port the client has registered as an allowed redirect URI. OpenAI/ChatGPT only accept
+   * `http://127.0.0.1:1455/auth/callback` for the Codex client and answer
+   * "Required parameter is missing" for anything else, so this must not be randomised.
+   * Vendors following RFC 8252 accept any loopback port and leave it unset.
+   */
+  fixedPort?: number
+  /**
+   * Redirect host. Google and Anthropic follow RFC 8252 and accept any loopback host,
+   * but the ChatGPT/Codex client only has `http://localhost:1455/auth/callback`
+   * registered, and answers "Required parameter is missing" for the 127.0.0.1 spelling.
+   */
+  redirectHost?: string
   extraParams?: Record<string, string>
   /** Some vendors (Google) reject a client that has no secret. */
   clientSecretEnv?: [string, string]
@@ -49,6 +62,8 @@ const SPECS: Record<OauthTarget, OauthSpec> = {
     tokenUrl: "https://auth.openai.com/oauth/token",
     scopes: ["openid", "profile", "email", "offline_access"],
     callbackPath: "/auth/callback",
+    fixedPort: 1455,
+    redirectHost: "localhost",
     extraParams: {
       id_token_add_organizations: "true",
       codex_cli_simplified_flow: "true",
@@ -58,21 +73,23 @@ const SPECS: Record<OauthTarget, OauthSpec> = {
   antigravity: {
     label: "Antigravity",
     displayName: "Google Antigravity (AI Pro)",
-    clientId: "884354919052-36trc1jjb3tguiac32ov6cod268c5blh.apps.googleusercontent.com",
+    // Resolved from env/local config at runtime: the Antigravity IDE's own OAuth client.
+    // Never committed — GitHub push protection rejects embedded client secrets.
+    clientId: "",
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     scopes: [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
-      "openid",
+      // Without these two the Cloud Code chat endpoint answers 403 PERMISSION_DENIED —
+      // a plain Gemini CLI credential is refused because it was not issued for Antigravity.
+      "https://www.googleapis.com/auth/cclog",
+      "https://www.googleapis.com/auth/experimentsandconfigs",
     ],
     callbackPath: "/oauth2callback",
     extraParams: { access_type: "offline", prompt: "consent" },
-    clientSecretEnv: [
-      "GOOGLE_OAUTH_CLIENT_ID",
-      "GOOGLE_OAUTH_CLIENT_SECRET",
-    ],
+    clientSecretEnv: ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"],
   },
 }
 
@@ -106,20 +123,22 @@ const results = new Map<string, OauthResult>()
 
 const b64url = (buf: Buffer) => buf.toString("base64url")
 
-function loadClientSecret(): string | undefined {
-  const fromEnv =
-    process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET
-      ? process.env.GOOGLE_OAUTH_CLIENT_SECRET
-      : undefined
-  if (fromEnv) return fromEnv
+function loadGoogleClient(): { clientId: string; clientSecret: string } | null {
+  const envId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const envSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  if (envId && envSecret) return { clientId: envId, clientSecret: envSecret }
+
   try {
     const local = path.join(os.homedir(), ".arunaki", "oauth-clients.json")
     const parsed = JSON.parse(fs.readFileSync(local, "utf8"))
-    return parsed?.google?.clientSecret
-  } catch {
-    return undefined
-  }
+    const g = parsed?.google
+    if (g?.clientId && g?.clientSecret) return { clientId: g.clientId, clientSecret: g.clientSecret }
+  } catch {}
+
+  return null
 }
+
+const loadClientSecret = () => loadGoogleClient()?.clientSecret
 
 function openBrowser(url: string): void {
   if (process.platform === "win32") {
@@ -158,12 +177,26 @@ function listenForCode(spec: OauthSpec, requestId: string, p: Pending): Promise<
       setTimeout(() => server.close(), 250)
     })
 
-    server.on("error", reject)
-    // Port 0: let the OS pick, so several flows can run without colliding.
-    server.listen(0, "127.0.0.1", () => {
+    server.on("error", (err: any) => {
+      if (err?.code === "EADDRINUSE" && spec.fixedPort) {
+        reject(
+          new Error(
+            `Port ${spec.fixedPort} is already in use — that is the redirect URI registered for the ${spec.label} OAuth client. Close whatever is holding it and retry.`,
+          ),
+        )
+      } else {
+        reject(err)
+      }
+    })
+    // Vendors with a registered redirect URI pin the port and host; RFC 8252 ones take any.
+    const port = spec.fixedPort ?? 0
+    const host = spec.redirectHost ?? "127.0.0.1"
+    // Bind on loopback regardless of the hostname we advertise, so `localhost` also works
+    // on hosts where it resolves to ::1 first.
+    server.listen(port, "127.0.0.1", () => {
       const addr = server.address()
-      const port = typeof addr === "object" && addr ? addr.port : 0
-      p.redirectUri = `http://127.0.0.1:${port}${spec.callbackPath}`
+      const actual = typeof addr === "object" && addr ? addr.port : port
+      p.redirectUri = `http://${host}:${actual}${spec.callbackPath}`
       resolve()
     })
   })
@@ -191,6 +224,7 @@ function decodeJwtEmail(idToken?: string): string | undefined {
 async function exchange(
   spec: OauthSpec,
   target: OauthTarget,
+  clientId: string,
   p: Pending,
   authCode: string,
 ): Promise<DiscoveredCredential> {
@@ -205,7 +239,7 @@ async function exchange(
     grant_type: "authorization_code",
     code: authCode,
     redirect_uri: p.redirectUri,
-    client_id: spec.clientId,
+    client_id: clientId,
     code_verifier: p.verifier,
   })
   if (secret) params.set("client_secret", secret)
@@ -245,6 +279,15 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
   const spec = SPECS[target]
   if (!spec) throw new Error(`Unsupported OAuth target: ${target}`)
 
+  // Providers backed by a configured OAuth client need it before we can even build the URL.
+  const configured = loadClientSecret() ? loadGoogleClient() : null
+  if (spec.clientSecretEnv && !configured) {
+    throw new Error(
+      "Google OAuth client is not configured. Set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, " +
+        "or write ~/.arunaki/oauth-clients.json, then retry.",
+    )
+  }
+  const clientId = spec.clientSecretEnv ? configured!.clientId : spec.clientId
   const requestId = crypto.randomUUID()
   const verifier = b64url(crypto.randomBytes(32))
   const challenge = b64url(crypto.createHash("sha256").update(verifier).digest())
@@ -263,7 +306,7 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
 
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: spec.clientId,
+    client_id: clientId,
     redirect_uri: p.redirectUri,
     scope: spec.scopes.join(" "),
     state: requestId,
@@ -297,7 +340,7 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
       if (p.settled) return
       p.settled = true
       try {
-        const cred = await exchange(spec, target, p, code)
+        const cred = await exchange(spec, target, clientId, p, code)
         await persistCredential(cred)
         results.set(requestId, {
           requestId,

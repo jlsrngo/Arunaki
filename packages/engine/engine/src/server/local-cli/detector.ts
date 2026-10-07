@@ -565,6 +565,57 @@ export async function checkCodexStatus(): Promise<CodexStatus> {
   })
 }
 
+/**
+ * Is the Antigravity CLI (`agy`) present and already signed in?
+ *
+ * `agy` has no login subcommand — it authenticates interactively when run in a terminal,
+ * and refuses to do so in print mode ("Print mode: not logged in and no controlling
+ * terminal"). So sign-in has to happen in a real terminal, which is what
+ * `launchAntigravityLogin` opens.
+ */
+export function checkAntigravityCli(): { installed: boolean; signedIn: boolean } {
+  const cmd = resolveAgyCommand()
+  if (!cmd || !fs.existsSync(cmd)) return { installed: false, signedIn: false }
+
+  // The Antigravity IDE keeps its session in its globalStorage database; the presence of
+  // that key is what lets `agy` run in print mode.
+  const dbPath = path.join(
+    process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"),
+    "Antigravity",
+    "User",
+    "globalStorage",
+    "state.vscdb",
+  )
+  try {
+    if (!fs.existsSync(dbPath)) return { installed: true, signedIn: false }
+    const { Database } = require("bun:sqlite")
+    const db = new Database(dbPath, { readonly: true })
+    try {
+      const row: any = db
+        .query("SELECT value FROM ItemTable WHERE key = ?")
+        .get("antigravityUnifiedStateSync.oauthToken")
+      const raw = row?.value instanceof Uint8Array ? Buffer.from(row.value).toString("utf8") : row?.value
+      return { installed: true, signedIn: typeof raw === "string" && raw.length > 64 }
+    } finally {
+      db.close()
+    }
+  } catch {
+    return { installed: true, signedIn: false }
+  }
+}
+
+/** Opens a real terminal running `agy` so the user can complete its Google sign-in. */
+export function launchAntigravityLogin(): { success: boolean; message: string } {
+  const cmd = resolveAgyCommand()
+  if (!cmd || !fs.existsSync(cmd)) {
+    return { success: false, message: "Antigravity CLI (agy) is not installed on this system." }
+  }
+  const res = launchTerminalWithCommand(`"${cmd}"`, "Sign in to Antigravity")
+  return res.success
+    ? { success: true, message: "A terminal opened with Antigravity. Complete the Google sign-in there, then close it." }
+    : res
+}
+
 export function launchTerminalWithCommand(cmd: string, title = "Arunaki CLI"): { success: boolean; message: string } {
   try {
     if (process.platform === "win32") {

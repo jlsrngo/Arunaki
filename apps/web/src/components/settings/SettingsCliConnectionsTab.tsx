@@ -650,10 +650,24 @@ export function SettingsCliConnectionsTab({
   const handleAntigravityEmailLogin = async () => {
     setIsSigningInEmail(true);
     try {
-      // Real OAuth round-trip: the previous version only opened a browser tab pointed at
-      // 127.0.0.1:8085, where nothing was listening, so the sign-in never completed.
-      await handleOauthConnect("antigravity");
-      startAntigravityPoll();
+      // Sign-in happens inside a real terminal running `agy` — it refuses to authenticate
+      // in print mode ("Print mode: not logged in and no controlling terminal").
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "antigravity-cli" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.data?.success) {
+        toast.info("Antigravity Terminal Opened", {
+          description: json.data?.message ?? (isEn
+            ? "Complete the Google sign-in in that terminal, then close it."
+            : "Selesaikan login Google di terminal itu, lalu tutup."),
+        });
+        startAntigravityPoll();
+      } else {
+        toast.error(isEn ? "Could not open Antigravity" : "Gagal membuka Antigravity", { description: json.data?.message });
+      }
     } catch (err: any) {
       toast.error(isEn ? "Failed to initiate email login" : "Gagal memulai login email", { description: err.message });
     } finally {
@@ -2179,16 +2193,16 @@ export function SettingsCliConnectionsTab({
                   ? `${isEn ? "Current active account: " : "Akun aktif saat ini: "}${data.antigravity.accountEmail}`
                   : undefined,
                 isLoggedIn: Boolean(data.antigravity?.loggedIn),
-                emailLabel: isEn ? "Sign in via Email" : "Masuk via Email",
-                emailBadge: "Web OAuth",
+                emailLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
+                emailBadge: "Terminal agy",
                 emailDesc: isEn
-                  ? "Sign in directly using your Google account via browser without opening a terminal."
-                  : "Masuk langsung menggunakan akun Google Anda melalui peramban web tanpa membuka konsol terminal.",
-                emailWarningTitle: isEn ? "Notice (Web OAuth):" : "Peringatan (Web OAuth):",
+                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there — agy only authenticates interactively."
+                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana — agy hanya bisa autentikasi secara interaktif.",
+                emailWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
                 emailWarningText: isEn
-                  ? "Opens external browser for Google Cloud authorization. Requires web callback on port 8085 and regular token renewal online."
-                  : "Membuka peramban eksternal untuk otorisasi Google Cloud. Memerlukan web callback di port 8085 dan pembaruan token berkala secara online.",
-                emailButton: isEn ? "Sign in via Email (Browser)" : "Masuk via Email (Browser)",
+                  ? "Antigravity authenticates interactively: a terminal opens running agy, and you complete the Google sign-in there. Direct browser OAuth is refused by Google for this client."
+                  : "Antigravity melakukan autentikasi secara interaktif: terminal terbuka menjalankan agy, dan Anda menyelesaikan login Google di sana. OAuth browser langsung ditolak Google untuk client ini.",
+                emailButton: isEn ? "Sign in with Antigravity (Terminal)" : "Masuk dengan Antigravity (Terminal)",
                 onEmailAction: handleAntigravityEmailLogin,
                 cliLabel: isEn ? "Sign in via CLI" : "Masuk via CLI",
                 cliBadge: "Terminal agy",
