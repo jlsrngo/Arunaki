@@ -28,6 +28,7 @@ export interface AntigravityStatus {
   detected: boolean
   cliInstalled?: boolean
   agyInstalled?: boolean
+  agySignedIn?: boolean
   agyVersion?: string
   geminiCliInstalled?: boolean
   geminiVersion?: string
@@ -440,6 +441,9 @@ export function checkAntigravityStatus(forceRefresh = false): AntigravityStatus 
     cliInstalled,
     agyInstalled: cliInstalled,
     agyVersion,
+    // The credential that actually matters for the direct Cloud Code route lives in
+    // Credential Manager, not in ~/.gemini, so report it separately from `loggedIn`.
+    agySignedIn: cliInstalled ? readAntigravityCredentialManager()?.accessToken != null : false,
     geminiCliInstalled,
     geminiVersion,
     path: detected ? geminiDir : undefined,

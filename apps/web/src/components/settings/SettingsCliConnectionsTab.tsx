@@ -48,6 +48,7 @@ interface AntigravityStatus {
   detected: boolean;
   cliInstalled?: boolean;
   agyInstalled?: boolean;
+  agySignedIn?: boolean;
   agyVersion?: string;
   geminiCliInstalled?: boolean;
   geminiVersion?: string;
@@ -338,6 +339,11 @@ export function SettingsCliConnectionsTab({
   const discoveredCodex = data.discovered?.find((d) => d.provider === "codex");
   const discoveredKiro = data.discovered?.find((d) => d.provider === "kiro");
   const discoveredCursor = data.discovered?.find((d) => d.provider === "cursor");
+
+  // Antigravity has three states, not two: the CLI may be missing entirely.
+  const agyInstalled = Boolean(data.antigravity?.agyInstalled ?? data.antigravity?.cliInstalled);
+  const agyReady = Boolean(data.antigravity?.agySignedIn);
+  const agyAccount = data.antigravity?.accountEmail;
 
   const formatExpiry = (expiresAt?: number) => {
     if (!expiresAt) return null;
@@ -1855,20 +1861,62 @@ export function SettingsCliConnectionsTab({
                     : "bg-zinc-700"
                 )} />
                 <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
-                  {data.antigravity?.loggedIn && data.antigravity.accountEmail
-                    ? `${isEn ? "Logged in: " : "Masuk: "}${data.antigravity.accountEmail}`
-                    : data.antigravity?.cliInstalled
-                    ? `${isEn ? "Ready to login" : "Siap masuk"} (${data.antigravity.agyVersion ? `agy v${data.antigravity.agyVersion}` : "agy"})`
+                  {agyReady
+                    ? `${isEn ? "Connected" : "Terhubung"}${agyAccount ? ` · ${agyAccount}` : ""}`
+                    : agyInstalled
+                    ? `${isEn ? "Sign-in needed" : "Perlu login"} (${data.antigravity?.agyVersion ? `agy v${data.antigravity.agyVersion}` : "agy"})`
                     : loading
                     ? (isEn ? "Checking status..." : "Memeriksa status...")
                     : (isEn ? "Not installed" : "Belum terpasang")}
                 </span>
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5 truncate">
-                {data.antigravity?.loggedIn && data.antigravity.accountEmail
-                  ? `Google DeepMind • ${data.antigravity.accountEmail}`
-                  : "Google DeepMind • Antigravity CLI (agy)"}
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                {agyReady
+                  ? isEn
+                    ? "Google AI Pro · quota refreshed live"
+                    : "Google AI Pro · kuota diperbarui langsung"
+                  : isEn
+                  ? "One-time setup, then Arunaki connects on its own"
+                  : "Setelan sekali, lalu Arunaki tersambung sendiri"}
               </p>
+              {!agyReady && (
+                <ol className="mt-1.5 space-y-0.5 text-[10px] text-[var(--text-muted)]">
+                  <li className="flex gap-1.5">
+                    <span className="text-zinc-600">1.</span>
+                    {agyInstalled ? (
+                      <span>{isEn ? "Antigravity CLI installed" : "Antigravity CLI sudah terpasang"}</span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <span>{isEn ? "Install Antigravity (181 MB)" : "Pasang Antigravity (181 MB)"}</span>
+                        <a
+                          href="https://antigravity.google.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                        >
+                          {isEn ? "open" : "buka"}
+                        </a>
+                      </span>
+                    )}
+                  </li>
+                  <li className="flex gap-1.5">
+                    <span className="text-zinc-600">2.</span>
+                    <span>
+                      {isEn
+                        ? "Sign in with your Google account in the terminal that opens"
+                        : "Masuk dengan akun Google di terminal yang terbuka"}
+                    </span>
+                  </li>
+                  <li className="flex gap-1.5">
+                    <span className="text-zinc-600">3.</span>
+                    <span>
+                      {isEn
+                        ? "Arunaki picks up the token automatically — nothing to paste"
+                        : "Arunaki mengambil token otomatis — tidak ada yang perlu ditempel"}
+                    </span>
+                  </li>
+                </ol>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1947,11 +1995,32 @@ export function SettingsCliConnectionsTab({
             )}
             <button
               type="button"
-              onClick={() => handleToggleConnection("antigravity", isGeminiActive, "Google Gemini CLI")}
+              onClick={() => {
+                // Three states: missing CLI -> send the user to the installer; installed but
+                // signed out -> open a terminal running agy; ready -> toggle the provider.
+                if (!agyInstalled) {
+                  window.open("https://antigravity.google.com", "_blank", "noopener,noreferrer");
+                  return;
+                }
+                if (!agyReady) {
+                  handleAntigravityCliLogin();
+                  return;
+                }
+                handleToggleConnection("antigravity", isGeminiActive, "Google Gemini CLI");
+              }}
               disabled={connectingTarget === "antigravity"}
+              title={
+                !agyInstalled
+                  ? isEn ? "Open the Antigravity installer" : "Buka halaman pasang Antigravity"
+                  : !agyReady
+                  ? isEn ? "Sign in through the Antigravity CLI" : "Masuk lewat Antigravity CLI"
+                  : undefined
+              }
               className={cn(
                 "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                isGeminiActive
+                !agyInstalled || !agyReady
+                  ? "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
+                  : isGeminiActive
                   ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
                   : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
               )}
@@ -1960,6 +2029,16 @@ export function SettingsCliConnectionsTab({
                 <>
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
+                </>
+              ) : !agyInstalled ? (
+                <>
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{isEn ? "Install" : "Pasang"}</span>
+                </>
+              ) : !agyReady ? (
+                <>
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>{isEn ? "Sign in" : "Masuk"}</span>
                 </>
               ) : isGeminiActive ? (
                 <>
