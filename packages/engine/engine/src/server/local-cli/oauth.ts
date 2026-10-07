@@ -78,12 +78,13 @@ const SPECS: Record<OauthTarget, OauthSpec> = {
     clientId: "",
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
-    scopes: [
+scopes: [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
-      // Without these two the Cloud Code chat endpoint answers 403 PERMISSION_DENIED —
-      // a plain Gemini CLI credential is refused because it was not issued for Antigravity.
+      "openid",
+      // cclog + experimentsandconfigs are what tie a token to Antigravity; without them the
+      // Cloud Code chat endpoint answers 403 PERMISSION_DENIED even for a valid consumer login.
       "https://www.googleapis.com/auth/cclog",
       "https://www.googleapis.com/auth/experimentsandconfigs",
     ],
@@ -304,7 +305,10 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
 
   await listenForCode(spec, requestId, p)
 
-  const params = new URLSearchParams({
+  // Build the query by hand: URLSearchParams encodes spaces as "+", which is form-body
+  // encoding and wrong here. Google's authorize endpoint reads "+" literally, collapses the
+  // whole scope list into one malformed value and answers "Missing required parameter: scope".
+  const query = {
     response_type: "code",
     client_id: clientId,
     redirect_uri: p.redirectUri,
@@ -313,8 +317,10 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
     code_challenge: challenge,
     code_challenge_method: "S256",
     ...(spec.extraParams ?? {}),
-  })
-  const authUrl = `${spec.authorizeUrl}?${params.toString()}`
+  }
+  const authUrl = `${spec.authorizeUrl}?${Object.entries(query)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&")}`
 
   const session: OauthSession = { id: requestId, target, authUrl, createdAt: Date.now() }
   sessions.set(requestId, session)
