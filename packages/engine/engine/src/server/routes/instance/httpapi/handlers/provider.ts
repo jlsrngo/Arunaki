@@ -50,6 +50,7 @@ import { scanLocalCredentials, invalidateCredentialCache } from "../../../../loc
 import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
 import { startOauthSession, getOauthResult } from "../../../../local-cli/oauth"
 import { fetchAllQuotas, invalidateQuotaCache } from "../../../../local-cli/quota"
+import { CLI_PROVIDER_REGISTRY } from "../../../../local-cli/registry"
 import {
   injectClaudeSettings,
   injectCodexSettings,
@@ -515,6 +516,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           bridgePort: localCliBridge.port,
           bridgeRunning: localCliBridge.running,
           discovered,
+          registry: CLI_PROVIDER_REGISTRY,
         },
       }
     })

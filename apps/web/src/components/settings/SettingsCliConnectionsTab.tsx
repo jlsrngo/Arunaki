@@ -11,7 +11,6 @@ import {
   Wifi,
   LogIn,
   LogOut,
-  Mail,
   AlertTriangle,
   Scale,
   Sparkles,
@@ -42,6 +41,24 @@ interface OpenCodeStatus {
   hasGroq: boolean;
   has9Router: boolean;
   error?: string;
+}
+
+interface CliProviderDescriptor {
+  id: string;
+  name: string;
+  vendor: string;
+  docsUrl?: string;
+  installUrl?: string;
+  installSizeMb?: number;
+  loginCommand?: string;
+  credentialPath?: string;
+  credentialTarget?: string;
+  quota: "antigravity" | "claude" | "codex" | "none";
+  models: string[];
+  requiresCli: boolean;
+  loginMode: "terminal" | "browser" | "none";
+  supportsAutoConfigure: boolean;
+  supportsBrowserLogin: boolean;
 }
 
 interface AntigravityStatus {
@@ -94,6 +111,8 @@ interface LocalCliData {
   bridgePort: number;
   bridgeRunning: boolean;
   discovered?: DiscoveredCliItem[];
+  /** Provider catalog from the engine registry. Drives every card below. */
+  registry?: CliProviderDescriptor[];
 }
 
 
@@ -132,6 +151,27 @@ const PRESET_MODELS: Record<string, string[]> = {
     "cx/gpt-5.6-terra",
   ],
 };
+
+/** Mirrors CliProviderId in the engine registry so handler signatures stay in sync. */
+type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "nineRouter";
+
+interface QuotaBucket {
+  id: string;
+  label: string;
+  window: string;
+  /** 0..1 fraction remaining */
+  remaining: number;
+  exhausted?: boolean;
+  /** Epoch millis, or undefined when the vendor did not report a reset time. */
+  resetAt?: number;
+}
+
+interface QuotaReport {
+  provider: string;
+  ok: boolean;
+  reason?: string;
+  buckets: QuotaBucket[];
+}
 
 interface ModelMeta {
   label: string;
@@ -238,35 +278,28 @@ export function SettingsCliConnectionsTab({
   const [loading, setLoading] = useState(false);
   const [isLoggingOutAntigravity, setIsLoggingOutAntigravity] = useState(false);
   const [showAntigravityLoginModal, setShowAntigravityLoginModal] = useState(false);
-  const [activeAuthModalTarget, setActiveAuthModalTarget] = useState<
-    "claude" | "codex" | "opencode" | "antigravity" | "nineRouter" | null
-  >(null);
-  const [isSigningInEmail, setIsSigningInEmail] = useState(false);
+  const [activeAuthModalTarget, setActiveAuthModalTarget] = useState<CliProviderId | null>(null);
   const [isSigningInCli, setIsSigningInCli] = useState(false);
-  const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [customInput, setCustomInput] = useState<Record<string, string>>({});
-  // Selected Models per CLI connection (persisted in localStorage)
-  const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => {
-    return {
-      claude: localStorage.getItem("arunaki_cli_model_claude") || PRESET_MODELS.claude[0],
-      opencode: localStorage.getItem("arunaki_cli_model_opencode") || PRESET_MODELS.opencode[0],
-      codex: localStorage.getItem("arunaki_cli_model_codex") || PRESET_MODELS.codex[0],
-      antigravity: localStorage.getItem("arunaki_cli_model_antigravity") || PRESET_MODELS.antigravity[0],
-      nineRouter: localStorage.getItem("arunaki_cli_model_nineRouter") || PRESET_MODELS.nineRouter[0],
-    };
-  });
-
   const [testingPingTarget, setTestingPingTarget] = useState<string | null>(null);
   const [pingResults, setPingResults] = useState<
     Record<string, { success: boolean; timeMs: number; message?: string }>
   >({});
   const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
-  const [oauthTarget, setOauthTarget] = useState<string | null>(null);
   const [quota, setQuota] = useState<QuotaReport[]>([]);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
   const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
+  const [customInput, setCustomInput] = useState<Record<string, string>>({});
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const key of ["claude", "opencode", "codex", "antigravity", "nineRouter"]) {
+      const saved = localStorage.getItem(`arunaki_cli_model_${key}`);
+      if (saved) out[key] = saved;
+    }
+    return out;
+  });
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -335,83 +368,60 @@ export function SettingsCliConnectionsTab({
   const is9RouterActive =
     nineRouterProvider?.active || localStorage.getItem("arunaki_active_provider") === "9router";
 
+  // Per-provider facts the generic card needs. Everything here is derived state, so it is
+  // declared unconditionally with the rest of them (React Rules of Hooks).
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const toggleCard = (id: string) =>
+    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
+
   const discoveredClaude = data.discovered?.find((d) => d.provider === "claude");
   const discoveredCodex = data.discovered?.find((d) => d.provider === "codex");
   const discoveredKiro = data.discovered?.find((d) => d.provider === "kiro");
   const discoveredCursor = data.discovered?.find((d) => d.provider === "cursor");
 
-  // Antigravity has three states, not two: the CLI may be missing entirely.
-  const agyInstalled = Boolean(data.antigravity?.agyInstalled ?? data.antigravity?.cliInstalled);
-  const agyReady = Boolean(data.antigravity?.agySignedIn);
-  const agyAccount = data.antigravity?.accountEmail;
-
-  const formatExpiry = (expiresAt?: number) => {
-    if (!expiresAt) return null;
-    const diff = expiresAt - Date.now();
-    if (diff <= 0) return "Expired";
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h`;
+  const cardState: Record<
+    string,
+    { installed: boolean; signedIn: boolean; email?: string; active: boolean; version?: string }
+  > = {
+    claude: {
+      installed: data.claude.installed,
+      signedIn: Boolean(data.claude.loggedIn || discoveredClaude?.hasToken),
+      email: discoveredClaude?.accountEmail,
+      active: isClaudeActive,
+      version: data.claude.version,
+    },
+    codex: {
+      installed: Boolean(data.codex?.installed),
+      signedIn: Boolean(discoveredCodex?.hasToken),
+      email: discoveredCodex?.accountEmail,
+      active: isCodexActive,
+      version: data.codex?.version,
+    },
+    opencode: {
+      installed: true,
+      signedIn: true,
+      active: isOpenCodeActive,
+      version: data.opencode.version,
+    },
+    antigravity: {
+      installed: Boolean(data.antigravity?.agyInstalled ?? data.antigravity?.cliInstalled),
+      signedIn: Boolean(data.antigravity?.agySignedIn),
+      email: data.antigravity?.accountEmail,
+      active: isAntigravityActive,
+      version: data.antigravity?.agyVersion,
+    },
+    nineRouter: {
+      installed: Boolean(data.nineRouter.installed),
+      signedIn: Boolean(data.nineRouter.running),
+      active: is9RouterActive,
+      version: data.nineRouter.version,
+    },
   };
+
 
   // A credential stays in the local store after its CLI cache is gone so Refresh can
   // recover it — never label an already expired token "Ready".
-  const credentialState = (expiresAt?: number) => {
-    if (!expiresAt) return "active" as const;
-    const diff = expiresAt - Date.now();
-    if (diff <= 0) return "expired" as const;
-    if (diff < 15 * 60_000) return "expiring" as const;
-    return "ready" as const;
-  };
 
-  const CREDENTIAL_BADGE = {
-    ready: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    expiring: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    expired: "bg-red-500/10 text-red-400 border-red-500/20",
-    active: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  };
-
-  const renderDiscoveredBadge = (d?: { hasToken: boolean; expiresAt?: number }) => {
-    if (!d?.hasToken) return null;
-    const state = credentialState(d.expiresAt);
-    const label =
-      state === "expired"
-        ? "Expired · Refresh required"
-        : state === "expiring"
-        ? "Expiring soon"
-        : state === "active"
-        ? "Active · No expiry data"
-        : "Auto-Imported · Ready";
-    const suffix = state === "ready" && formatExpiry(d.expiresAt) ? ` (${formatExpiry(d.expiresAt)})` : "";
-    return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border",
-          CREDENTIAL_BADGE[state],
-        )}
-      >
-        <Sparkles className="w-2.5 h-2.5" />
-        {label}
-        {suffix}
-      </span>
-    );
-  };
-
-  interface QuotaBucket {
-    id: string;
-    label: string;
-    remaining: number;
-    window: string;
-    resetAt?: number;
-    exhausted: boolean;
-  }
-  interface QuotaReport {
-    provider: string;
-    ok: boolean;
-    reason?: string;
-    buckets: QuotaBucket[];
-  }
 
   // Live rate-limit windows straight from each vendor — nothing here is hardcoded.
   const fetchQuota = async () => {
@@ -443,16 +453,318 @@ export function SettingsCliConnectionsTab({
     return isEn ? `${days}d ${hours % 24}h` : `${days}h ${hours % 24}j`;
   };
 
-  const QUOTA_LABEL: Record<string, string> = isEn
-    ? { antigravity: "Antigravity", claude: "Claude Code", codex: "Codex" }
-    : { antigravity: "Antigravity", claude: "Claude Code", codex: "Codex" };
-
-  const renderQuotaPanel = () => {
-    const visible = quota.filter((q) => q.ok || q.reason !== "not-signed-in");
-    if (!visible.length && !quotaLoading) return null;
+  /** Setup steps shown in the expanded card. Derived from the descriptor, never hardcoded per card. */
+  const renderSetupSteps = (d: CliProviderDescriptor) => {
+    const ready = cardState[d.id]?.signedIn;
+    const installed = cardState[d.id]?.installed;
+    if (ready) return null;
+    const steps: { text: string; href?: string }[] = [];
+    if (d.requiresCli && !installed) {
+      steps.push({
+        text: d.installSizeMb
+          ? isEn
+            ? `Install ${d.name} (${d.installSizeMb} MB)`
+            : `Pasang ${d.name} (${d.installSizeMb} MB)`
+          : isEn
+          ? `Install ${d.name}`
+          : `Pasang ${d.name}`,
+        href: d.installUrl,
+      });
+    }
+    if (d.loginMode === "terminal" && d.loginCommand) {
+      steps.push({
+        text: isEn
+          ? `Sign in by running ${d.loginCommand} in the terminal`
+          : `Masuk dengan menjalankan ${d.loginCommand} di terminal`,
+      });
+    }
+    if (d.credentialPath || d.credentialTarget) {
+      steps.push({
+        text: d.credentialTarget
+          ? isEn
+            ? `Arunaki reads the token from Windows Credential Manager (${d.credentialTarget})`
+            : `Arunaki membaca token dari Windows Credential Manager (${d.credentialTarget})`
+          : isEn
+          ? `Arunaki reads the token from ${d.credentialPath} automatically`
+          : `Arunaki membaca token dari ${d.credentialPath} secara otomatis`,
+      });
+    }
+    if (!steps.length) return null;
     return (
-      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3 mb-3">
-        <div className="flex items-center justify-between mb-2.5">
+      <ol className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
+        {steps.map((s, i) => (
+          <li key={i} className="flex gap-1.5">
+            <span className="text-zinc-600">{i + 1}.</span>
+            <span className="flex items-center gap-1 flex-wrap">
+              <span>{s.text}</span>
+              {s.href && (
+                <a
+                  href={s.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                >
+                  {isEn ? "open" : "buka"}
+                </a>
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
+    );
+  };
+
+  /** One card per registry entry. No provider-specific markup outside of this function. */
+  const renderProviderCard = (d: CliProviderDescriptor) => {
+    // The registry is the source of truth for which providers exist, so narrow once here
+    // rather than casting at every handler call.
+    const id = d.id as CliProviderId;
+    const state = cardState[id] ?? {
+      installed: false,
+      signedIn: false,
+      active: false,
+    };
+    const expanded = Boolean(expandedCards[id]);
+    const discovered = data.discovered?.find((x) => x.provider === id);
+    const ping = pingResults[id];
+    const busy = connectingTarget === id;
+    const dot = state.signedIn
+      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+      : state.installed
+      ? "bg-amber-400"
+      : loading
+      ? "bg-amber-400/60 animate-pulse"
+      : "bg-zinc-700";
+
+    return (
+      <div
+        key={id}
+        className={cn(
+          "rounded-xl border transition-all duration-200",
+          state.active
+            ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
+            : "bg-[var(--bg-card)] border-[var(--border-color)]"
+        )}
+      >
+        <div className="px-4 py-3 flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => handleToggleConnection(id, state.active, d.name)}
+            disabled={busy}
+            title={
+              state.active
+                ? isEn ? "Click to Disconnect" : "Klik untuk Putuskan"
+                : isEn ? "Click to Connect" : "Klik untuk Hubungkan"
+            }
+            className={cn(
+              "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
+              state.active ? "border-white bg-white hover:bg-zinc-200" : "border-zinc-600 hover:border-white bg-transparent"
+            )}
+          >
+            {busy ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+            ) : state.active ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
+                <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+              </>
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+            )}
+          </button>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-[var(--text-primary)]">{d.name}</span>
+              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dot)} />
+              <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
+                {state.signedIn
+                  ? isEn ? "Connected" : "Terhubung"
+                  : state.installed
+                  ? isEn ? "Sign-in needed" : "Perlu login"
+                  : loading
+                  ? isEn ? "Checking status..." : "Memeriksa status..."
+                  : isEn ? "Not installed" : "Belum terpasang"}
+              </span>
+              {refreshErrors[id] && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                  title={refreshErrors[id]}
+                >
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  Refresh failed
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+              {d.vendor}
+              {state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* Collapsed row stays sparse: model picker, ping, docs, connect. */}
+        <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
+          {renderModelDropdown(id, d.models, id, state.active, d.name)}
+          <button
+            type="button"
+            onClick={() => handleTestPing(id, d.name)}
+            disabled={testingPingTarget === id}
+            className={cn(
+              "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+              ping
+                ? ping.success
+                  ? "bg-zinc-800 text-zinc-200 border-zinc-600"
+                  : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+            )}
+            title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
+          >
+            {testingPingTarget === id ? (
+              <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+            ) : (
+              <Wifi className="w-3 h-3 text-zinc-400" />
+            )}
+            <span>
+              {testingPingTarget === id
+                ? isEn ? "Testing..." : "Menguji..."
+                : ping
+                ? ping.success
+                  ? `${ping.timeMs}ms`
+                  : "Offline"
+                : isEn ? "Test Ping" : "Uji Ping"}
+            </span>
+          </button>
+          {d.docsUrl && (
+            <button
+              type="button"
+              onClick={() => window.open(d.docsUrl, "_blank")}
+              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              title={isEn ? "Open the vendor page" : "Buka halaman vendor"}
+            >
+              <Globe className="w-3 h-3" />
+              Docs
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleCard(id)}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            title={expanded ? (isEn ? "Collapse" : "Ciutkan") : isEn ? "Expand for limits & setup" : "Buka untuk kuota & panduan"}
+          >
+            <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
+          </button>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={() => handleToggleConnection(id, state.active, d.name)}
+            disabled={busy}
+            className={cn(
+              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs group",
+              state.active
+                ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white"
+                : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
+            )}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
+              </>
+            ) : state.active ? (
+              <>
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>{isEn ? "Connected" : "Terhubung"}</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                <span>{isEn ? "Connect" : "Hubungkan"}</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {expanded && (
+          <div className="px-4 pb-3 pt-2 border-t border-[var(--border-color)] space-y-3">
+            {renderSetupSteps(d)}
+            {d.quota !== "none" && renderQuota(d.quota)}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              {discovered?.hasToken && d.id !== "nineRouter" && (
+                <button
+                  type="button"
+                  onClick={() => handleRefreshCred(id as "claude" | "codex")}
+                  disabled={refreshingTarget === id}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  title={isEn ? "Refresh the harvested OAuth token" : "Perbarui token OAuth"}
+                >
+                  <RefreshCw className={cn("w-3 h-3", refreshingTarget === id && "animate-spin")} />
+                  {refreshingTarget === id ? (isEn ? "Refreshing..." : "Memperbarui...") : isEn ? "Refresh token" : "Perbarui token"}
+                </button>
+              )}
+              {d.supportsAutoConfigure && (
+                <button
+                  type="button"
+                  onClick={() => handleInjectCli(id as "claude" | "codex")}
+                  disabled={injectingTarget === id}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                >
+                  {injectingTarget === id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SlidersHorizontal className="w-3 h-3" />}
+                  Auto-Configure CLI
+                </button>
+              )}
+              {d.loginMode === "terminal" && !state.signedIn && d.id === "antigravity" && (
+                <button
+                  type="button"
+                  onClick={handleAntigravityCliLogin}
+                  disabled={isSigningInCli}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                >
+                  {isSigningInCli ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
+                  {isEn ? "Open sign-in terminal" : "Buka terminal login"}
+                </button>
+              )}
+              {state.signedIn && d.id === "antigravity" && (
+                <button
+                  type="button"
+                  onClick={() => handleAntigravityLogout()}
+                  disabled={isLoggingOutAntigravity}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
+                >
+                  {isLoggingOutAntigravity ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <LogOut className="w-3 h-3" />
+                  )}
+                  {isLoggingOutAntigravity
+                    ? isEn ? "Signing out..." : "Keluar..."
+                    : isEn ? "Sign out" : "Keluar"}
+                </button>
+              )}
+              {d.loginMode === "terminal" && d.id !== "antigravity" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveAuthModalTarget(id)}
+                  className="px-2 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  title={isEn ? "Choose the sign-in method" : "Pilih metode masuk"}
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  {isEn ? "Auth Method" : "Metode Masuk"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /** Rate-limit buckets for one provider, rendered inside that provider's own card. */
+  const renderQuota = (provider: "antigravity" | "claude" | "codex") => {
+    const report = quota.find((q) => q.provider === provider);
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
             <Gauge className="w-3.5 h-3.5" />
             {isEn ? "Rate Limit Windows" : "Jendela Batas Rate"}
@@ -467,63 +779,46 @@ export function SettingsCliConnectionsTab({
             <RefreshCw className={cn("w-3 h-3", quotaLoading && "animate-spin")} />
           </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {(["antigravity", "claude", "codex"] as const).map((provider) => {
-            const report = quota.find((q) => q.provider === provider);
-            return (
-              <div key={provider} className="min-w-0">
-                <div className="text-[10px] font-medium text-zinc-400 mb-1">
-                  {QUOTA_LABEL[provider] ?? provider}
+        {!report || !report.ok ? (
+          <div className="text-[10px] text-zinc-600">
+            {quotaLoading
+              ? isEn ? "Loading..." : "Memuat..."
+              : isEn ? "Sign in to view limits" : "Masuk untuk melihat batas"}
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {report.buckets.map((b) => {
+              const pct = Math.round(b.remaining * 100);
+              const bar = b.exhausted
+                ? "bg-red-500"
+                : pct <= 20
+                  ? "bg-amber-500"
+                  : "bg-emerald-500";
+              return (
+                <div key={b.id + b.window} className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-2 text-[10px]">
+                    <span className="truncate text-zinc-500">
+                      {b.label}
+                      {b.window === "5h" ? ` (${b.window})` : ""}
+                    </span>
+                    <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-400" : "text-zinc-300")}>
+                      {pct}% · {formatReset(b.resetAt)}
+                    </span>
+                  </div>
+                  <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                {!report || !report.ok ? (
-                  <div className="text-[10px] text-zinc-600">
-                    {quotaLoading
-                      ? isEn ? "Loading..." : "Memuat..."
-                      : isEn ? "Sign in to view limits" : "Masuk untuk melihat batas"}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {report.buckets.map((b) => {
-                      const pct = Math.round(b.remaining * 100);
-                      const bar = b.exhausted
-                        ? "bg-red-500"
-                        : pct <= 20
-                          ? "bg-amber-500"
-                          : "bg-emerald-500";
-                      return (
-                        <div key={b.id + b.window} className="min-w-0">
-                          <div className="flex items-baseline justify-between gap-2 text-[10px]">
-                            <span className="truncate text-zinc-500">
-                              {b.label}
-                              {b.window === "5h" ? ` (${b.window})` : ""}
-                            </span>
-                            <span
-                              className={cn(
-                                "shrink-0 tabular-nums",
-                                b.exhausted ? "text-red-400" : "text-zinc-300",
-                              )}
-                            >
-                              {pct}% · {formatReset(b.resetAt)}
-                            </span>
-                          </div>
-                          <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
-                            <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {report.buckets.some((b) => b.exhausted) && (
-                      <div className="flex items-center gap-1 text-[10px] text-red-400 pt-0.5">
-                        <AlertTriangle className="w-2.5 h-2.5" />
-                        {isEn ? "Some models are exhausted" : "Sebagian model sudah habis"}
-                      </div>
-                    )}
-                  </div>
-                )}
+              );
+            })}
+            {report.buckets.some((b) => b.exhausted) && (
+              <div className="flex items-center gap-1 text-[10px] text-red-400 pt-0.5">
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {isEn ? "Some models are exhausted" : "Sebagian model sudah habis"}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -564,53 +859,6 @@ export function SettingsCliConnectionsTab({
     }
   };
 
-  // Browser sign-in for the CLI subscriptions, so a fresh install can connect without
-  // the vendor CLI being installed first. Polls until the vendor redirects back.
-  const handleOauthConnect = async (target: "claude" | "codex" | "antigravity") => {
-    setOauthTarget(target);
-    try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/oauth/start${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
-      });
-      const json = await res.json().catch(() => ({}));
-      const requestId = json.data?.requestId;
-      const authUrl = json.data?.authUrl;
-      if (!requestId || !authUrl) {
-        throw new Error(json.data?.message || (isEn ? "Could not start sign-in" : "Gagal memulai login"));
-      }
-      window.open(authUrl, "_blank", "noopener,noreferrer");
-
-      const deadline = Date.now() + 10 * 60_000;
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 1500));
-        const poll = await apiFetch(`${API_BASE}/providers/local-cli/oauth/status${directoryQuery()}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requestId }),
-        });
-        const out = (await poll.json().catch(() => ({})))?.data;
-        if (!out || out.status === "pending") continue;
-        if (out.status === "success") {
-          toast.success(isEn ? "Connected" : "Berhasil terhubung", {
-            description: out.message || `${target} is now connected.`,
-          });
-          await fetchStatus();
-        } else {
-          throw new Error(out.message || (isEn ? "Sign-in failed" : "Login gagal"));
-        }
-        return;
-      }
-      throw new Error(isEn ? "Sign-in timed out" : "Login kedaluwarsa");
-    } catch (err: any) {
-      toast.error(isEn ? "Sign-in failed" : "Login gagal", {
-        description: err?.message ?? String(err),
-      });
-    } finally {
-      setOauthTarget(null);
-    }
-  };
 
   const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {    setInjectingTarget(target);
     try {
@@ -787,35 +1035,7 @@ export function SettingsCliConnectionsTab({
     }, 1500);
   };
 
-  const handleAntigravityEmailLogin = async () => {
-    setIsSigningInEmail(true);
-    try {
-      // Sign-in happens inside a real terminal running `agy` — it refuses to authenticate
-      // in print mode ("Print mode: not logged in and no controlling terminal").
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity-cli" }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json.data?.success) {
-        toast.info("Antigravity Terminal Opened", {
-          description: json.data?.message ?? (isEn
-            ? "Complete the Google sign-in in that terminal, then close it."
-            : "Selesaikan login Google di terminal itu, lalu tutup."),
-        });
-        startAntigravityPoll();
-      } else {
-        toast.error(isEn ? "Could not open Antigravity" : "Gagal membuka Antigravity", { description: json.data?.message });
-      }
-    } catch (err: any) {
-      toast.error(isEn ? "Failed to initiate email login" : "Gagal memulai login email", { description: err.message });
-    } finally {
-      setIsSigningInEmail(false);
-    }
-  };
-
-  const handleAntigravityCliLogin = async () => {
+const handleAntigravityCliLogin = async () => {
     setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
@@ -868,7 +1088,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const PROVIDER_CONFIGS: Record<
-    "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    CliProviderId,
     { id: string; name: string; type: string; baseUrl: string; apiKey: string }
   > = {
     claude: {
@@ -909,7 +1129,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const handleConnectTarget = async (
-    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    target: CliProviderId,
     friendlyName: string
   ) => {
     setConnectingTarget(target);
@@ -1005,7 +1225,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const handleToggleConnection = async (
-    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    target: CliProviderId,
     isActive: boolean,
     friendlyName: string
   ) => {
@@ -1018,7 +1238,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const handleTestPing = async (
-    target: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    target: CliProviderId,
     friendlyName: string
   ) => {
     setTestingPingTarget(target);
@@ -1193,7 +1413,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const renderModelDropdown = (
-    targetKey: "claude" | "codex" | "opencode" | "antigravity" | "nineRouter",
+    targetKey: CliProviderId,
     presetModels: string[],
     activeId: string,
     isActive: boolean,
@@ -1334,871 +1554,10 @@ export function SettingsCliConnectionsTab({
         </button>
       </div>
 
-      {/* Live rate-limit windows, read straight from each vendor */}
-      {renderQuotaPanel()}
-
-      {/* Connection list */}
+      {/* Every card below comes from the engine registry. */}
       <div className="space-y-2 w-full">
-        {/* ── Claude ───────────────────────────────────────── */}
-        <div
-          className={cn(
-            "px-4 py-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4",
-            isClaudeActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("claude", isClaudeActive, "Claude")}
-              disabled={connectingTarget === "claude"}
-              title={isClaudeActive ? (isEn ? "Click to Disconnect" : "Klik untuk Putuskan") : (isEn ? "Click to Connect" : "Klik untuk Hubungkan")}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-                isClaudeActive
-                  ? "border-white bg-white hover:bg-zinc-200"
-                  : "border-zinc-600 hover:border-white bg-transparent"
-              )}
-            >
-              {connectingTarget === "claude" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              ) : isClaudeActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
-                </>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
-              )}
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">Claude</span>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.claude.loggedIn || discoveredClaude?.hasToken ? "bg-zinc-200" : data.claude.installed ? "bg-zinc-500" : "bg-zinc-700"
-                )} />
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.claude.loggedIn || discoveredClaude?.hasToken
-                    ? (isEn ? "Ready" : "Siap")
-                    : data.claude.installed
-                    ? (isEn ? "Login required" : "Perlu masuk")
-                    : (isEn ? "Not installed" : "Belum terpasang")}
-                </span>
-                {renderDiscoveredBadge(discoveredClaude)}
-                {refreshErrors.claude && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.claude}>
-                    <AlertTriangle className="w-2.5 h-2.5" />
-                    Refresh failed
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Anthropic • Desktop app &amp; CLI</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("claude", PRESET_MODELS.claude, "claude-code", isClaudeActive, "Claude")}
-            {discoveredClaude?.hasToken && (
-              <button
-                type="button"
-                onClick={() => handleRefreshCred("claude")}
-                disabled={refreshingTarget === "claude"}
-                className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
-                title="Refresh Claude OAuth token"
-              >
-                <RefreshCw className={cn("w-3 h-3", refreshingTarget === "claude" && "animate-spin text-zinc-400")} />
-                <span>{refreshingTarget === "claude" ? "Refreshing..." : "Refresh now"}</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => handleInjectCli("claude")}
-              disabled={injectingTarget === "claude"}
-              className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
-              title="Auto-configure ~/.claude/settings.json to route through Arunaki bridge"
-            >
-              {injectingTarget === "claude" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <SlidersHorizontal className="w-3 h-3" />
-              )}
-              <span>Auto-Configure CLI</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTestPing("claude", "Claude")}
-              disabled={testingPingTarget === "claude"}
-              className={cn(
-                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
-                pingResults.claude
-                  ? pingResults.claude.success
-                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
-              )}
-              title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
-            >
-              {testingPingTarget === "claude" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <Wifi className="w-3 h-3 text-zinc-400" />
-              )}
-              <span>
-                {testingPingTarget === "claude"
-                  ? (isEn ? "Testing..." : "Menguji...")
-                  : pingResults.claude
-                  ? pingResults.claude.success
-                    ? `${pingResults.claude.timeMs}ms`
-                    : "Offline"
-                  : (isEn ? "Test Ping" : "Uji Ping")}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("https://claude.ai", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-            >
-              <Globe className="w-3 h-3" />
-              App
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAuthModalTarget("claude")}
-              disabled={oauthTarget === "claude"}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
-              title={isEn ? "Choose Claude authentication method (Email vs CLI)" : "Pilih metode otentikasi Claude (Email vs CLI)"}
-            >
-              {oauthTarget === "claude" ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <SlidersHorizontal className="w-3 h-3" />
-              )}
-              <span>
-                {oauthTarget === "claude"
-                  ? isEn ? "Signing in..." : "Menyambungkan..."
-                  : isEn ? "Auth Method" : "Metode Masuk"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("claude", isClaudeActive, "Claude")}
-              disabled={connectingTarget === "claude"}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                isClaudeActive
-                  ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-              )}
-            >
-              {connectingTarget === "claude" ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
-                </>
-              ) : isClaudeActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
-                  <span className="group-hover:hidden">{isEn ? "Connected" : "Terhubung"}</span>
-                  <span className="hidden group-hover:inline">{isEn ? "Disconnect" : "Putuskan"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>{isEn ? "Connect" : "Hubungkan"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+        {(data.registry ?? []).map((descriptor) => renderProviderCard(descriptor))}
 
-        {/* ── Codex ───────────────────────────────────────── */}
-        <div
-          className={cn(
-            "px-4 py-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4",
-            isCodexActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("codex", isCodexActive, "Codex")}
-              disabled={connectingTarget === "codex"}
-              title={isCodexActive ? (isEn ? "Click to Disconnect" : "Klik untuk Putuskan") : (isEn ? "Click to Connect" : "Klik untuk Hubungkan")}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-                isCodexActive
-                  ? "border-white bg-white hover:bg-zinc-200"
-                  : "border-zinc-600 hover:border-white bg-transparent"
-              )}
-            >
-              {connectingTarget === "codex" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              ) : isCodexActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
-                </>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
-              )}
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">Codex</span>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.codex?.installed || discoveredCodex?.hasToken ? "bg-zinc-200" : "bg-zinc-700"
-                )} />
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.codex?.installed || discoveredCodex?.hasToken ? (isEn ? "Ready" : "Siap") : (isEn ? "Not installed" : "Belum terpasang")}
-                </span>
-{renderDiscoveredBadge(discoveredCodex)}
-                {discoveredCodex?.accountEmail && (
-                  <span className="text-[10px] text-[var(--text-muted)]">{discoveredCodex.accountEmail}</span>
-                )}
-                {refreshErrors.codex && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20" title={refreshErrors.codex}>
-                    <AlertTriangle className="w-2.5 h-2.5" />
-                    Refresh failed
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">OpenAI • ChatGPT app &amp; CLI</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("codex", PRESET_MODELS.codex, "codex", isCodexActive, "Codex")}
-            {discoveredCodex?.hasToken && (
-              <button
-                type="button"
-                onClick={() => handleRefreshCred("codex")}
-                disabled={refreshingTarget === "codex"}
-                className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
-                title="Refresh OpenAI / Codex OAuth token"
-              >
-                <RefreshCw className={cn("w-3 h-3", refreshingTarget === "codex" && "animate-spin text-zinc-400")} />
-                <span>{refreshingTarget === "codex" ? "Refreshing..." : "Refresh now"}</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => handleInjectCli("codex")}
-              disabled={injectingTarget === "codex"}
-              className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 shadow-xs"
-              title="Auto-configure ~/.codex/config.toml to route through Arunaki bridge"
-            >
-              {injectingTarget === "codex" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <SlidersHorizontal className="w-3 h-3" />
-              )}
-              <span>Auto-Configure CLI</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTestPing("codex", "Codex")}
-              disabled={testingPingTarget === "codex"}
-              className={cn(
-                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
-                pingResults.codex
-                  ? pingResults.codex.success
-                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
-              )}
-              title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
-            >
-              {testingPingTarget === "codex" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <Wifi className="w-3 h-3 text-zinc-400" />
-              )}
-              <span>
-                {testingPingTarget === "codex"
-                  ? (isEn ? "Testing..." : "Menguji...")
-                  : pingResults.codex
-                  ? pingResults.codex.success
-                    ? `${pingResults.codex.timeMs}ms`
-                    : "Offline"
-                  : (isEn ? "Test Ping" : "Uji Ping")}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("https://chatgpt.com", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-            >
-              <Globe className="w-3 h-3" />
-              App
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAuthModalTarget("codex")}
-              disabled={oauthTarget === "codex"}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
-              title={isEn ? "Choose OpenAI Codex authentication method (Email vs CLI)" : "Pilih metode otentikasi OpenAI Codex (Email vs CLI)"}
-            >
-              {oauthTarget === "codex" ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <SlidersHorizontal className="w-3 h-3" />
-              )}
-              <span>
-                {oauthTarget === "codex"
-                  ? isEn ? "Signing in..." : "Menyambungkan..."
-                  : isEn ? "Auth Method" : "Metode Masuk"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("codex", isCodexActive, "Codex")}
-              disabled={connectingTarget === "codex"}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                isCodexActive
-                  ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-              )}
-            >
-              {connectingTarget === "codex" ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
-                </>
-              ) : isCodexActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
-                  <span className="group-hover:hidden">{isEn ? "Connected" : "Terhubung"}</span>
-                  <span className="hidden group-hover:inline">{isEn ? "Disconnect" : "Putuskan"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>{isEn ? "Connect" : "Hubungkan"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* ── OpenCode ────────────────────────────────────── */}
-        <div
-          className={cn(
-            "px-4 py-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4",
-            isOpenCodeActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("opencode", isOpenCodeActive, "OpenCode")}
-              disabled={connectingTarget === "opencode"}
-              title={isOpenCodeActive ? (isEn ? "Click to Disconnect" : "Klik untuk Putuskan") : (isEn ? "Click to Connect" : "Klik untuk Hubungkan")}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-                isOpenCodeActive
-                  ? "border-white bg-white hover:bg-zinc-200"
-                  : "border-zinc-600 hover:border-white bg-transparent"
-              )}
-            >
-              {connectingTarget === "opencode" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              ) : isOpenCodeActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
-                </>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
-              )}
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">OpenCode</span>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.opencode.installed ? "bg-zinc-200" : "bg-zinc-700"
-                )} />
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.opencode.installed ? (isEn ? "Ready" : "Siap") : (isEn ? "Not installed" : "Belum terpasang")}
-                </span>
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Open-source • Desktop app &amp; terminal</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("opencode", PRESET_MODELS.opencode, "opencode", isOpenCodeActive, "OpenCode")}
-            <button
-              type="button"
-              onClick={() => handleTestPing("opencode", "OpenCode")}
-              disabled={testingPingTarget === "opencode"}
-              className={cn(
-                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
-                pingResults.opencode
-                  ? pingResults.opencode.success
-                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
-              )}
-              title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
-            >
-              {testingPingTarget === "opencode" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <Wifi className="w-3 h-3 text-zinc-400" />
-              )}
-              <span>
-                {testingPingTarget === "opencode"
-                  ? (isEn ? "Testing..." : "Menguji...")
-                  : pingResults.opencode
-                  ? pingResults.opencode.success
-                    ? `${pingResults.opencode.timeMs}ms`
-                    : "Offline"
-                  : (isEn ? "Test Ping" : "Uji Ping")}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("https://opencode.ai", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-            >
-              <Globe className="w-3 h-3" />
-              App
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAuthModalTarget("opencode")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-              title={isEn ? "Choose OpenCode authentication method (Cloud Web vs Terminal)" : "Pilih metode otentikasi OpenCode (Cloud Web vs Terminal)"}
-            >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{isEn ? "Auth Method" : "Metode Masuk"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("opencode", isOpenCodeActive, "OpenCode")}
-              disabled={connectingTarget === "opencode"}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                isOpenCodeActive
-                  ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-              )}
-            >
-              {connectingTarget === "opencode" ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
-                </>
-              ) : isOpenCodeActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
-                  <span className="group-hover:hidden">{isEn ? "Connected" : "Terhubung"}</span>
-                  <span className="hidden group-hover:inline">{isEn ? "Disconnect" : "Putuskan"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>{isEn ? "Connect" : "Hubungkan"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* ── Google Antigravity ──────────────────────────── */}
-        <div
-          className={cn(
-            "px-4 py-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4",
-            isGeminiActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("antigravity", isGeminiActive, "Google Antigravity")}
-              disabled={connectingTarget === "antigravity"}
-              title={isGeminiActive ? (isEn ? "Click to Disconnect" : "Klik untuk Putuskan") : (isEn ? "Click to Connect" : "Klik untuk Hubungkan")}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-                isGeminiActive
-                  ? "border-white bg-white hover:bg-zinc-200"
-                  : "border-zinc-600 hover:border-white bg-transparent"
-              )}
-            >
-              {connectingTarget === "antigravity" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              ) : isGeminiActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
-                </>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
-              )}
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">Google Antigravity CLI</span>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.antigravity?.loggedIn
-                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                    : data.antigravity?.cliInstalled || data.antigravity?.detected
-                    ? "bg-amber-400"
-                    : loading
-                    ? "bg-amber-400/60 animate-pulse"
-                    : "bg-zinc-700"
-                )} />
-                <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
-                  {agyReady
-                    ? `${isEn ? "Connected" : "Terhubung"}${agyAccount ? ` · ${agyAccount}` : ""}`
-                    : agyInstalled
-                    ? `${isEn ? "Sign-in needed" : "Perlu login"} (${data.antigravity?.agyVersion ? `agy v${data.antigravity.agyVersion}` : "agy"})`
-                    : loading
-                    ? (isEn ? "Checking status..." : "Memeriksa status...")
-                    : (isEn ? "Not installed" : "Belum terpasang")}
-                </span>
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                {agyReady
-                  ? isEn
-                    ? "Google AI Pro · quota refreshed live"
-                    : "Google AI Pro · kuota diperbarui langsung"
-                  : isEn
-                  ? "One-time setup, then Arunaki connects on its own"
-                  : "Setelan sekali, lalu Arunaki tersambung sendiri"}
-              </p>
-              {!agyReady && (
-                <ol className="mt-1.5 space-y-0.5 text-[10px] text-[var(--text-muted)]">
-                  <li className="flex gap-1.5">
-                    <span className="text-zinc-600">1.</span>
-                    {agyInstalled ? (
-                      <span>{isEn ? "Antigravity CLI installed" : "Antigravity CLI sudah terpasang"}</span>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <span>{isEn ? "Install Antigravity (181 MB)" : "Pasang Antigravity (181 MB)"}</span>
-                        <a
-                          href="https://antigravity.google.com"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
-                        >
-                          {isEn ? "open" : "buka"}
-                        </a>
-                      </span>
-                    )}
-                  </li>
-                  <li className="flex gap-1.5">
-                    <span className="text-zinc-600">2.</span>
-                    <span>
-                      {isEn
-                        ? "Sign in with your Google account in the terminal that opens"
-                        : "Masuk dengan akun Google di terminal yang terbuka"}
-                    </span>
-                  </li>
-                  <li className="flex gap-1.5">
-                    <span className="text-zinc-600">3.</span>
-                    <span>
-                      {isEn
-                        ? "Arunaki picks up the token automatically — nothing to paste"
-                        : "Arunaki mengambil token otomatis — tidak ada yang perlu ditempel"}
-                    </span>
-                  </li>
-                </ol>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("antigravity", PRESET_MODELS.antigravity, "antigravity", isGeminiActive, "Google Antigravity")}
-            <button
-              type="button"
-              onClick={() => handleTestPing("antigravity", "Google Antigravity")}
-              disabled={testingPingTarget === "antigravity"}
-              className={cn(
-                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
-                pingResults.antigravity
-                  ? pingResults.antigravity.success
-                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
-              )}
-              title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
-            >
-              {testingPingTarget === "antigravity" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <Wifi className="w-3 h-3 text-zinc-400" />
-              )}
-              <span>
-                {testingPingTarget === "antigravity"
-                  ? (isEn ? "Testing..." : "Menguji...")
-                  : pingResults.antigravity
-                  ? pingResults.antigravity.success
-                    ? `${pingResults.antigravity.timeMs}ms`
-                    : "Offline"
-                  : (isEn ? "Test Ping" : "Uji Ping")}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                window.open("https://antigravity.google", "_blank");
-              }}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-            >
-              <Globe className="w-3 h-3" />
-              Docs
-            </button>
-            {!data.antigravity?.loggedIn ? (
-              <button
-                type="button"
-                onClick={() => setShowAntigravityLoginModal(true)}
-                className="px-3 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-xs rounded-lg transition-all cursor-pointer font-semibold flex items-center gap-1.5 shadow-sm"
-                title={isEn ? "Choose sign in method with Google or CLI" : "Pilih metode masuk dengan Google atau CLI"}
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>{isEn ? "Login" : "Masuk"}</span>
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowAntigravityLoginModal(true)}
-                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-                  title={isEn ? "Switch or view login method (Email vs CLI)" : "Ganti atau lihat metode masuk (Email vs CLI)"}
-                >
-                  <SlidersHorizontal className="w-3 h-3" />
-                  <span>{isEn ? "Auth Method" : "Metode Masuk"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAntigravityLogout}
-                  disabled={isLoggingOutAntigravity}
-                  className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-                  title={isEn ? "Logout from current Google Account" : "Keluar dari Akun Google saat ini"}
-                >
-                  {isLoggingOutAntigravity ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
-                  <span>{isEn ? "Logout" : "Keluar"}</span>
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                // Three states: missing CLI -> send the user to the installer; installed but
-                // signed out -> open a terminal running agy; ready -> toggle the provider.
-                if (!agyInstalled) {
-                  window.open("https://antigravity.google.com", "_blank", "noopener,noreferrer");
-                  return;
-                }
-                if (!agyReady) {
-                  handleAntigravityCliLogin();
-                  return;
-                }
-                handleToggleConnection("antigravity", isGeminiActive, "Google Gemini CLI");
-              }}
-              disabled={connectingTarget === "antigravity"}
-              title={
-                !agyInstalled
-                  ? isEn ? "Open the Antigravity installer" : "Buka halaman pasang Antigravity"
-                  : !agyReady
-                  ? isEn ? "Sign in through the Antigravity CLI" : "Masuk lewat Antigravity CLI"
-                  : undefined
-              }
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                !agyInstalled || !agyReady
-                  ? "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-                  : isGeminiActive
-                  ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-              )}
-            >
-              {connectingTarget === "antigravity" ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
-                </>
-              ) : !agyInstalled ? (
-                <>
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>{isEn ? "Install" : "Pasang"}</span>
-                </>
-              ) : !agyReady ? (
-                <>
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>{isEn ? "Sign in" : "Masuk"}</span>
-                </>
-              ) : isGeminiActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
-                  <span className="group-hover:hidden">{isEn ? "Connected" : "Terhubung"}</span>
-                  <span className="hidden group-hover:inline">{isEn ? "Disconnect" : "Putuskan"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>{isEn ? "Connect" : "Hubungkan"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* ── 9Router ─────────────────────────────────────── */}
-        <div
-          className={cn(
-            "px-4 py-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-4",
-            is9RouterActive
-              ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
-              : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("nineRouter", is9RouterActive, "9Router")}
-              disabled={connectingTarget === "nineRouter"}
-              title={is9RouterActive ? (isEn ? "Click to Disconnect" : "Klik untuk Putuskan") : (isEn ? "Click to Connect" : "Klik untuk Hubungkan")}
-              className={cn(
-                "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-                is9RouterActive
-                  ? "border-white bg-white hover:bg-zinc-200"
-                  : "border-zinc-600 hover:border-white bg-transparent"
-              )}
-            >
-              {connectingTarget === "nineRouter" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              ) : is9RouterActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                  <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
-                </>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
-              )}
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[var(--text-primary)]">9Router</span>
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  data.nineRouter.running ? "bg-zinc-200" : data.nineRouter.installed ? "bg-zinc-400" : "bg-zinc-700"
-                )} />
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  {data.nineRouter.running
-                    ? (isEn ? "Running" : "Berjalan")
-                    : data.nineRouter.installed
-                    ? (isEn ? "Ready" : "Siap")
-                    : (isEn ? "Not installed" : "Belum terpasang")}
-                </span>
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                {isEn ? "Smart AI Router • http://localhost:20128" : "Router AI Pintar • http://localhost:20128"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {renderModelDropdown("nineRouter", PRESET_MODELS.nineRouter, "9router", is9RouterActive, "9Router")}
-            <button
-              type="button"
-              onClick={() => handleTestPing("nineRouter", "9Router")}
-              disabled={testingPingTarget === "nineRouter"}
-              className={cn(
-                "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
-                pingResults.nineRouter
-                  ? pingResults.nineRouter.success
-                    ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                    : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                  : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
-              )}
-              title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
-            >
-              {testingPingTarget === "nineRouter" ? (
-                <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-              ) : (
-                <Wifi className="w-3 h-3 text-zinc-400" />
-              )}
-              <span>
-                {testingPingTarget === "nineRouter"
-                  ? (isEn ? "Testing..." : "Menguji...")
-                  : pingResults.nineRouter
-                  ? pingResults.nineRouter.success
-                    ? `${pingResults.nineRouter.timeMs}ms`
-                    : "Offline"
-                  : (isEn ? "Test Ping" : "Uji Ping")}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("http://localhost:20128", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-              title={isEn ? "Open 9Router Web Dashboard (localhost:20128)" : "Buka Dashboard Web 9Router (localhost:20128)"}
-            >
-              <Globe className="w-3 h-3" />
-              Dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => window.open("https://9router.com", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-              title="https://9router.com"
-            >
-              9router.com
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAuthModalTarget("nineRouter")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
-              title={isEn ? "Manage 9Router gateway authentication (Web Dashboard vs Terminal)" : "Kelola otentikasi gateway 9Router (Web Dashboard vs Terminal)"}
-            >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{isEn ? "Auth Method" : "Metode Masuk"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleConnection("nineRouter", is9RouterActive, "9Router")}
-              disabled={connectingTarget === "nineRouter"}
-              className={cn(
-                "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs",
-                is9RouterActive
-                  ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white group"
-                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
-              )}
-            >
-              {connectingTarget === "nineRouter" ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>{isEn ? "Connecting..." : "Menghubungkan..."}</span>
-                </>
-              ) : is9RouterActive ? (
-                <>
-                  <Check className="w-3.5 h-3.5 group-hover:hidden stroke-[2.5]" />
-                  <X className="w-3.5 h-3.5 hidden group-hover:inline stroke-[2.5]" />
-                  <span className="group-hover:hidden">{isEn ? "Connected" : "Terhubung"}</span>
-                  <span className="hidden group-hover:inline">{isEn ? "Disconnect" : "Putuskan"}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                  <span>{isEn ? "Connect" : "Hubungkan"}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
         {(discoveredClaude?.hasToken || discoveredCodex?.hasToken || discoveredKiro?.hasToken || discoveredCursor?.hasToken) && (
           <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -2248,20 +1607,6 @@ export function SettingsCliConnectionsTab({
                   ? (isEn ? `Active account: ${data.claude.email}` : `Akun aktif: ${data.claude.email}`)
                   : undefined,
                 isLoggedIn: Boolean(data.claude?.loggedIn),
-                emailLabel: isEn ? "Sign in via Browser (Arunaki)" : "Masuk via Browser (Arunaki)",
-                emailBadge: "OAuth",
-                emailDesc: isEn
-                  ? "Runs the Claude OAuth flow in your browser and stores the token in Arunaki. No terminal needed."
-                  : "Menjalankan alur OAuth Claude di peramban dan menyimpan tokennya di Arunaki. Tanpa terminal.",
-                emailWarningTitle: isEn ? "Notice:" : "Peringatan:",
-                emailWarningText: isEn
-                  ? "Opens the Anthropic authorization page and stores the token locally in Arunaki. Consumer tokens used through a third-party app remain subject to Anthropic's terms."
-                  : "Membuka halaman otorisasi Anthropic dan menyimpan token secara lokal di Arunaki. Penggunaan token akun konsumen lewat aplikasi pihak ketiga tetap tunduk pada kebijakan privasi & layanan Anthropic.",
-                emailButton: isEn ? "Sign in with Browser" : "Masuk via Browser",
-                onEmailAction: () => {
-                  closeModal();
-                  handleOauthConnect("claude");
-                },
                 cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
                 cliBadge: "Claude Code",
                 cliDesc: isEn
@@ -2286,20 +1631,6 @@ export function SettingsCliConnectionsTab({
                 badgeLetter: "O",
                 accountActiveText: undefined,
                 isLoggedIn: Boolean(data.codex?.installed),
-                emailLabel: isEn ? "Sign in via Browser (Arunaki)" : "Masuk via Browser (Arunaki)",
-                emailBadge: "OAuth",
-                emailDesc: isEn
-                  ? "Runs the ChatGPT OAuth flow in your browser and stores the token in Arunaki. No terminal needed."
-                  : "Menjalankan alur OAuth ChatGPT di peramban dan menyimpan tokennya di Arunaki. Tanpa terminal.",
-                emailWarningTitle: isEn ? "Notice:" : "Peringatan:",
-                emailWarningText: isEn
-                  ? "Opens the OpenAI authorization page and stores the token locally in Arunaki. Requires an active ChatGPT/OpenAI account."
-                  : "Membuka halaman otorisasi OpenAI dan menyimpan token secara lokal di Arunaki. Memerlukan akun ChatGPT/OpenAI aktif.",
-                emailButton: isEn ? "Sign in with Browser" : "Masuk via Browser",
-                onEmailAction: () => {
-                  closeModal();
-                  handleOauthConnect("codex");
-                },
                 cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
                 cliBadge: "@openai/codex",
                 cliDesc: isEn
@@ -2328,17 +1659,17 @@ export function SettingsCliConnectionsTab({
                       : `Penyedia terhubung: ${data.opencode.authenticatedProviders.join(", ")}`)
                   : undefined,
                 isLoggedIn: Boolean(data.opencode?.serverRunning || data.opencode?.authenticatedProviders?.length),
-                emailLabel: isEn ? "Sign in via Web (Groq Hub)" : "Masuk via Web (Groq Hub)",
-                emailBadge: "Cloud Free API",
-                emailDesc: isEn
+                webLabel: isEn ? "Sign in via Web (Groq Hub)" : "Masuk via Web (Groq Hub)",
+                webBadge: "Cloud Free API",
+                webDesc: isEn
                   ? "Connect free cloud provider keys (Groq / 9Router) directly via web without a terminal."
                   : "Menghubungkan kunci penyedia cloud gratis (Groq / 9Router) langsung via web tanpa terminal.",
-                emailWarningTitle: isEn ? "Notice (Cloud API):" : "Peringatan (Cloud API):",
-                emailWarningText: isEn
+                webWarningTitle: isEn ? "Notice (Cloud API):" : "Peringatan (Cloud API):",
+                webWarningText: isEn
                   ? "Uses external cloud inference (Groq Llama 3.3 / Qwen). Requires a stable internet connection to cloud endpoints."
                   : "Menggunakan cloud inference eksternal (Groq Llama 3.3 / Qwen). Memerlukan koneksi internet stabil ke endpoint cloud.",
-                emailButton: isEn ? "Open Groq Console (Web)" : "Buka Konsol Groq (Web)",
-                onEmailAction: () => {
+                webButton: isEn ? "Open Groq Console (Web)" : "Buka Konsol Groq (Web)",
+                onWebAction: () => {
                   window.open("https://console.groq.com/keys", "_blank");
                   closeModal();
                 },
@@ -2368,17 +1699,17 @@ export function SettingsCliConnectionsTab({
                   ? (isEn ? "9Router gateway is running on port 20128" : "Gateway 9Router sedang berjalan di port 20128")
                   : undefined,
                 isLoggedIn: Boolean(data.nineRouter?.running),
-                emailLabel: isEn ? "9Router Web Dashboard" : "Dashboard Web 9Router",
-                emailBadge: "Web Dashboard",
-                emailDesc: isEn
+                webLabel: isEn ? "9Router Web Dashboard" : "Dashboard Web 9Router",
+                webBadge: "Web Dashboard",
+                webDesc: isEn
                   ? "Open local 9Router dashboard in browser to visually sign in to Google, Claude, OpenAI, and Grok."
                   : "Buka dashboard lokal 9Router di peramban web untuk login email Google, Claude, OpenAI, dan Grok secara visual.",
-                emailWarningTitle: isEn ? "Notice (Dashboard):" : "Peringatan (Dashboard):",
-                emailWarningText: isEn
+                webWarningTitle: isEn ? "Notice (Dashboard):" : "Peringatan (Dashboard):",
+                webWarningText: isEn
                   ? "Opens local 9Router portal on port 20128. Make sure 9Router service is running before opening."
                   : "Membuka portal lokal 9Router di port 20128. Pastikan layanan 9Router sudah berjalan sebelum membuka tautan.",
-                emailButton: isEn ? "Open 9Router Dashboard (Web)" : "Buka Dashboard 9Router (Web)",
-                onEmailAction: () => {
+                webButton: isEn ? "Open 9Router Dashboard (Web)" : "Buka Dashboard 9Router (Web)",
+                onWebAction: () => {
                   window.open("http://localhost:20128", "_blank");
                   closeModal();
                 },
@@ -2409,17 +1740,17 @@ export function SettingsCliConnectionsTab({
                   ? `${isEn ? "Current active account: " : "Akun aktif saat ini: "}${data.antigravity.accountEmail}`
                   : undefined,
                 isLoggedIn: Boolean(data.antigravity?.loggedIn),
-                emailLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
-                emailBadge: "Terminal agy",
-                emailDesc: isEn
+                webLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
+                webBadge: "Terminal agy",
+                webDesc: isEn
                   ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there — agy only authenticates interactively."
                   : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana — agy hanya bisa autentikasi secara interaktif.",
-                emailWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
-                emailWarningText: isEn
+                webWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
+                webWarningText: isEn
                   ? "Antigravity authenticates interactively: a terminal opens running agy, and you complete the Google sign-in there. Direct browser OAuth is refused by Google for this client."
                   : "Antigravity melakukan autentikasi secara interaktif: terminal terbuka menjalankan agy, dan Anda menyelesaikan login Google di sana. OAuth browser langsung ditolak Google untuk client ini.",
-                emailButton: isEn ? "Sign in with Antigravity (Terminal)" : "Masuk dengan Antigravity (Terminal)",
-                onEmailAction: handleAntigravityEmailLogin,
+                webButton: isEn ? "Sign in with Antigravity (Terminal)" : "Masuk dengan Antigravity (Terminal)",
+                onWebAction: handleAntigravityCliLogin,
                 cliLabel: isEn ? "Sign in via CLI" : "Masuk via CLI",
                 cliBadge: "Terminal agy",
                 cliDesc: isEn
@@ -2475,59 +1806,9 @@ export function SettingsCliConnectionsTab({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
-                {/* Opsi 1: Masuk via Email / Web */}
-                <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-                          <Mail className="w-4 h-4" />
-                        </div>
-                        <span className="font-semibold text-sm text-white">{config.emailLabel}</span>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                        {config.emailBadge}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
-                      {config.emailDesc}
-                    </p>
-
-                    {/* Kotak Peringatan (Monochrome) */}
-                    <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
-                      <div className="flex items-start gap-1.5 font-medium text-white mb-1">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                        <span>{config.emailWarningTitle}</span>
-                      </div>
-                      <p className="text-[10.5px] text-zinc-400 leading-normal">
-                        {config.emailWarningText}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={config.onEmailAction}
-                    disabled={isSigningInEmail}
-                    className="w-full py-2 px-3 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 border border-white"
-                  >
-                    {isSigningInEmail ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-950" />
-                        <span>{isEn ? "Opening Browser..." : "Membuka Peramban..."}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>{config.emailButton}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Opsi 2: Masuk via CLI Terminal */}
-                <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
+{/* Terminal sign-in is the only supported route for these vendors, so the
+                  modal shows one option instead of the old browser/terminal pair. */}
+              <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -2574,7 +1855,6 @@ export function SettingsCliConnectionsTab({
                       </>
                     )}
                   </button>
-                </div>
               </div>
 
               {/* 9Router Gateway Hub Link (Optional centralized login) */}

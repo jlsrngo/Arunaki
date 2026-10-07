@@ -161,7 +161,32 @@ export const LocalCliStatus = Schema.Struct({
   })))),
 })
 
-export const LocalCliStatusEnvelope = Schema.Struct({ data: LocalCliStatus })
+// Travels with the status response so the settings UI can render one generic card per
+// provider instead of a hand-written card each. Keeping it here avoids a second fetch.
+export const LocalCliProviderDescriptor = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  vendor: Schema.String,
+  docsUrl: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  installUrl: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  installSizeMb: Schema.optional(Schema.UndefinedOr(Schema.Number)),
+  loginCommand: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  credentialPath: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  credentialTarget: Schema.optional(Schema.UndefinedOr(Schema.String)),
+  quota: Schema.String,
+  models: Schema.Array(Schema.String),
+  requiresCli: Schema.Boolean,
+  loginMode: Schema.String,
+  supportsAutoConfigure: Schema.Boolean,
+  supportsBrowserLogin: Schema.Boolean,
+})
+
+export const LocalCliStatusEnvelope = Schema.Struct({
+  data: Schema.Struct({
+    ...LocalCliStatus.fields,
+    registry: Schema.Array(LocalCliProviderDescriptor),
+  }),
+})
 
 export const LocalCliDiscoveredItem = Schema.Struct({
   provider: Schema.String,
