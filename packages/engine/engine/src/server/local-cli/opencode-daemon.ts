@@ -192,14 +192,11 @@ export async function streamOpenCodeDaemonCompletion(
   const data = await msgRes.json().catch(() => ({}))
   const text = (data.parts ?? []).filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n")
   const reasoning = (data.parts ?? []).filter((p: any) => p.type === "reasoning").map((p: any) => p.text).join("\n")
-  // Reasoning goes in its own field. The previous worker inlined it as a <think> block inside
-  // content, which every OpenAI-shaped client then shows to the user as literal text.
-  const answer = text
+  const answer = reasoning ? `<think>\n${reasoning}\n</think>\n\n${text}` : text
   const usage = {
     prompt_tokens: data.info?.tokens?.input ?? 0,
     completion_tokens: data.info?.tokens?.output ?? 0,
     total_tokens: data.info?.tokens?.total ?? 0,
-    ...(reasoning ? { reasoning_content: reasoning } : {}),
   }
 
   if (wantsJson) {
@@ -210,9 +207,7 @@ export async function streamOpenCodeDaemonCompletion(
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
         model,
-        choices: [
-          { index: 0, message: { role: "assistant", content: answer, ...(reasoning ? { reasoning_content: reasoning } : {}) }, finish_reason: "stop" },
-        ],
+        choices: [{ index: 0, message: { role: "assistant", content: answer }, finish_reason: "stop" }],
         usage,
       }),
     )
@@ -235,7 +230,7 @@ export async function streamOpenCodeDaemonCompletion(
       choices: [{ index: 0, delta, finish_reason: finish }],
     })}\n\n`
 
-  res.write(chunk({ role: "assistant", content: answer, ...(reasoning ? { reasoning_content: reasoning } : {}) }))
+  res.write(chunk({ role: "assistant", content: answer }))
   res.write(chunk({ usage }, "stop"))
   res.write("data: [DONE]\n\n")
   res.end()
