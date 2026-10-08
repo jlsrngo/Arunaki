@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test"
+﻿import { describe, expect, test } from "bun:test"
 import {
   buildKiroRequest,
+  newKiroStreamCtx,
   kiroEventToSse,
   parseKiroFrame,
   stripKiroPrefix,
@@ -17,6 +18,9 @@ const cred: DiscoveredCredential = {
   profileArn: "arn:aws:codewhisperer:us-east-1:1:profile/TEST",
   sourcePath: "",
 } as DiscoveredCredential
+
+/** Fresh stream state per event, the way a real request would hold it. */
+const ctx = (model: string) => newKiroStreamCtx("id1", 1, model)
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256)
@@ -72,19 +76,19 @@ describe("Kiro AWS EventStream framing", () => {
 
   test("round-trips content through the SSE mapper", () => {
     const frame = parseKiroFrame(buildFrame("assistantResponseEvent", { content: "hi there" }))
-    const sse = kiroEventToSse(frame, { id: "id1", created: 1, model: "claude-sonnet-4.5" }) ?? ""
+    const sse = kiroEventToSse(frame, ctx("claude-sonnet-4.5")) ?? ""
     expect(sse).toContain('"content":"hi there"')
   })
 
   test("maps a stop event to finish_reason stop", () => {
     const frame = parseKiroFrame(buildFrame("messageStopEvent", { stopReason: "end_turn" }))
-    const sse = kiroEventToSse(frame, { id: "id1", created: 1, model: "m" })
+    const sse = kiroEventToSse(frame, ctx("m"))
     expect(sse).toContain('"finish_reason":"stop"')
   })
 
   test("surfaces an invalid-state event as an error rather than text", () => {
     const frame = parseKiroFrame(buildFrame("invalidStateEvent", { reason: "REQUEST_BODY_INVALID", message: "bad" }))
-    const sse = kiroEventToSse(frame, { id: "id1", created: 1, model: "m" })
+    const sse = kiroEventToSse(frame, ctx("m"))
     expect(sse).toContain("kiro_invalid_state")
   })
 
@@ -186,5 +190,152 @@ describe("Kiro request payload", () => {
     expect(history[0].userInputMessage.content).toBe("first")
     expect(history[1].assistantResponseMessage.content).toBe("answer")
     expect(currentMessage.userInputMessage.content).toBe("second")
+  })
+})
+
+describe("Kiro tool calling", () => {
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "get_weather",
+        description: "Weather for a city",
+        parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] },
+      },
+    },
+  ]
+
+  test("converts OpenAI tools into Kiro tool specifications on the current turn", () => {
+    const req = buildKiroRequest(
+      { model: "m", messages: [{ role: "user", content: "weather?" }], tools },
+      cred,
+    )
+    const current = JSON.parse(req.body).conversationState.currentMessage
+    const spec = current.userInputMessage.userInputMessageContext.tools[0].toolSpecification
+    expect(spec.name).toBe("get_weather")
+    expect(spec.inputSchema.json.properties.city.type).toBe("string")
+  })
+
+  test("sanitises tool names Kiro would refuse", () => {
+    const req = buildKiroRequest(
+      {
+        model: "m",
+        messages: [{ role: "user", content: "x" }],
+        tools: [{ type: "function", function: { name: "mcp__fs__read", parameters: {} } }],
+      },
+      cred,
+    )
+    const name = JSON.parse(req.body).conversationState.currentMessage.userInputMessage.userInputMessageContext
+      .tools[0].toolSpecification.name
+    expect(name).toMatch(/^[a-zA-Z][a-zA-Z0-9_-]*$/)
+    expect(name).not.toContain("__")
+  })
+
+  test("turns prior assistant tool_calls into Kiro toolUses", () => {
+    // Realistic shape: a tool call is history once the client has sent the result and asked
+    // the next question. A request ending on the assistant turn has nothing to answer.
+    const req = buildKiroRequest(
+      {
+        model: "m",
+        messages: [
+          { role: "user", content: "weather?" },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              { id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"city":"Jakarta"}' } },
+            ],
+          },
+          { role: "tool", tool_call_id: "call_1", content: "31C sunny" },
+          { role: "user", content: "and tomorrow?" },
+        ],
+        tools,
+      },
+      cred,
+    )
+    const history = JSON.parse(req.body).conversationState.history
+    const assistant = history.find((h: any) => h.assistantResponseMessage)?.assistantResponseMessage
+    expect(assistant.toolUses[0]).toMatchObject({ toolUseId: "call_1", name: "get_weather" })
+    expect(assistant.toolUses[0].input).toEqual({ city: "Jakarta" })
+  })
+
+  test("sends tool results on the current turn, never as a top-level field", () => {
+    const req = buildKiroRequest(
+      {
+        model: "m",
+        messages: [
+          { role: "user", content: "weather?" },
+          { role: "assistant", tool_calls: [{ id: "call_1", type: "function", function: { name: "get_weather", arguments: "{}" } }] },
+          { role: "tool", tool_call_id: "call_1", content: "31C sunny" },
+          { role: "user", content: "and tomorrow?" },
+        ],
+        tools,
+      },
+      cred,
+    )
+    const body = JSON.parse(req.body)
+    expect(body.toolResults).toBeUndefined()
+    const ctx = body.conversationState.currentMessage.userInputMessage.userInputMessageContext
+    expect(ctx.toolResults[0]).toMatchObject({ toolUseId: "call_1", status: "success" })
+    expect(ctx.toolResults[0].content[0].text).toBe("31C sunny")
+  })
+
+  test("gives a tool-result-only turn placeholder text, since AWS rejects empty content", () => {
+    const req = buildKiroRequest(
+      {
+        model: "m",
+        messages: [
+          { role: "user", content: "weather?" },
+          { role: "assistant", tool_calls: [{ id: "c1", type: "function", function: { name: "get_weather", arguments: "{}" } }] },
+          { role: "tool", tool_call_id: "c1", content: "31C" },
+        ],
+        tools,
+      },
+      cred,
+    )
+    const current = JSON.parse(req.body).conversationState.currentMessage
+    expect(current.userInputMessage.content.length).toBeGreaterThan(0)
+    expect(current.userInputMessage.userInputMessageContext.toolResults).toHaveLength(1)
+  })
+
+  test("maps a toolUseEvent to an OpenAI tool_calls chunk", () => {
+    const frame = parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: "tu_1", name: "get_weather", input: { city: "Jakarta" } }))
+    const state = ctx("m")
+    const sse = kiroEventToSse(frame, state) ?? ""
+    const data = JSON.parse(sse.slice(6))
+    expect(data.choices[0].delta.tool_calls[0]).toMatchObject({
+      index: 0,
+      id: "tu_1",
+      type: "function",
+    })
+    expect(JSON.parse(data.choices[0].delta.tool_calls[0].function.arguments)).toEqual({ city: "Jakarta" })
+    expect(state.hadToolUse).toBe(true)
+  })
+
+  test("gives parallel tool calls distinct indexes so a client can tell them apart", () => {
+    const state = ctx("m")
+    const a = parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: "tu_1", name: "a", input: {} }))
+    const b = parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: "tu_2", name: "b", input: {} }))
+    const first = JSON.parse((kiroEventToSse(a, state) ?? "").slice(6)).choices[0].delta.tool_calls[0]
+    const second = JSON.parse((kiroEventToSse(b, state) ?? "").slice(6)).choices[0].delta.tool_calls[0]
+    expect(first.index).toBe(0)
+    expect(second.index).toBe(1)
+    expect(first.function.name).toBe("a")
+    expect(second.function.name).toBe("b")
+  })
+
+  test("ends a turn that called tools with finish_reason tool_calls", () => {
+    const state = ctx("m")
+    kiroEventToSse(parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: "t", name: "a", input: {} })), state)
+    const stop = JSON.parse((kiroEventToSse(parseKiroFrame(buildFrame("messageStopEvent", {})), state) ?? "").slice(6))
+    expect(stop.choices[0].finish_reason).toBe("tool_calls")
+  })
+
+  test("sends the assistant role on the first chunk only", () => {
+    const state = ctx("m")
+    const first = JSON.parse((kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: "hi" })), state) ?? "").slice(6))
+    const second = JSON.parse((kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: " there" })), state) ?? "").slice(6))
+    expect(first.choices[0].delta.role).toBe("assistant")
+    expect(second.choices[0].delta.role).toBeUndefined()
   })
 })

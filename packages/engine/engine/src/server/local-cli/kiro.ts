@@ -212,6 +212,9 @@ export interface KiroRequest {
  *
  * Kiro rejects a top-level systemPrompt with 400 REQUEST_BODY_INVALID, so any system text is
  * prefixed onto the first user turn instead.
+ *
+ * Tool definitions ride on the current user turn, not at the top level, and a user turn that
+ * carries only tool results still needs placeholder text: AWS answers 400 on empty content.
  */
 export function buildKiroRequest(payload: any, cred: DiscoveredCredential): KiroRequest {
   const model = payload?.model || "claude-sonnet-4.5"
@@ -222,20 +225,84 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
     .filter(Boolean)
     .join("\n\n")
 
-  const history: any[] = []
-  let current: any = null
+  const specs = kiroToolSpecs(payload?.tools)
+
+  /** Every turn in order; the last user turn becomes currentMessage at the end. */
+  const turns: any[] = []
+  /** Tool results belong to the user turn that follows the assistant's tool calls. */
+  let pendingResults: any[] = []
+  let leadingSystem = system
+
+  const userTurn = (content: string) => {
+    const turn: any = { userInputMessage: { content, modelId: model, origin: "AI_EDITOR" } }
+    if (pendingResults.length) {
+      turn.userInputMessage.userInputMessageContext = { toolResults: pendingResults }
+      pendingResults = []
+    }
+    turns.push(turn)
+    return turn
+  }
+
   for (const m of messages.filter((m) => m.role !== "system" && m.role !== "developer")) {
+    if (m.role === "tool") {
+      pendingResults.push({
+        toolUseId: m.tool_call_id,
+        status: m.tool_error ? "error" : "success",
+        content: [{ text: textOf(m.content) }],
+      })
+      continue
+    }
     const content = textOf(m.content)
-    if (!content) continue
+    if (!content && !m.tool_calls?.length) continue
+
     if (m.role === "user") {
-      current = { userInputMessage: { content, modelId: model, origin: "AI_EDITOR" } }
-    } else {
-      if (current) history.push(current)
-      history.push({ assistantResponseMessage: { content, toolUses: [] } })
+      let text = content
+      if (leadingSystem) {
+        text = `${leadingSystem}\n\n${content}`
+        leadingSystem = ""
+      }
+      userTurn(text)
+    } else if (m.role === "assistant") {
+      // A tool result still needs a user turn to hang off, even with no accompanying text.
+      if (pendingResults.length) userTurn("Tool results:")
+      const toolUses = (m.tool_calls ?? []).map((tc: any) => ({
+        toolUseId: tc.id,
+        name: tc.function?.name ?? tc.name,
+        input: parseArgs(tc.function?.arguments ?? tc.arguments),
+      }))
+      turns.push({ assistantResponseMessage: { content: content || toolCallText(toolUses), toolUses } })
     }
   }
-  if (!current) current = { userInputMessage: { content: system || "hi", modelId: model, origin: "AI_EDITOR" } }
-  else if (system) current.userInputMessage.content = `${system}\n\n${current.userInputMessage.content}`
+
+  // Tool results are the last thing sent when the client has nothing else to add. They still
+  // need a turn to live on, otherwise they are silently dropped and Kiro never sees the answer.
+  if (pendingResults.length) userTurn("Tool results:")
+
+  // The final user turn is the one Kiro answers; everything before it is history. Turns after it
+  // are trailing assistant output with nothing to answer, which Kiro has no place for.
+  let currentIndex = -1
+  for (let i = turns.length - 1; i >= 0; i--) {
+    if (turns[i].userInputMessage) {
+      currentIndex = i
+      break
+    }
+  }
+  let history: any[]
+  let current: any
+  if (currentIndex === -1) {
+    history = turns
+    current = userTurn(leadingSystem || "hi")
+    history = turns.slice(0, -1)
+  } else {
+    history = turns.slice(0, currentIndex)
+    current = turns[currentIndex]
+    if (leadingSystem) current.userInputMessage.content = `${leadingSystem}\n\n${current.userInputMessage.content}`
+  }
+
+  if (specs.length) {
+    current.userInputMessage.userInputMessageContext ??= {}
+    current.userInputMessage.userInputMessageContext.tools = specs
+  }
 
   const body: any = {
     conversationState: {
@@ -357,6 +424,84 @@ export function takeKiroFrame(buffer: Uint8Array): { frame: KiroEvent; rest: Uin
   return { frame, rest: buffer.subarray(totalLength) }
 }
 
+function parseArgs(args: any): any {
+  if (typeof args !== "string") return args ?? {}
+  try {
+    return JSON.parse(args)
+  } catch {
+    // Streaming clients can hand over a partial JSON fragment. Send the fragment as text
+    // rather than dropping the call on the floor.
+    return { _raw: args }
+  }
+}
+
+/** Stand-in text for an assistant turn that only made tool calls; Kiro needs some content. */
+function toolCallText(toolUses: any[]): string {
+  return toolUses.map((t) => `[Tool call: ${t.name}(${JSON.stringify(t.input)})]`).join("\n")
+}
+
+/** Kiro only accepts tool names matching `[a-zA-Z0-9_-]`, so anything else is mapped. */
+function kiroToolName(raw: string, index: number): string {
+  const collapsed = String(raw).replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+/g, "_")
+  return /^[a-zA-Z]/.test(collapsed) ? collapsed : `tool_${index}_${collapsed}`
+}
+
+/** OpenAI tool list -> Kiro tool specifications, carried on the current user turn. */
+export function kiroToolSpecs(tools: any): any[] {
+  if (!Array.isArray(tools)) return []
+  const specs: any[] = []
+  tools.forEach((tool, i) => {
+    const fn = tool?.function ?? tool
+    if (!fn?.name) return
+    specs.push({
+      toolSpecification: {
+        name: kiroToolName(fn.name, i),
+        description: String(fn.description ?? `Tool: ${fn.name}`).slice(0, 1000),
+        inputSchema: { json: fn.parameters ?? fn.input_schema ?? { type: "object", properties: {} } },
+      },
+    })
+  })
+  return specs
+}
+
+/** Mutable per-request stream state, since OpenAI's chunk shape depends on what preceded it. */
+export interface KiroStreamCtx {
+  id: string
+  created: number
+  model: string
+  chunkIndex: number
+  toolCallIndex: number
+  hadToolUse: boolean
+  /** toolUseId -> its OpenAI tool_calls index, so fragments of one call share an index. */
+  toolIndexes: Map<string, number>
+  /** toolUseIds whose identity has already been sent, so only the first chunk carries it. */
+  toolNames: Set<string>
+}
+
+export function newKiroStreamCtx(id: string, created: number, model: string): KiroStreamCtx {
+  return {
+    id,
+    created,
+    model,
+    chunkIndex: 0,
+    toolCallIndex: 0,
+    hadToolUse: false,
+    toolIndexes: new Map(),
+    toolNames: new Set(),
+  }
+}
+
+/**
+ * Kiro sends a tool call's arguments as string fragments while streaming, then the assembled
+ * value on the final event. Pass strings through untouched so fragments are not double-encoded;
+ * an already-parsed object is re-stringified once the call is complete.
+ */
+function fragmentArg(input: any): string {
+  if (input === undefined || input === null) return ""
+  if (typeof input === "string") return input
+  return JSON.stringify(input)
+}
+
 /** Event type name, which lives in the `:event-type` header rather than the payload. */
 export function kiroEventType(frame: KiroEvent): string {
   const h = frame.headers[":event-type"]
@@ -365,28 +510,65 @@ export function kiroEventType(frame: KiroEvent): string {
 
 /**
  * One Kiro event -> OpenAI SSE text. Returns null for events with nothing to send.
+ *
+ * `ctx` is mutable on purpose: OpenAI's stream shape depends on what came before. The first
+ * chunk has to carry the assistant role, and each parallel tool call needs its own `index` so
+ * a client can tell them apart.
  */
-export function kiroEventToSse(
-  frame: KiroEvent,
-  ctx: { id: string; created: number; model: string },
-): string | null {
+export function kiroEventToSse(frame: KiroEvent, ctx: KiroStreamCtx): string | null {
   const p = frame.payload ?? {}
   const type = kiroEventType(frame)
-  const delta = (content: string | null, finish: string | null = null) =>
-    `data: ${JSON.stringify({
+  const emit = (extra: any) => {
+    ctx.chunkIndex++
+    return `data: ${JSON.stringify({
       id: ctx.id,
       object: "chat.completion.chunk",
       created: ctx.created,
       model: ctx.model,
-      choices: [{ index: 0, delta: content === null ? {} : { content }, finish_reason: finish }],
+      choices: [{ index: 0, ...extra }],
     })}\n\n`
+  }
+  const chunk = (delta: any, finish: string | null = null) =>
+    emit({ delta: ctx.chunkIndex === 0 ? { role: "assistant", ...delta } : delta, finish_reason: finish })
 
   if (type === "assistantResponseEvent" || p.assistantResponseEvent) {
     const content = p.assistantResponseEvent?.content ?? p.content ?? ""
-    return content ? delta(content) : null
+    return content ? chunk({ content }) : null
   }
+
+  if (type === "toolUseEvent" || p.toolUseEvent) {
+    ctx.hadToolUse = true
+    const use = p.toolUseEvent ?? p
+    const id = String(use.toolUseId ?? `call_${ctx.toolCallIndex}`)
+    // Kiro streams one call's arguments across several events under the same toolUseId. Index
+    // by id, not by event: counting events would give a parallel second call the index 7 and
+    // clients would treat the fragments as seven separate calls.
+    let index = ctx.toolIndexes.get(id)
+    if (index === undefined) {
+      index = ctx.toolCallIndex++
+      ctx.toolIndexes.set(id, index)
+    }
+    const first = !ctx.toolNames.has(id)
+    ctx.toolNames.add(id)
+    const call: any = { index, function: { arguments: fragmentArg(use.input) } }
+    // Only the opening chunk carries identity; the rest are argument fragments, which is the
+    // shape OpenAI clients already know how to accumulate.
+    if (first) Object.assign(call, { id, type: "function", function: { name: String(use.name ?? "unknown"), arguments: call.function.arguments } })
+    return chunk({ tool_calls: [call] })
+  }
+
+  if (type === "reasoningContentEvent" || p.reasoningContentEvent) {
+    const content = p.reasoningContentEvent?.content ?? p.content ?? ""
+    return content ? chunk({ reasoning_content: content }) : null
+  }
+
   if (type === "messageMetadataEvent" || p.messageMetadataEvent) return null
-  if (type === "messageStopEvent" || p.messageStopEvent) return delta(null, "stop")
+
+  if (type === "messageStopEvent" || p.messageStopEvent) {
+    // Kiro has no explicit stop reason, so a turn that called tools ends as tool_calls.
+    return chunk({}, ctx.hadToolUse ? "tool_calls" : "stop")
+  }
+
   if (type === "invalidStateEvent" || p.invalidStateEvent) {
     const reason = p.invalidStateEvent?.reason ?? p.reason ?? "invalid state"
     const msg = p.invalidStateEvent?.message ?? p.message ?? String(reason)
@@ -419,6 +601,7 @@ export async function streamKiroCompletion(
   const id = `chatcmpl-${crypto.randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
   const model = payload?.model || "claude-sonnet-4.5"
+  const ctx = newKiroStreamCtx(id, created, model)
 
   let upstream: Response
   try {
@@ -478,7 +661,7 @@ let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
         if (!taken) break
         buffer = taken.rest
         try {
-          emit(kiroEventToSse(taken.frame, { id, created, model }))
+          emit(kiroEventToSse(taken.frame, ctx))
         } catch (err: any) {
           console.warn("[Kiro] frame skipped:", err?.message)
         }
