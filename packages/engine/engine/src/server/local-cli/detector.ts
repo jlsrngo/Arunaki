@@ -793,7 +793,10 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
       try {
         const proc = crossSpawn("opencode", ["models"], {
           stdio: ["ignore", "pipe", "pipe"],
-          timeout: 1500,
+          // Enumerating the catalogue takes ~4s cold: it probes every configured provider.
+          // At the old 1500ms budget the child was killed before it printed anything, so the
+          // settings UI silently showed a 7-item fallback instead of the real 28 models.
+          timeout: 15000,
           windowsHide: true,
         })
         let stdout = ""

@@ -179,77 +179,65 @@ interface ModelMeta {
   speed?: string;
 }
 
+/**
+ * Model ids are self-describing, so the dropdown derives what it can from the id instead of
+ * carrying a lookup table. "opencode/space-bunny-free" needs no entry to read as
+ * "Space Bunny Free", and a model Google ships tomorrow renders without anyone editing this
+ * file. The table below is only for editorial copy that cannot be inferred.
+ */
 const MODEL_METADATA: Record<string, ModelMeta> = {
-  // Google Antigravity CLI (agy). Kept for when the live catalogue is unreachable and the
-  // registry list is used instead.
-  "gemini-3.8-flash": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
-  "gemini-3.1-pro": { label: "Gemini 3.1 Pro", badge: "Reasoning" },
-  "gemini-3.7-flash": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
-  "gemini-2.5-flash": { label: "Gemini 2.5 Flash", badge: "Fast", speed: "Fast" },
-  "gemini-2.5-pro": { label: "Gemini 2.5 Pro", badge: "Reasoning" },
-  "gemini-1.5-flash": { label: "Gemini 1.5 Flash", badge: "Lightweight", speed: "Fast" },
-  "gemini-1.5-pro": { label: "Gemini 1.5 Pro", badge: "Deep Analysis" },
-
-  // Third-party models the Antigravity subscription also grants, with their live ids.
-  "claude-sonnet-4-6": { label: "Claude Sonnet 4.6", badge: "Claude", speed: "Smart" },
-  "claude-opus-4-6-thinking": { label: "Claude Opus 4.6", badge: "Thinking", speed: "Deep" },
-  "gpt-oss-120b-medium": { label: "GPT-OSS 120B", badge: "OpenAI", speed: "Fast" },
-
-  // Live catalogue ids. The Reasoning Effort picker rewrites the suffix, so both the bare
-  // family and every tier need a label or the dropdown shows raw ids.
-  "gemini-3.8-flash-low": { label: "Gemini 3.8 Flash", badge: "Low", speed: "Fast" },
-  "gemini-3.8-flash-medium": { label: "Gemini 3.8 Flash", badge: "Medium", speed: "Fast" },
-  "gemini-3.8-flash-high": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
-  "gemini-3.8-flash-tiered": { label: "Gemini 3.8 Flash", badge: "Tiered", speed: "Auto" },
-  "gemini-3.7-flash-low": { label: "Gemini 3.7 Flash", badge: "Low", speed: "Fast" },
-  "gemini-3.7-flash-medium": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
-  "gemini-3.7-flash-high": { label: "Gemini 3.7 Flash", badge: "High", speed: "Fast" },
-  "gemini-3.7-flash-tiered": { label: "Gemini 3.7 Flash", badge: "Tiered", speed: "Auto" },
-  "gemini-3.6-flash-low": { label: "Gemini 3.6 Flash", badge: "Low", speed: "Fast" },
-  "gemini-3.6-flash-medium": { label: "Gemini 3.6 Flash", badge: "Medium", speed: "Fast" },
-  "gemini-3.6-flash-high": { label: "Gemini 3.6 Flash", badge: "High", speed: "Fast" },
-  "gemini-3.6-flash-tiered": { label: "Gemini 3.6 Flash", badge: "Tiered", speed: "Auto" },
-  "gemini-3.5-flash-low": { label: "Gemini 3.5 Flash", badge: "Low", speed: "Fast" },
-  "gemini-3.5-flash-medium": { label: "Gemini 3.5 Flash", badge: "Medium", speed: "Fast" },
-  "gemini-3.5-flash-extra-low": { label: "Gemini 3.5 Flash", badge: "Extra Low", speed: "Fast" },
-  "gemini-3.5-flash-lite": { label: "Gemini 3.5 Flash Lite", badge: "Lite", speed: "Fast" },
-  "gemini-3-flash": { label: "Gemini 3 Flash", badge: "Flash", speed: "Fast" },
-  "gemini-3-flash-agent": { label: "Gemini 3 Flash Agent", badge: "Agent" },
-  "gemini-3.1-pro-low": { label: "Gemini 3.1 Pro", badge: "Low", speed: "Smart" },
-  "gemini-pro-agent": { label: "Gemini Pro Agent", badge: "Agent" },
-  "gemini-2.5-flash-lite": { label: "Gemini 2.5 Flash Lite", badge: "Lite", speed: "Fast" },
-  "gemini-2.5-flash-thinking": { label: "Gemini 2.5 Flash", badge: "Thinking" },
-  "gemini-3.1-flash-lite": { label: "Gemini 3.1 Flash Lite", badge: "Lite", speed: "Fast" },
-  "gemini-3.1-flash-image": { label: "Gemini 3.1 Flash Image", badge: "Vision" },
-
-  // Claude Code CLI
+  "opencode/big-pickle": { label: "Big Pickle", badge: "Zen Built-in", speed: "Reasoning" },
+  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq LPU", speed: "Ultra Fast" },
+  "9router/ComboMaut": { label: "ComboMaut", badge: "Smart Combo", speed: "Auto Fallback" },
+  "o3-mini": { label: "o3-mini", badge: "Reasoning", speed: "Fast" },
+  "o1": { label: "o1", badge: "High Intelligence" },
   "claude-3-7-sonnet": { label: "Claude 3.7 Sonnet", badge: "Hybrid Reasoning", speed: "Fast" },
   "claude-3-5-sonnet": { label: "Claude 3.5 Sonnet", badge: "Capable", speed: "Fast" },
   "claude-3-5-haiku": { label: "Claude 3.5 Haiku", badge: "Compact", speed: "Fast" },
-
-  // OpenAI Codex
-  "o3-mini": { label: "o3-mini", badge: "Reasoning", speed: "Fast" },
-  "o1": { label: "o1", badge: "High Intelligence" },
-  "gpt-4o": { label: "GPT-4o", badge: "Omni Flagship", speed: "Fast" },
-  "gpt-4o-mini": { label: "GPT-4o-mini", badge: "Fast", speed: "Fast" },
-
-  // OpenCode
-  "opencode/big-pickle": { label: "Big Pickle", badge: "Zen Built-in", speed: "Reasoning" },
-  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq LPU", speed: "Ultra Fast" },
-  "groq/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", badge: "Groq LPU", speed: "Ultra Fast" },
-  "groq/openai/gpt-oss-20b": { label: "GPT-OSS 20B", badge: "Groq LPU", speed: "Ultra Fast" },
-  "opencode/nemotron-3.5-lightning-free": { label: "Nemotron 3.5", badge: "Zen Built-in" },
-
-  // 9Router (http://localhost:20128)
-  "9router/ComboMaut": { label: "ComboMaut", badge: "Smart Combo", speed: "Auto Fallback" },
-  "oc/big-pickle": { label: "OpenCode Big Pickle", badge: "Free (9Router)", speed: "Reasoning" },
-  "oc/claude-sonnet-4.5": { label: "Claude Sonnet 4.5", badge: "Free (9Router)" },
-  "kr/claude-sonnet-4.5": { label: "Kiro Claude Sonnet", badge: "Kiro AI (Free)" },
-  "vx/gemini-2.5-pro": { label: "Vertex Gemini 2.5 Pro", badge: "Vertex (Free)" },
   "deepseek-r1": { label: "DeepSeek R1", badge: "Reasoning", speed: "Smart" },
-  "cx/gpt-5.6-terra": { label: "GPT-5.6 Terra", badge: "Flagship", speed: "Fast" },
-  "cx/gemini-2.5-pro": { label: "Gemini 2.5 Pro", badge: "Extended" },
 };
+
+/** Typography only: initialisms that capitalisation cannot be derived from a lowercase id. */
+const ACRONYMS: Record<string, string> = { gpt: "GPT", oss: "OSS", llm: "LLM", ai: "AI", tts: "TTS" };
+
+const VENDOR_BADGES: [RegExp, string][] = [
+  [/^groq\//, "Groq LPU"],
+  [/^(9router|oc|kr|vx|cx)\//, "9Router"],
+  [/^opencode\//, "Zen Built-in"],
+];
+
+const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+/** Turn a raw model id into something readable, falling back to the id when it cannot. */
+export function describeModel(id: string): ModelMeta {
+  const override = MODEL_METADATA[id];
+  if (override) return override;
+
+  // Drop the provider prefix and any internal effort tier; both are noise in a label.
+  const leaf = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
+  const bare = leaf.replace(/-(?:extra-low|low|medium|high|tiered|agent)$/i, "");
+
+  // Ids spell versions with dashes (claude-sonnet-4-6) because that is what vendors ship;
+  // a human reads them as 4.6. Rejoin a bare number that follows a version number.
+  const parts = bare.split(/[-_]+/).filter(Boolean);
+  const words: string[] = [];
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    // Parameter counts carry a unit suffix: 20b and 70b mean 20B and 70B.
+    const sized = lower.match(/^(\d+)([bk])$/);
+    const word = ACRONYMS[lower] ?? (sized ? `${sized[1]}${sized[2].toUpperCase()}` : capitalize(part));
+    const prev = words[words.length - 1];
+    if (prev && /\d$/.test(prev) && /^\d+$/.test(part)) words[words.length - 1] = `${prev}.${part}`;
+    else words.push(word);
+  }
+
+  const vendor = VENDOR_BADGES.find(([re]) => re.test(id));
+  const tier = leaf.match(/-(extra-low|low|medium|high|tiered|agent)$/i)?.[1];
+  return {
+    label: words.join(" ") || id,
+    badge: tier ? tier.split("-").map(capitalize).join(" ") : vendor?.[1],
+  };
+}
 
 export function SettingsCliConnectionsTab({
   providers,
@@ -1486,7 +1474,7 @@ const handleAntigravityCliLogin = async () => {
     isLive = false
   ) => {
     const currentModel = selectedModels[targetKey] || presetModels[0];
-    const meta = MODEL_METADATA[currentModel] || { label: currentModel };
+    const meta = describeModel(currentModel);
     const isOpen = openDropdownId === targetKey;
 
     return (
@@ -1515,7 +1503,7 @@ const handleAntigravityCliLogin = async () => {
 
             <div className="max-h-56 overflow-y-auto space-y-0.5 pr-1">
               {presetModels.map((m) => {
-                const itemMeta = MODEL_METADATA[m] || { label: m };
+                const itemMeta = describeModel(m);
                 const isSelected = currentModel === m;
                 return (
                   <button
