@@ -231,8 +231,8 @@ const layer = Layer.effect(
                     if (fs.existsSync(attachPath)) imageBuf = fs.readFileSync(attachPath)
                   }
                   if (imageBuf) {
-                    const ocr = yield* Effect.promise(() => buildImageOcrMap(imageBuf!)).pipe(
-                      Effect.catchAll(() => Effect.succeed(undefined)),
+                    const ocr = yield* Effect.promise(() =>
+                      buildImageOcrMap(imageBuf!).catch(() => undefined),
                     )
                     if (ocr?.text) {
                       file.description = ocr.text

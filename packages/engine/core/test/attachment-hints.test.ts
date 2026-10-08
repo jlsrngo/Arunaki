@@ -15,7 +15,7 @@ describe("toLLMMessages attachment handling", () => {
       time: Date.now(),
     };
 
-    const result = toLLMMessages([msg], { id: "test-model", provider: "test" });
+    const result = toLLMMessages([msg as any], { id: "test-model", provider: "test" } as any);
     expect(result[0].content).toHaveLength(5);
     expect(result[0].content[0]).toEqual({ type: "text", text: "check these images" });
     expect(result[0].content[1]).toMatchObject({
@@ -52,7 +52,7 @@ describe("toLLMMessages attachment handling", () => {
       time: Date.now(),
     };
 
-    const result = toLLMMessages([msg], { id: "test-model", provider: "test" });
+    const result = toLLMMessages([msg as any], { id: "test-model", provider: "test" } as any);
     const hintPart = (result[0].content as any[])[1];
     expect(hintPart.type).toBe("text");
     expect(hintPart.text).toContain("pdf_read");
@@ -72,7 +72,7 @@ describe("toLLMMessages attachment handling", () => {
     };
 
     // DeepSeek is a text-only model without vision input
-    const result = toLLMMessages([msg], { id: "deepseek-chat", provider: "deepseek" });
+    const result = toLLMMessages([msg as any], { id: "deepseek-chat", provider: "deepseek" } as any);
     expect(result[0].content).toHaveLength(2);
     const part = (result[0].content as any[])[1];
     expect(part.type).toBe("text");

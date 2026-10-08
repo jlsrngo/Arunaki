@@ -34,7 +34,7 @@ const mockProvider = Layer.mock(Provider.Service, {
 const mockEvents = Layer.mock(EventV2.Service, {
   project: () => Effect.void,
   listen: () => Effect.succeed(Effect.void),
-  publish: () => Effect.void,
+  publish: ((_def: any, data: any) => Effect.succeed(data)) as any,
 })
 
 const mockBackground = Layer.mock(CoreBackgroundJob.Service, {

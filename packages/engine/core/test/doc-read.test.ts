@@ -30,13 +30,11 @@ describe("V2 Native Document Read Tools", () => {
     [
       [Location.node, locationLayer],
       [LocationMutation.node, Layer.succeed(LocationMutation.Service, LocationMutation.Service.of({
-        resolve: ({ path: p }) => Effect.succeed({ canonical: path.resolve(process.cwd(), p), externalDirectory: undefined }),
-        apply: () => Effect.void,
-      }))],
+        resolve: ({ path: p }: { path: string }) => Effect.succeed({ canonical: path.resolve(process.cwd(), p), externalDirectory: undefined, resource: p as any }),
+      } as any))],
       [PermissionV2.node, Layer.succeed(PermissionV2.Service, PermissionV2.Service.of({
         assert: () => Effect.void,
-        check: () => Effect.succeed({ granted: true }),
-      }))],
+      } as any))],
       [Config.node, Layer.succeed(Config.Service, Config.Service.of({
         get: () => Effect.succeed({} as any),
         entries: () => Effect.succeed([]),

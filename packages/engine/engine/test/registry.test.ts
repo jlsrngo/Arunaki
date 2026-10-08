@@ -18,10 +18,25 @@ describe("CLI provider registry", () => {
     }
   })
 
-  it("never offers browser login, since every vendor refuses it", () => {
-    for (const p of CLI_PROVIDER_REGISTRY) {
-      expect(p.supportsBrowserLogin).toBe(false)
+  it("offers browser login only where the vendor actually accepts it", () => {
+    // Verified live, not assumed: the Claude and Codex authorize pages accept the PKCE
+    // request and make an entitlement decision. Antigravity's Google client refuses
+    // third-party apps outright, so offering it there would be a dead button.
+    const byId = (id: string) => CLI_PROVIDER_REGISTRY.find((p) => p.id === id)!
+    expect(byId("claude").supportsBrowserLogin).toBe(true)
+    expect(byId("codex").supportsBrowserLogin).toBe(true)
+    expect(byId("antigravity").supportsBrowserLogin).toBe(false)
+  })
+
+  it("states the subscription each vendor requires, so the user is not surprised", () => {
+    for (const id of ["claude", "codex"]) {
+      const entitlement = CLI_PROVIDER_REGISTRY.find((p) => p.id === id)!.entitlement
+      expect(entitlement?.notice).toBeTruthy()
+      expect(entitlement?.noticeId).toBeTruthy()
+      expect(entitlement?.url).toMatch(/^https:\/\//)
     }
+    // Antigravity needs no paid subscription, so it must not claim one.
+    expect(CLI_PROVIDER_REGISTRY.find((p) => p.id === "antigravity")!.entitlement).toBeUndefined()
   })
 
   it("gives every provider that needs a CLI a way to get one", () => {

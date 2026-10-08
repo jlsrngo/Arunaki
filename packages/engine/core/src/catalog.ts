@@ -103,7 +103,10 @@ const layer = Layer.effect(
             ? provider.api.url
             : bridgeUrl)
         : (provider.api.url || model.api.url)
-      const effectivePackage = isCli ? "@ai-sdk/openai-compatible" : (model.api.package || provider.api.package)
+      const effectivePackage = isCli
+        ? "@ai-sdk/openai-compatible"
+        : (("package" in model.api ? (model.api as any).package : undefined) ||
+            ("package" in provider.api ? (provider.api as any).package : ""))
 
       const api = isCli
         ? {

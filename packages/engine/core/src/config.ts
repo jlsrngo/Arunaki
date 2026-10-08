@@ -104,6 +104,9 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   }),
   experimental: ConfigExperimental.Experimental.pipe(Schema.optional),
   providers: Schema.Record(Schema.String, ConfigProvider.Info).pipe(Schema.optional),
+  disabled_providers: Schema.Array(Schema.String).pipe(Schema.optional).annotate({
+    description: "List of provider IDs to disable",
+  }),
 }) {}
 
 export class Document extends Schema.Class<Document>("Config.Document")({

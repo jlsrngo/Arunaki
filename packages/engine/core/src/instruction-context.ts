@@ -59,7 +59,7 @@ const layer = Layer.effectDiscard(
         if (
           lower.endsWith("/arunaki.md") &&
           !lower.includes("/.arunaki/") &&
-          Array.from(discovered).some(
+          [...discovered].some(
             (d) =>
               d.toLowerCase().replace(/\\/g, "/").includes("/.arunaki/arunaki.md") &&
               dirname(dirname(d.replace(/\\/g, "/"))) === dirname(item.replace(/\\/g, "/")),

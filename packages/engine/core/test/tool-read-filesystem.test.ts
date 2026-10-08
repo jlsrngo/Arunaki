@@ -127,8 +127,8 @@ describe("ReadToolFileSystem", () => {
       const result = yield* ReadToolFileSystem.list(fs, directory)
       const entryPaths = result.entries.map((e) => e.path)
 
-      expect(entryPaths).toContain("docs" + path.sep)
-      expect(entryPaths).toContain("visible.txt")
+      expect(entryPaths).toContain(("docs" + path.sep) as any)
+      expect(entryPaths).toContain("visible.txt" as any)
       expect(entryPaths.some((p) => p.startsWith("."))).toBe(false)
     }),
   )

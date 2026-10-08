@@ -160,7 +160,13 @@ const layer = Layer.effectDiscard(
                   new ToolFailure({ message: `Failed to extract text via OCR from ${path.basename(filePath)}: ${e?.message || e}` }),
                 )
               }
-            }),
+            }).pipe(
+              Effect.mapError((error) =>
+                error instanceof ToolFailure
+                  ? error
+                  : new ToolFailure({ message: (error as any)?.message || String(error) }),
+              ),
+            ),
         }),
       })
       .pipe(Effect.orDie)

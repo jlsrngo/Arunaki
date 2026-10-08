@@ -92,7 +92,13 @@ const layer = Layer.effectDiscard(
                 recordNativeFailure(context.sessionID, input.filePath)
                 return yield* Effect.fail(new ToolFailure({ message: `Failed to read Word document: ${e?.message || e}` }))
               }
-            }),
+            }).pipe(
+              Effect.mapError((error) =>
+                error instanceof ToolFailure
+                  ? error
+                  : new ToolFailure({ message: (error as any)?.message || String(error) }),
+              ),
+            ),
         }),
       })
       .pipe(Effect.orDie)
