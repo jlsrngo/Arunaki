@@ -144,7 +144,11 @@ export function readClaudeCredential(customHome?: string): DiscoveredCredential 
 
 export function readKiroCredential(customHome?: string): DiscoveredCredential | null {
   const cacheDir = path.join(customHome || os.homedir(), ".aws", "sso", "cache")
-  if (!fs.existsSync(cacheDir)) return null
+  // A browser device flow writes no AWS SSO cache file, so the store is the only place the
+  // token exists. Without this the bridge reports Kiro as signed out right after a successful
+  // sign-in, which is the same failure Codex had.
+  const stored = readStoredCredential("kiro", path.join(customHome || os.homedir(), ".aws", "sso", "cache", "oauth.json"), customHome)
+  if (!fs.existsSync(cacheDir)) return stored
   try {
     const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith(".json"))
     let tokenEntry: any = null
@@ -158,7 +162,7 @@ export function readKiroCredential(customHome?: string): DiscoveredCredential | 
         clientCreds = d
       }
     }
-    if (!tokenEntry) return null
+    if (!tokenEntry) return stored
     const d = tokenEntry.d
     return {
       provider: "kiro",

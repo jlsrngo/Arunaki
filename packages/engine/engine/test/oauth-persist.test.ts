@@ -1,9 +1,9 @@
-import fs from "node:fs"
+﻿import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { describe, expect, it, afterEach } from "bun:test"
 import { loadAllCredentials, persistCredential } from "../src/server/local-cli/credential-store"
-import { scanLocalCredentials, invalidateCredentialCache } from "../src/server/local-cli/harvester"
+import { scanLocalCredentials, invalidateCredentialCache, readKiroCredential } from "../src/server/local-cli/harvester"
 
 const HOME = path.join(os.tmpdir(), `arunaki-oauth-persist-${Date.now()}-${Math.random().toString(16).slice(2)}`)
 
@@ -66,4 +66,26 @@ describe("oauth credential persistence", () => {
     // resurrect it, but that reader only runs on the bridge path, not in the scan.
     expect((await scanLocalCredentials()).claude?.accessToken).toBeUndefined()
   })
+})
+it("kiro browser sign-in is visible to the bridge, which reads no AWS SSO cache file", async () => {
+  // Same failure Codex had: the device flow stores the token only in Arunaki's store, so a
+  // reader that only looks at ~/.aws/sso/cache reports "No Kiro credential found" immediately
+  // after a successful sign-in.
+  await persistCredential({
+    provider: "kiro",
+    displayName: "Kiro (AWS)",
+    type: "oauth",
+    accessToken: "tok_kiro_live",
+    refreshToken: "aorAAAAAG",
+    region: "us-east-1",
+    clientId: "cid",
+    clientSecret: "csec",
+    sourcePath: "",
+  } as any)
+  fs.mkdirSync(HOME, { recursive: true })
+  invalidateCredentialCache()
+
+  const cred = readKiroCredential(HOME)
+  expect(cred?.accessToken).toBe("tok_kiro_live")
+  expect(cred?.clientId).toBe("cid")
 })
