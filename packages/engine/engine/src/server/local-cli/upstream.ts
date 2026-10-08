@@ -940,7 +940,7 @@ export function buildAntigravityBody(
 }
 
 /** Gemini SSE chunk -> OpenAI chat.completion.chunk. */
-export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number; model: string }): string | null {
+export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number; model: string; toolCallIndex?: number }): string | null {
   // streamGenerateContent wraps the candidate under "response"; generateContent does not.
   const body = ev?.response ?? ev
   const candidate = body?.candidates?.[0]
@@ -961,6 +961,8 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
     if (p.functionCall) {
       // Hold on to the signature so the next request can replay it.
       rememberAntigravitySignature(p.functionCall.id, p.functionCall.name, p.thoughtSignature)
+      const toolIndex = ctx.toolCallIndex ?? 0
+      ctx.toolCallIndex = toolIndex + 1
       out.push(
         sse({
           id: ctx.id,
@@ -973,7 +975,7 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
               delta: {
                 tool_calls: [
                   {
-                    index: parts.indexOf(p),
+                    index: toolIndex,
                     id: p.functionCall.id ?? `call_${Math.random().toString(36).slice(2, 12)}`,
                     type: "function",
                     function: { name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) },
@@ -1126,6 +1128,10 @@ export async function streamDirectAntigravityCompletion(
     id: `chatcmpl-antigravity-${Date.now()}`,
     created: Math.floor(Date.now() / 1000),
     model: payload.model || "gemini-3.8-flash",
+    // Gemini streams one functionCall per event, so each event's parts array is its own and
+    // indexOf returns 0 every time. Counting calls instead is what keeps two parallel calls
+    // from collapsing into one with concatenated arguments.
+    toolCallIndex: 0,
   }
 
   const reader = upstreamRes.body.getReader()
