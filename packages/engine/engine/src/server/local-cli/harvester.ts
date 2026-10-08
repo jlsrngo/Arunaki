@@ -17,16 +17,24 @@ const readJson = (p: string): any | null => {
   }
 }
 
-function emailFromJwt(idToken?: string): string | undefined {
-  if (!idToken || typeof idToken !== "string") return undefined
+function jwtClaims(token?: unknown): any {
+  if (!token || typeof token !== "string") return undefined
   try {
-    const parts = idToken.split(".")
+    const parts = token.split(".")
     if (parts.length < 2) return undefined
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))
-    return payload.email || undefined
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))
   } catch {
     return undefined
   }
+}
+
+function emailFromJwt(idToken?: string): string | undefined {
+  return jwtClaims(idToken)?.email || undefined
+}
+
+/** ChatGPT account id lives only inside the access token; the Codex endpoint wants it as a header. */
+function accountIdFromJwt(accessToken?: string): string | undefined {
+  return jwtClaims(accessToken)?.["https://api.openai.com/auth"]?.chatgpt_account_id || undefined
 }
 
 /**
@@ -60,7 +68,13 @@ function readStoredCredential(provider: string, filePath: string, customHome?: s
 export function readCodexCredential(customHome?: string): DiscoveredCredential | null {
   const p = path.join(customHome || os.homedir(), ".codex", "auth.json")
   const data = readJson(p)
-  if (!data) return readStoredCredential("codex", p, customHome)
+  if (!data) {
+    const stored = readStoredCredential("codex", p, customHome)
+    // Backfill for credentials minted before account-id extraction existed, so an existing
+    // token does not need a re-login to get the header.
+    if (stored && !stored.accountId) return { ...stored, accountId: accountIdFromJwt(stored.accessToken) }
+    return stored
+  }
 
   // Mode OAuth: { tokens: { access_token, refresh_token, account_id, id_token?, expires_at? } }
   const t = data.tokens
@@ -71,7 +85,7 @@ export function readCodexCredential(customHome?: string): DiscoveredCredential |
       type: "oauth",
       accessToken: t.access_token,
       refreshToken: t.refresh_token,
-      accountId: t.account_id,
+      accountId: t.account_id ?? accountIdFromJwt(t.access_token),
       expiresAt: typeof t.expires_at === "number" ? t.expires_at * 1000 : undefined,
       accountEmail: emailFromJwt(t.id_token) || data.email,
       sourcePath: p,

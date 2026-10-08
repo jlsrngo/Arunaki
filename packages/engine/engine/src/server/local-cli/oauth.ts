@@ -214,16 +214,30 @@ h1{font-size:1.35rem}code{background:#f4f4f5;padding:.1rem .3rem;border-radius:.
 </head><body><h1>${title}</h1><p>${body}</p></body></html>`
 }
 
-function decodeJwtEmail(idToken?: string): string | undefined {
-  if (!idToken) return undefined
-  const parts = idToken.split(".")
+function decodeJwtClaims(token?: string): any {
+  if (!token) return undefined
+  const parts = token.split(".")
   if (parts.length < 2) return undefined
   try {
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))
-    return payload.email || undefined
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))
   } catch {
     return undefined
   }
+}
+
+function decodeJwtEmail(idToken?: string): string | undefined {
+  return decodeJwtClaims(idToken)?.email || undefined
+}
+
+/**
+ * ChatGPT account id, which the Codex endpoint wants in a ChatGPT-Account-ID header.
+ *
+ * The token response carries no account_id field, so the only place it exists is inside the
+ * access token itself. Without it every request is rejected with "model is not supported when
+ * using Codex with a ChatGPT account" regardless of which model is asked for.
+ */
+function decodeChatGptAccountId(accessToken?: string): string | undefined {
+  return decodeJwtClaims(accessToken)?.["https://api.openai.com/auth"]?.chatgpt_account_id || undefined
 }
 
 async function exchange(
@@ -271,17 +285,19 @@ async function exchange(
     type: "oauth",
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
-    accountId: data.account_id ?? data.organization_id ?? undefined,
+    accountId:
+      data.account_id ??
+      data.organization_id ??
+      decodeChatGptAccountId(data.access_token) ??
+      undefined,
     accountEmail: decodeJwtEmail(data.id_token),
     expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
     lastRefreshAt: Date.now(),
-    // Label only: an OAuth credential is kept in Arunaki's own store and has no file on disk.
-// harvester must treat a missing file as expected for type "oauth" rather than dropping it.
-// Empty on purpose: an OAuth credential lives only in Arunaki's store and has no file on
-// disk. harvester drops credentials whose sourcePath file is gone, so pointing at a path we
-// never write made the freshly minted token disappear on the next rescan, minutes after the
-// browser said "Connected".
-sourcePath: "",
+    // Empty on purpose. An OAuth credential lives only in Arunaki's store and has no file on
+    // disk; harvester drops credentials whose sourcePath file is gone, so pointing at a path we
+    // never write made the freshly minted token disappear on the next rescan, minutes after the
+    // browser said "Connected".
+    sourcePath: "",
   }
 }
 

@@ -47,16 +47,17 @@ export interface CliProviderDescriptor {
    */
   supportsBrowserLogin: boolean
   /**
-   * Subscription the vendor requires before it will issue a token. Shown on the card so the
-   * user learns the requirement before clicking, instead of hitting a wall in the browser.
-   * Verified live: Claude answers "Max atau Pro diperlukan" for a free account, and Codex is
-   * documented as Plus-or-higher.
+   * Subscription the vendor requires before it will issue a usable token. Shown on the card so
+   * the user learns the requirement before clicking, instead of hitting a wall in the browser.
+   * Verified live on a free account: Claude answers "Claude Max atau Pro diperlukan", and the
+   * Codex endpoint answers "not supported when using Codex with a ChatGPT account" for every
+   * model. The Codex token does decode, so sign-in succeeds and the wall comes at first request.
    */
   entitlement?: { notice: string; noticeId: string; url: string }
 }
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
-const CODEX_MODELS = ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"]
+const CODEX_MODELS = ["gpt-5.1-codex", "gpt-5-codex", "codex-mini-latest"]
 const OPENCODE_MODELS = [
   "groq/openai/gpt-oss-120b",
   "groq/qwen/qwen3.8-27b",
@@ -125,7 +126,8 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     supportsAutoConfigure: false,
     supportsBrowserLogin: true,
     entitlement: {
-      notice: "Requires a ChatGPT Plus (or higher) account",
+      notice:
+      "Sign-in works on any plan, but ChatGPT Plus or higher is required to actually run requests. A free account connects and then fails on the first message.",
       noticeId: "Perlu akun ChatGPT Plus (atau lebih tinggi)",
       url: "https://chatgpt.com/codex",
     },
