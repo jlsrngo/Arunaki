@@ -1,4 +1,4 @@
-import http from "node:http"
+﻿import http from "node:http"
 import os from "node:os"
 import path from "node:path"
 import {
@@ -8,13 +8,14 @@ import {
   getOpenCodeAccountToken,
   getAntigravityAuth,
 } from "./detector"
-import { readCodexCredential, readClaudeCredential } from "./harvester.js"
+import { readCodexCredential, readClaudeCredential, readKiroCredential } from "./harvester.js"
 import {
   streamDirectCodexCompletion,
   streamDirectAnthropicCompletion,
   streamDirectOpenCodeCompletion,
   streamDirectAntigravityCompletion,
 } from "./upstream.js"
+import { streamKiroCompletion, stripKiroPrefix } from "./kiro.js"
 import { scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
 
 export const LOCAL_BRIDGE_PORT = 20188
@@ -156,6 +157,10 @@ class LocalCliBridge {
 
   private async handleChatCompletion(payload: any, res: http.ServerResponse) {
     const requestedModel = (payload.model || "").toLowerCase()
+    // Kiro models overlap every other provider's names, so they carry an explicit prefix and
+    // are matched before anything else. Without it "claude-sonnet-4.5" is a coin flip between
+    // Kiro, Claude and Antigravity.
+    const isKiroModel = requestedModel.startsWith("kiro/")
     const is9RouterModel =
       requestedModel.includes("9router") ||
       requestedModel.includes("combomaut") ||
@@ -174,6 +179,7 @@ class LocalCliBridge {
       requestedModel.includes("gpt-oss")
 
     const isAntigravity =
+      !isKiroModel &&
       !isOpenCodeModel &&
       (requestedModel.includes("gemini") ||
         requestedModel.includes("antigravity") ||
@@ -256,9 +262,31 @@ class LocalCliBridge {
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
 
-    // ── Fast-Path: Direct Codex / ChatGPT Responses API ──
+    // â”€â”€ Kiro (AWS) direct route â”€â”€
+    // Free tier, no CLI. Registered first so its shared model names never reach another
+    // provider's matcher.
+    if (isKiroModel) {
+      const kiroCred = readKiroCredential()
+      if (kiroCred?.accessToken) {
+        await streamKiroCompletion({ ...payload, model: stripKiroPrefix(payload.model) }, res, kiroCred)
+        return
+      }
+      res.writeHead(401, { "Content-Type": "application/json" })
+      res.end(
+        JSON.stringify({
+          error: {
+            message:
+              "No Kiro credential found. Sign in from Settings > Connection CLI; Kiro is free and needs no CLI install.",
+            type: "kiro_not_signed_in",
+          },
+        }),
+      )
+      return
+    }
+
+    // â”€â”€ Fast-Path: Direct Codex / ChatGPT Responses API â”€â”€
     const isOpenAIFamily =
-      /^(gpt-|o[1-9]|codex)/.test(requestedModel) && !isOpenCodeModel && !is9RouterModel
+      /^(gpt-|o[1-9]|codex)/.test(requestedModel) && !isOpenCodeModel && !is9RouterModel && !isKiroModel
     if (isOpenAIFamily) {
       const codexCred = readCodexCredential()
       if (codexCred?.accessToken) {
@@ -299,7 +327,7 @@ class LocalCliBridge {
       return
     }
 
-    // ── Google Antigravity CLI (agy) Persistent Daemon ───
+    // â”€â”€ Google Antigravity CLI (agy) Persistent Daemon â”€â”€â”€
     if (isAntigravity) {
       // 9Router (executors/antigravity.js) talks straight to the Cloud Code API, and so
       // do we. agy is only used to renew the credential, never to carry a conversation.
@@ -325,7 +353,7 @@ class LocalCliBridge {
       return
     }
 
-    // ── OpenCode CLI Agent / Groq / 9Router ──────────────
+    // â”€â”€ OpenCode CLI Agent / Groq / 9Router â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const isOpenCode =
       requestedModel.includes("opencode") ||
       requestedModel.includes("groq") ||
@@ -346,7 +374,7 @@ class LocalCliBridge {
       systemPrompt += (systemPrompt ? "\n" : "") + toolsDirective
     }
 
-    // ── Fast-Path: Direct Anthropic Messages API ─────────
+    // â”€â”€ Fast-Path: Direct Anthropic Messages API â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const claudeCred = readClaudeCredential()
 
     // Direct only. Spawning the claude CLI as a fallback looked like a safety net, but its
@@ -473,7 +501,7 @@ class LocalCliBridge {
       return
     }
 
-    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) — 9Router opencode.js lane.
+    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) â€” 9Router opencode.js lane.
     //    Hosted on purpose: routing through the local `opencode serve` daemon made Arunaki
     //    write every turn as an opencode session (leaking into the CLI session list) and
     //    forced a flattened single-prompt message, which loses tool calling entirely.

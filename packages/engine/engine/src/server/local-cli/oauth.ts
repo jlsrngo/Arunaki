@@ -5,6 +5,7 @@ import os from "os"
 import path from "path"
 import crossSpawn from "cross-spawn"
 import { persistCredential, type DiscoveredCredential } from "./credential-store.js"
+import { startKiroDeviceFlow, pollKiroDeviceFlow } from "./kiro.js"
 
 /**
  * Browser OAuth for the local CLI subscriptions, so a fresh install does not need the
@@ -13,7 +14,16 @@ import { persistCredential, type DiscoveredCredential } from "./credential-store
  * client id, so no client secret is involved.
  */
 
-export type OauthTarget = "claude" | "codex" | "antigravity"
+export type OauthTarget = "claude" | "codex" | "antigravity" | "kiro"
+
+/**
+ * Providers that sign in with an OAuth device flow instead of PKCE.
+ *
+ * There is no loopback redirect to wait on: the vendor hands us a URL that already carries the
+ * code, so completion comes from polling the token endpoint. They are kept out of SPECS
+ * because they share none of its machinery.
+ */
+const DEVICE_TARGETS = new Set<OauthTarget>(["kiro"])
 
 interface OauthSpec {
   label: string
@@ -42,7 +52,7 @@ interface OauthSpec {
   displayName: string
 }
 
-const SPECS: Record<OauthTarget, OauthSpec> = {
+const SPECS: Partial<Record<OauthTarget, OauthSpec>> = {
   claude: {
     label: "Claude",
     displayName: "Claude Code / Claude Pro",
@@ -121,6 +131,9 @@ interface Pending {
 const sessions = new Map<string, OauthSession>()
 const pending = new Map<string, Pending>()
 const results = new Map<string, OauthResult>()
+
+/** device_code -> where the vendor told the user to go approve it. */
+const deviceCodes = new Map<string, string>()
 
 const b64url = (buf: Buffer) => buf.toString("base64url")
 
@@ -303,6 +316,7 @@ async function exchange(
 
 /** Kick off the browser flow. Returns the session the UI polls. */
 export async function startOauthSession(target: OauthTarget, openInBrowser = true): Promise<OauthSession> {
+  if (DEVICE_TARGETS.has(target)) return startDeviceSession(target, openInBrowser)
   const spec = SPECS[target]
   if (!spec) throw new Error(`Unsupported OAuth target: ${target}`)
 
@@ -402,6 +416,75 @@ export async function startOauthSession(target: OauthTarget, openInBrowser = tru
 function cleanup(requestId: string): void {
   pending.delete(requestId)
   sessions.delete(requestId)
+  deviceCodes.delete(requestId)
+}
+
+/**
+ * Device-flow sign-in. The session's `authUrl` is the vendor's approval page with the code
+ * already embedded, so the UI can show it verbatim and the user never types anything.
+ */
+async function startDeviceSession(target: OauthTarget, openInBrowser: boolean): Promise<OauthSession> {
+  const requestId = crypto.randomUUID()
+  const start = await startKiroDeviceFlow()
+
+  const session: OauthSession = {
+    id: requestId,
+    target,
+    authUrl: start.verificationUriComplete || start.verificationUri,
+    createdAt: Date.now(),
+  }
+  sessions.set(requestId, session)
+  results.set(requestId, { requestId, target, status: "pending" })
+  deviceCodes.set(requestId, start.userCode)
+
+  if (openInBrowser) {
+    try {
+      openBrowser(session.authUrl)
+    } catch {}
+  }
+
+  const deadline = Date.now() + start.expiresIn
+  const guard = setTimeout(() => {
+    if (!results.get(requestId)?.status.startsWith("pending")) return
+    results.set(requestId, { requestId, target, status: "error", message: "Timed out waiting for sign-in" })
+    cleanup(requestId)
+  }, start.expiresIn)
+
+  const tick = async () => {
+    if (!results.get(requestId) || results.get(requestId)!.status !== "pending") return
+    try {
+      const status = await pollKiroDeviceFlow(start)
+      if (!status.done) {
+        if (Date.now() > deadline) return
+        setTimeout(() => void tick(), start.interval)
+        return
+      }
+      clearTimeout(guard)
+      if (status.error || !status.credential) {
+        results.set(requestId, { requestId, target, status: "error", message: status.error ?? "Sign-in failed" })
+        cleanup(requestId)
+        return
+      }
+      await persistCredential(status.credential)
+      results.set(requestId, {
+        requestId,
+        target,
+        status: "success",
+        provider: status.credential.provider,
+        message: `Connected ${status.credential.displayName}${
+          status.credential.accountEmail ? ` as ${status.credential.accountEmail}` : ""
+        }.`,
+      })
+      cleanup(requestId)
+    } catch (err: any) {
+      clearTimeout(guard)
+      results.set(requestId, { requestId, target, status: "error", message: err?.message ?? String(err) })
+      cleanup(requestId)
+    }
+  }
+  void tick()
+
+  return session
 }
 
 export function getOauthResult(requestId: string): OauthResult | null {
@@ -409,5 +492,5 @@ export function getOauthResult(requestId: string): OauthResult | null {
 }
 
 export function oauthTargets(): OauthTarget[] {
-  return Object.keys(SPECS) as OauthTarget[]
+  return [...new Set<OauthTarget>([...(Object.keys(SPECS) as OauthTarget[]), ...DEVICE_TARGETS])]
 }

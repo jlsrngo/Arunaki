@@ -58,6 +58,15 @@ export interface CliProviderDescriptor {
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
 const CODEX_MODELS = ["gpt-5.1-codex", "gpt-5-codex", "codex-mini-latest"]
+// Kiro ids are prefixed because they overlap every other provider's names; the prefix is
+// stripped before the request so AWS still sees its own id.
+const KIRO_MODELS = [
+  "kiro/claude-sonnet-4.5",
+  "kiro/claude-haiku-4.5",
+  "kiro/claude-sonnet-5",
+  "kiro/deepseek-3.2",
+  "kiro/qwen3-coder-next",
+]
 const OPENCODE_MODELS = [
   "groq/openai/gpt-oss-120b",
   "groq/qwen/qwen3.8-27b",
@@ -167,12 +176,14 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     id: "kiro",
     name: "Kiro",
     vendor: "AWS",
+    docsUrl: "https://kiro.dev",
     quota: "none",
-    models: [],
-    requiresCli: true,
-    loginMode: "terminal",
+    models: KIRO_MODELS,
+    // Device flow with a public client and a browser approval page: no CLI to install.
+    requiresCli: false,
+    loginMode: "browser",
     supportsAutoConfigure: false,
-    supportsBrowserLogin: false,
+    supportsBrowserLogin: true,
   },
   {
     id: "cursor",
