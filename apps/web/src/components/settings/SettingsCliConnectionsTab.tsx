@@ -180,15 +180,47 @@ interface ModelMeta {
 }
 
 const MODEL_METADATA: Record<string, ModelMeta> = {
-  // Google Antigravity CLI (agy)
+  // Google Antigravity CLI (agy). Kept for when the live catalogue is unreachable and the
+  // registry list is used instead.
   "gemini-3.8-flash": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
   "gemini-3.1-pro": { label: "Gemini 3.1 Pro", badge: "Reasoning" },
   "gemini-3.7-flash": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
-  "claude-sonnet-5-5": { label: "Claude Sonnet 5.5", badge: "Thinking", speed: "Smart" },
   "gemini-2.5-flash": { label: "Gemini 2.5 Flash", badge: "Fast", speed: "Fast" },
   "gemini-2.5-pro": { label: "Gemini 2.5 Pro", badge: "Reasoning" },
   "gemini-1.5-flash": { label: "Gemini 1.5 Flash", badge: "Lightweight", speed: "Fast" },
   "gemini-1.5-pro": { label: "Gemini 1.5 Pro", badge: "Deep Analysis" },
+
+  // Third-party models the Antigravity subscription also grants, with their live ids.
+  "claude-sonnet-4-6": { label: "Claude Sonnet 4.6", badge: "Claude", speed: "Smart" },
+  "claude-opus-4-6-thinking": { label: "Claude Opus 4.6", badge: "Thinking", speed: "Deep" },
+  "gpt-oss-120b-medium": { label: "GPT-OSS 120B", badge: "OpenAI", speed: "Fast" },
+
+  // Live catalogue ids. The Reasoning Effort picker rewrites the suffix, so both the bare
+  // family and every tier need a label or the dropdown shows raw ids.
+  "gemini-3.8-flash-low": { label: "Gemini 3.8 Flash", badge: "Low", speed: "Fast" },
+  "gemini-3.8-flash-medium": { label: "Gemini 3.8 Flash", badge: "Medium", speed: "Fast" },
+  "gemini-3.8-flash-high": { label: "Gemini 3.8 Flash", badge: "High", speed: "Fast" },
+  "gemini-3.8-flash-tiered": { label: "Gemini 3.8 Flash", badge: "Tiered", speed: "Auto" },
+  "gemini-3.7-flash-low": { label: "Gemini 3.7 Flash", badge: "Low", speed: "Fast" },
+  "gemini-3.7-flash-medium": { label: "Gemini 3.7 Flash", badge: "Medium", speed: "Fast" },
+  "gemini-3.7-flash-high": { label: "Gemini 3.7 Flash", badge: "High", speed: "Fast" },
+  "gemini-3.7-flash-tiered": { label: "Gemini 3.7 Flash", badge: "Tiered", speed: "Auto" },
+  "gemini-3.6-flash-low": { label: "Gemini 3.6 Flash", badge: "Low", speed: "Fast" },
+  "gemini-3.6-flash-medium": { label: "Gemini 3.6 Flash", badge: "Medium", speed: "Fast" },
+  "gemini-3.6-flash-high": { label: "Gemini 3.6 Flash", badge: "High", speed: "Fast" },
+  "gemini-3.6-flash-tiered": { label: "Gemini 3.6 Flash", badge: "Tiered", speed: "Auto" },
+  "gemini-3.5-flash-low": { label: "Gemini 3.5 Flash", badge: "Low", speed: "Fast" },
+  "gemini-3.5-flash-medium": { label: "Gemini 3.5 Flash", badge: "Medium", speed: "Fast" },
+  "gemini-3.5-flash-extra-low": { label: "Gemini 3.5 Flash", badge: "Extra Low", speed: "Fast" },
+  "gemini-3.5-flash-lite": { label: "Gemini 3.5 Flash Lite", badge: "Lite", speed: "Fast" },
+  "gemini-3-flash": { label: "Gemini 3 Flash", badge: "Flash", speed: "Fast" },
+  "gemini-3-flash-agent": { label: "Gemini 3 Flash Agent", badge: "Agent" },
+  "gemini-3.1-pro-low": { label: "Gemini 3.1 Pro", badge: "Low", speed: "Smart" },
+  "gemini-pro-agent": { label: "Gemini Pro Agent", badge: "Agent" },
+  "gemini-2.5-flash-lite": { label: "Gemini 2.5 Flash Lite", badge: "Lite", speed: "Fast" },
+  "gemini-2.5-flash-thinking": { label: "Gemini 2.5 Flash", badge: "Thinking" },
+  "gemini-3.1-flash-lite": { label: "Gemini 3.1 Flash Lite", badge: "Lite", speed: "Fast" },
+  "gemini-3.1-flash-image": { label: "Gemini 3.1 Flash Image", badge: "Vision" },
 
   // Claude Code CLI
   "claude-3-7-sonnet": { label: "Claude 3.7 Sonnet", badge: "Hybrid Reasoning", speed: "Fast" },
@@ -286,6 +318,8 @@ export function SettingsCliConnectionsTab({
   >({});
   const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
   const [quota, setQuota] = useState<QuotaReport[]>([]);
+  const [liveModels, setLiveModels] = useState<Record<string, string[]>>({});
+  const [modelsAreLive, setModelsAreLive] = useState<Record<string, boolean>>({});
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
   const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
@@ -339,6 +373,9 @@ export function SettingsCliConnectionsTab({
   useEffect(() => {
     fetchStatus();
     fetchQuota();
+    // Ask each provider what it can actually run. Antigravity is the one that matters:
+    // its catalogue is account-specific and changes as Google retires tiers.
+    for (const t of ["antigravity", "opencode", "9router"] as const) fetchModels(t);
   }, []);
 
   // Provider states
@@ -424,6 +461,27 @@ export function SettingsCliConnectionsTab({
 
 
   // Live rate-limit windows straight from each vendor — nothing here is hardcoded.
+  // Live model catalogue per provider. The registry list is only a fallback: Google ships
+  // and retires tiers constantly, and the static list named models this account cannot call
+  // (claude-sonnet-5-5 and gemini-3.7-flash are not in the live catalogue).
+  const fetchModels = async (target: string) => {
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/models${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const json = await res.json().catch(() => ({}));
+      const models: string[] = json.data?.models ?? [];
+      if (models.length) {
+        setLiveModels((prev) => ({ ...prev, [target]: models }));
+        setModelsAreLive((prev) => ({ ...prev, [target]: true }));
+      }
+    } catch {
+      // Keep whatever the registry gave us.
+    }
+  };
+
   const fetchQuota = async () => {
     setQuotaLoading(true);
     try {
@@ -605,7 +663,14 @@ export function SettingsCliConnectionsTab({
 
         {/* Collapsed row stays sparse: model picker, ping, docs, connect. */}
         <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
-          {renderModelDropdown(id, d.models, id, state.active, d.name)}
+          {renderModelDropdown(
+            id,
+            liveModels[id]?.length ? liveModels[id] : d.models,
+            id,
+            state.active,
+            d.name,
+            Boolean(modelsAreLive[id]),
+          )}
           <button
             type="button"
             onClick={() => handleTestPing(id, d.name)}
@@ -1417,7 +1482,8 @@ const handleAntigravityCliLogin = async () => {
     presetModels: string[],
     activeId: string,
     isActive: boolean,
-    friendlyName: string
+    friendlyName: string,
+    isLive = false
   ) => {
     const currentModel = selectedModels[targetKey] || presetModels[0];
     const meta = MODEL_METADATA[currentModel] || { label: currentModel };
@@ -1442,7 +1508,9 @@ const handleAntigravityCliLogin = async () => {
           <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl space-y-2">
             <div className="flex items-center justify-between px-1 pb-1.5 border-b border-zinc-800">
               <span className="text-xs font-semibold text-zinc-200">Model</span>
-              <span className="text-[10px] text-zinc-500 font-mono">Manual Selector</span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+              {isLive ? (isEn ? "Live from account" : "Live dari akun") : (isEn ? "Default list" : "Daftar bawaan")}
+            </span>
             </div>
 
             <div className="max-h-56 overflow-y-auto space-y-0.5 pr-1">

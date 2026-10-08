@@ -58,11 +58,17 @@ const OPENCODE_MODELS = [
   "9router/ComboMaut",
   "opencode/nemotron-3.5-lightning-free",
 ]
+// Fallback only. The settings UI asks the account via fetchAvailableModels and shows that
+// instead; these are the ids we have proven return 200 on a live Antigravity account.
+// Names not in the account's live catalogue must not appear here, or the dropdown offers
+// models the endpoint rejects.
 const ANTIGRAVITY_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.1-pro",
-  "gemini-3.7-flash",
-  "claude-sonnet-5-5",
+  "gemini-3.8-flash-medium",
+  "gemini-3.8-flash-low",
+  "gemini-3.8-flash-high",
+  "gemini-3.7-flash-medium",
+  "gemini-3.6-flash-medium",
+  "gemini-pro-agent",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
 ]

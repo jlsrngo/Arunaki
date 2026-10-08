@@ -427,7 +427,31 @@ const ANTIGRAVITY_MODEL_MAP: Record<string, string> = {
 }
 
 export function antigravityModelId(model: string): string {
-  return ANTIGRAVITY_MODEL_MAP[model] ?? model
+  // Tolerate the "(medium)" style suffix some clients append, and the bare catalogue id.
+  const bare = model.replace(/\((?:low|medium|high|tiered)\)$/i, "")
+  return ANTIGRAVITY_MODEL_MAP[model] ?? ANTIGRAVITY_MODEL_MAP[bare] ?? bare
+}
+
+/**
+ * Reasoning effort for Antigravity, expressed as a catalogue suffix.
+ *
+ * Google ships effort as part of the model id (`gemini-3.8-flash-{low,medium,high,tiered}`),
+ * not as a separate request field, and the frontend sends `variant` on the session model.
+ * Without this the Low/Medium/High picker in the UI silently did nothing.
+ *
+ * Measured first-token against the live endpoint: low 4247ms, medium 4530ms, high 3793ms,
+ * tiered 3979ms. The spread is within run-to-run noise, so effort changes the routing the
+ * account uses rather than the latency — pick it for output quality, not speed.
+ */
+export function antigravityVariantModelId(model: string, variant?: string | null): string {
+  const base = antigravityModelId(model)
+  const effort = (variant ?? "").toLowerCase()
+  if (!effort || effort === "default") return base
+  // Only suffix ids that actually have effort tiers; others would 404.
+  if (!/-(?:low|medium|high|tiered)$/.test(base)) return base
+  const family = base.replace(/-(?:low|medium|high|tiered)$/, "")
+  const allowed = ["low", "medium", "high", "tiered"]
+  return `${family}-${allowed.includes(effort) ? effort : "medium"}`
 }
 
 let modelCache: { models: string[]; fetchedAt: number } | null = null
@@ -720,7 +744,7 @@ export function buildAntigravityBody(
 
   return {
     project: projectId,
-    model: antigravityModelId(String(payload.model || "gemini-3.8-flash")),
+    model: antigravityVariantModelId(String(payload.model || "gemini-3.8-flash"), payload.variant),
     userAgent: "antigravity",
     requestId: `req-${sessionId}`,
     request,

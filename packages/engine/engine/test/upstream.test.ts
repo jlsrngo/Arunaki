@@ -329,6 +329,31 @@ describe("Upstream request builders", () => {
     expect(chatToAntigravityTools({ tools: [] })).toBeUndefined()
   })
 
+  // Google ships reasoning effort as part of the model id, and the UI's Low/Medium/High
+  // picker arrives as `payload.variant`. Before antigravityVariantModelId the picker was
+  // inert: every effort sent the same model.
+  it("antigravity: reasoning effort rewrites the model id tier", () => {
+    const at = (model: string, variant?: string) =>
+      buildAntigravityBody({ model, messages: [{ role: "user", content: "hi" }], variant }, "p", "s", true)!.model
+    expect(at("gemini-3.8-flash", "low")).toBe("gemini-3.8-flash-low")
+    expect(at("gemini-3.8-flash", "high")).toBe("gemini-3.8-flash-high")
+    expect(at("gemini-3.8-flash", "tiered")).toBe("gemini-3.8-flash-tiered")
+    // Selecting a tiered model then overriding the effort still moves it.
+    expect(at("gemini-3.8-flash-medium", "low")).toBe("gemini-3.8-flash-low")
+    // No effort, or Default, keeps whatever the model already asked for.
+    expect(at("gemini-3.8-flash", "default")).toBe("gemini-3.8-flash-medium")
+    expect(at("gemini-3.8-flash", undefined)).toBe("gemini-3.8-flash-medium")
+    // Ids without tiers are passed through untouched, since suffixing them would 404.
+    expect(at("gemini-2.5-flash", "high")).toBe("gemini-2.5-flash")
+    expect(at("claude-sonnet-4-6", "high")).toBe("claude-sonnet-4-6")
+    // A junk effort must not produce a bogus id.
+    expect(at("gemini-3.8-flash", "extreme")).toBe("gemini-3.8-flash-medium")
+  })
+
+  it("antigravity: tolerates the parenthesised tier suffix some clients send", () => {
+    expect(antigravityModelId("gemini-3.8-flash-medium(medium)")).toBe("gemini-3.8-flash-medium")
+  })
+
   it("antigravity: drops JSON Schema keywords Cloud Code rejects", () => {
     const tools = chatToAntigravityTools({
       tools: [

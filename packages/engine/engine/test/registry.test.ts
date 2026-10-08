@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Schema } from "effect"
+import { getCliSupportedModels } from "../src/server/local-cli/detector"
 import { CLI_PROVIDER_REGISTRY, getCliProviderDescriptor } from "../src/server/local-cli/registry"
 
 describe("CLI provider registry", () => {
@@ -51,6 +52,16 @@ describe("CLI provider registry", () => {
       accountEmail: "someone@example.com",
     }) as Record<string, unknown>
     expect(encoded.agySignedIn).toBe(true)
+  })
+
+  // The old static list offered claude-sonnet-5-5 and gemini-3.7-flash, neither of which the
+  // account's live catalogue contains, so the dropdown named models the endpoint rejects.
+  it("keeps the Antigravity fallback list free of models outside the live catalogue", async () => {
+    const live = new Set(await getCliSupportedModels("antigravity"))
+    expect(live.size).toBeGreaterThan(0)
+    const fallback = CLI_PROVIDER_REGISTRY.find((p) => p.id === "antigravity")!.models
+    const notLive = fallback.filter((m) => !live.has(m))
+    expect(notLive).toEqual([])
   })
 
   it("resolves descriptors by id", () => {
