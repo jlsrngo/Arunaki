@@ -331,6 +331,30 @@ describe("Kiro tool calling", () => {
     expect(stop.choices[0].finish_reason).toBe("tool_calls")
   })
 
+  test("captures credit usage Kiro reports in meteringEvent", () => {
+    const state = ctx("m")
+    const frame = parseKiroFrame(buildFrame("meteringEvent", { unit: "credit", usage: 0.00296 }))
+    expect(kiroEventToSse(frame, state)).toBeNull()
+    expect(state.creditsUsed).toBeCloseTo(0.00296, 5)
+  })
+
+  test("captures context usage so the card can show it later", () => {
+    const state = ctx("m")
+    const frame = parseKiroFrame(buildFrame("contextUsageEvent", { contextUsagePercentage: 2.05 }))
+    expect(kiroEventToSse(frame, state)).toBeNull()
+    expect(state.contextUsage).toBeCloseTo(2.05, 2)
+  })
+
+  test("does not claim a stop event that Kiro never sent", () => {
+    // Verified live: Kiro streams assistantResponseEvent, contextUsageEvent, meteringEvent and
+    // then just ends. Nothing marks the turn finished, so a non-streaming client waits forever.
+    const state = ctx("m")
+    kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: "PING" })), state)
+    kiroEventToSse(parseKiroFrame(buildFrame("contextUsageEvent", { contextUsagePercentage: 2 })), state)
+    kiroEventToSse(parseKiroFrame(buildFrame("meteringEvent", { usage: 0.003 })), state)
+    expect(state.sentFinish).toBe(false)
+  })
+
   test("sends the assistant role on the first chunk only", () => {
     const state = ctx("m")
     const first = JSON.parse((kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: "hi" })), state) ?? "").slice(6))

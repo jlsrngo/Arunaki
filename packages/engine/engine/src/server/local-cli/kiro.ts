@@ -476,6 +476,10 @@ export interface KiroStreamCtx {
   toolIndexes: Map<string, number>
   /** toolUseIds whose identity has already been sent, so only the first chunk carries it. */
   toolNames: Set<string>
+  /** Kiro ends the stream without a stop event, so the caller closes the turn itself. */
+  sentFinish: boolean
+  contextUsage?: number
+  creditsUsed?: number
 }
 
 export function newKiroStreamCtx(id: string, created: number, model: string): KiroStreamCtx {
@@ -488,6 +492,7 @@ export function newKiroStreamCtx(id: string, created: number, model: string): Ki
     hadToolUse: false,
     toolIndexes: new Map(),
     toolNames: new Set(),
+    sentFinish: false,
   }
 }
 
@@ -564,8 +569,21 @@ export function kiroEventToSse(frame: KiroEvent, ctx: KiroStreamCtx): string | n
 
   if (type === "messageMetadataEvent" || p.messageMetadataEvent) return null
 
+  // Kiro never sends a stop event: the stream simply ends after contextUsageEvent and
+  // meteringEvent. finish_reason is still set on stream close, or a client assembling a
+  // non-streaming response waits for a terminator that never arrives and returns nothing.
+  if (type === "contextUsageEvent" || p.contextUsageEvent) {
+    ctx.contextUsage = p.contextUsageEvent?.contextUsagePercentage ?? p.contextUsagePercentage
+    return null
+  }
+  if (type === "meteringEvent" || p.meteringEvent) {
+    const m = p.meteringEvent ?? p
+    ctx.creditsUsed = m.usage ?? ctx.creditsUsed
+    return null
+  }
+
   if (type === "messageStopEvent" || p.messageStopEvent) {
-    // Kiro has no explicit stop reason, so a turn that called tools ends as tool_calls.
+    ctx.sentFinish = true
     return chunk({}, ctx.hadToolUse ? "tool_calls" : "stop")
   }
 
@@ -672,7 +690,11 @@ let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
     emit(`data: ${JSON.stringify({ error: { message: `Kiro stream failed: ${err?.message}`, type: "kiro_stream_error" } })}\n\n`)
   }
 
-  if (!failed) res.write("data: [DONE]\n\n")
+  if (!failed) {
+    // Close the turn ourselves since Kiro sends no stop event.
+    if (!ctx.sentFinish) emit(kiroEventToSse({ headers: { ":event-type": "messageStopEvent" }, payload: {} }, ctx))
+    res.write("data: [DONE]\n\n")
+  }
   res.end()
   return true
 }
