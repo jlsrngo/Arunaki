@@ -18,6 +18,7 @@
 
 import crypto from "crypto"
 import type { DiscoveredCredential } from "./harvester.js"
+import { chunksToCompletion } from "./upstream.js"
 
 const KIRO_REGION = "us-east-1"
 const START_URL = "https://view.awsapps.com/start"
@@ -648,7 +649,12 @@ export async function streamKiroCompletion(
     return true
   }
 
-  res.writeHead(200, {
+// A client asking for stream:false expects one JSON object, not an SSE body. Every other
+  // provider assembles one, and a client fed SSE here sees an empty answer instead of an error.
+  const wantsJson = payload?.stream === false
+  const buffered: string[] = []
+
+  res.writeHead(200, wantsJson ? { "Content-Type": "application/json" } : {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
@@ -656,8 +662,8 @@ export async function streamKiroCompletion(
 
   const reader = upstream.body!.getReader()
   // Widened deliberately: chunks off the reader and slice() views are ArrayBufferLike, and a
-// narrow Uint8Array<ArrayBuffer> would reject every reassignment.
-let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
+  // narrow Uint8Array<ArrayBuffer> would reject every reassignment.
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
   let sent = false
   let failed = false
 
@@ -665,7 +671,8 @@ let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
     if (text === null) return
     if (text.startsWith("data: {") && text.includes('"error"')) failed = true
     else sent = true
-    res.write(text)
+    buffered.push(text)
+    if (!wantsJson) res.write(text)
   }
 
   try {
@@ -690,11 +697,29 @@ let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
     emit(`data: ${JSON.stringify({ error: { message: `Kiro stream failed: ${err?.message}`, type: "kiro_stream_error" } })}\n\n`)
   }
 
-  if (!failed) {
-    // Close the turn ourselves since Kiro sends no stop event.
-    if (!ctx.sentFinish) emit(kiroEventToSse({ headers: { ":event-type": "messageStopEvent" }, payload: {} }, ctx))
-    res.write("data: [DONE]\n\n")
+  if (failed) {
+    res.end()
+    return true
   }
+
+  // Close the turn ourselves since Kiro sends no stop event.
+  if (!ctx.sentFinish) emit(kiroEventToSse({ headers: { ":event-type": "messageStopEvent" }, payload: {} }, ctx))
+
+  if (wantsJson) {
+    const completion = chunksToCompletion(buffered, model)
+    if (completion?.usage === undefined) {
+      completion.usage = {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        ...(ctx.creditsUsed !== undefined ? { kiro_credits: ctx.creditsUsed } : {}),
+      }
+    }
+    res.end(JSON.stringify(completion))
+    return true
+  }
+
+  res.write("data: [DONE]\n\n")
   res.end()
   return true
 }

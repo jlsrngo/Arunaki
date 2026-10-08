@@ -7,6 +7,7 @@ import {
   stripKiroPrefix,
   takeKiroFrame,
 } from "../src/server/local-cli/kiro"
+import { chunksToCompletion } from "../src/server/local-cli/upstream"
 import type { DiscoveredCredential } from "../src/server/local-cli/harvester"
 
 const cred: DiscoveredCredential = {
@@ -353,6 +354,44 @@ describe("Kiro tool calling", () => {
     kiroEventToSse(parseKiroFrame(buildFrame("contextUsageEvent", { contextUsagePercentage: 2 })), state)
     kiroEventToSse(parseKiroFrame(buildFrame("meteringEvent", { usage: 0.003 })), state)
     expect(state.sentFinish).toBe(false)
+  })
+})
+
+describe("Kiro non-streaming assembly", () => {
+  test("assembles the same SSE a client would accumulate into one JSON body", () => {
+    // The bug this covers: Kiro always wrote an SSE body, so a client that asked for
+    // stream:false got JSON.parse failure and reported an empty answer with no error.
+    const state = ctx("claude-haiku-4.5")
+    const chunks = [
+      kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: "PI" })), state),
+      kiroEventToSse(parseKiroFrame(buildFrame("assistantResponseEvent", { content: "NG" })), state),
+      kiroEventToSse({ headers: { ":event-type": "messageStopEvent" }, payload: {} }, state),
+    ].filter((c): c is string => c !== null)
+
+    const completion = chunksToCompletion(chunks, "claude-haiku-4.5")
+    expect(completion.choices[0].message.content).toBe("PING")
+    expect(completion.choices[0].finish_reason).toBe("stop")
+  })
+
+  test("keeps parallel tool calls intact through assembly", () => {
+    const state = ctx("m")
+    const chunks: string[] = []
+    for (const [id, name, city] of [
+      ["tu_1", "get_weather", "Jakarta"],
+      ["tu_2", "get_weather", "Bandung"],
+    ]) {
+      // Kiro streams arguments in fragments, so emit opening then a fragment.
+      chunks.push(kiroEventToSse(parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: id, name, input: `{"city": "${city}"}` })), state)!)
+      chunks.push(kiroEventToSse(parseKiroFrame(buildFrame("toolUseEvent", { toolUseId: id, input: "" })), state)!)
+    }
+    chunks.push(kiroEventToSse({ headers: { ":event-type": "messageStopEvent" }, payload: {} }, state)!)
+
+    const completion = chunksToCompletion(chunks, "m")
+    const calls = completion.choices[0].message.tool_calls
+    expect(calls).toHaveLength(2)
+    expect(JSON.parse(calls[0].function.arguments)).toEqual({ city: "Jakarta" })
+    expect(JSON.parse(calls[1].function.arguments)).toEqual({ city: "Bandung" })
+    expect(completion.choices[0].finish_reason).toBe("tool_calls")
   })
 
   test("sends the assistant role on the first chunk only", () => {
