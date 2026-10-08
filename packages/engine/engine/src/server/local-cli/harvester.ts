@@ -245,7 +245,17 @@ export async function scanLocalCredentials(forceRefresh = false): Promise<Record
   if (cursor) results.cursor = cursor
 
   // Merge with previously saved state (which may contain fresh refreshed tokens)
-  const stored = await loadAllCredentials()
+  let stored: Record<string, DiscoveredCredential>
+  try {
+    stored = await loadAllCredentials()
+  } catch {
+    // The store exists but is unreadable. Writing results now would replace a possibly
+    // recoverable file with an empty one, which is how every credential on the machine was
+    // destroyed once already. Leave the file alone and report what this scan found.
+    console.warn("[CredentialStore] store unreadable during scan; not overwriting it")
+    cachedScan = { timestamp: Date.now(), results }
+    return results
+  }
   for (const [k, v] of Object.entries(stored)) {
     // Prevent mock test fixtures or deleted files from resurrecting as live credentials
     if (v.sourcePath === "mock") continue
