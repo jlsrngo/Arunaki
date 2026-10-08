@@ -120,6 +120,9 @@ export const AntigravityStatusItem = Schema.Struct({
   detected: Schema.Boolean,
   cliInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
   agyInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
+  // Reported separately from `loggedIn`: that one reads ~/.gemini (the Gemini CLI token),
+  // while the direct Cloud Code route uses the Credential Manager token.
+  agySignedIn: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
   agyVersion: Schema.optional(Schema.UndefinedOr(Schema.String)),
   geminiCliInstalled: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
   geminiVersion: Schema.optional(Schema.UndefinedOr(Schema.String)),

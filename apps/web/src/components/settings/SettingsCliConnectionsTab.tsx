@@ -1437,7 +1437,9 @@ const handleAntigravityCliLogin = async () => {
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl space-y-2">
+          // Anchored left: the trigger sits at the left edge of the card, so a
+          // right-aligned panel would extend past the viewport and get clipped.
+          <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl space-y-2">
             <div className="flex items-center justify-between px-1 pb-1.5 border-b border-zinc-800">
               <span className="text-xs font-semibold text-zinc-200">Model</span>
               <span className="text-[10px] text-zinc-500 font-mono">Manual Selector</span>

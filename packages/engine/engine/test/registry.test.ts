@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { Schema } from "effect"
 import { CLI_PROVIDER_REGISTRY, getCliProviderDescriptor } from "../src/server/local-cli/registry"
 
 describe("CLI provider registry", () => {
@@ -29,6 +30,27 @@ describe("CLI provider registry", () => {
       if (!p.requiresCli || NO_INSTALL_URL.has(p.id)) continue
       expect(p.installUrl).toBeTruthy()
     }
+  })
+
+  // Regression guard: agySignedIn was added to the detector but missed in the API schema,
+  // so Effect silently dropped it and every card rendered "Sign-in needed" while logged in.
+  it("carries agySignedIn through the status endpoint schema", async () => {
+    const { AntigravityStatusItem } = await import(
+      "../src/server/routes/instance/httpapi/groups/provider"
+    )
+    const encoded = Schema.decodeUnknownSync(AntigravityStatusItem)({
+      detected: true,
+      cliInstalled: true,
+      agyInstalled: true,
+      agySignedIn: true,
+      agyVersion: "1.3.1",
+      geminiCliInstalled: false,
+      path: "C:/Users/x/.gemini",
+      environment: "Google Antigravity CLI (agy 1.3.1)",
+      loggedIn: true,
+      accountEmail: "someone@example.com",
+    }) as Record<string, unknown>
+    expect(encoded.agySignedIn).toBe(true)
   })
 
   it("resolves descriptors by id", () => {
