@@ -1,3 +1,5 @@
+import os from "node:os"
+import path from "node:path"
 import { describe, it, expect } from "bun:test"
 import {
   buildCodexRequest,
@@ -401,6 +403,20 @@ describe("Upstream request builders", () => {
       } as any),
     )
     expect(cold).not.toContain("functionCall")
+  })
+
+  it("antigravity: persists a signature to disk so it survives a restart", async () => {
+    forgetAntigravitySignatures()
+    rememberAntigravitySignature("call_disk", "read", "SIG_ON_DISK")
+    // The debounce is deliberately not unref'd; an unref'd timer let the process exit
+    // before the write, which lost the signature and silently degraded multi-turn tool use.
+    await Bun.sleep(1400)
+    const store = Bun.file(path.join(os.homedir(), ".arunaki", "antigravity-signatures.json"))
+    expect(store.size).toBeGreaterThan(0)
+    const saved = JSON.parse(await store.text())
+    expect(saved.call_disk?.signature).toBe("SIG_ON_DISK")
+    expect(typeof saved.call_disk?.savedAt).toBe("number")
+    forgetAntigravitySignatures()
   })
 
   it("antigravity: reasoning effort rewrites the model id tier", () => {

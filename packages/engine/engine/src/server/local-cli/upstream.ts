@@ -1,3 +1,6 @@
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 import type http from "http"
 import type { DiscoveredCredential } from "./credential-store.js"
 import { checkBeforeRequest, refreshWithRetry } from "./refresh.js"
@@ -593,28 +596,108 @@ export async function resolveAntigravityProjectId(accessToken: string): Promise<
  * Cloud Code path needs this: the @ai-sdk/google providers manage it internally, and
  * OpenAI/Anthropic/Codex have no equivalent concept.
  *
- * The bridge sits on both sides of the call, so it can hold on to the signature the response
- * carried and put it back on the next request. Keyed by the tool_call id, which is the id
- * Google returned and therefore the id the session replays. In-memory on purpose: after a
- * restart the cache is cold and the history degrades to unsigned (dropped, not rejected).
+ * The bridge sits on both sides of the call, so it holds the signature the response carried
+ * and puts it back on the next request, keyed by the tool_call id, which is the id Google
+ * returned and therefore the id the session replays.
+ *
+ * Persisted because an in-memory cache made multi-turn tool use silently degrade: after a
+ * restart the cache was cold, unsigned calls were dropped, and the model lost the results of
+ * earlier tools with no error. Keying by a conversation-unique id keeps projects isolated even
+ * though the file is shared, and a wrong or stale signature is caught by the 400 and dropped
+ * rather than doing damage. Entries expire since a signature only ever replays within the
+ * conversation that produced it.
  */
-const ANTIGRAVITY_SIGNATURES = new Map<string, string>()
-const ANTIGRAVITY_SIGNATURE_CACHE_MAX = 2000
+const ANTIGRAVITY_SIGNATURES = new Map<string, { signature: string; savedAt: number }>()
+const ANTIGRAVITY_SIGNATURE_MAX = 2000
+const ANTIGRAVITY_SIGNATURE_TTL_MS = 7 * 24 * 60 * 60_000
+const ANTIGRAVITY_SIGNATURE_PERSIST_DEBOUNCE_MS = 1000
 
-export function rememberAntigravitySignature(callId: string | undefined, name: string | undefined, signature: string | undefined): void {
+let signatureCacheLoaded = false
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+function signatureStorePath(): string {
+  return path.join(os.homedir(), ".arunaki", "antigravity-signatures.json")
+}
+
+function loadSignatureCache(): void {
+  if (signatureCacheLoaded) return
+  signatureCacheLoaded = true
+  try {
+    const raw = fs.readFileSync(signatureStorePath(), "utf8")
+    const parsed = JSON.parse(raw) as Record<string, { signature?: string; savedAt?: number }>
+    const cutoff = Date.now() - ANTIGRAVITY_SIGNATURE_TTL_MS
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value?.signature !== "string" || !value.signature) continue
+      if (typeof value.savedAt === "number" && value.savedAt < cutoff) continue
+      ANTIGRAVITY_SIGNATURES.set(key, { signature: value.signature, savedAt: value.savedAt ?? Date.now() })
+    }
+  } catch {
+    // No store yet, or unreadable. A cold cache degrades to dropped calls, not to failures.
+  }
+}
+
+function flushSignatures(): void {
+  if (persistTimer) {
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+  try {
+    const store = signatureStorePath()
+    const dir = path.dirname(store)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(store, JSON.stringify(Object.fromEntries(ANTIGRAVITY_SIGNATURES)), "utf8")
+  } catch {
+    // Persistence is an optimisation; failing to write must not break the turn.
+  }
+}
+
+function scheduleSignaturePersist(): void {
+  if (persistTimer) return
+  // Deliberately not unref'd: the timer has to fire even if the process is shutting down,
+  // otherwise a bridge restart right after a tool call loses the signature it just learned.
+  persistTimer = setTimeout(flushSignatures, ANTIGRAVITY_SIGNATURE_PERSIST_DEBOUNCE_MS)
+}
+
+export function rememberAntigravitySignature(
+  callId: string | undefined,
+  name: string | undefined,
+  signature: string | undefined,
+): void {
   if (!signature) return
   const key = callId || name
   if (!key) return
-  // Plain FIFO trim; the map only ever holds the current conversation's calls.
-  if (ANTIGRAVITY_SIGNATURES.size >= ANTIGRAVITY_SIGNATURE_CACHE_MAX) {
-    const oldest = ANTIGRAVITY_SIGNATURES.keys().next()
-    if (!oldest.done) ANTIGRAVITY_SIGNATURES.delete(oldest.value)
+  loadSignatureCache()
+
+  const cutoff = Date.now() - ANTIGRAVITY_SIGNATURE_TTL_MS
+  for (const [k, v] of ANTIGRAVITY_SIGNATURES) if (v.savedAt < cutoff) ANTIGRAVITY_SIGNATURES.delete(k)
+
+  if (ANTIGRAVITY_SIGNATURES.size >= ANTIGRAVITY_SIGNATURE_MAX && !ANTIGRAVITY_SIGNATURES.has(key)) {
+    let oldestKey: string | undefined
+    let oldestAt = Infinity
+    for (const [k, v] of ANTIGRAVITY_SIGNATURES) {
+      if (v.savedAt < oldestAt) {
+        oldestAt = v.savedAt
+        oldestKey = k
+      }
+    }
+    if (oldestKey) ANTIGRAVITY_SIGNATURES.delete(oldestKey)
   }
-  ANTIGRAVITY_SIGNATURES.set(key, signature)
+
+  ANTIGRAVITY_SIGNATURES.set(key, { signature, savedAt: Date.now() })
+  scheduleSignaturePersist()
+}
+
+/** Returns the stored signature for a tool_call id, loading the store on first use. */
+function signatureFor(callId: string | undefined | null): string | undefined {
+  if (!callId) return undefined
+  loadSignatureCache()
+  return ANTIGRAVITY_SIGNATURES.get(callId)?.signature
 }
 
 export function forgetAntigravitySignatures(): void {
   ANTIGRAVITY_SIGNATURES.clear()
+  signatureCacheLoaded = true
+  flushSignatures()
 }
 
 export function chatToAntigravityContents(payload: any): any[] {
@@ -655,9 +738,7 @@ export function chatToAntigravityContents(payload: any): any[] {
         // normally comes back in the cached bridge state rather than on the tool_call,
         // since the OpenAI-compatible layer drops unknown keys.
         const signature =
-          (tc as any).thought_signature ??
-          tc.function?.thought_signature ??
-          (tc.id ? ANTIGRAVITY_SIGNATURES.get(tc.id) : undefined)
+          (tc as any).thought_signature ?? tc.function?.thought_signature ?? signatureFor(tc.id)
         parts.push({
           functionCall: { name: tc.function?.name, args, id: tc.id },
           ...(signature ? { thoughtSignature: signature } : {}),
