@@ -146,11 +146,17 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     name: "OpenCode",
     vendor: "opencode",
     docsUrl: "https://opencode.ai",
+    installUrl: "https://opencode.ai",
+    loginCommand: "opencode auth login",
+    credentialPath: "~/.local/share/opencode/auth.json",
     quota: "none",
     models: OPENCODE_MODELS,
-    // Hosted Zen route needs no sign-in and no local binary.
-    requiresCli: false,
-    loginMode: "none",
+    // The hosted Zen lane answers 403 "only from within OpenCode" without an account session,
+    // and the binary exposes no browser OAuth with a public client to copy. Sign-in is therefore
+    // terminal-only, exactly like Antigravity, and the chat route stays a direct Zen call rather
+    // than OpenCode's own local server, whose agent would run shell commands on this machine.
+    requiresCli: true,
+    loginMode: "terminal",
     supportsAutoConfigure: false,
     supportsBrowserLogin: false,
   },
