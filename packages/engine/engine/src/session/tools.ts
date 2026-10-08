@@ -58,6 +58,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
 
   const context = (args: Record<string, unknown>, options: ToolExecutionOptions): Tool.Context => ({
     sessionID: input.session.id,
+    agent: (input.agent.name || "build") as any,
     abort: options.abortSignal!,
     messageID: input.processor.message.id,
     extra: {

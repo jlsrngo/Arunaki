@@ -292,7 +292,7 @@ const layer = Layer.effect(
             yield* session.updatePart(ctx.reasoningMap[value.id])
             yield* events.publish(SessionEvent.Reasoning.Started, {
               sessionID: ctx.assistantMessage.sessionID,
-              assistantMessageID: ctx.assistantMessage.id,
+              assistantMessageID: ctx.assistantMessage.id as any,
               timestamp: yield* DateTime.now,
               reasoningID: ctx.reasoningMap[value.id].id,
               providerMetadata: value.providerMetadata,
@@ -313,7 +313,7 @@ const layer = Layer.effect(
             })
             yield* events.publish(SessionEvent.Reasoning.Delta, {
               sessionID: ctx.reasoningMap[value.id].sessionID,
-              assistantMessageID: ctx.reasoningMap[value.id].messageID,
+              assistantMessageID: ctx.reasoningMap[value.id].messageID as any,
               timestamp: yield* DateTime.now,
               reasoningID: ctx.reasoningMap[value.id].id,
               delta: value.text,
@@ -329,7 +329,7 @@ const layer = Layer.effect(
               if (rPart) {
                 yield* events.publish(SessionEvent.Reasoning.Ended, {
                   sessionID: rPart.sessionID,
-                  assistantMessageID: rPart.messageID,
+                  assistantMessageID: rPart.messageID as any,
                   timestamp: yield* DateTime.now,
                   reasoningID: rPart.id,
                   text: rPart.text,
@@ -524,7 +524,7 @@ const layer = Layer.effect(
             yield* session.updatePart(ctx.currentText)
             yield* events.publish(SessionEvent.Text.Started, {
               sessionID: ctx.assistantMessage.sessionID,
-              assistantMessageID: ctx.assistantMessage.id,
+              assistantMessageID: ctx.assistantMessage.id as any,
               timestamp: yield* DateTime.now,
               textID: ctx.currentText.id,
             }).pipe(Effect.ignore)
@@ -543,7 +543,7 @@ const layer = Layer.effect(
             })
             yield* events.publish(SessionEvent.Text.Delta, {
               sessionID: ctx.currentText.sessionID,
-              assistantMessageID: ctx.currentText.messageID,
+              assistantMessageID: ctx.currentText.messageID as any,
               timestamp: yield* DateTime.now,
               textID: ctx.currentText.id,
               delta: value.text,
@@ -554,7 +554,7 @@ const layer = Layer.effect(
             if (!ctx.currentText) return
             yield* events.publish(SessionEvent.Text.Ended, {
               sessionID: ctx.currentText.sessionID,
-              assistantMessageID: ctx.currentText.messageID,
+              assistantMessageID: ctx.currentText.messageID as any,
               timestamp: yield* DateTime.now,
               textID: ctx.currentText.id,
               text: ctx.currentText.text,

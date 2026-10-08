@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Terminal,
   Check,
@@ -59,6 +59,8 @@ interface CliProviderDescriptor {
   loginMode: "terminal" | "browser" | "none";
   supportsAutoConfigure: boolean;
   supportsBrowserLogin: boolean;
+  /** Subscription the vendor requires before it issues a token. */
+  entitlement?: { notice: string; noticeId: string; url: string };
 }
 
 interface AntigravityStatus {
@@ -281,6 +283,7 @@ export function SettingsCliConnectionsTab({
   const [quota, setQuota] = useState<QuotaReport[]>([]);
   const [liveModels, setLiveModels] = useState<Record<string, string[]>>({});
   const [modelsAreLive, setModelsAreLive] = useState<Record<string, boolean>>({});
+  const [oauthPendingTarget, setOauthPendingTarget] = useState<CliProviderId | null>(null);
 
   // One source for model ids: the account's live catalogue first, the registry fallback
   // second. Nothing is hardcoded, so a provider added to the registry just works.
@@ -426,10 +429,10 @@ export function SettingsCliConnectionsTab({
 
 
   // A credential stays in the local store after its CLI cache is gone so Refresh can
-  // recover it — never label an already expired token "Ready".
+  // recover it â€” never label an already expired token "Ready".
 
 
-  // Live rate-limit windows straight from each vendor — nothing here is hardcoded.
+  // Live rate-limit windows straight from each vendor â€” nothing here is hardcoded.
   // Live model catalogue per provider. The registry list is only a fallback: Google ships
   // and retires tiers constantly, and the static list named models this account cannot call
   // (claude-sonnet-5-5 and gemini-3.7-flash are not in the live catalogue).
@@ -469,7 +472,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const formatReset = (resetAt?: number) => {
-    if (!resetAt) return isEn ? "—" : "—";
+    if (!resetAt) return isEn ? "â€”" : "â€”";
     const diff = resetAt - Date.now();
     if (diff <= 0) return isEn ? "now" : "sekarang";
     const mins = Math.floor(diff / 60000);
@@ -625,8 +628,24 @@ export function SettingsCliConnectionsTab({
             </div>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
               {d.vendor}
-              {state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
+              {state.version ? ` â€¢ ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
             </p>
+            {/* Say the requirement up front. Hitting a wall in the browser teaches nothing;
+                the user has to come back and guess why it failed. */}
+            {!state.signedIn && d.entitlement && (
+              <p className="text-[10px] text-amber-500/90 mt-0.5 flex items-center gap-1 flex-wrap">
+                <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                <span>{isEn ? d.entitlement.notice : d.entitlement.noticeId}</span>
+                <a
+                  href={d.entitlement.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                >
+                  {isEn ? "See plans" : "Lihat paket"}
+                </a>
+              </p>
+            )}
           </div>
         </div>
 
@@ -740,6 +759,35 @@ export function SettingsCliConnectionsTab({
                   Auto-Configure CLI
                 </button>
               )}
+              {/* Browser PKCE is the default: no CLI to install, one click. The terminal stays as the
+                secondary route for people who already have the vendor CLI, which is what 9Router
+                offers too. */}
+              {d.supportsBrowserLogin && !state.signedIn && (
+                <button
+                  type="button"
+                  onClick={() => handleBrowserSignIn(id)}
+                  disabled={oauthPendingTarget === id}
+                  className="px-2 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
+                  title={
+                    isEn
+                      ? "Sign in with your browser, no CLI needed"
+                      : "Masuk lewat browser, tanpa CLI"
+                  }
+                >
+                  {oauthPendingTarget === id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Globe className="w-3 h-3" />
+                  )}
+                  {oauthPendingTarget === id
+                    ? isEn
+                      ? "Waiting for browser..."
+                      : "Menunggu browser..."
+                    : isEn
+                    ? "Sign in with browser"
+                    : "Masuk via browser"}
+                </button>
+              )}
               {d.loginMode === "terminal" && !state.signedIn && d.id === "antigravity" && (
                 <button
                   type="button"
@@ -829,7 +877,7 @@ export function SettingsCliConnectionsTab({
                       {b.window === "5h" ? ` (${b.window})` : ""}
                     </span>
                     <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-400" : "text-zinc-300")}>
-                      {pct}% · {formatReset(b.resetAt)}
+                      {pct}% Â· {formatReset(b.resetAt)}
                     </span>
                   </div>
                   <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
@@ -1062,7 +1110,67 @@ export function SettingsCliConnectionsTab({
     }, 1500);
   };
 
-const handleAntigravityCliLogin = async () => {
+/**
+   * Browser PKCE sign-in. Starts the flow, opens the browser, then polls until the callback
+   * lands. A user who hits the vendor's "needs a subscription" page just closes the tab, so
+   * there is no callback to detect; we surface the registry's entitlement notice instead of
+   * spinning forever.
+   */
+  const handleBrowserSignIn = async (target: CliProviderId) => {
+    if (oauthPendingTarget) return;
+    setOauthPendingTarget(target);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/oauth/start${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.data?.requestId) throw new Error(json.data?.message ?? `HTTP ${res.status}`);
+      const requestId = json.data.requestId as string;
+
+      for (let attempt = 0; attempt < 120; attempt++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const probe = await apiFetch(
+          `${API_BASE}/providers/local-cli/oauth/status${directoryQuery()}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId }) },
+        ).catch(() => null);
+        const probeJson = probe ? await probe.json().catch(() => ({})) : null;
+        const result = probeJson?.data;
+        if (!result) continue;
+        if (result.status === "success") {
+          toast.success(isEn ? "Connected" : "Terhubung", {
+            description: isEn ? "Token received." : "Token diterima.",
+          });
+          await fetchStatus();
+          return;
+        }
+        if (result.status === "error") {
+          toast.error(isEn ? "Sign-in failed" : "Login gagal", {
+            description: result.message ?? (isEn ? "The vendor rejected the request." : "Vendor menolak."),
+          });
+          return;
+        }
+      }
+      // Timed out with no callback, which is what closing the entitlement page looks like.
+      const notice = data.registry?.find((d) => d.id === target)?.entitlement;
+      toast.error(isEn ? "Sign-in not completed" : "Login tidak diselesaikan", {
+        description: notice
+          ? `${isEn ? notice.notice : notice.noticeId}. ${isEn ? "Check the browser tab, or upgrade, then try again." : "Cek tab browser, atau upgrade, lalu coba lagi."}`
+          : isEn
+          ? "The browser tab was closed before sign-in finished."
+          : "Tab browser ditutup sebelum login selesai.",
+      });
+    } catch (err: any) {
+      toast.error(isEn ? "Could not start sign-in" : "Gagal memulai login", {
+        description: err?.message,
+      });
+    } finally {
+      setOauthPendingTarget(null);
+    }
+  };
+
+  const handleAntigravityCliLogin = async () => {
     setIsSigningInCli(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
@@ -1618,10 +1726,10 @@ const handleAntigravityCliLogin = async () => {
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="min-w-0 text-xs text-zinc-400 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-zinc-200">Discovered Local Caches:</span>
-                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code · OK</span>}
-                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT · OK</span>}
-                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO · OK</span>}
-                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE · OK</span>}
+                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code Â· OK</span>}
+                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT Â· OK</span>}
+                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO Â· OK</span>}
+                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE Â· OK</span>}
               </div>
             </div>
             <button
@@ -1638,7 +1746,7 @@ const handleAntigravityCliLogin = async () => {
         )}
       </div>
 
-      {/* ── Multi-Provider Auth Modal (Bilingual & Clean Monochrome) ── */}
+      {/* â”€â”€ Multi-Provider Auth Modal (Bilingual & Clean Monochrome) â”€â”€ */}
       {(() => {
         const currentTarget = activeAuthModalTarget || (showAntigravityLoginModal ? "antigravity" : null);
         if (!currentTarget) return null;
@@ -1797,8 +1905,8 @@ const handleAntigravityCliLogin = async () => {
                 webLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
                 webBadge: "Terminal agy",
                 webDesc: isEn
-                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there — agy only authenticates interactively."
-                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana — agy hanya bisa autentikasi secara interaktif.",
+                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there â€” agy only authenticates interactively."
+                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana â€” agy hanya bisa autentikasi secara interaktif.",
                 webWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
                 webWarningText: isEn
                   ? "Antigravity authenticates interactively: a terminal opens running agy, and you complete the Google sign-in there. Direct browser OAuth is refused by Google for this client."

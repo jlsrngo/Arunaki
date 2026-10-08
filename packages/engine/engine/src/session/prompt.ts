@@ -1325,13 +1325,13 @@ const layer = Layer.effect(
         yield* compaction.prune({ sessionID }).pipe(Effect.ignore, Effect.forkIn(scope))
         yield* memory.onTurnCompleted(sessionID).pipe(Effect.ignore, Effect.forkIn(scope))
         const finalAssistant = yield* lastAssistant(sessionID)
-        if (finalAssistant) {
+        if (finalAssistant && finalAssistant.info.role === "assistant") {
           const info = finalAssistant.info
           const t = info.tokens ?? { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
           yield* events.publish(SessionEvent.Step.Ended, {
             sessionID,
             timestamp: yield* DateTime.now,
-            assistantMessageID: info.id,
+            assistantMessageID: info.id as any,
             finish: info.finish ?? "stop",
             cost: info.cost ?? 0,
             tokens: t,

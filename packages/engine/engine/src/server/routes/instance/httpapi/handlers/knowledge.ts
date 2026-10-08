@@ -317,24 +317,19 @@ export const knowledgeHandlers = HttpApiBuilder.group(InstanceHttpApi, "knowledg
           try {
             const controller = new AbortController()
             const timer = setTimeout(() => controller.abort(), 8000)
-            const res = yield* Effect.tryPromise({
-              try: () =>
-                fetch(targetUrl, {
-                  signal: controller.signal,
-                  headers: {
-                    "User-Agent": "Arunaki-Desktop/1.0",
-                    Accept: "text/csv, text/plain, */*",
-                  },
-                }),
-              catch: (err) => new Error(String(err)),
-            })
+            const res = yield* Effect.promise(() =>
+              fetch(targetUrl, {
+                signal: controller.signal,
+                headers: {
+                  "User-Agent": "Arunaki-Desktop/1.0",
+                  Accept: "text/csv, text/plain, */*",
+                },
+              }).catch(() => null),
+            )
             clearTimeout(timer)
 
-            if (res.ok) {
-              const body = yield* Effect.tryPromise({
-                try: () => res.text(),
-                catch: (err) => new Error(String(err)),
-              })
+            if (res && res.ok) {
+              const body = yield* Effect.promise(() => res.text().catch(() => ""))
 
               // Avoid saving Google accounts login page if sheet is private
               if (body && !body.includes("accounts.google.com/ServiceLogin")) {
@@ -348,7 +343,7 @@ export const knowledgeHandlers = HttpApiBuilder.group(InstanceHttpApi, "knowledg
                 node.syncStatus = "failed"
               }
             } else {
-              errors.push(`${node.title}: HTTP status ${res.status}`)
+              errors.push(`${node.title}: HTTP status ${res ? res.status : "network error"}`)
               node.syncStatus = "failed"
             }
           } catch (e: any) {

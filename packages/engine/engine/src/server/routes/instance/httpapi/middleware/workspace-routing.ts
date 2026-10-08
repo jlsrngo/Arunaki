@@ -104,8 +104,8 @@ function planRequest(
   return Effect.succeed(
     RequestPlan.Local({
       directory:
-        (session?.location as { directory?: string } | undefined)?.directory ||
-        (session as { directory?: string } | undefined)?.directory ||
+        ((session as any)?.location?.directory as string | undefined) ||
+        session?.directory ||
         defaultDirectory(request, url),
       workspaceID: envWorkspaceID ?? workspaceID,
     }),

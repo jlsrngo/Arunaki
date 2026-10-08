@@ -1067,9 +1067,10 @@ export class TelegramService {
         if (listRes.ok) {
           const listJson = await listRes.json();
           const sessions = listJson?.data || listJson;
-          if (Array.isArray(sessions) && sessions.length > 0 && sessions[0]?.id) {
-            sessionID = sessions[0].id;
-            this.chatSessionMap.set(chatId, sessionID);
+          if (Array.isArray(sessions) && sessions.length > 0 && typeof sessions[0]?.id === "string") {
+            const sid: string = sessions[0].id;
+            sessionID = sid;
+            this.chatSessionMap.set(chatId, sid);
           }
         }
       } catch (err) {

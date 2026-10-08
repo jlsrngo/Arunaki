@@ -36,7 +36,7 @@ export const QuestionTool = Tool.define<typeof Parameters, Metadata, Question.Se
                   ),
                 ),
               ),
-              Effect.catchAll(() => Effect.succeed([] as ReadonlyArray<Question.Answer>)),
+              Effect.orElseSucceed(() => [] as ReadonlyArray<Question.Answer>),
             )
 
           const formatted = params.questions

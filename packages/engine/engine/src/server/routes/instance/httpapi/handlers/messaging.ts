@@ -17,7 +17,16 @@ export const messagingHandlers = HttpApiBuilder.group(InstanceHttpApi, "messagin
     });
 
     const getStatus = Effect.fn("MessagingHttpApi.getStatus")(function* () {
-      return telegramService.getStatus();
+      const s = telegramService.getStatus();
+      return {
+        telegram: {
+          connected: s.telegram.connected,
+          botUsername: s.telegram.botUsername ?? null,
+          botFirstName: s.telegram.botFirstName ?? null,
+          lastActive: s.telegram.lastActive ?? null,
+          lastError: s.telegram.lastError ?? null,
+        },
+      };
     });
 
     const testConnection = Effect.fn("MessagingHttpApi.testConnection")(function* (ctx: {

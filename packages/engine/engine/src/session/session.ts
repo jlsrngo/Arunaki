@@ -817,7 +817,7 @@ const layer: Layer.Layer<
         if (r.type === "user") {
           return {
             info: {
-              id: r.id as MessageID,
+              id: r.id as any,
               sessionID: r.session_id as SessionID,
               role: "user",
               time: d?.time ?? { created: r.time_created },
@@ -825,7 +825,7 @@ const layer: Layer.Layer<
             parts: [
               {
                 id: `${r.id}_part_0` as PartID,
-                messageID: r.id as MessageID,
+                messageID: r.id as any,
                 sessionID: r.session_id as SessionID,
                 type: "text",
                 text: d?.text ?? "",
@@ -836,7 +836,7 @@ const layer: Layer.Layer<
           const parts = Array.isArray(d?.content)
             ? d.content.map((c: any, i: number) => ({
                 id: (c.id || `${r.id}_part_${i}`) as PartID,
-                messageID: r.id as MessageID,
+                messageID: r.id as any,
                 sessionID: r.session_id as SessionID,
                 type: c.type === "tool" ? "tool" : c.type === "reasoning" ? "reasoning" : "text",
                 ...(c.type === "text" ? { text: c.text ?? "" } : {}),
@@ -846,13 +846,13 @@ const layer: Layer.Layer<
             : []
           return {
             info: {
-              id: r.id as MessageID,
+              id: r.id as any,
               sessionID: r.session_id as SessionID,
               role: "assistant",
               time: d?.time ?? { created: r.time_created, completed: r.time_updated },
               agent: d?.agent ?? "build",
               model: d?.model ?? { providerID: "local", modelID: "default" },
-            } as SessionV1.Assistant,
+            } as unknown as SessionV1.Assistant,
             parts,
           }
         }

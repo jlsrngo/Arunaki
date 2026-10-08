@@ -182,6 +182,11 @@ export const LocalCliProviderDescriptor = Schema.Struct({
   loginMode: Schema.String,
   supportsAutoConfigure: Schema.Boolean,
   supportsBrowserLogin: Schema.Boolean,
+  entitlement: Schema.optional(Schema.UndefinedOr(Schema.Struct({
+    notice: Schema.String,
+    noticeId: Schema.String,
+    url: Schema.String,
+  }))),
 })
 
 export const LocalCliStatusEnvelope = Schema.Struct({

@@ -46,6 +46,13 @@ export interface CliProviderDescriptor {
    * third-party apps, so the UI never offers a button that cannot work.
    */
   supportsBrowserLogin: boolean
+  /**
+   * Subscription the vendor requires before it will issue a token. Shown on the card so the
+   * user learns the requirement before clicking, instead of hitting a wall in the browser.
+   * Verified live: Claude answers "Max atau Pro diperlukan" for a free account, and Codex is
+   * documented as Plus-or-higher.
+   */
+  entitlement?: { notice: string; noticeId: string; url: string }
 }
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
@@ -95,8 +102,14 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     requiresCli: false,
     loginMode: "terminal",
     supportsAutoConfigure: true,
-    // The browser flow reached Anthropic but never completed a consent screen in our tests.
-    supportsBrowserLogin: false,
+    // Proven working: the authorize page accepts the request and makes an entitlement
+    // decision, it does not reject the client. A free account sees the Pro/Max prompt.
+    supportsBrowserLogin: true,
+    entitlement: {
+      notice: "Requires a Claude Max or Pro subscription",
+      noticeId: "Perlu langganan Claude Max atau Pro",
+      url: "https://claude.ai",
+    },
   },
   {
     id: "codex",
@@ -110,7 +123,12 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     requiresCli: false,
     loginMode: "terminal",
     supportsAutoConfigure: false,
-    supportsBrowserLogin: false,
+    supportsBrowserLogin: true,
+    entitlement: {
+      notice: "Requires a ChatGPT Plus (or higher) account",
+      noticeId: "Perlu akun ChatGPT Plus (atau lebih tinggi)",
+      url: "https://chatgpt.com/codex",
+    },
   },
   {
     id: "opencode",
