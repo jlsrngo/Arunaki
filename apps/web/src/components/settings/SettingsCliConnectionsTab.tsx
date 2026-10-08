@@ -121,36 +121,6 @@ interface SettingsCliConnectionsTabProps {
   onRefresh: () => void;
 }
 
-// Preset model definitions for each tool (synchronized with real runtime environments)
-const PRESET_MODELS: Record<string, string[]> = {
-  claude: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
-  opencode: [
-    "groq/openai/gpt-oss-120b",
-    "groq/qwen/qwen3.8-27b",
-    "groq/openai/gpt-oss-20b",
-    "opencode/big-pickle",
-    "9router/ComboMaut",
-    "opencode/nemotron-3.5-lightning-free",
-  ],
-  codex: ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"],
-  antigravity: [
-    "gemini-3.8-flash",
-    "gemini-3.1-pro",
-    "gemini-3.7-flash",
-    "claude-sonnet-5-5",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-  ],
-  nineRouter: [
-    "9router/ComboMaut",
-    "oc/big-pickle",
-    "oc/claude-sonnet-4.5",
-    "kr/claude-sonnet-4.5",
-    "vx/gemini-2.5-pro",
-    "deepseek-r1",
-    "cx/gpt-5.6-terra",
-  ],
-};
 
 /** Mirrors CliProviderId in the engine registry so handler signatures stay in sync. */
 type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "nineRouter";
@@ -311,6 +281,14 @@ export function SettingsCliConnectionsTab({
   const [quota, setQuota] = useState<QuotaReport[]>([]);
   const [liveModels, setLiveModels] = useState<Record<string, string[]>>({});
   const [modelsAreLive, setModelsAreLive] = useState<Record<string, boolean>>({});
+
+  // One source for model ids: the account's live catalogue first, the registry fallback
+  // second. Nothing is hardcoded, so a provider added to the registry just works.
+  const modelsFor = (id: string): string[] => {
+    const live = liveModels[id];
+    if (live?.length) return live;
+    return data.registry?.find((d) => d.id === id)?.models ?? [];
+  };
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
   const [refreshErrors, setRefreshErrors] = useState<Record<string, string>>({});
@@ -654,14 +632,7 @@ export function SettingsCliConnectionsTab({
 
         {/* Collapsed row stays sparse: model picker, ping, docs, connect. */}
         <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
-          {renderModelDropdown(
-            id,
-            liveModels[id]?.length ? liveModels[id] : d.models,
-            id,
-            state.active,
-            d.name,
-            Boolean(modelsAreLive[id]),
-          )}
+          {renderModelDropdown(id, modelsFor(id), id, state.active, d.name, Boolean(modelsAreLive[id]))}
           <button
             type="button"
             onClick={() => handleTestPing(id, d.name)}
@@ -1189,8 +1160,19 @@ const handleAntigravityCliLogin = async () => {
     friendlyName: string
   ) => {
     setConnectingTarget(target);
-    const chosenModel = selectedModels[target] || PRESET_MODELS[target][0];
     const config = PROVIDER_CONFIGS[target];
+    // A registry entry can exist before its connect contract does. Say so plainly rather
+    // than reading .id off undefined, which blanks the page.
+    if (!config) {
+      setConnectingTarget(null);
+      toast.error(isEn ? `${friendlyName} is not ready to connect` : `${friendlyName} belum siap dihubungkan`, {
+        description: isEn
+          ? "No connect endpoint is configured for this provider yet."
+          : "Belum ada endpoint koneksi yang dikonfigurasi untuk provider ini.",
+      });
+      return;
+    }
+    const chosenModel = selectedModels[target] || modelsFor(target)[0];
     const activeId = config.id;
 
     try {
@@ -1286,6 +1268,14 @@ const handleAntigravityCliLogin = async () => {
     friendlyName: string
   ) => {
     const config = PROVIDER_CONFIGS[target];
+    if (!config) {
+      toast.error(isEn ? `${friendlyName} is not ready` : `${friendlyName} belum siap`, {
+        description: isEn
+          ? "No connect endpoint is configured for this provider yet."
+          : "Belum ada endpoint koneksi yang dikonfigurasi untuk provider ini.",
+      });
+      return;
+    }
     if (isActive) {
       await handleDisconnect(config.id, friendlyName);
     } else {
