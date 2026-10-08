@@ -1,8 +1,6 @@
 import http from "node:http"
-import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import crossSpawn from "cross-spawn"
 import {
   checkClaudeStatus,
   resolveAgyCommand,
@@ -21,68 +19,6 @@ import { scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
-export interface ParsedToolCall {
-  name: string
-  arguments: Record<string, any>
-}
-
-export function parseToolCallsFromText(rawText: string): ParsedToolCall[] {
-  const calls: ParsedToolCall[] = []
-
-  // 1. Match ```tool_call\n...\n``` or ```tool_call ... ```
-  const mdRegex = /```tool_call\s*([\s\S]*?)\s*```/gi
-  let match: RegExpExecArray | null
-  while ((match = mdRegex.exec(rawText)) !== null) {
-    try {
-      const parsed = JSON.parse(match[1].trim())
-      if (parsed?.name && typeof parsed.name === "string") {
-        const args =
-          typeof parsed.arguments === "object" && parsed.arguments !== null
-            ? parsed.arguments
-            : typeof parsed.arguments === "string"
-              ? JSON.parse(parsed.arguments)
-              : {}
-        calls.push({ name: parsed.name, arguments: args })
-      }
-    } catch {}
-  }
-
-  // 2. Match <tool_call> ... </tool_call>
-  const tagRegex = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/gi
-  while ((match = tagRegex.exec(rawText)) !== null) {
-    try {
-      const parsed = JSON.parse(match[1].trim())
-      if (parsed?.name && typeof parsed.name === "string") {
-        const args =
-          typeof parsed.arguments === "object" && parsed.arguments !== null
-            ? parsed.arguments
-            : typeof parsed.arguments === "string"
-              ? JSON.parse(parsed.arguments)
-              : {}
-        if (!calls.some((c) => c.name === parsed.name && JSON.stringify(c.arguments) === JSON.stringify(args))) {
-          calls.push({ name: parsed.name, arguments: args })
-        }
-      }
-    } catch {}
-  }
-
-  return calls
-}
-
-export function stripToolCallsFromText(rawText: string): string {
-  let cleaned = rawText
-    .replace(/```tool_call[\s\S]*?```/gi, "")
-    .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
-
-  // Sanitize accidental raw Excel cell dumps or JSON sheet maps:
-  // e.g. mula":null},{"ref":"S1","value":46313,... or {"sheets":[...]} or {"ref":"..."}
-  cleaned = cleaned.replace(/(?:\{?"?for)?mula"?\s*:\s*null\s*\}?,?\s*\{"ref"[\s\S]*?\}\s*\]?\s*\}?/gi, "")
-  cleaned = cleaned.replace(/\{"ref"\s*:\s*"[A-Z0-9]+"[^}]*\},?/gi, "")
-  cleaned = cleaned.replace(/\[\s*\{"ref"[\s\S]*?\}\s*\]/gi, "")
-  cleaned = cleaned.replace(/\{"sheets"\s*:\s*\[[\s\S]*?\]\s*\}/gi, "")
-
-  return cleaned.trim()
-}
 
 class LocalCliBridge {
   private server: http.Server | null = null
@@ -218,124 +154,6 @@ class LocalCliBridge {
     })
   }
 
-  private sendCompletionResponse(
-    res: http.ServerResponse,
-    payload: any,
-    replyText: string,
-    prefix = "cli",
-    usage?: { input_tokens?: number; output_tokens?: number }
-  ) {
-    const toolCalls = parseToolCallsFromText(replyText)
-    const hasToolCalls = toolCalls.length > 0
-    const cleanText = hasToolCalls ? stripToolCallsFromText(replyText) : replyText
-
-    if (payload.stream) {
-      if (!res.headersSent) {
-        res.writeHead(200, {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        })
-      }
-      if (cleanText) {
-        const chunk = {
-          id: `chatcmpl-${prefix}-${Date.now()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: payload.model || "default",
-          choices: [
-            {
-              index: 0,
-              delta: { content: cleanText },
-              finish_reason: null,
-            },
-          ],
-        }
-        res.write(`data: ${JSON.stringify(chunk)}\n\n`)
-      }
-
-      if (hasToolCalls) {
-        const toolCallsDelta = toolCalls.map((tc, idx) => ({
-          index: idx,
-          id: `call_${Date.now()}_${idx}`,
-          type: "function" as const,
-          function: {
-            name: tc.name,
-            arguments: JSON.stringify(tc.arguments),
-          },
-        }))
-        const toolCallChunk = {
-          id: `chatcmpl-${prefix}-${Date.now()}`,
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model: payload.model || "default",
-          choices: [
-            {
-              index: 0,
-              delta: { tool_calls: toolCallsDelta },
-              finish_reason: null,
-            },
-          ],
-        }
-        res.write(`data: ${JSON.stringify(toolCallChunk)}\n\n`)
-      }
-
-      const finishChunk = {
-        id: `chatcmpl-${prefix}-${Date.now()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model: payload.model || "default",
-        choices: [
-          {
-            index: 0,
-            delta: {},
-            finish_reason: hasToolCalls ? "tool_calls" : "stop",
-          },
-        ],
-      }
-      res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
-      res.write("data: [DONE]\n\n")
-      res.end()
-      return
-    }
-
-    const choice: any = {
-      index: 0,
-      message: {
-        role: "assistant",
-        content: hasToolCalls ? (cleanText || null) : cleanText,
-      },
-      finish_reason: hasToolCalls ? "tool_calls" : "stop",
-    }
-
-    if (hasToolCalls) {
-      choice.message.tool_calls = toolCalls.map((tc, idx) => ({
-        id: `call_${Date.now()}_${idx}`,
-        type: "function",
-        function: {
-          name: tc.name,
-          arguments: JSON.stringify(tc.arguments),
-        },
-      }))
-    }
-
-    const completion = {
-      id: `chatcmpl-${prefix}-${Date.now()}`,
-      object: "chat.completion",
-      created: Math.floor(Date.now() / 1000),
-      model: payload.model || "default",
-      choices: [choice],
-      usage: {
-        prompt_tokens: usage?.input_tokens ?? 15,
-        completion_tokens: usage?.output_tokens ?? 25,
-        total_tokens: (usage?.input_tokens ?? 15) + (usage?.output_tokens ?? 25),
-      },
-    }
-
-    res.writeHead(200, { "Content-Type": "application/json" })
-    res.end(JSON.stringify(completion))
-  }
-
   private async handleChatCompletion(payload: any, res: http.ServerResponse) {
     const requestedModel = (payload.model || "").toLowerCase()
     const is9RouterModel =
@@ -449,8 +267,36 @@ class LocalCliBridge {
           console.info(`[FastPath] codex direct stream completed for model: ${payload.model}`)
           return
         }
-        console.warn("[FastPath] codex direct stream pre-flight failed, falling back")
+        console.warn("[FastPath] codex direct route failed")
+        if (!res.headersSent) {
+          res.writeHead(502, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: {
+                message:
+                  "The OpenAI Responses request did not succeed. Check the Arunaki terminal for the upstream status code.",
+                type: "codex_unavailable",
+              },
+            }),
+          )
+        } else {
+          res.end()
+        }
+        return
       }
+      // Report the missing credential here. Falling through used to hand the request to the
+      // Claude CLI, which answered it with the wrong model and a message about Claude.
+      res.writeHead(401, { "Content-Type": "application/json" })
+      res.end(
+        JSON.stringify({
+          error: {
+            message:
+              "No Codex credential found. Install the Codex CLI and sign in once from Settings > Connection CLI.",
+            type: "codex_not_signed_in",
+          },
+        }),
+      )
+      return
     }
 
     // ── Google Antigravity CLI (agy) Persistent Daemon ───
@@ -502,96 +348,59 @@ class LocalCliBridge {
 
     // ── Fast-Path: Direct Anthropic Messages API ─────────
     const claudeCred = readClaudeCredential()
-    if (claudeCred?.accessToken) {
-      const ok = await streamDirectAnthropicCompletion(payload, res, claudeCred)
-      if (ok) {
-        console.info(`[FastPath] claude direct stream completed for model: ${payload.model}`)
+
+    // Direct only. Spawning the claude CLI as a fallback looked like a safety net, but its
+    // tool calls are recovered by regex over markdown text blocks rather than the structured
+    // parts the Messages API returns, so it silently lost multi-turn tool context and took
+    // far longer per turn. The Antigravity fallback was removed for the same reason.
+    if (!claudeCred?.accessToken) {
+      const status = await checkClaudeStatus()
+      if (!status.installed) {
+        res.writeHead(503, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            error: {
+              message:
+                "No Claude credential found. Install Claude Code and sign in once from Settings > Connection CLI.",
+              type: "cli_not_installed",
+            },
+          }),
+        )
         return
       }
-      console.warn("[FastPath] claude direct stream pre-flight failed, falling back to claude -p")
-    }
-
-    // ── Claude Code CLI Handler ──────────────────────────
-    const status = await checkClaudeStatus()
-    if (!status.installed) {
-      res.writeHead(503, { "Content-Type": "application/json" })
-      res.end(
-        JSON.stringify({
-          error: {
-            message: "Claude Code CLI is not installed on this system. Run: npm install -g @anthropic-ai/claude-code",
-            type: "cli_not_installed",
-          },
-        }),
-      )
-      return
-    }
-
-    if (!status.loggedIn) {
       res.writeHead(401, { "Content-Type": "application/json" })
       res.end(
         JSON.stringify({
           error: {
-            message:
-              "Claude Code CLI is not logged in. Please run 'claude auth login --claudeai' in terminal or click Login in Arunaki Settings.",
+            message: "Claude Code is installed but not signed in. Run 'claude auth login --claudeai' once.",
             type: "cli_not_logged_in",
           },
         }),
       )
       return
     }
-
-    const args = ["-p", finalPrompt, "--output-format", "json"]
-
-    if (systemPrompt) {
-      args.push("--system-prompt", systemPrompt)
+    
+    const handled = await streamDirectAnthropicCompletion(payload, res, claudeCred)
+    if (handled) {
+      console.info(`[FastPath] claude direct stream completed for model: ${payload.model}`)
+      return
     }
-
-    const child = crossSpawn("claude", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    })
-
-    let stdout = ""
-    let stderr = ""
-
-    child.stdout?.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString()
-    })
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
-
-    child.on("close", (code) => {
-      try {
-        const json = JSON.parse(stdout.trim())
-        const replyText = json.result ?? json.message?.content?.[0]?.text ?? stdout.trim()
-
-        if (json.is_error && replyText.includes("Not logged in")) {
-          res.writeHead(401, { "Content-Type": "application/json" })
-          res.end(
-            JSON.stringify({
-              error: {
-                message: "Claude Code CLI authentication required. Please run 'claude auth login --claudeai'.",
-                type: "cli_not_logged_in",
-              },
-            }),
-          )
-          return
-        }
-
-        this.sendCompletionResponse(res, payload, replyText, "claude", {
-          input_tokens: json.usage?.input_tokens,
-          output_tokens: json.usage?.output_tokens,
-        })
-      } catch {
-        const replyText = stdout.trim() || stderr.trim() || "No response received from Claude CLI."
-        this.sendCompletionResponse(res, payload, replyText, "claude")
-      }
-    })
-
-    child.on("error", (err) => {
-      res.writeHead(500, { "Content-Type": "application/json" })
-      res.end(JSON.stringify({ error: { message: `Claude CLI process error: ${err.message}` } }))
-    })
+    // Direct is the only route now, so report the reason instead of degrading.
+    console.warn("[FastPath] claude direct route failed")
+    if (!res.headersSent) {
+      res.writeHead(502, { "Content-Type": "application/json" })
+      res.end(
+        JSON.stringify({
+          error: {
+            message:
+              "The Anthropic Messages request did not succeed. Check the Arunaki terminal for the upstream status code.",
+            type: "claude_unavailable",
+          },
+        }),
+      )
+} else {
+      res.end()
+    }
   }
 
   private async handleOpenCodeCompletion(
