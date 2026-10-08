@@ -16,7 +16,6 @@ import {
   streamDirectAntigravityCompletion,
 } from "./upstream.js"
 import { streamKiroCompletion, stripKiroPrefix } from "./kiro.js"
-import { streamOpenCodeDaemonCompletion, stopOpenCodeServer } from "./opencode-daemon.js"
 import { scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
 
 export const LOCAL_BRIDGE_PORT = 20188
@@ -519,14 +518,6 @@ class LocalCliBridge {
       rawModel === "big-pickle"
 
     if (isOpenCodeNative) {
-      // An explicit opencode/ prefix means an OpenCode built-in. Those are served by the local
-      // server, which needs no account session, whereas the hosted Zen lane answers 403 without
-      // one and Arunaki has no way to obtain a token headlessly.
-      const isLocalBuiltIn = rawModel.startsWith("opencode/") || rawModel === "big-pickle"
-      if (isLocalBuiltIn) {
-        await streamOpenCodeDaemonCompletion(payload, res, rawModel.replace(/^opencode\//, "") || "big-pickle")
-        return
-      }
       const handled = await streamDirectOpenCodeCompletion(payload, res, getOpenCodeAccountToken())
       if (handled) return
       // Upstream refused (403 FreeTierError, offline): fall through to the next lane
