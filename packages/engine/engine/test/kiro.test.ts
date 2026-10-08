@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { buildKiroRequest, kiroEventToSse, parseKiroFrame, takeKiroFrame } from "../src/server/local-cli/kiro"
+import {
+  buildKiroRequest,
+  kiroEventToSse,
+  parseKiroFrame,
+  stripKiroPrefix,
+  takeKiroFrame,
+} from "../src/server/local-cli/kiro"
 import type { DiscoveredCredential } from "../src/server/local-cli/harvester"
 
 const cred: DiscoveredCredential = {
@@ -125,6 +131,19 @@ describe("Kiro request payload", () => {
     const req = buildKiroRequest({ model: "claude-sonnet-4.5", messages: [{ role: "user", content: "hi" }] }, cred)
     expect(req.headers["x-amz-sso-bearer"]).toBe("tok_kiro")
     expect(req.headers["x-amzn-codewhisperer-profile-arn"]).toBe("arn:aws:codewhisperer:us-east-1:1:profile/TEST")
+  })
+
+  test("sends Authorization as well as x-amz-sso-bearer", () => {
+    // Verified live: q.us-east-1.amazonaws.com answers "Missing bearer token in the
+    // authorization header" when only the x-amz-* spelling is present, while the kiro.dev
+    // gateway reads the other one.
+    const req = buildKiroRequest({ model: "m", messages: [{ role: "user", content: "hi" }] }, cred)
+    expect(req.headers["Authorization"]).toBe("Bearer tok_kiro")
+  })
+
+  test("strips the routing prefix before the request reaches AWS", () => {
+    expect(stripKiroPrefix("kiro/claude-sonnet-4.5")).toBe("claude-sonnet-4.5")
+    expect(stripKiroPrefix("claude-sonnet-4.5")).toBe("claude-sonnet-4.5")
   })
 
   test("passes the model id straight through to currentMessage", () => {

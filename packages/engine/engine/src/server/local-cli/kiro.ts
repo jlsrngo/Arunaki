@@ -259,6 +259,9 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      // Both spellings, because the surfaces disagree: the kiro.dev gateway reads
+      // x-amz-sso-bearer while q.* answers "Missing bearer token in the authorization header".
+      Authorization: `Bearer ${cred.accessToken}`,
       "x-amz-sso-bearer": cred.accessToken,
       "x-amzn-kiro-agent-mode": "spec",
       "x-amzn-codewhisperer-machine-id": "kiro-desktop",
