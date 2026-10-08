@@ -80,7 +80,7 @@ export class PdfMap extends Schema.Class<PdfMap>("PdfMap")({
   isScanned: Schema.Boolean,
   text: Schema.String,
   pages: Schema.Array(PdfPage),
-  info: Schema.optional(Schema.NullishOr(Schema.Record({ key: Schema.String, value: Schema.Unknown }))),
+  info: Schema.optional(Schema.NullishOr(Schema.Record(Schema.String, Schema.Unknown))),
 }) {}
 
 export class ImageOcrLine extends Schema.Class<ImageOcrLine>("ImageOcrLine")({

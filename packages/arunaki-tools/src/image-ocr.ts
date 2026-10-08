@@ -1,6 +1,6 @@
 import * as fs from "fs"
 import * as path from "path"
-import { createWorker, type Worker } from "tesseract.js"
+import { createWorker, PSM, type Worker } from "tesseract.js"
 import { ImageOcrMap } from "./docmap"
 
 let workerInstance: Worker | null = null
@@ -12,14 +12,14 @@ async function getWorker(languages: string[] = ["eng", "ind"]): Promise<Worker> 
     workerInitializing = (async () => {
       try {
         const worker = await createWorker(languages)
-        await worker.setParameters({ tessedit_pageseg_mode: "3" })
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
         workerInstance = worker
         return worker
       } catch (err) {
         // Fallback to English only if multilingual pack fails to load
         console.warn("[image-ocr] Failed to initialize multilingual worker, falling back to 'eng':", err)
         const worker = await createWorker("eng")
-        await worker.setParameters({ tessedit_pageseg_mode: "3" })
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
         workerInstance = worker
         return worker
       } finally {
@@ -63,7 +63,7 @@ export async function buildImageOcrMap(
   }
 
   const worker = await getWorker(languages)
-  await worker.setParameters({ tessedit_pageseg_mode: "3" })
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
   let result = await worker.recognize(imageSource)
 
   let rawText = (result.data.text || "").trim()
@@ -72,7 +72,7 @@ export async function buildImageOcrMap(
   // If confidence is low (< 50) or extracted text is very brief, retry with PSM 4 (single column / structured table)
   if (confidence < 50 || rawText.length < 10) {
     try {
-      await worker.setParameters({ tessedit_pageseg_mode: "4" })
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN })
       const retry = await worker.recognize(imageSource)
       const retryText = (retry.data.text || "").trim()
       const retryConfidence = Math.round(retry.data.confidence ?? 0)
@@ -82,7 +82,7 @@ export async function buildImageOcrMap(
         confidence = retryConfidence
       } else {
         // Reset back to 3
-        await worker.setParameters({ tessedit_pageseg_mode: "3" })
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
       }
     } catch {}
   }

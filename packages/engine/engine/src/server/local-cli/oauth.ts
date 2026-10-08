@@ -143,7 +143,11 @@ const loadClientSecret = () => loadGoogleClient()?.clientSecret
 
 function openBrowser(url: string): void {
   if (process.platform === "win32") {
-    crossSpawn("cmd.exe", ["/c", "start", '""', url], { windowsHide: true })
+    // Must not go through cmd.exe: it re-parses its arguments and treats "&" in the query
+    // string as a command separator, so the browser only ever received the first parameter.
+    // Claude answered "Parameter client_id tidak ada" even though client_id was in the URL.
+    // rundll32 hands the whole string to the protocol handler untouched.
+    crossSpawn("rundll32.exe", ["url.dll,FileProtocolHandler", url], { windowsHide: true })
   } else if (process.platform === "darwin") {
     crossSpawn("open", [url])
   } else {
