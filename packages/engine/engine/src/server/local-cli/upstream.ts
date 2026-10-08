@@ -496,12 +496,42 @@ export async function fetchAntigravityModels(auth: AntigravityAuth | null): Prom
         : raw && typeof raw === "object"
           ? Object.keys(raw)
           : []
-    ).filter((m: unknown): m is string => typeof m === "string" && m.length > 0)
+).filter((m: unknown): m is string => typeof m === "string" && m.length > 0)
 
+    // deprecatedModelIds arrives as an id -> {newModelId, ...} map, not a list.
     const deprecated = new Set<string>(
-      Array.isArray(data?.deprecatedModelIds) ? data.deprecatedModelIds : Object.keys(data?.deprecatedModelIds ?? {}),
+      Array.isArray(data?.deprecatedModelIds)
+        ? data.deprecatedModelIds
+        : data?.deprecatedModelIds && typeof data.deprecatedModelIds === "object"
+        ? Object.keys(data.deprecatedModelIds)
+        : [],
     )
-    const usable = models.filter((m) => !deprecated.has(m))
+
+    // `fetchAvailableModels` returns the whole menu the IDE uses, including internal slots
+    // the UI never shows: chat_20706/23310 are `isInternal: true` and answer HTTP 400, and
+    // the tab_*_preview ids are editor placeholders. Google also ships the IDE's own
+    // displayName and the id lists it groups models by, so take its selection rather than
+    // guessing with a regex.
+    const meta = (id: string): any => (data?.models as any)?.[id] ?? {}
+    const notListed = new Set<string>([
+      ...(Array.isArray(data?.tabModelIds) ? data.tabModelIds : []),
+      ...(Array.isArray(data?.commandModelIds) ? data.commandModelIds : []),
+      ...(Array.isArray(data?.webSearchModelIds) ? data.webSearchModelIds : []),
+      ...(Array.isArray(data?.commitMessageModelIds) ? data.commitMessageModelIds : []),
+      ...(Array.isArray(data?.imageGenerationModelIds) ? data.imageGenerationModelIds : []),
+      ...(Array.isArray(data?.audioTranscriptionModelIds) ? data.audioTranscriptionModelIds : []),
+      ...(Array.isArray(data?.mqueryModelIds) ? data.mqueryModelIds : []),
+    ])
+
+    const usable = models.filter((m) => {
+      if (deprecated.has(m)) return false
+      if (meta(m).isInternal === true) return false
+      if (notListed.has(m)) return false
+      // A real catalogue entry always has a displayName. The tab_* preview ids are
+      // MODEL_PLACEHOLDER entries the editor swaps in at runtime: they answer 200 but have
+      // no name, so there is nothing to show the user for them.
+      return typeof meta(m).displayName === "string" && meta(m).displayName.length > 0
+    })
     if (!usable.length) return null
     modelCache = { models: usable, fetchedAt: Date.now() }
     return usable

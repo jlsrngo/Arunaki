@@ -64,6 +64,21 @@ describe("CLI provider registry", () => {
     expect(notLive).toEqual([])
   })
 
+  // fetchAvailableModels returns the IDE's whole menu, including chat_20706/23310 (isInternal,
+// HTTP 400) and the tab_*_preview MODEL_PLACEHOLDER entries, which have no displayName.
+  it("hides internal and placeholder ids from the live catalogue", async () => {
+    const live = (await getCliSupportedModels("antigravity")) ?? []
+    expect(live.length).toBeGreaterThan(0)
+    expect(live.filter((m) => m.startsWith("chat_"))).toEqual([])
+    expect(live.filter((m) => m.startsWith("tab_"))).toEqual([])
+    // gemini-3.1-pro-high is deprecated in favour of gemini-pro-agent.
+    expect(live).not.toContain("gemini-3.1-pro-high")
+    // The models the subscription actually grants must survive the filter.
+    expect(live).toContain("claude-sonnet-4-6")
+    expect(live).toContain("gpt-oss-120b-medium")
+    expect(live).toContain("gemini-3.8-flash-medium")
+  })
+
   it("resolves descriptors by id", () => {
     expect(getCliProviderDescriptor("antigravity")?.quota).toBe("antigravity")
     expect(getCliProviderDescriptor("nope")).toBeUndefined()
