@@ -20,6 +20,8 @@ import {
   buildOpenCodeHeaders,
   applyOpenCodeFingerprint,
   opencodeSessionId,
+  rememberAntigravitySignature,
+  forgetAntigravitySignatures,
 } from "../src/server/local-cli/upstream"
 import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
 
@@ -369,6 +371,36 @@ describe("Upstream request builders", () => {
   it("antigravity: leaves a tool-free conversation untouched", () => {
     const out = chatToAntigravityContents({ messages: [{ role: "user", content: "hi" }] } as any)
     expect(out).toEqual([{ role: "user", parts: [{ text: "hi" }] }])
+  })
+
+  // The bridge holds the signature between turns, because the tool_call the session replays
+  // never carries the key back.
+  it("antigravity: replays a signature the bridge cached from the response", () => {
+    forgetAntigravitySignatures()
+    rememberAntigravitySignature("call_abc", "read", "SIG_FROM_GOOGLE")
+    const out = chatToAntigravityContents({
+      messages: [
+        { role: "user", content: "read REPORT.md" },
+        { role: "assistant", content: null, tool_calls: [{ id: "call_abc", type: "function", function: { name: "read", arguments: "{}" } }] },
+        { role: "tool", tool_call_id: "call_abc", content: "# Report" },
+        { role: "user", content: "summarise" },
+      ],
+    } as any)
+    const json = JSON.stringify(out)
+    expect(json).toContain("SIG_FROM_GOOGLE")
+    // A signed call keeps its result too.
+    expect(json).toContain("functionResponse")
+    forgetAntigravitySignatures()
+    // Cold cache degrades to dropping, never to a rejected request.
+    const cold = JSON.stringify(
+      chatToAntigravityContents({
+        messages: [
+          { role: "assistant", content: null, tool_calls: [{ id: "call_abc", type: "function", function: { name: "read", arguments: "{}" } }] },
+          { role: "tool", tool_call_id: "call_abc", content: "# Report" },
+        ],
+      } as any),
+    )
+    expect(cold).not.toContain("functionCall")
   })
 
   it("antigravity: reasoning effort rewrites the model id tier", () => {

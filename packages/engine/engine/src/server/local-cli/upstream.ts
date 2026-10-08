@@ -587,6 +587,36 @@ export async function resolveAntigravityProjectId(accessToken: string): Promise<
 }
 
 /** OpenAI chat -> Gemini/Antigravity `contents` + `parts`. */
+/**
+ * Gemini 3.x returns an opaque `thoughtSignature` with every functionCall and refuses the
+ * next turn without it ("Function call is missing a thought_signature"). Only our hand-rolled
+ * Cloud Code path needs this: the @ai-sdk/google providers manage it internally, and
+ * OpenAI/Anthropic/Codex have no equivalent concept.
+ *
+ * The bridge sits on both sides of the call, so it can hold on to the signature the response
+ * carried and put it back on the next request. Keyed by the tool_call id, which is the id
+ * Google returned and therefore the id the session replays. In-memory on purpose: after a
+ * restart the cache is cold and the history degrades to unsigned (dropped, not rejected).
+ */
+const ANTIGRAVITY_SIGNATURES = new Map<string, string>()
+const ANTIGRAVITY_SIGNATURE_CACHE_MAX = 2000
+
+export function rememberAntigravitySignature(callId: string | undefined, name: string | undefined, signature: string | undefined): void {
+  if (!signature) return
+  const key = callId || name
+  if (!key) return
+  // Plain FIFO trim; the map only ever holds the current conversation's calls.
+  if (ANTIGRAVITY_SIGNATURES.size >= ANTIGRAVITY_SIGNATURE_CACHE_MAX) {
+    const oldest = ANTIGRAVITY_SIGNATURES.keys().next()
+    if (!oldest.done) ANTIGRAVITY_SIGNATURES.delete(oldest.value)
+  }
+  ANTIGRAVITY_SIGNATURES.set(key, signature)
+}
+
+export function forgetAntigravitySignatures(): void {
+  ANTIGRAVITY_SIGNATURES.clear()
+}
+
 export function chatToAntigravityContents(payload: any): any[] {
   const contents: any[] = []
   // Gemini matches functionResponse by name, not by id, so remember what each
@@ -621,8 +651,13 @@ export function chatToAntigravityContents(payload: any): any[] {
           args = {}
         }
         if (tc.id && tc.function?.name) toolNamesById.set(tc.id, tc.function.name)
-        // Replay the signature the model gave us, otherwise the follow-up turn 400s.
-        const signature = (tc as any).thought_signature ?? tc.function?.thought_signature
+        // Replay the signature the model gave us, otherwise the follow-up turn 400s. It
+        // normally comes back in the cached bridge state rather than on the tool_call,
+        // since the OpenAI-compatible layer drops unknown keys.
+        const signature =
+          (tc as any).thought_signature ??
+          tc.function?.thought_signature ??
+          (tc.id ? ANTIGRAVITY_SIGNATURES.get(tc.id) : undefined)
         parts.push({
           functionCall: { name: tc.function?.name, args, id: tc.id },
           ...(signature ? { thoughtSignature: signature } : {}),
@@ -843,6 +878,8 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
       )
     }
     if (p.functionCall) {
+      // Hold on to the signature so the next request can replay it.
+      rememberAntigravitySignature(p.functionCall.id, p.functionCall.name, p.thoughtSignature)
       out.push(
         sse({
           id: ctx.id,
