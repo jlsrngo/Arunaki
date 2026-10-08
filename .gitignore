@@ -63,3 +63,6 @@ packages/arunaki-poe-auth/dist/*.map
 arunaki.json
 
 .arunaki/
+
+# scratch: throwaway launcher probe scripts
+.launch-test*.ts
