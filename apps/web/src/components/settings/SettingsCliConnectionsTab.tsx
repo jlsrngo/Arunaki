@@ -209,7 +209,10 @@ const VENDOR_BADGES: [RegExp, string][] = [
 const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 /** Turn a raw model id into something readable, falling back to the id when it cannot. */
-export function describeModel(id: string): ModelMeta {
+export function describeModel(id: string | undefined): ModelMeta {
+  // A provider can legitimately have no models yet (registry entry with an empty list, or a
+  // live fetch that returned nothing). Never let that read as a crash.
+  if (!id) return { label: "No models available" };
   const override = MODEL_METADATA[id];
   if (override) return override;
 
@@ -1473,6 +1476,9 @@ const handleAntigravityCliLogin = async () => {
     friendlyName: string,
     isLive = false
   ) => {
+    // Nothing to choose from yet: a provider with an empty catalogue gets no dropdown, since
+    // an empty picker is noise. The card still shows status, docs, ping and connect.
+    if (!presetModels.length) return null;
     const currentModel = selectedModels[targetKey] || presetModels[0];
     const meta = describeModel(currentModel);
     const isOpen = openDropdownId === targetKey;
