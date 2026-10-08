@@ -1,4 +1,4 @@
-import crypto from "crypto"
+﻿import crypto from "crypto"
 import fs from "fs"
 import http from "http"
 import os from "os"
@@ -74,7 +74,7 @@ const SPECS: Record<OauthTarget, OauthSpec> = {
     label: "Antigravity",
     displayName: "Google Antigravity (AI Pro)",
     // Resolved from env/local config at runtime: the Antigravity IDE's own OAuth client.
-    // Never committed — GitHub push protection rejects embedded client secrets.
+    // Never committed â€” GitHub push protection rejects embedded client secrets.
     clientId: "",
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
@@ -186,7 +186,7 @@ function listenForCode(spec: OauthSpec, requestId: string, p: Pending): Promise<
       if (err?.code === "EADDRINUSE" && spec.fixedPort) {
         reject(
           new Error(
-            `Port ${spec.fixedPort} is already in use — that is the redirect URI registered for the ${spec.label} OAuth client. Close whatever is holding it and retry.`,
+            `Port ${spec.fixedPort} is already in use â€” that is the redirect URI registered for the ${spec.label} OAuth client. Close whatever is holding it and retry.`,
           ),
         )
       } else {
@@ -275,7 +275,13 @@ async function exchange(
     accountEmail: decodeJwtEmail(data.id_token),
     expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
     lastRefreshAt: Date.now(),
-    sourcePath: path.join(os.homedir(), ".arunaki", `oauth-${target}.json`),
+    // Label only: an OAuth credential is kept in Arunaki's own store and has no file on disk.
+// harvester must treat a missing file as expected for type "oauth" rather than dropping it.
+// Empty on purpose: an OAuth credential lives only in Arunaki's store and has no file on
+// disk. harvester drops credentials whose sourcePath file is gone, so pointing at a path we
+// never write made the freshly minted token disappear on the next rescan, minutes after the
+// browser said "Connected".
+sourcePath: "",
   }
 }
 

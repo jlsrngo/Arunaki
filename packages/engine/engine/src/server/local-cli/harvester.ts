@@ -1,4 +1,4 @@
-import fs from "fs"
+﻿import fs from "fs"
 import path from "path"
 import os from "os"
 import {
@@ -29,10 +29,38 @@ function emailFromJwt(idToken?: string): string | undefined {
   }
 }
 
+/**
+ * Fall back to Arunaki's own store when the vendor wrote no file.
+ *
+ * A browser OAuth token has no home on disk â€” it is minted by us and kept in the store with
+ * an empty sourcePath â€” so the file readers below would never see it and the bridge would
+ * report the provider as signed out even though sign-in succeeded.
+ */
+function readStoredCredential(provider: string, filePath: string, customHome?: string): DiscoveredCredential | null {
+  // Synchronous on purpose: these readers are sync and the bridge calls them per request.
+  // Reading the small JSON directly avoids turning the whole credential path async.
+  try {
+    // Honour customHome, otherwise a caller asking about another home would get this
+    // machine's token back.
+    const storePath = path.join(customHome || os.homedir(), ".arunaki", "local-cli-credentials.json")
+    if (!fs.existsSync(storePath)) return null
+    const all = JSON.parse(fs.readFileSync(storePath, "utf8")) as Record<string, DiscoveredCredential>
+    const stored = all[provider]
+    if (!stored?.accessToken) return null
+    // Only reach for the store when the credential never had a file. If it did have one and
+    // that file is now gone, the user signed out and we must honour that instead of
+    // resurrecting a deleted credential.
+    if (stored.sourcePath && !fs.existsSync(stored.sourcePath)) return null
+    return { ...stored, sourcePath: stored.sourcePath || filePath }
+  } catch {
+    return null
+  }
+}
+
 export function readCodexCredential(customHome?: string): DiscoveredCredential | null {
   const p = path.join(customHome || os.homedir(), ".codex", "auth.json")
   const data = readJson(p)
-  if (!data) return null
+  if (!data) return readStoredCredential("codex", p, customHome)
 
   // Mode OAuth: { tokens: { access_token, refresh_token, account_id, id_token?, expires_at? } }
   const t = data.tokens
@@ -96,7 +124,8 @@ export function readClaudeCredential(customHome?: string): DiscoveredCredential 
     }
   }
 
-  return null
+  // Browser sign-in writes no file, so check Arunaki's store before giving up.
+  return readStoredCredential("claude", credPath, customHome)
 }
 
 export function readKiroCredential(customHome?: string): DiscoveredCredential | null {
@@ -201,9 +230,11 @@ export async function scanLocalCredentials(forceRefresh = false): Promise<Record
   const stored = await loadAllCredentials()
   for (const [k, v] of Object.entries(stored)) {
     // Prevent mock test fixtures or deleted files from resurrecting as live credentials
-    if (v.sourcePath === "mock" || (v.sourcePath && !fs.existsSync(v.sourcePath))) {
-      continue
-    }
+    if (v.sourcePath === "mock") continue
+    // OAuth credentials have no file on disk: the token lives only in this store and the
+    // path is just a label. Dropping them here wiped a freshly minted Codex token about a
+    // minute after the browser said "Connected", so exempt anything that never had a file.
+    if (v.sourcePath && !fs.existsSync(v.sourcePath)) continue
     if (!results[k]) {
       results[k] = v
     } else if (v.lastRefreshAt && (!results[k].lastRefreshAt || v.lastRefreshAt > results[k].lastRefreshAt!)) {
