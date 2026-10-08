@@ -33,10 +33,9 @@ class LocalCliBridge {
     return LOCAL_BRIDGE_PORT
   }
 
-  // `agy --input-format stream-json` runs one turn per NDJSON line, so a multi-turn
-  // conversation has to be replayed as a single prompt. Keep the tool directive attached
-  // to it: the worker's tool calls come back as ```tool_call blocks that the host engine
-  // executes, not as native function calling.
+  // Tools travel as native function calling on every lane. A former directive told models to
+  // fake a tool call inside a fenced block; nothing parsed that, so a compliant model just
+  // showed raw JSON to the user. The directive is gone, not merely unused.
   public start(): Promise<boolean> {
     if (this.isRunning) return Promise.resolve(true)
 
@@ -216,12 +215,15 @@ class LocalCliBridge {
         conversationParts.push(`User: ${contentStr}`)
       } else if (msg.role === "assistant") {
         let text = contentStr
+        // Prior tool calls are rendered as plain prose, never as a fenced pseudo-protocol.
+        // Nothing in Arunaki parses that format any more, and emitting it taught models to
+        // answer in a shape the host silently dropped, showing raw JSON to the user.
         if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
           const callsStr = msg.tool_calls
             .map((tc: any) => {
               const name = tc?.function?.name || "unknown"
               const args = tc?.function?.arguments || "{}"
-              return `\`\`\`tool_call\n{"name": "${name}", "arguments": ${typeof args === "string" ? args : JSON.stringify(args)}}\n\`\`\``
+              return `[called ${name}(${typeof args === "string" ? args : JSON.stringify(args)})]`
             })
             .join("\n")
           text = text ? `${text}\n${callsStr}` : callsStr
@@ -230,34 +232,6 @@ class LocalCliBridge {
       } else if (msg.role === "tool") {
         conversationParts.push(`[Tool Result for ${msg.tool_call_id || "call"}]:\n${contentStr}`)
       }
-    }
-
-    let toolsDirective = ""
-    if (Array.isArray(payload.tools) && payload.tools.length > 0) {
-      const toolDefs = payload.tools
-        .map((t: any) => {
-          const fn = t.function || t
-          const props = fn.parameters?.properties
-          const req = fn.parameters?.required ?? []
-          const params = props
-            ? Object.entries(props)
-                .map(([k, v]: [string, any]) => `${k} (${v.type || "string"}${req.includes(k) ? ", required" : ""}): ${v.description || ""}`)
-                .join("; ")
-            : ""
-          return `- ${fn.name}: ${fn.description || ""}${params ? ` [Parameters: ${params}]` : ""}`
-        })
-        .join("\n")
-
-      toolsDirective = `\n\nAvailable Arunaki Workspace Tools:\n${toolDefs}\n\nCRITICAL TOOL USAGE INSTRUCTIONS:
-- You DO NOT have direct file access or execution in your runtime environment. DO NOT execute commands or invoke native tools.
-- When you need to read, write, edit, or search documents in the workspace, you MUST output a tool call block formatted EXACTLY as:
-\`\`\`tool_call
-{"name": "<tool_name>", "arguments": { <args> }}
-\`\`\`
-- Arunaki's host engine will execute your tool call and supply the result back to you in the next turn.
-- To inspect or modify files, ALWAYS output the appropriate tool call instead of guessing or falsely claiming the file was already updated.
-- NEVER regurgitate, paste, or dump raw JSON structures, cell maps (e.g. {"ref":"...", "value":...}), or raw tool results in your chat response. Always communicate in clean, human-readable Indonesian/English and clean markdown tables.
-- CRITICAL CONVERSATION RULE: Always answer the user's latest question directly. If the user asks whether a specific item or file (e.g. ORDER.txt) was included, answer their question directly with a clear Yes/No and brief explanation instead of blindly repeating a previous confirmation table!`
     }
 
     const finalPrompt = conversationParts.join("\n\n") || "Hello"
@@ -365,13 +339,8 @@ class LocalCliBridge {
       requestedModel.includes("9router")
 
     if (isOpenCode) {
-      await this.handleOpenCodeCompletion(payload, res, systemPrompt, toolsDirective)
+      await this.handleOpenCodeCompletion(payload, res, systemPrompt)
       return
-    }
-
-    // Append tools directive to systemPrompt for Claude Code as well
-    if (toolsDirective) {
-      systemPrompt += (systemPrompt ? "\n" : "") + toolsDirective
     }
 
     // â”€â”€ Fast-Path: Direct Anthropic Messages API â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -435,7 +404,6 @@ class LocalCliBridge {
     payload: any,
     res: http.ServerResponse,
     systemPrompt: string,
-    toolsDirective: string,
   ) {
     const rawModel = (payload.model || "").toLowerCase()
     const is9Router =
@@ -535,12 +503,11 @@ class LocalCliBridge {
       }
 
       const messages: any[] = []
-      if (systemPrompt || toolsDirective) {
+      if (systemPrompt) {
         messages.push({
           role: "system",
           content: [
             systemPrompt,
-            toolsDirective,
             "[SYSTEM INSTRUCTION: You are Arunaki Workstation's intelligent document assistant powered by OpenCode and Groq. Answer directly, concisely, and helpfully.]",
           ]
             .filter(Boolean)
