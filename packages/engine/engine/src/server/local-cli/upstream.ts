@@ -931,18 +931,40 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
   return out.length ? out.join("") : null
 }
 
+/**
+ * Resolve the project id, renewing the credential once if Google answers 401.
+ *
+ * loadCodeAssist 401 means the token went stale between reads. Falling straight back to the
+ * agy worker is far slower and times out under load, so renew here and keep the direct path.
+ */
+export async function resolveAntigravityProjectIdWithRefresh(
+  auth: AntigravityAuth,
+): Promise<{ auth: AntigravityAuth; projectId: string } | null> {
+  let projectId = auth.projectId || (await resolveAntigravityProjectId(auth.accessToken))
+  if (projectId) return { auth, projectId }
+
+  const { refreshAntigravityCredentialViaAgy, getAntigravityAuth } = await import("./detector.js")
+  if (!(await refreshAntigravityCredentialViaAgy())) return null
+  const fresh = await getAntigravityAuth(true)
+  if (!fresh?.accessToken) return null
+  projectId = fresh.projectId || (await resolveAntigravityProjectId(fresh.accessToken))
+  return projectId ? { auth: fresh, projectId } : null
+}
+
 export async function streamDirectAntigravityCompletion(
   payload: any,
   res: http.ServerResponse,
-  auth: AntigravityAuth | null,
+  initialAuth: AntigravityAuth | null,
 ): Promise<boolean> {
-  if (!auth?.accessToken) return false
+  if (!initialAuth?.accessToken) return false
 
-  const projectId = auth.projectId || (await resolveAntigravityProjectId(auth.accessToken))
-  if (!projectId) {
+  const resolved = await resolveAntigravityProjectIdWithRefresh(initialAuth)
+  if (!resolved) {
     console.warn("[FastPath:Antigravity] Could not resolve a project id, falling back")
     return false
   }
+  const auth = resolved.auth
+  const projectId = resolved.projectId
 
   const sessionId = opencodeSessionId(payload)
   // Sending requestType:"agent" makes Google bucket the request into a

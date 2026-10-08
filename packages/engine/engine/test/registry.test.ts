@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { Schema } from "effect"
-import { getCliSupportedModels } from "../src/server/local-cli/detector"
+import { getCliSupportedModels, getAntigravityAuth } from "../src/server/local-cli/detector"
+import { resolveAntigravityProjectIdWithRefresh } from "../src/server/local-cli/upstream"
 import { CLI_PROVIDER_REGISTRY, getCliProviderDescriptor } from "../src/server/local-cli/registry"
 
 describe("CLI provider registry", () => {
@@ -77,6 +78,16 @@ describe("CLI provider registry", () => {
     expect(live).toContain("claude-sonnet-4-6")
     expect(live).toContain("gpt-oss-120b-medium")
     expect(live).toContain("gemini-3.8-flash-medium")
+  })
+
+  // The 401 path used to demand GOOGLE_OAUTH_CLIENT_* and then fall back to the slow agy
+  // worker, which timed out. It must renew through agy and keep the direct route.
+  it("antigravity: resolves a project id even when the credential needs renewing", async () => {
+    const auth = await getAntigravityAuth(true)
+    expect(auth?.accessToken).toBeTruthy()
+    const resolved = await resolveAntigravityProjectIdWithRefresh(auth!)
+    expect(resolved?.projectId).toBeTruthy()
+    expect(resolved?.auth.accessToken).toBeTruthy()
   })
 
   it("resolves descriptors by id", () => {

@@ -251,7 +251,7 @@ export function loadGoogleOAuthClient(): { clientId: string; clientSecret: strin
   return null
 }
 
-let antigravityAuth: { accessToken: string; refreshToken?: string; expiresAt?: number } | null = null
+let antigravityAuth: { accessToken: string; refreshToken?: string; expiresAt?: number; projectId?: string } | null = null
 let antigravityAuthCheckedAt = 0
 
 /**
@@ -272,6 +272,11 @@ export async function getAntigravityAuth(force = false): Promise<typeof antigrav
     const fresh =
       !fromCredManager.expiresAt || fromCredManager.expiresAt - Date.now() > 5 * 60_000
     if (fresh) return (antigravityAuth = fromCredManager)
+    // Stale but renewable: agy refreshes the shared Credential Manager entry for us, so
+    // prefer that over demanding GOOGLE_OAUTH_CLIENT_* the user has no reason to set.
+    const renewed = await refreshAntigravityCredentialViaAgy()
+    const after = renewed ? readAntigravityCredentialManager() : undefined
+    if (after?.accessToken) return (antigravityAuth = after)
   }
 
   const credsPath = path.join(os.homedir(), ".gemini", "oauth_creds.json")
@@ -710,8 +715,12 @@ export async function refreshAntigravityCredentialViaAgy(): Promise<boolean> {
   // Drop the short-lived cache so the next read picks up whatever agy just wrote.
   antigravityAuth = null
   antigravityAuthCheckedAt = 0
-  const after = readAntigravityCredentialManager()?.accessToken
-  return Boolean(after) && after !== before
+  const after = readAntigravityCredentialManager()
+  if (!after?.accessToken) return false
+  // Report whether we ended up with a usable token, not whether the string changed: agy can
+  // refresh in place, and a still-valid token is a success for every caller here.
+  const usable = !after.expiresAt || after.expiresAt - Date.now() > 60_000
+  return usable || Boolean(after.accessToken && after.accessToken !== before)
 }
 
 export function launchAntigravityLogin(): { success: boolean; message: string } {
