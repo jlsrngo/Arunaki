@@ -621,7 +621,12 @@ export function chatToAntigravityContents(payload: any): any[] {
           args = {}
         }
         if (tc.id && tc.function?.name) toolNamesById.set(tc.id, tc.function.name)
-        parts.push({ functionCall: { name: tc.function?.name, args, id: tc.id } })
+        // Replay the signature the model gave us, otherwise the follow-up turn 400s.
+        const signature = (tc as any).thought_signature ?? tc.function?.thought_signature
+        parts.push({
+          functionCall: { name: tc.function?.name, args, id: tc.id },
+          ...(signature ? { thoughtSignature: signature } : {}),
+        })
       }
     }
 
@@ -646,7 +651,44 @@ export function chatToAntigravityContents(payload: any): any[] {
     if (prev && prev.role === c.role) prev.parts.push(...c.parts)
     else merged.push({ role: c.role, parts: c.parts })
   }
-  return merged
+  return dropUnsignedFunctionCalls(merged)
+}
+
+/**
+ * Gemini 3.x answers 400 "Function call is missing a thought_signature" for any replayed
+ * functionCall part that lacks the signature the model itself produced. That signature is
+ * per-call and opaque, and the tool_call id the OpenAI-compatible layer hands us does not
+ * carry it through the session, so a replayed history cannot satisfy the requirement.
+ *
+ * Drop those pairs rather than sending a request the endpoint will reject. The tool results
+ * are removed with their calls so the turn stays well-formed; the surrounding text, which is
+ * what the model actually reasons over, survives. Verified live: the same history returns 400
+ * without signatures and 200 with one.
+ */
+function dropUnsignedFunctionCalls(contents: any[]): any[] {
+  const signed = (p: any) =>
+    typeof p?.thoughtSignature === "string" && p.thoughtSignature.length > 0
+
+  // First pass: which tool names still have a properly signed call.
+  const usableNames = new Set<string>()
+  for (const turn of contents)
+    for (const p of turn.parts ?? [])
+      if (p.functionCall && signed(p)) usableNames.add(p.functionCall.name)
+
+  const out: any[] = []
+  let dropped = false
+  for (const turn of contents) {
+    const kept = (turn.parts ?? []).filter((p: any) => {
+      if (p.functionCall) return signed(p)
+      // Keep a result only while its call survived, otherwise it is an orphan.
+      if (p.functionResponse) return usableNames.has(p.functionResponse.name)
+      return true
+    })
+    if (kept.length !== (turn.parts ?? []).length) dropped = true
+    if (kept.length) out.push({ role: turn.role, parts: kept })
+    else if (turn.role === "model") dropped = true
+  }
+  return dropped ? out : contents
 }
 
 // Cloud Code validates tool parameters against a far smaller Schema proto than the one
@@ -817,6 +859,11 @@ export function mapAntigravityEvent(ev: any, ctx: { id: string; created: number;
                     id: p.functionCall.id ?? `call_${Math.random().toString(36).slice(2, 12)}`,
                     type: "function",
                     function: { name: p.functionCall.name, arguments: JSON.stringify(p.functionCall.args ?? {}) },
+                    // Gemini 3.x refuses the next turn with "Function call is missing a
+                    // thought_signature" unless this rides along with the call. OpenAI has no
+                    // field for it, so carry it as an extra key on the tool_call and read it
+                    // back in chatToAntigravityContents.
+                    ...(p.thoughtSignature ? { thought_signature: p.thoughtSignature } : {}),
                   },
                 ],
               },

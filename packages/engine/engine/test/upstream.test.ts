@@ -299,7 +299,11 @@ describe("Upstream request builders", () => {
         {
           role: "assistant",
           content: null,
-          tool_calls: [{ id: "c1", function: { name: "read", arguments: '{"path":"a.txt"}' } }],
+          // Signature is required for Gemini 3.x to accept the replay; unsigned calls are
+          // dropped by policy (see the dedicated test below).
+          tool_calls: [
+            { id: "c1", function: { name: "read", arguments: '{"path":"a.txt"}' }, thought_signature: "SIG" },
+          ],
         },
         { role: "tool", tool_call_id: "c1", content: "isi" },
         { role: "user", content: "lanjut" },
@@ -332,6 +336,41 @@ describe("Upstream request builders", () => {
   // Google ships reasoning effort as part of the model id, and the UI's Low/Medium/High
   // picker arrives as `payload.variant`. Before antigravityVariantModelId the picker was
   // inert: every effort sent the same model.
+  // Gemini 3.x answers 400 "Function call is missing a thought_signature" for a replayed
+  // functionCall, and the signature is opaque per-call, so a history we cannot sign has to
+  // lose the tool round-trip rather than the request.
+  it("antigravity: drops unsigned tool calls and their orphan results", () => {
+    const history = [
+      { role: "user", content: "read REPORT.md" },
+      { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "read", arguments: '{"path":"REPORT.md"}' } }] },
+      { role: "tool", tool_call_id: "c1", content: "# Report" },
+      { role: "user", content: "summarise it" },
+    ]
+    const out = chatToAntigravityContents({ messages: history } as any)
+    const json = JSON.stringify(out)
+    expect(json).not.toContain("functionCall")
+    expect(json).not.toContain("functionResponse")
+    // The follow-up question and the surrounding text must survive.
+    expect(json).toContain("summarise it")
+    expect(json).toContain("read REPORT.md")
+  })
+
+  it("antigravity: keeps a tool round-trip when the signature is replayed", () => {
+    const history: any = [
+      { role: "user", content: "read REPORT.md" },
+      { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "read", arguments: "{}" }, thought_signature: "SIG" }] },
+      { role: "tool", tool_call_id: "c1", content: "# Report" },
+    ]
+    const json = JSON.stringify(chatToAntigravityContents({ messages: history } as any))
+    expect(json).toContain("thoughtSignature")
+    expect(json).toContain("functionResponse")
+  })
+
+  it("antigravity: leaves a tool-free conversation untouched", () => {
+    const out = chatToAntigravityContents({ messages: [{ role: "user", content: "hi" }] } as any)
+    expect(out).toEqual([{ role: "user", parts: [{ text: "hi" }] }])
+  })
+
   it("antigravity: reasoning effort rewrites the model id tier", () => {
     const at = (model: string, variant?: string) =>
       buildAntigravityBody({ model, messages: [{ role: "user", content: "hi" }], variant }, "p", "s", true)!.model
