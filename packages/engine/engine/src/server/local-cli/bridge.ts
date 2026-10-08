@@ -449,8 +449,9 @@ class AntigravityDaemonWorker {
     // Process next queued turn if any
     this.processQueue()
 
-    // Always recycle daemon worker after each completed turn so agy context never compounds duplicate history!
-    // this.prewarm() inside recycle() immediately prepares the next worker in warm standby (0ms delay).
+    // Recycle the worker after each turn so agy context never compounds duplicate history.
+    // It is deliberately not pre-warmed back into standby: that kept a 181MB child alive for a
+    // fallback that may never be needed again. See recycle().
     if (!this.currentTurn && this.turnQueue.length === 0) {
       this.recycle()
     }
@@ -577,7 +578,9 @@ class AntigravityDaemonWorker {
         oldChild.kill()
       } catch {}
     }
-    this.prewarm()
+    // No re-spawn. Recycle exists so agy's own context cannot compound across turns; leaving
+    // a warm standby running defeats that and keeps a 181MB child alive for a fallback that
+    // may never be needed again. The next fallback pays one spawn.
   }
 
   public stop(): void {
@@ -627,9 +630,7 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
     return systemPrompt ? `${directive}\n\n${systemPrompt}\n\n${convo}` : `${directive}\n\n${convo}`
   }
 
-  public prewarmAgyWorker(): void {
-    this.agyDaemon.prewarm()
-  }
+  
 
   public start(): Promise<boolean> {
     if (this.isRunning) return Promise.resolve(true)
@@ -723,8 +724,10 @@ DO NOT invoke any native internal tools or execute shell commands.${toolsDirecti
 
       this.server.listen(LOCAL_BRIDGE_PORT, "127.0.0.1", () => {
         this.isRunning = true
-        // Pre-warm the Antigravity daemon worker on bridge start
-        this.agyDaemon.prewarm()
+        // Deliberately NOT pre-warming the agy chat worker. All Antigravity traffic goes
+        // direct to Cloud Code; agy is only needed to renew the Credential Manager token, and
+        // spawning a 181MB process on every start cost ~5s and a resident child for nothing.
+        // The worker is spawned on demand if the direct route ever fails.
         // Schedule background token refresh
         scheduleBackgroundRefresh()
         resolve(true)
