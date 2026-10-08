@@ -189,7 +189,6 @@ class LocalCliBridge {
 
     const messages = payload.messages ?? []
     let systemPrompt = ""
-    const conversationParts: string[] = []
 
     const extractContent = (content: any): string => {
       if (typeof content === "string") return content
@@ -207,34 +206,14 @@ class LocalCliBridge {
       return typeof content === "object" ? JSON.stringify(content) : String(content ?? "")
     }
 
+    // Only the system prompt is lifted out. An earlier version also flattened the conversation
+    // into one "User:/Assistant:" transcript for the CLI lanes; those lanes are gone and the
+    // joined prompt was assigned to a variable nothing ever read.
     for (const msg of messages) {
+      if (msg.role !== "system" && msg.role !== "developer") continue
       const contentStr = extractContent(msg.content)
-      if (msg.role === "system") {
-        systemPrompt += (systemPrompt ? "\n" : "") + contentStr
-      } else if (msg.role === "user") {
-        conversationParts.push(`User: ${contentStr}`)
-      } else if (msg.role === "assistant") {
-        let text = contentStr
-        // Prior tool calls are rendered as plain prose, never as a fenced pseudo-protocol.
-        // Nothing in Arunaki parses that format any more, and emitting it taught models to
-        // answer in a shape the host silently dropped, showing raw JSON to the user.
-        if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
-          const callsStr = msg.tool_calls
-            .map((tc: any) => {
-              const name = tc?.function?.name || "unknown"
-              const args = tc?.function?.arguments || "{}"
-              return `[called ${name}(${typeof args === "string" ? args : JSON.stringify(args)})]`
-            })
-            .join("\n")
-          text = text ? `${text}\n${callsStr}` : callsStr
-        }
-        if (text) conversationParts.push(`Assistant: ${text}`)
-      } else if (msg.role === "tool") {
-        conversationParts.push(`[Tool Result for ${msg.tool_call_id || "call"}]:\n${contentStr}`)
-      }
+      if (contentStr) systemPrompt += (systemPrompt ? "\n" : "") + contentStr
     }
-
-    const finalPrompt = conversationParts.join("\n\n") || "Hello"
 
     // â”€â”€ Kiro (AWS) direct route â”€â”€
     // Free tier, no CLI. Registered first so its shared model names never reach another
