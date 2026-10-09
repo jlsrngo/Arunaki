@@ -57,4 +57,23 @@ describe("the settings page has no hand-written provider list", () => {
     expect(CLI_PROVIDER_REGISTRY.length).toBeGreaterThan(4)
     expect(tab).toContain("Object.fromEntries")
   })
+
+  test("the discovered-credentials row is derived too", () => {
+    // It tested four provider names, so OpenCode was found by the harvester and then never
+    // rendered - the credential existed and the card row said nothing.
+    expect(tab).not.toMatch(/discoveredClaude\?\.hasToken \|\|/)
+    expect(tab).toMatch(/\(data\.discovered \?\? \[\]\)[\s\S]{0,120}\.filter\(\(x\) => x\.hasToken\)/)
+  })
+
+  test("no provider id is spelled out in a discovered lookup", () => {
+    // Any leftover find-by-name is another place a provider can be silently omitted.
+    expect(tab).not.toMatch(/data\.discovered\?\.find\(\(d\) => d\.provider ===/)
+  })
+
+  test("the ping button stays a button after a failure", () => {
+    // It used to render the last result in place of its own label, so one failed check left the
+    // provider reading "Offline" with no way to retry from the control that failed.
+    expect(tab).not.toContain('"Offline"')
+    expect(tab).toMatch(/isEn \? "Test Ping" : "Uji Ping"/)
+  })
 })

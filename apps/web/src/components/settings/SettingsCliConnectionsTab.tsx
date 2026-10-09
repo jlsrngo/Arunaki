@@ -383,10 +383,6 @@ export function SettingsCliConnectionsTab({
   const toggleCard = (id: string) =>
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const discoveredClaude = data.discovered?.find((d) => d.provider === "claude");
-  const discoveredCodex = data.discovered?.find((d) => d.provider === "codex");
-  const discoveredKiro = data.discovered?.find((d) => d.provider === "kiro");
-  const discoveredCursor = data.discovered?.find((d) => d.provider === "cursor");
 
   /**
    * Where each provider's card state comes from.
@@ -712,21 +708,25 @@ export function SettingsCliConnectionsTab({
             )}
             title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
           >
-            {testingPingTarget === id ? (
-              <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
-            ) : (
-              <Wifi className="w-3 h-3 text-zinc-400" />
-            )}
-            <span>
-              {testingPingTarget === id
-                ? isEn ? "Testing..." : "Menguji..."
-                : ping
-                ? ping.success
-                  ? `${ping.timeMs}ms`
-                  : "Offline"
-                : isEn ? "Test Ping" : "Uji Ping"}
+          {testingPingTarget === id ? (
+            <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+          ) : (
+            <Wifi className="w-3 h-3 text-zinc-400" />
+          )}
+          <span>
+            {testingPingTarget === id
+              ? isEn ? "Testing..." : "Menguji..."
+              : isEn ? "Test Ping" : "Uji Ping"}
+          </span>
+          {ping && !testingPingTarget && (
+            <span
+              className={ping.success ? "text-emerald-400" : "text-amber-400"}
+              title={ping.success ? undefined : isEn ? "Last check failed" : "Pemeriksaan terakhir gagal"}
+            >
+              {ping.success ? `${ping.timeMs}ms` : isEn ? "failed" : "gagal"}
             </span>
-          </button>
+          )}
+        </button>
           {d.docsUrl && (
             <button
               type="button"
@@ -1910,18 +1910,26 @@ const isGeminiActive =
       <div className="space-y-2 w-full">
         {(data.registry ?? []).map((descriptor) => renderProviderCard(descriptor))}
 
-        {(discoveredClaude?.hasToken || discoveredCodex?.hasToken || discoveredKiro?.hasToken || discoveredCursor?.hasToken) && (
-          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-4">
+        {(data.discovered ?? []).some((x) => x.hasToken) && (
+          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center gap-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="min-w-0 text-xs text-zinc-400 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-zinc-200">Discovered Local Caches:</span>
-                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code · OK</span>}
-                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT · OK</span>}
-                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO · OK</span>}
-                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE · OK</span>}
+                {/* Derived, not enumerated. This row used to test four providers by name, so
+                    OpenCode was found by the harvester and then never rendered. */}
+                {(data.discovered ?? [])
+                  .filter((x) => x.hasToken)
+                  .map((x) => (
+                    <span
+                      key={x.provider}
+                      className="inline-flex items-center gap-1 text-emerald-400 font-medium"
+                    >
+                      {x.displayName || x.provider} &middot; OK
+                    </span>
+                  ))}
               </div>
-            </div>
+              </div>
             <button
               type="button"
               onClick={() => handleRefreshCred("all")}
