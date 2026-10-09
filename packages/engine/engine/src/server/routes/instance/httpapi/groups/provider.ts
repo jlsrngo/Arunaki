@@ -203,6 +203,12 @@ export const LocalCliProviderDescriptor = Schema.Struct({
     noticeId: Schema.String,
     url: Schema.String,
   }))),
+  // Must be repeated here: the schema encodes exactly its declared keys, so a registry field
+  // that is not restated below is dropped from the response with no error at either end.
+  note: Schema.optional(Schema.UndefinedOr(Schema.Struct({
+    text: Schema.String,
+    textId: Schema.String,
+  }))),
 })
 
 export const LocalCliStatusEnvelope = Schema.Struct({

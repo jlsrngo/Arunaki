@@ -47,6 +47,12 @@ export interface CliProviderDescriptor {
    * verified list. Read the notice per provider instead of assuming paid-only.
    */
   entitlement?: { notice: string; noticeId: string; url: string }
+  /**
+   * A standing caveat shown on the card whether or not the provider is connected: something the
+   * user will hit in normal use that is not a sign-in wall. Entitlement is the wrong field for it,
+   * since that only renders before sign-in, and a performance characteristic is not a requirement.
+   */
+  note?: { text: string; textId: string }
 }
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
@@ -162,12 +168,19 @@ notice:
     // terminal-only, exactly like Antigravity, and the chat route stays a direct Zen call rather
     // than OpenCode's own local server, whose agent would run shell commands on this machine.
     requiresCli: true,
-    loginMode: "terminal",
-    supportsAutoConfigure: false,
-    supportsBrowserLogin: false,
-  },
-  {
-    id: "antigravity",
+loginMode: "terminal",
+supportsAutoConfigure: false,
+supportsBrowserLogin: false,
+// Measured across live smoke runs: 2-6s typical, up to 60s when Zen routes to a cold upstream
+// model. Nothing is stuck and no tool is being run, so the honest place for it is on the card
+// rather than a spinner that eventually clears.
+note: {
+text: "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
+textId: "Permintaan native lewat OpenCode Zen bisa sampai semenit saat model baru dipakai. Lambat, bukan macet.",
+},
+},
+{
+id: "antigravity",
     name: "Google Antigravity CLI",
     vendor: "Google DeepMind",
     docsUrl: "https://antigravity.google.com",

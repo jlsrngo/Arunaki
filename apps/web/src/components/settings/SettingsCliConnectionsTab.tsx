@@ -53,7 +53,7 @@ interface CliProviderDescriptor {
   loginCommand?: string;
   credentialPath?: string;
   credentialTarget?: string;
-  quota: "antigravity" | "claude" | "codex" | "none";
+  quota: "antigravity" | "claude" | "codex" | "kiro" | "none";
   models: string[];
   requiresCli: boolean;
   loginMode: "terminal" | "browser" | "none";
@@ -61,6 +61,7 @@ interface CliProviderDescriptor {
   supportsBrowserLogin: boolean;
   /** Subscription the vendor requires before it issues a token. */
   entitlement?: { notice: string; noticeId: string; url: string };
+note?: { text: string; textId: string };
 }
 
 interface AntigravityStatus {
@@ -686,6 +687,12 @@ export function SettingsCliConnectionsTab({
                 >
                   {isEn ? "See plans" : "Lihat paket"}
                 </a>
+              </p>
+            )}
+            {/* A standing caveat, not a sign-in wall: shown connected or not. */}
+            {d.note && (
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                {isEn ? d.note.text : d.note.textId}
               </p>
             )}
           </div>
