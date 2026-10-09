@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Terminal,
   Check,
@@ -301,6 +301,7 @@ export function SettingsCliConnectionsTab({
     Record<string, { success: boolean; timeMs: number; message?: string }>
   >({});
   const [refreshingTarget, setRefreshingTarget] = useState<string | null>(null);
+  const [signingOutTarget, setSigningOutTarget] = useState<string | null>(null);
   const [quota, setQuota] = useState<QuotaReport[]>([]);
   const [liveModels, setLiveModels] = useState<Record<string, string[]>>({});
   const [modelsAreLive, setModelsAreLive] = useState<Record<string, boolean>>({});
@@ -424,8 +425,10 @@ export function SettingsCliConnectionsTab({
     },
     codex: {
       installed: Boolean(data.codex?.installed),
-      signedIn: Boolean(discoveredCodex?.hasToken),
-      email: discoveredCodex?.accountEmail,
+      // Prefer the credential-derived flag. discovered is a snapshot of the same scan and lags
+      // behind, which is how a signed-in card still read "Not installed".
+      signedIn: Boolean(data.codex?.signedIn || discoveredCodex?.hasToken),
+      email: data.codex?.accountEmail ?? discoveredCodex?.accountEmail,
       active: isCodexActive,
       version: data.codex?.version,
     },
@@ -467,10 +470,10 @@ export function SettingsCliConnectionsTab({
 
 
   // A credential stays in the local store after its CLI cache is gone so Refresh can
-  // recover it â€” never label an already expired token "Ready".
+  // recover it ” never label an already expired token "Ready".
 
 
-  // Live rate-limit windows straight from each vendor â€” nothing here is hardcoded.
+  // Live rate-limit windows straight from each vendor ” nothing here is hardcoded.
   // Live model catalogue per provider. The registry list is only a fallback: Google ships
   // and retires tiers constantly, and the static list named models this account cannot call
   // (claude-sonnet-5-5 and gemini-3.7-flash are not in the live catalogue).
@@ -510,7 +513,7 @@ export function SettingsCliConnectionsTab({
   };
 
   const formatReset = (resetAt?: number) => {
-    if (!resetAt) return isEn ? "â€”" : "â€”";
+    if (!resetAt) return isEn ? "”" : "”";
     const diff = resetAt - Date.now();
     if (diff <= 0) return isEn ? "now" : "sekarang";
     const mins = Math.floor(diff / 60000);
@@ -652,6 +655,11 @@ export function SettingsCliConnectionsTab({
               <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[220px]">
                 {state.signedIn
                   ? isEn ? "Connected" : "Terhubung"
+                  : // "Not installed" is meaningless for a provider that installs nothing. Codex
+                    // and Claude sign in through a browser, so the only thing left to say is that
+                    // a sign-in is still missing.
+                    !d.requiresCli
+                  ? isEn ? "Sign-in needed" : "Perlu login"
                   : state.installed
                   ? isEn ? "Sign-in needed" : "Perlu login"
                   : loading
@@ -670,7 +678,7 @@ export function SettingsCliConnectionsTab({
             </div>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
               {d.vendor}
-              {state.version ? ` â€¢ ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
+              {state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
             </p>
             {/* Say the requirement up front. Hitting a wall in the browser teaches nothing;
                 the user has to come back and guess why it failed. */}
@@ -861,6 +869,34 @@ export function SettingsCliConnectionsTab({
                     : "Masuk via browser"}
                 </button>
               )}
+              {/* Signing out deletes the stored token. Without it a user who connected a
+                  subscription account had no way to remove it from Arunaki. */}
+              {state.signedIn && discovered?.hasToken && (
+                <button
+                  type="button"
+                  onClick={() => handleSignOut(id)}
+                  disabled={signingOutTarget === id}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 border border-zinc-700 rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
+                  title={
+                    isEn
+                      ? "Remove the stored credential from Arunaki"
+                      : "Hapus kredensial tersimpan dari Arunaki"
+                  }
+                >
+                  {signingOutTarget === id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <LogOut className="w-3 h-3" />
+                  )}
+                  {signingOutTarget === id
+                    ? isEn
+                      ? "Signing out..."
+                      : "Keluar..."
+                    : isEn
+                    ? "Sign out"
+                    : "Keluar"}
+                </button>
+              )}
               {d.loginMode === "terminal" && !state.signedIn && d.id === "antigravity" && (
                 <button
                   type="button"
@@ -950,7 +986,7 @@ export function SettingsCliConnectionsTab({
                       {b.window === "5h" ? ` (${b.window})` : ""}
                     </span>
                     <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-400" : "text-zinc-300")}>
-                      {pct}% Â· {formatReset(b.resetAt)}
+                      {pct}% · {formatReset(b.resetAt)}
                     </span>
                   </div>
                   <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
@@ -1008,7 +1044,33 @@ export function SettingsCliConnectionsTab({
   };
 
 
-  const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {    setInjectingTarget(target);
+  /** Removes the stored credential. The engine deletes it; nothing here pretends otherwise. */
+  const handleSignOut = async (target: string) => {
+    setSigningOutTarget(target);
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/refresh${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target, action: "logout" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.data?.success) {
+        toast.success(isEn ? "Signed out" : "Berhasil keluar", { description: json.data.message });
+      } else {
+        toast.error(isEn ? "Sign out failed" : "Gagal keluar", {
+          description: json.data?.message ?? "",
+        });
+      }
+      await fetchStatus();
+    } catch (err: any) {
+      toast.error(isEn ? "Sign out error" : "Kesalahan keluar", { description: err.message });
+    } finally {
+      setSigningOutTarget(null);
+    }
+  };
+
+  const handleInjectCli = async (target: "claude" | "codex" | "all", action: "inject" | "reset" = "inject") => {
+    setInjectingTarget(target);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/inject${directoryQuery()}`, {
         method: "POST",
@@ -1808,10 +1870,10 @@ export function SettingsCliConnectionsTab({
               <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
               <div className="min-w-0 text-xs text-zinc-400 flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-zinc-200">Discovered Local Caches:</span>
-                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code Â· OK</span>}
-                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT Â· OK</span>}
-                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO Â· OK</span>}
-                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE Â· OK</span>}
+                {discoveredClaude?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Claude Code · OK</span>}
+                {discoveredCodex?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Codex / ChatGPT · OK</span>}
+                {discoveredKiro?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">AWS Kiro SSO · OK</span>}
+                {discoveredCursor?.hasToken && <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">Cursor IDE · OK</span>}
               </div>
             </div>
             <button
@@ -1828,7 +1890,7 @@ export function SettingsCliConnectionsTab({
         )}
       </div>
 
-      {/* â”€â”€ Multi-Provider Auth Modal (Bilingual & Clean Monochrome) â”€â”€ */}
+      {/* ── Multi-Provider Auth Modal (Bilingual & Clean Monochrome) ── */}
       {(() => {
         const currentTarget = activeAuthModalTarget || (showAntigravityLoginModal ? "antigravity" : null);
         if (!currentTarget) return null;
@@ -1987,8 +2049,8 @@ export function SettingsCliConnectionsTab({
                 webLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
                 webBadge: "Terminal agy",
                 webDesc: isEn
-                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there â€” agy only authenticates interactively."
-                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana â€” agy hanya bisa autentikasi secara interaktif.",
+                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there ” agy only authenticates interactively."
+                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana ” agy hanya bisa autentikasi secara interaktif.",
                 webWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
                 webWarningText: isEn
                   ? "Antigravity authenticates interactively: a terminal opens running agy, and you complete the Google sign-in there. Direct browser OAuth is refused by Google for this client."

@@ -84,7 +84,7 @@ const SPECS: Partial<Record<OauthTarget, OauthSpec>> = {
     label: "Antigravity",
     displayName: "Google Antigravity (AI Pro)",
     // Resolved from env/local config at runtime: the Antigravity IDE's own OAuth client.
-    // Never committed â€” GitHub push protection rejects embedded client secrets.
+    // Never committed ” GitHub push protection rejects embedded client secrets.
     clientId: "",
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
@@ -199,7 +199,7 @@ function listenForCode(spec: OauthSpec, requestId: string, p: Pending): Promise<
       if (err?.code === "EADDRINUSE" && spec.fixedPort) {
         reject(
           new Error(
-            `Port ${spec.fixedPort} is already in use â€” that is the redirect URI registered for the ${spec.label} OAuth client. Close whatever is holding it and retry.`,
+            `Port ${spec.fixedPort} is already in use ” that is the redirect URI registered for the ${spec.label} OAuth client. Close whatever is holding it and retry.`,
           ),
         )
       } else {

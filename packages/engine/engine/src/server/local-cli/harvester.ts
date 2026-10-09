@@ -53,8 +53,8 @@ export function chatgptPlanType(accessToken?: string): string | undefined {
 /**
  * Fall back to Arunaki's own store when the vendor wrote no file.
  *
- * A browser OAuth token has no home on disk â€” it is minted by us and kept in the store with
- * an empty sourcePath â€” so the file readers below would never see it and the bridge would
+ * A browser OAuth token has no home on disk ” it is minted by us and kept in the store with
+ * an empty sourcePath ” so the file readers below would never see it and the bridge would
  * report the provider as signed out even though sign-in succeeded.
  */
 function readStoredCredential(provider: string): DiscoveredCredential | null {

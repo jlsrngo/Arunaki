@@ -1,4 +1,4 @@
-﻿import { ProviderAuth } from "@/provider/auth"
+import { ProviderAuth } from "@/provider/auth"
 import { Config } from "@/config/config"
 import { ModelsDev } from "@arunaki/core/models-dev"
 import { Provider } from "@/provider/provider"
@@ -49,6 +49,7 @@ import {
 import { localCliBridge } from "../../../../local-cli/bridge"
 import { scanLocalCredentials, invalidateCredentialCache, readKiroCredential, readCodexCredential, chatgptPlanType } from "../../../../local-cli/harvester"
 import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
+import { deleteCredential } from "../../../../local-cli/credential-store"
 import { startOauthSession, getOauthResult } from "../../../../local-cli/oauth"
 import { fetchAllQuotas, invalidateQuotaCache } from "../../../../local-cli/quota"
 import { CLI_PROVIDER_REGISTRY } from "../../../../local-cli/registry"
@@ -203,10 +204,10 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           (existing?.options as { priority?: number } | undefined)?.priority ?? 0
         // PRESERVE existing valid apiKey if payload key is masked or empty
         let apiKeyToSave: string | undefined = payload.apiKey?.trim()
-        if (!apiKeyToSave || apiKeyToSave.includes("â€¢") || apiKeyToSave.includes("****") || apiKeyToSave === "Not Configured") {
+        if (!apiKeyToSave || apiKeyToSave.includes("•") || apiKeyToSave.includes("****") || apiKeyToSave === "Not Configured") {
           apiKeyToSave = existing?.options?.apiKey || undefined
         }
-        if ((!apiKeyToSave || apiKeyToSave.includes("â€¢")) && (providerID === "kenari" || payload.baseUrl?.includes("kenari.id"))) {
+        if ((!apiKeyToSave || apiKeyToSave.includes("•")) && (providerID === "kenari" || payload.baseUrl?.includes("kenari.id"))) {
           apiKeyToSave = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
 
@@ -333,12 +334,12 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       function* (baseURL: string, apiKey: string, model: string | undefined) {
         const prompt = "Hello, connection test."
         const cleanApiKey = (apiKey ?? "").trim()
-        if (cleanApiKey.includes("â€¢") || cleanApiKey.includes("****")) {
+        if (cleanApiKey.includes("•") || cleanApiKey.includes("****")) {
           return {
             data: {
               success: false,
               status: 400,
-              error: "API Key is masked with bullet dots (â€¢). Please enter your actual API key in Configure.",
+              error: "API Key is masked with bullet dots (•). Please enter your actual API key in Configure.",
               prompt,
               model,
             },
@@ -399,7 +400,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     const testConnection = Effect.fn("ProviderSettings.testConnection")(
       function* (ctx: { payload: Schema.Schema.Type<typeof ProviderTestInput> }) {
         let apiKey = (ctx.payload.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("â€¢")) && (ctx.payload.baseUrl?.includes("kenari.id"))) {
+        if ((!apiKey || apiKey.includes("•")) && (ctx.payload.baseUrl?.includes("kenari.id"))) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
         return yield* testRequest(ctx.payload.baseUrl, apiKey, ctx.payload.model)
@@ -419,7 +420,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           }
         }
         let apiKey = (info.options?.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("â€¢")) && (ctx.params.providerID === "kenari" || info.options?.baseURL?.includes("kenari.id"))) {
+        if ((!apiKey || apiKey.includes("•")) && (ctx.params.providerID === "kenari" || info.options?.baseURL?.includes("kenari.id"))) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
           yield* cfg.update({
             provider: {
@@ -449,7 +450,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         const base = ctx.payload.baseUrl.replace(/\/+$/, "")
         const url = base.endsWith("/models") ? base : `${base}/models`
         let apiKey = (ctx.payload.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("â€¢")) && url.includes("kenari.id")) {
+        if ((!apiKey || apiKey.includes("•")) && url.includes("kenari.id")) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
         const request = HttpClientRequest.get(url).pipe(
@@ -710,6 +711,27 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         const targets = ctx.payload.target === "all"
           ? Object.keys(credentials)
           : [ctx.payload.target]
+
+        // Signing out drops the stored token. A button that leaves the credential usable is worse
+        // than no button at all, so this deletes rather than marks.
+        if ((ctx.payload as { action?: string }).action === "logout") {
+          const gone: string[] = []
+          for (const t of targets) {
+            if (!credentials[t]) continue
+            yield* Effect.promise(() => deleteCredential(t))
+            gone.push(t)
+          }
+          invalidateCredentialCache()
+          invalidateQuotaCache()
+          return {
+            data: {
+              success: gone.length > 0,
+              message: gone.length
+                ? `Signed out ${gone.join(", ")}.`
+                : "No stored credential to remove.",
+            },
+          }
+        }
 
         const refreshedCount: string[] = []
         const skipped: string[] = []

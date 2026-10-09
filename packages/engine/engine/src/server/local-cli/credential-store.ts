@@ -102,6 +102,32 @@ export async function persistCredential(cred: DiscoveredCredential): Promise<voi
   }
 }
 
+/**
+ * Forget one provider's credential.
+ *
+ * Signing out is deleting the stored token. Refusing to hand it back afterwards is the point -
+ * "sign out" that leaves the token usable is worse than no button.
+ */
+export async function deleteCredential(provider: string): Promise<void> {
+  const storePath = getStorePath()
+  if (!fs.existsSync(storePath)) return
+  let all: Record<string, DiscoveredCredential>
+  try {
+    all = await loadAllCredentials()
+  } catch {
+    // Same reasoning as persistCredential: a store we cannot read is not one we may overwrite.
+    console.warn(`[CredentialStore] ${storePath} unreadable; refusing to sign out`)
+    return
+  }
+  if (!(provider in all)) return
+  delete all[provider]
+  try {
+    writeStoreAtomic(storePath, JSON.stringify(all, null, 2))
+  } catch (err: any) {
+    console.warn("[CredentialStore] Failed to delete credential:", err.message)
+  }
+}
+
 export async function saveAllCredentials(creds: Record<string, DiscoveredCredential>): Promise<void> {
   const storePath = getStorePath()
   const cleanCreds: Record<string, DiscoveredCredential> = {}

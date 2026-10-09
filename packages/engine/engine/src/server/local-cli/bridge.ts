@@ -215,7 +215,7 @@ class LocalCliBridge {
       if (contentStr) systemPrompt += (systemPrompt ? "\n" : "") + contentStr
     }
 
-    // â”€â”€ Kiro (AWS) direct route â”€â”€
+    // ── Kiro (AWS) direct route ──
     // Free tier, no CLI. Registered first so its shared model names never reach another
     // provider's matcher.
     if (isKiroModel) {
@@ -237,7 +237,7 @@ class LocalCliBridge {
       return
     }
 
-    // â”€â”€ Fast-Path: Direct Codex / ChatGPT Responses API â”€â”€
+    // ── Fast-Path: Direct Codex / ChatGPT Responses API ──
     const isOpenAIFamily =
       /^(gpt-|o[1-9]|codex)/.test(requestedModel) && !isOpenCodeModel && !is9RouterModel && !isKiroModel
     if (isOpenAIFamily) {
@@ -280,7 +280,7 @@ class LocalCliBridge {
       return
     }
 
-    // â”€â”€ Google Antigravity CLI (agy) Persistent Daemon â”€â”€â”€
+    // ── Google Antigravity CLI (agy) Persistent Daemon ───
     if (isAntigravity) {
       // 9Router (executors/antigravity.js) talks straight to the Cloud Code API, and so
       // do we. agy is only used to renew the credential, never to carry a conversation.
@@ -306,7 +306,7 @@ class LocalCliBridge {
       return
     }
 
-    // â”€â”€ OpenCode CLI Agent / Groq / 9Router â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── OpenCode CLI Agent / Groq / 9Router ──────────────
     const isOpenCode =
       requestedModel.includes("opencode") ||
       requestedModel.includes("groq") ||
@@ -322,7 +322,7 @@ class LocalCliBridge {
       return
     }
 
-    // â”€â”€ Fast-Path: Direct Anthropic Messages API â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Fast-Path: Direct Anthropic Messages API ─────────
     const claudeCred = readClaudeCredential()
 
     // Direct only. Spawning the claude CLI as a fallback looked like a safety net, but its
@@ -448,7 +448,7 @@ class LocalCliBridge {
       return
     }
 
-    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) â€” 9Router opencode.js lane.
+    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) ” 9Router opencode.js lane.
     //    Hosted on purpose: routing through the local `opencode serve` daemon made Arunaki
     //    write every turn as an opencode session (leaking into the CLI session list) and
     //    forced a flattened single-prompt message, which loses tool calling entirely.

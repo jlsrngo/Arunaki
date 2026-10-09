@@ -44,7 +44,7 @@ const SCOPES = ["codewhisperer:completions", "codewhisperer:analysis", "codewhis
 const GRANT_TYPES = ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"]
 const ISSUER_URL = "https://identitycenter.amazonaws.com/ssoins-722374e8c3c8e6c6"
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Sign-in â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────── Sign-in ───────────────────────────────
 
 export interface KiroDeviceStart {
   deviceCode: string
@@ -180,7 +180,7 @@ export async function pollKiroDeviceFlow(start: KiroDeviceStart): Promise<KiroDe
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Upstream â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ────────────────────────────── Upstream ──────────────────────────────
 
 function textOf(content: any): string {
   if (typeof content === "string") return content
@@ -339,7 +339,7 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Binary EventStream framing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────── Binary EventStream framing ───────────────────────
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256)

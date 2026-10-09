@@ -281,6 +281,8 @@ export const LocalCliOauthStatusResult = Schema.Struct({
 
 export const LocalCliRefreshInput = Schema.Struct({
   target: Schema.Literals(["claude", "codex", "kiro", "cursor", "all"]),
+  /** Signing out is deleting the stored token; it reuses this endpoint so one card, one call. */
+  action: Schema.optional(Schema.Literals(["logout"])),
 })
 
 export const LocalCliRefreshResult = Schema.Struct({
