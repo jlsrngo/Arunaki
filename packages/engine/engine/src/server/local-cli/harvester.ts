@@ -45,16 +45,13 @@ function accountIdFromJwt(accessToken?: string): string | undefined {
  * an empty sourcePath â€” so the file readers below would never see it and the bridge would
  * report the provider as signed out even though sign-in succeeded.
  */
-function readStoredCredential(provider: string, filePath: string): DiscoveredCredential | null {
+function readStoredCredential(provider: string): DiscoveredCredential | null {
   // Synchronous on purpose: these readers are sync and the bridge calls them per request.
-  // Reading the small JSON directly avoids turning the whole credential path async.
   try {
-    // Honour customHome, otherwise a caller asking about another home would get this
-    // machine's token back.
-    // Read the store through credential-store rather than rebuilding the path here, so a custom
-// store path (ARUNAKI_CREDENTIAL_STORE_PATH) is honoured. Ignoring it made the harvester look at
-// a different file than the one the rest of the system persisted to.
-const storePath = getStorePath()
+    // Go through credential-store rather than rebuilding the path, so a custom store path
+    // (ARUNAKI_CREDENTIAL_STORE_PATH) is honoured. Ignoring it made the harvester read a
+    // different file than the one the rest of the system persisted to.
+    const storePath = getStorePath()
     if (!fs.existsSync(storePath)) return null
     const all = JSON.parse(fs.readFileSync(storePath, "utf8")) as Record<string, DiscoveredCredential>
     const stored = all[provider]
@@ -63,7 +60,11 @@ const storePath = getStorePath()
     // that file is now gone, the user signed out and we must honour that instead of
     // resurrecting a deleted credential.
     if (stored.sourcePath && !fs.existsSync(stored.sourcePath)) return null
-    return { ...stored, sourcePath: stored.sourcePath || filePath }
+    // sourcePath is returned exactly as stored. Substituting a placeholder here looked
+    // harmless, but the next scan persisted that placeholder, and the guard above then rejected
+    // the credential for having a file that never existed - which is how a freshly signed-in
+    // Kiro ended up reported as "Not installed".
+    return { ...stored }
   } catch {
     return null
   }
@@ -73,7 +74,7 @@ export function readCodexCredential(customHome?: string): DiscoveredCredential |
   const p = path.join(customHome || os.homedir(), ".codex", "auth.json")
   const data = readJson(p)
   if (!data) {
-    const stored = readStoredCredential("codex", p)
+    const stored = readStoredCredential("codex")
     // Backfill for credentials minted before account-id extraction existed, so an existing
     // token does not need a re-login to get the header.
     if (stored && !stored.accountId) return { ...stored, accountId: accountIdFromJwt(stored.accessToken) }
@@ -143,7 +144,7 @@ export function readClaudeCredential(customHome?: string): DiscoveredCredential 
   }
 
   // Browser sign-in writes no file, so check Arunaki's store before giving up.
-  return readStoredCredential("claude", credPath)
+  return readStoredCredential("claude")
 }
 
 export function readKiroCredential(customHome?: string): DiscoveredCredential | null {
@@ -151,7 +152,7 @@ export function readKiroCredential(customHome?: string): DiscoveredCredential | 
   // A browser device flow writes no AWS SSO cache file, so the store is the only place the
   // token exists. Without this the bridge reports Kiro as signed out right after a successful
   // sign-in, which is the same failure Codex had.
-  const stored = readStoredCredential("kiro", path.join(customHome || os.homedir(), ".aws", "sso", "cache", "oauth.json"))
+  const stored = readStoredCredential("kiro")
   if (!fs.existsSync(cacheDir)) return stored
   try {
     const files = fs.readdirSync(cacheDir).filter((f) => f.endsWith(".json"))

@@ -48,9 +48,12 @@ export async function loadAllCredentials(): Promise<Record<string, DiscoveredCre
   const storePath = getStorePath()
   if (!fs.existsSync(storePath)) return {}
   const raw = fs.readFileSync(storePath, "utf8")
-  if (!raw.trim()) return {}
+  // Windows editors write a BOM, which JSON.parse rejects. Strip it rather than treating the
+  // whole store as unreadable, since that now means the credentials are unusable with no way out.
+  const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+  if (!text.trim()) return {}
   try {
-    return JSON.parse(raw)
+    return JSON.parse(text)
   } catch (err: any) {
     throw new CredentialStoreUnreadableError(storePath, err)
   }

@@ -3,7 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { loadAllCredentials, persistCredential, setCustomStorePath } from "../src/server/local-cli/credential-store"
-import { scanLocalCredentials, invalidateCredentialCache } from "../src/server/local-cli/harvester"
+import { readKiroCredential, scanLocalCredentials, invalidateCredentialCache } from "../src/server/local-cli/harvester"
 import type { DiscoveredCredential } from "../src/server/local-cli/credential-store"
 
 /**
@@ -87,5 +87,48 @@ describe("credential store durability", () => {
     const scanned = await scanLocalCredentials(true)
     expect(Object.keys(scanned)).toHaveLength(0)
     expect(JSON.parse(fs.readFileSync(STORE, "utf8"))).toEqual({})
+  })
+
+  test("tolerates a BOM, which Windows editors add", async () => {
+    // A BOM made JSON.parse throw, which now means "unreadable" - correct for corruption, but a
+    // BOM is not corruption and would leave the user permanently signed out with no way back.
+    await persistCredential(oauth("kiro", "tok_bom"))
+    const text = fs.readFileSync(STORE, "utf8")
+    fs.writeFileSync(STORE, `\uFEFF${text}`, "utf8")
+    const all = await loadAllCredentials()
+    expect(all.kiro?.accessToken).toBe("tok_bom")
+  })
+})
+
+describe("a store credential keeps the sourcePath it was saved with", () => {
+  beforeEach(() => {
+    HOME = path.join(os.tmpdir(), `arunaki-store-${Date.now()}-${Math.random().toString(16).slice(2)}`)
+    STORE = path.join(HOME, "local-cli-credentials.json")
+    fs.mkdirSync(HOME, { recursive: true })
+    setCustomStorePath(STORE)
+    invalidateCredentialCache()
+  })
+
+  afterEach(() => {
+    setCustomStorePath(null)
+    invalidateCredentialCache()
+    try {
+      fs.rmSync(HOME, { recursive: true, force: true })
+    } catch {}
+  })
+
+  test("a browser-signed-in credential is not given a fabricated file path", async () => {
+    // Substituting a placeholder looked harmless, but the next scan persisted it and the
+    // deleted-file guard then rejected the credential for a file that never existed. Kiro was
+    // reported signed out seconds after a successful sign-in because of it.
+    await persistCredential(oauth("kiro", "tok_kiro"))
+    const cred = readKiroCredential()
+    expect(cred?.accessToken).toBe("tok_kiro")
+    expect(cred?.sourcePath).toBe("")
+
+    // And the value has to survive a scan, which is where the placeholder used to be written back.
+    await scanLocalCredentials(true)
+    expect(JSON.parse(fs.readFileSync(STORE, "utf8")).kiro.sourcePath).toBe("")
+    expect(readKiroCredential()?.accessToken).toBe("tok_kiro")
   })
 })
