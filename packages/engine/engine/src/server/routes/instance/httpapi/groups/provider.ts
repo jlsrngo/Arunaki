@@ -244,7 +244,9 @@ export const LocalCliQuotaResult = Schema.Struct({
 })
 
 export const LocalCliOauthStartInput = Schema.Struct({
-  target: Schema.Literals(["claude", "codex", "antigravity"]),
+  // Kiro is here because it signs in with a device flow rather than PKCE; leaving it out made
+  // its Sign in with browser button fail with HTTP 400 before the flow could start.
+  target: Schema.Literals(["claude", "codex", "antigravity", "kiro"]),
   openBrowser: Schema.optional(Schema.Boolean),
 })
 

@@ -816,7 +816,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     )
 
     const localCliOauthStart = Effect.fnUntraced(
-      function* (ctx: { readonly payload: { readonly target: "claude" | "codex" | "antigravity"; readonly openBrowser?: boolean } }) {
+      function* (ctx: { readonly payload: { readonly target: "claude" | "codex" | "antigravity" | "kiro"; readonly openBrowser?: boolean } }) {
         const session = yield* Effect.promise(() =>
           startOauthSession(ctx.payload.target, ctx.payload.openBrowser !== false),
         )
