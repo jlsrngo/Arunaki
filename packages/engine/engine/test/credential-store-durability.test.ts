@@ -84,9 +84,21 @@ describe("credential store durability", () => {
   })
 
   test("an empty store stays empty rather than resurrecting", async () => {
-    const scanned = await scanLocalCredentials(true)
-    expect(Object.keys(scanned)).toHaveLength(0)
-    expect(JSON.parse(fs.readFileSync(STORE, "utf8"))).toEqual({})
+    // The vendor file readers resolve against os.homedir(), not the custom store path, so an
+    // empty fixture store on this machine would otherwise pick up whatever is really signed in -
+    // the OpenCode key in ~/.local/share/opencode/auth.json, for instance.
+    const realHome = process.env.HOME
+    const realProfile = process.env.USERPROFILE
+    process.env.HOME = HOME
+    process.env.USERPROFILE = HOME
+    try {
+      const scanned = await scanLocalCredentials(true)
+      expect(Object.keys(scanned)).toHaveLength(0)
+      expect(JSON.parse(fs.readFileSync(STORE, "utf8"))).toEqual({})
+    } finally {
+      process.env.HOME = realHome
+      process.env.USERPROFILE = realProfile
+    }
   })
 
   test("tolerates a BOM, which Windows editors add", async () => {

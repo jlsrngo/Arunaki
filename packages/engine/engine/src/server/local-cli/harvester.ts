@@ -159,6 +159,27 @@ export function readClaudeCredential(customHome?: string): DiscoveredCredential 
   return readStoredCredential("claude")
 }
 
+/**
+ * OpenCode's credential is an API key in its own auth.json, not an OAuth token, so there is
+ * nothing to refresh and no expiry - only a signed-in or not answer. It was missing here entirely,
+ * which is why its card showed no token row at all despite being signed in.
+ */
+export function readOpenCodeCredential(customHome?: string): DiscoveredCredential | null {
+  const authPath = path.join(customHome || os.homedir(), ".local", "share", "opencode", "auth.json")
+  const data = readJson(authPath)
+  const entry = data?.opencode ?? data?.["opencode-zen"]
+  if (typeof entry !== "object" || !entry) return null
+  const key = entry.key ?? entry.access ?? entry.token
+  if (typeof key !== "string" || !key) return null
+  return {
+    provider: "opencode",
+    displayName: "OpenCode Zen",
+    type: "api_key",
+    accessToken: key,
+    sourcePath: authPath,
+  }
+}
+
 export function readKiroCredential(customHome?: string): DiscoveredCredential | null {
   const cacheDir = path.join(customHome || os.homedir(), ".aws", "sso", "cache")
   // A browser device flow writes no AWS SSO cache file, so the store is the only place the
@@ -257,6 +278,9 @@ export async function scanLocalCredentials(forceRefresh = false): Promise<Record
 
   const kiro = readKiroCredential()
   if (kiro) results.kiro = kiro
+
+  const opencode = readOpenCodeCredential()
+  if (opencode) results.opencode = opencode
 
   const cursor = readCursorCredential()
   if (cursor) results.cursor = cursor

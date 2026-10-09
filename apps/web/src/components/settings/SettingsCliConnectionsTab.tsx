@@ -897,6 +897,35 @@ export function SettingsCliConnectionsTab({
                     : "Keluar"}
                 </button>
               )}
+              {/* OpenCode's credential lives in its own auth.json, so there is nothing to refresh
+                  here and signing out must go through its CLI rather than editing a file Arunaki
+                  does not own. */}
+              {id === "opencode" && state.signedIn && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCodeSignOut()}
+                  disabled={signingOutTarget === id}
+                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 border border-zinc-700 rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
+                  title={
+                    isEn
+                      ? "Run 'opencode auth logout opencode' in a terminal"
+                      : "Jalankan 'opencode auth logout opencode' di terminal"
+                  }
+                >
+                  {signingOutTarget === id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <LogOut className="w-3 h-3" />
+                  )}
+                  {signingOutTarget === id
+                    ? isEn
+                      ? "Signing out..."
+                      : "Keluar..."
+                    : isEn
+                    ? "Sign out"
+                    : "Keluar"}
+                </button>
+              )}
               {d.loginMode === "terminal" && !state.signedIn && d.id === "antigravity" && (
                 <button
                   type="button"
@@ -1043,6 +1072,30 @@ export function SettingsCliConnectionsTab({
     }
   };
 
+
+  /** OpenCode owns its auth.json, so signing out delegates to its own CLI. */
+  const handleOpenCodeSignOut = async () => {
+    setSigningOutTarget("opencode");
+    try {
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: "opencode-logout" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.data?.success) {
+        toast.success(isEn ? "Terminal opened" : "Terminal dibuka", {
+          description: json.data.message,
+        });
+      } else {
+        toast.error(isEn ? "Sign out failed" : "Gagal keluar", { description: json.data?.message ?? "" });
+      }
+    } catch (err: any) {
+      toast.error(isEn ? "Sign out error" : "Kesalahan keluar", { description: err.message });
+    } finally {
+      setSigningOutTarget(null);
+    }
+  };
 
   /** Removes the stored credential. The engine deletes it; nothing here pretends otherwise. */
   const handleSignOut = async (target: string) => {

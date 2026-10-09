@@ -592,6 +592,21 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           const res = logoutAntigravity()
           return { data: res }
         }
+        if (ctx.payload.target === "opencode-logout") {
+          // OpenCode owns its auth.json, so sign out goes through its own CLI rather than
+          // editing a file Arunaki does not own. The terminal stays open on purpose so the
+          // user can see the result.
+          const res = launchTerminalWithCommand("opencode auth logout opencode", "Sign out of OpenCode")
+          return {
+            data: res.success
+              ? {
+                  success: true,
+                  message:
+                    "A terminal opened running 'opencode auth logout opencode'. Arunaki will pick the change up on the next refresh.",
+                }
+              : res,
+          }
+        }
         if (ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
           const res = launchTerminalWithCommand("gemini", "Google Gemini CLI")
           return { data: res }

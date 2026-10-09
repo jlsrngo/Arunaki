@@ -316,6 +316,7 @@ export const LocalCliLoginInput = Schema.Struct({
     "antigravity-cli",
     "agy",
     "antigravity-logout",
+    "opencode-logout",
     "opencode",
     "opencode-server",
     "opencode-terminal",

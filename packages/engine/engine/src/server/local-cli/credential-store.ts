@@ -3,7 +3,7 @@ import path from "path"
 import os from "os"
 
 export interface DiscoveredCredential {
-  provider: "codex" | "cursor" | "kiro" | "claude" | "antigravity"
+  provider: "codex" | "cursor" | "kiro" | "claude" | "opencode" | "antigravity"
   displayName: string
   type: "oauth" | "api_key"
   accessToken: string
