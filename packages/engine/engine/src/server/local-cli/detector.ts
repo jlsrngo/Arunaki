@@ -788,7 +788,22 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
     ]
   }
 
-  if (target === "opencode") {
+  if (target === "kiro") {
+    // Ask AWS what this account can run. Kiro's catalogue changed while this was being written:
+    // a hardcoded list named a model the endpoint has never returned and missed two others.
+    const { fetchKiroModels } = await import("./kiro.js")
+    const live = await fetchKiroModels()
+    if (live?.length) return live.map((m) => `kiro/${m}`)
+    return ["kiro/claude-sonnet-4.5", "kiro/claude-haiku-4.5", "kiro/deepseek-3.2", "kiro/qwen3-coder-next"]
+  }
+  if (target === "codex") {
+    // Codex publishes a catalogue too, but it answers an empty list on a free account while
+    // individual models still answer. Fall back to the ones verified by probing.
+    const { fetchCodexModels, CODEX_VERIFIED_FALLBACK } = await import("./codex-models.js")
+    const live = await fetchCodexModels()
+    if (live?.length) return live
+    return CODEX_VERIFIED_FALLBACK
+  }  if (target === "opencode") {
     return new Promise((resolve) => {
       try {
         const proc = crossSpawn("opencode", ["models"], {
@@ -835,11 +850,7 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
     return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
   }
 
-  if (target === "codex") {
-    return ["o3-mini", "o1", "gpt-4o", "gpt-4o-mini"]
-  }
-
-  if (target === "9router") {
+if (target === "9router") {
     const nine = await checkNineRouterStatus()
     if (nine.models.length > 0) return nine.models
     return ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"]

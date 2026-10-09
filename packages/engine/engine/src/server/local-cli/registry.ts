@@ -57,25 +57,29 @@ export interface CliProviderDescriptor {
 }
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
-// Verified live against the Codex endpoint with a free account on 2026-10-09.
-//
-// These were not guessed. The earlier list (gpt-5.1-codex, codex-mini-latest) is dead: Codex
-// dropped those names, and every request against them is refused with "not supported when using
-// Codex with a ChatGPT account", which reads exactly like a plan restriction and is not one.
-//
-// On a free plan only a subset answers. gpt-5.6-terra and gpt-5.6-luna returned 200 and produced
-// correct output; gpt-6.1-sol, gpt-6-sol, gpt-6-astra, gpt-5.6-sol and the responses-lite
-// variants were all refused. Offering the refused ones would be offering dead choices.
-const CODEX_MODELS = ["gpt-5.6-terra", "gpt-5.6-luna"]
+// FALLBACK ONLY. See codex-models.ts - the catalogue is fetched from the account, and these are the
+// ids that survived probing.
+const CODEX_MODELS = ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-6-luna", "gpt-reserve"]
 // Kiro ids are prefixed because they overlap every other provider's names; the prefix is
 // stripped before the request so AWS still sees its own id.
-const KIRO_MODELS = [
+// FALLBACK ONLY. The catalogue comes from the account: Kiro's ListAvailableModels and Codex's
+// backend-api/codex/models. These are what to show when the vendor cannot be reached, and they are
+// deliberately a short verified list rather than a long guess - the previous Kiro list named
+// claude-sonnet-5, which AWS has never returned.
+//
+// Codex publishes a catalogue but answers an empty one on a free account, so its fallback was built
+// by probing each candidate: 5 answer, 27 are refused with a message that reads like a paywall.
+export const KIRO_FALLBACK_MODELS = [
+  "kiro/auto",
   "kiro/claude-sonnet-4.5",
   "kiro/claude-haiku-4.5",
-  "kiro/claude-sonnet-5",
   "kiro/deepseek-3.2",
   "kiro/qwen3-coder-next",
 ]
+
+// The registry itself must stay declarative and cheap to import, so it keeps only the probe
+// results; getCliSupportedModels owns the live fetch.
+const KIRO_MODELS = KIRO_FALLBACK_MODELS
 const OPENCODE_MODELS = [
   "groq/openai/gpt-oss-120b",
   "groq/qwen/qwen3.8-27b",

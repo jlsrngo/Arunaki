@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import { CLI_PROVIDER_REGISTRY } from "../src/server/local-cli/registry"
+import { CODEX_VERIFIED_FALLBACK } from "../src/server/local-cli/codex-models"
 
 /**
  * Codex on a free account was reported here as unusable, and that was wrong. The cause was the
@@ -23,7 +24,14 @@ const registrySource = readFileSync(
 
 describe("Codex models are the ones that actually answer", () => {
   test("offers exactly the models verified against a live free account", () => {
-    expect(codex.models).toEqual(["gpt-5.6-terra", "gpt-5.6-luna"])
+    expect(codex.models).toEqual(CODEX_VERIFIED_FALLBACK)
+    expect(CODEX_VERIFIED_FALLBACK).toEqual([
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
+      "gpt-5.5",
+      "gpt-6-luna",
+      "gpt-reserve",
+    ])
   })
 
   test("does not offer the dead Codex CLI model names", () => {

@@ -18,6 +18,7 @@
 
 import crypto from "crypto"
 import type { DiscoveredCredential } from "./harvester.js"
+import { readKiroCredential } from "./harvester.js"
 import { chunksToCompletion } from "./upstream.js"
 
 const KIRO_REGION = "us-east-1"
@@ -463,6 +464,40 @@ export function kiroToolSpecs(tools: any): any[] {
     })
   })
   return specs
+}
+
+/**
+ * The live catalogue from CodeWhisperer.
+ *
+ * Kiro ships and retires models on its own schedule; a hardcoded list named claude-sonnet-5,
+ * which the endpoint has never returned, while omitting glm-5 and both MiniMax tiers. The account
+ * is the only authority on what it can run.
+ */
+export async function fetchKiroModels(): Promise<string[] | null> {
+  const cred = readKiroCredential()
+  if (!cred?.accessToken) return null
+  const region = cred.region || "us-east-1"
+  const params = new URLSearchParams({ origin: "AI_EDITOR" })
+  if (cred.profileArn) params.set("profileArn", cred.profileArn)
+  try {
+    const res = await fetch(`https://q.${region}.amazonaws.com/ListAvailableModels?${params}`, {
+      headers: {
+        Authorization: `Bearer ${cred.accessToken}`,
+        "x-amz-sso-bearer": cred.accessToken,
+        "x-amzn-kiro-agent-mode": "spec",
+        "x-amzn-codewhisperer-machine-id": "kiro-desktop",
+        "x-amzn-codewhisperer-profile-arn": kiroProfileArn(cred),
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) return null
+    const data: any = await res.json()
+    const ids = (data?.models ?? []).map((m: any) => m?.modelId ?? m?.id).filter(Boolean)
+    return ids.length ? ids : null
+  } catch {
+    return null
+  }
 }
 
 /** Mutable per-request stream state, since OpenAI's chunk shape depends on what preceded it. */
