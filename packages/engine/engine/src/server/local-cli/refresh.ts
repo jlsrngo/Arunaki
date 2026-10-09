@@ -1,11 +1,21 @@
-import {
+﻿import {
   type DiscoveredCredential,
   loadAllCredentials,
   persistCredential,
 } from "./credential-store.js"
 import { loadGoogleOAuthClient } from "./detector.js"
 
-// Lead per provider — from 9Router registry
+/**
+ * Every vendor token endpoint gets a deadline.
+ *
+ * A refresh that never settles leaves the settings card spinning on "Refreshing..." forever,
+ * because the UI clears its spinner in a finally that only runs once the request resolves. Four of
+ * the five refresh calls had no timeout; only the Google one did, so the hang looked provider
+ * specific when it was simply unguarded.
+ */
+const REFRESH_TIMEOUT_MS = 15_000
+
+// Lead per provider â€” from 9Router registry
 const REFRESH_LEAD_MS: Record<string, number> = {
   codex: 600_000,     // 10 minutes (access token ~1 hour)
   claude: 14_400_000, // 4 hours
@@ -19,7 +29,7 @@ const MAX_REFRESH_AGE_MS: Record<string, number> = {
 
 const inFlight = new Map<string, Promise<DiscoveredCredential | null>>()
 
-/** Keys whose refresh token is dead — re-auth required, never hit the network again. */
+/** Keys whose refresh token is dead â€” re-auth required, never hit the network again. */
 const reauthRequired = new Set<string>()
 
 // 9Router tokenRefresh/providers.js classifyOAuthRefreshError
@@ -63,7 +73,7 @@ export function refreshCredential(cred: DiscoveredCredential): Promise<Discovere
         cred.expiresAt = 0
         persistCredential(cred).catch(() => {})
         console.error(
-          `[TokenRefresh] ${cred.provider}: refresh token unrecoverable (${err.message}) — re-auth required.`,
+          `[TokenRefresh] ${cred.provider}: refresh token unrecoverable (${err.message}) â€” re-auth required.`,
         )
       }
       return null
@@ -94,7 +104,7 @@ async function doRefresh(cred: DiscoveredCredential): Promise<DiscoveredCredenti
   }
 }
 
-// OPENAI/ChatGPT — JSON body, no scope (9Router tokenRefresh/providers.js refreshCodexToken)
+// OPENAI/ChatGPT â€” JSON body, no scope (9Router tokenRefresh/providers.js refreshCodexToken)
 async function refreshCodex(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   if (!cred.refreshToken) return null
   const res = await fetch("https://auth.openai.com/oauth/token", {
@@ -105,6 +115,7 @@ async function refreshCodex(cred: DiscoveredCredential): Promise<DiscoveredCrede
       grant_type: "refresh_token",
       refresh_token: cred.refreshToken,
     }),
+    signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
   })
 
   if (!res.ok) {
@@ -127,7 +138,7 @@ async function refreshCodex(cred: DiscoveredCredential): Promise<DiscoveredCrede
   return refreshed
 }
 
-// ANTHROPIC — JSON encoding, client_id Claude Code
+// ANTHROPIC â€” JSON encoding, client_id Claude Code
 async function refreshClaude(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   if (!cred.refreshToken) return null
   const res = await fetch("https://api.anthropic.com/v1/oauth/token", {
@@ -138,6 +149,7 @@ async function refreshClaude(cred: DiscoveredCredential): Promise<DiscoveredCred
       refresh_token: cred.refreshToken,
       client_id: "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
     }),
+    signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
   })
 
   if (!res.ok) {
@@ -175,6 +187,7 @@ async function refreshKiro(cred: DiscoveredCredential): Promise<DiscoveredCreden
         refreshToken: cred.refreshToken,
         grantType: "refresh_token",
       }),
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
     })
     if (!res.ok) {
       const errText = await res.text().catch(() => "")
@@ -201,7 +214,7 @@ async function refreshKiro(cred: DiscoveredCredential): Promise<DiscoveredCreden
   }
 }
 
-// Google/Antigravity OAuth refresh — same client resolution as detector.getAntigravityAuth
+// Google/Antigravity OAuth refresh â€” same client resolution as detector.getAntigravityAuth
 async function refreshAntigravity(cred: DiscoveredCredential): Promise<DiscoveredCredential | null> {
   if (!cred.refreshToken) return null
   const client = loadGoogleOAuthClient()
@@ -221,7 +234,7 @@ async function refreshAntigravity(cred: DiscoveredCredential): Promise<Discovere
         client_id: client.clientId,
         client_secret: client.clientSecret,
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
     })
     if (!res.ok) {
       const errText = await res.text().catch(() => "")
@@ -247,12 +260,12 @@ async function refreshAntigravity(cred: DiscoveredCredential): Promise<Discovere
   }
 }
 
-// ponytail: 9Router has no cursor refresh handler (REFRESH_HANDLERS) — Cursor CLI keeps
+// ponytail: 9Router has no cursor refresh handler (REFRESH_HANDLERS) â€” Cursor CLI keeps
 // tokens in state.vscdb with no public refresh endpoint. Dropping the entry from the
 // refresh list beats a fake network call; add one when Cursor ships an endpoint.
 export const REFRESH_UNSUPPORTED = ["cursor"] as const
 
-/** Tier 1 — Proactive check before request */
+/** Tier 1 â€” Proactive check before request */
 export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<boolean> {
   if (!cred.refreshToken) return false
   const lead = REFRESH_LEAD_MS[cred.provider] ?? 60_000
@@ -271,7 +284,7 @@ export async function checkBeforeRequest(cred: DiscoveredCredential): Promise<bo
   return false
 }
 
-/** Tier 3 — Reactive retry up to 3x for 401/403 */
+/** Tier 3 â€” Reactive retry up to 3x for 401/403 */
 export async function refreshWithRetry(
   cred: DiscoveredCredential,
   maxRetries = 3,
@@ -289,7 +302,7 @@ export async function refreshWithRetry(
   return null
 }
 
-/** Tier 2 — Background tick scheduler */
+/** Tier 2 â€” Background tick scheduler */
 let timer: ReturnType<typeof setInterval> | null = null
 
 export function scheduleBackgroundRefresh(intervalMs = 5 * 60_000): void {
