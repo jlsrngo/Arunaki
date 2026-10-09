@@ -47,7 +47,7 @@ import {
   launchAntigravityLogin,
 } from "../../../../local-cli/detector"
 import { localCliBridge } from "../../../../local-cli/bridge"
-import { scanLocalCredentials, invalidateCredentialCache } from "../../../../local-cli/harvester"
+import { scanLocalCredentials, invalidateCredentialCache, readKiroCredential } from "../../../../local-cli/harvester"
 import { refreshCredential, REFRESH_UNSUPPORTED } from "../../../../local-cli/refresh"
 import { startOauthSession, getOauthResult } from "../../../../local-cli/oauth"
 import { fetchAllQuotas, invalidateQuotaCache } from "../../../../local-cli/quota"
@@ -492,6 +492,10 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         ]),
       )
       const antigravity = checkAntigravityStatus()
+      // Kiro signs in through a browser device flow and installs nothing, so there is no binary
+      // to detect. Reporting it from the credential is the only honest signal, and omitting it
+      // made the card read "Not installed" while the provider was serving requests.
+      const kiroCred = readKiroCredential()
       const discovered = Object.values(scannedCredentials).map((c) => ({
         provider: c.provider,
         displayName: c.displayName,
@@ -512,6 +516,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             serverPort: 4097,
           },
           antigravity,
+          kiro: {
+            // No CLI, so "installed" means signed in.
+            installed: true,
+            signedIn: !!kiroCred?.accessToken,
+            requiresCli: false,
+            accountEmail: kiroCred?.accountEmail ?? null,
+            region: kiroCred?.region ?? "us-east-1",
+            hasRefreshToken: !!kiroCred?.refreshToken,
+            expiresAt: kiroCred?.expiresAt ?? null,
+          },
           nineRouter,
           codex,
           bridgePort: localCliBridge.port,

@@ -25,7 +25,7 @@ export function setCustomStorePath(p: string | null): void {
   customStorePath = p
 }
 
-function getStorePath(): string {
+export function getStorePath(): string {
   if (customStorePath) return customStorePath
   const baseDir = path.join(os.homedir(), ".arunaki")
   try {

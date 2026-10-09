@@ -7,7 +7,14 @@ import { scanLocalCredentials, invalidateCredentialCache, readKiroCredential } f
 
 const HOME = path.join(os.tmpdir(), `arunaki-oauth-persist-${Date.now()}-${Math.random().toString(16).slice(2)}`)
 
+// HOME is what os.homedir() resolves against, so leaving it pointed at a fixture that gets
+// deleted in afterEach made every later suite in this process read the wrong credential store.
+const REAL_HOME = process.env.HOME
+const REAL_USERPROFILE = process.env.USERPROFILE
+
 afterEach(() => {
+  process.env.HOME = REAL_HOME
+  process.env.USERPROFILE = REAL_USERPROFILE
   try {
     fs.rmSync(HOME, { recursive: true, force: true })
   } catch {}
@@ -71,6 +78,8 @@ it("kiro browser sign-in is visible to the bridge, which reads no AWS SSO cache 
   // Same failure Codex had: the device flow stores the token only in Arunaki's store, so a
   // reader that only looks at ~/.aws/sso/cache reports "No Kiro credential found" immediately
   // after a successful sign-in.
+  process.env.HOME = HOME
+  process.env.USERPROFILE = HOME
   await persistCredential({
     provider: "kiro",
     displayName: "Kiro (AWS)",

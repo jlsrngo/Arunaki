@@ -136,6 +136,15 @@ export const LocalCliStatus = Schema.Struct({
   claude: LocalCliStatusItem,
   opencode: OpenCodeStatusItem,
   antigravity: AntigravityStatusItem,
+  kiro: Schema.Struct({
+    installed: Schema.Boolean,
+    signedIn: Schema.Boolean,
+    requiresCli: Schema.Boolean,
+    accountEmail: Schema.NullOr(Schema.String),
+    region: Schema.String,
+    hasRefreshToken: Schema.Boolean,
+    expiresAt: Schema.NullOr(Schema.Number),
+  }),
   nineRouter: Schema.Struct({
     installed: Schema.optional(Schema.UndefinedOr(Schema.Boolean)),
     version: Schema.optional(Schema.UndefinedOr(Schema.String)),

@@ -2,6 +2,8 @@
 import {
   buildKiroRequest,
   newKiroStreamCtx,
+  pollKiroDeviceFlow,
+  startKiroDeviceFlow,
   kiroEventToSse,
   parseKiroFrame,
   stripKiroPrefix,
@@ -128,6 +130,60 @@ describe("Kiro AWS EventStream framing", () => {
     expect(first.frame.payload.content).toBe("one")
     const second = takeKiroFrame(first.rest)!
     expect(second.frame.payload.content).toBe("two")
+  })
+})
+
+describe("Kiro device flow credential", () => {
+  test("carries everything a token refresh needs", async () => {
+    // refreshKiro returns null without clientId and clientSecret, which the card then renders
+    // as "Refresh failed" even though the provider is working. Stubbed rather than live: a test
+    // that calls AWS is flaky by construction.
+    const realFetch = globalThis.fetch
+    const json = (body: any) => new Response(JSON.stringify(body), { status: 200 })
+    globalThis.fetch = (async (url: any) => {
+      const u = String(url)
+      if (u.includes("/client/register")) return json({ clientId: "cid-1", clientSecret: "csec-1" })
+      if (u.includes("/device_authorization"))
+        return json({ deviceCode: "dc", userCode: "UC", verificationUri: "https://v", expiresIn: 600, interval: 1 })
+      if (u.includes("/token"))
+        return json({ accessToken: "at", refreshToken: "rt", expiresIn: 3600, profileArn: "arn:x" })
+      throw new Error(`unexpected ${u}`)
+    }) as any
+
+    try {
+      const start = await startKiroDeviceFlow()
+      const status = await pollKiroDeviceFlow(start)
+      const cred = status.credential!
+      expect(status.done).toBe(true)
+      expect(cred.accessToken).toBe("at")
+      expect(cred.refreshToken).toBe("rt")
+      expect(cred.clientId).toBe("cid-1")
+      expect(cred.clientSecret).toBe("csec-1")
+      expect(cred.region).toBe("us-east-1")
+      expect(cred.sourcePath).toBe("")
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  test("reports pending rather than failing while the user has not approved yet", async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: any) => {
+      const u = String(url)
+      if (u.includes("/client/register")) return new Response(JSON.stringify({ clientId: "c", clientSecret: "s" }))
+      if (u.includes("/device_authorization"))
+        return new Response(JSON.stringify({ deviceCode: "dc", verificationUri: "https://v", expiresIn: 600 }))
+      // AWS answers HTTP 400 for this, which is a normal waiting state and not an error.
+      return new Response(JSON.stringify({ error: "authorization_pending" }), { status: 400 })
+    }) as any
+    try {
+      const start = await startKiroDeviceFlow()
+      const status = await pollKiroDeviceFlow(start)
+      expect(status.done).toBe(false)
+      expect(status.pending).toBe(true)
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })
 
