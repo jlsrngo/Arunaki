@@ -90,6 +90,11 @@ interface CodexStatus {
   version?: string;
   isCloudOnly: boolean;
   message?: string;
+  signedIn: boolean;
+  /** "free" here means every request will be refused, despite the token being valid. */
+  plan: string | null;
+  accountEmail: string | null;
+  expiresAt: number | null;
 }
 
 export interface DiscoveredCliItem {
@@ -137,7 +142,11 @@ interface SettingsCliConnectionsTabProps {
 
 
 /** Mirrors CliProviderId in the engine registry so handler signatures stay in sync. */
-type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "nineRouter";
+// Providers that are actually wired end to end: a card, a bridge route and a PROVIDER_CONFIGS
+// entry. It fell behind when kiro was added, and cursor is deliberately absent - it is a registry
+// placeholder with no bridge route, no config and no status, so listing it here would claim more
+// than exists.
+type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "nineRouter" | "kiro";
 
 interface QuotaBucket {
   id: string;
@@ -585,6 +594,10 @@ export function SettingsCliConnectionsTab({
     };
     const expanded = Boolean(expandedCards[id]);
     const discovered = data.discovered?.find((x) => x.provider === id);
+    // A valid token is not the same as a working account. Codex on a free plan connects and then
+    // refuses every request, so the card has to say which of the two the user has.
+    const codexPlan = id === "codex" ? data.codex?.plan : undefined;
+    const tokenExpiresAt = id === "codex" ? data.codex?.expiresAt : id === "kiro" ? data.kiro?.expiresAt : null;
     const ping = pingResults[id];
     const busy = connectingTarget === id;
     const dot = state.signedIn
@@ -763,6 +776,37 @@ export function SettingsCliConnectionsTab({
         {expanded && (
           <div className="px-4 pb-3 pt-2 border-t border-[var(--border-color)] space-y-3">
             {renderSetupSteps(d)}
+            {/* Plan and token lifetime: the two facts that decide whether a connected provider
+                can actually answer. A free Codex account reads Connected and refuses everything. */}
+            {(codexPlan || tokenExpiresAt) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
+                {codexPlan && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      codexPlan === "free" ? "text-amber-400/90" : "text-emerald-400/90",
+                    )}
+                    title={
+                      codexPlan === "free"
+                        ? isEn
+                          ? "A free ChatGPT plan connects, but every request is refused by OpenAI"
+                          : "Akun ChatGPT free terhubung, tapi setiap request ditolak OpenAI"
+                        : isEn
+                          ? "Subscription plan"
+                          : "Paket langganan"
+                    }
+                  >
+                    {isEn ? "Plan" : "Paket"}: {codexPlan}
+                  </span>
+                )}
+                {tokenExpiresAt && (
+                  <span title={isEn ? "When the stored token expires" : "Kapan token tersimpan kedaluwarsa"}>
+                    {isEn ? "Token expires" : "Token berakhir"}:{" "}
+                    {new Date(tokenExpiresAt).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+            )}
             {d.quota !== "none" && renderQuota(d.quota)}
             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
               {discovered?.hasToken && d.id !== "nineRouter" && (
@@ -1289,6 +1333,15 @@ export function SettingsCliConnectionsTab({
       type: "openai-compatible",
       baseUrl: "http://localhost:20128/v1",
       apiKey: "9router",
+    },
+    kiro: {
+      id: "kiro",
+      name: "Kiro (AWS Free)",
+      type: "openai-compatible",
+      // Routed through the bridge: the bridge owns the AWS EventStream decoding and the
+      // kiro/ prefix is stripped there before the model id reaches AWS.
+      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
+      apiKey: "kiro-free",
     },
   };
 

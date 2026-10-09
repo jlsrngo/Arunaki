@@ -157,6 +157,13 @@ export const LocalCliStatus = Schema.Struct({
     version: Schema.optional(Schema.UndefinedOr(Schema.String)),
     isCloudOnly: Schema.Boolean,
     message: Schema.String,
+    // Credential-derived, because the CLI check alone cannot tell a working account from one
+    // whose every request will be refused.
+    signedIn: Schema.Boolean,
+    /** ChatGPT plan from the access token, e.g. "free". Null when there is no credential. */
+    plan: Schema.NullOr(Schema.String),
+    accountEmail: Schema.NullOr(Schema.String),
+    expiresAt: Schema.NullOr(Schema.Number),
   }))),
   bridgePort: Schema.Number,
   bridgeRunning: Schema.Boolean,

@@ -39,6 +39,18 @@ function accountIdFromJwt(accessToken?: string): string | undefined {
 }
 
 /**
+ * The plan the token belongs to.
+ *
+ * This is the difference between a card that says Connected and a card that is honest: a free
+ * account's token is valid and refreshes fine, then every single request is refused with "not
+ * supported when using Codex with a ChatGPT account". Reading the plan lets the card say so
+ * before the user sends anything.
+ */
+export function chatgptPlanType(accessToken?: string): string | undefined {
+  return jwtClaims(accessToken)?.["https://api.openai.com/auth"]?.chatgpt_plan_type || undefined
+}
+
+/**
  * Fall back to Arunaki's own store when the vendor wrote no file.
  *
  * A browser OAuth token has no home on disk â€” it is minted by us and kept in the store with
