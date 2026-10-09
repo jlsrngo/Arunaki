@@ -864,7 +864,7 @@ export function SettingsCliConnectionsTab({
   };
 
   /** Rate-limit buckets for one provider, rendered inside that provider's own card. */
-  const renderQuota = (provider: "antigravity" | "claude" | "codex") => {
+  const renderQuota = (provider: "antigravity" | "claude" | "codex" | "kiro") => {
     const report = quota.find((q) => q.provider === provider);
     return (
       <div>

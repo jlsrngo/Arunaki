@@ -14,7 +14,7 @@ export type CliProviderId =
   | "cursor"
   | "nineRouter"
 
-export type CliQuotaKind = "antigravity" | "claude" | "codex" | "none"
+export type CliQuotaKind = "antigravity" | "claude" | "codex" | "kiro" | "none"
 
 /** How a provider obtains a credential. "none" means it works with no sign-in at all. */
 export type CliLoginMode = "terminal" | "browser" | "none"
@@ -183,7 +183,9 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     name: "Kiro",
     vendor: "AWS",
     docsUrl: "https://kiro.dev",
-    quota: "none",
+    // Verified live against CodeWhisperer's GetUsageLimits: KIRO FREE with a monthly credit
+    // allowance. The plan name is what distinguishes Kiro from the paid-only providers.
+    quota: "kiro",
     models: KIRO_MODELS,
     // Device flow with a public client and a browser approval page: no CLI to install.
     requiresCli: false,

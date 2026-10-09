@@ -1,6 +1,6 @@
 import type { DiscoveredCredential } from "./credential-store.js"
 import { getAntigravityAuth } from "./detector.js"
-import { readCodexCredential, readClaudeCredential } from "./harvester.js"
+import { readCodexCredential, readClaudeCredential, readKiroCredential } from "./harvester.js"
 
 /**
  * Live quota/rate-limit reporting per subscription, normalised to one shape so the UI can
@@ -214,6 +214,77 @@ export async function fetchCodexQuota(): Promise<ProviderQuota> {
   }, { provider: "codex", ok: false, buckets: [] })
 }
 
+/**
+ * Kiro reports a monthly credit allowance through CodeWhisperer's GetUsageLimits.
+ *
+ * Verified live on a free account: subscriptionTitle "KIRO FREE", 0.72 of 50 credits used,
+ * resetting on the 1st. The plan name matters on its own - it is what tells a user Kiro needs no
+ * subscription, where Claude and Codex refuse the very same request on a free login.
+ */
+export async function fetchKiroQuota(): Promise<ProviderQuota> {
+  const cred = readKiroCredential()
+  if (!cred?.accessToken) return NOT_SIGNED_IN("kiro")
+
+  return cached<ProviderQuota>(
+    "kiro",
+    async (): Promise<ProviderQuota> => {
+      const buckets: QuotaBucket[] = []
+      const region = cred.region || "us-east-1"
+      try {
+        const res = await fetch(`https://codewhisperer.${region}.amazonaws.com/getUsageLimits`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cred.accessToken}`,
+            // json-1.0 with an x-amz-target, not the REST shape the chat route uses. AWS rejects
+            // this call with 404 or 400 when the content type is plain application/json.
+            "Content-Type": "application/x-amz-json-1.0",
+            "x-amz-target": "AmazonCodeWhispererService.GetUsageLimits",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            origin: "AI_EDITOR",
+            profileArn: cred.profileArn,
+            resourceType: "AGENTIC_REQUEST",
+          }),
+          signal: AbortSignal.timeout(15000),
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => "")
+          return { provider: "kiro", ok: false, reason: `HTTP ${res.status}: ${text.slice(0, 120)}`, buckets: [] }
+        }
+
+        const data: any = await res.json()
+        const plan: string = data?.subscriptionInfo?.subscriptionTitle ?? "Kiro"
+        for (const u of data?.usageBreakdownList ?? []) {
+          const limit = Number(u.usageLimitWithPrecision ?? u.usageLimit ?? 0)
+          const used = Number(u.currentUsageWithPrecision ?? u.currentUsage ?? 0)
+          const resetAt = asMs(Number(u.nextDateReset ?? data?.nextDateReset ?? 0))
+          buckets.push({
+            id: String(u.resourceType ?? "CREDIT").toLowerCase(),
+            // Prefer the vendor's own plural label, e.g. "Credits", and carry the numbers with it
+            // because Kiro reports precision floats that a bare percentage would hide.
+            label:
+              limit > 0
+                ? `${u.displayNamePlural || u.displayName || "Usage"} (${used}/${limit})`
+                : String(u.displayName || "Usage"),
+            remaining: limit > 0 ? clamp(1 - used / limit) : 1,
+            window: resetAt ? `${plan} · resets ${new Date(resetAt).toLocaleDateString()}` : plan,
+            resetAt,
+            exhausted: limit > 0 && used >= limit,
+          })
+        }
+        if (buckets.length === 0) {
+          return { provider: "kiro", ok: false, reason: `No usage data for plan ${plan}`, buckets: [] }
+        }
+        return { provider: "kiro", ok: true, buckets }
+      } catch (err: any) {
+        return { provider: "kiro", ok: false, reason: err?.message ?? "error", buckets: [] }
+      }
+    },
+    { provider: "kiro", ok: false, buckets: [] },
+  )
+}
+
 export async function fetchAllQuotas(): Promise<ProviderQuota[]> {
-  return Promise.all([fetchAntigravityQuota(), fetchClaudeQuota(), fetchCodexQuota()])
+  return Promise.all([fetchAntigravityQuota(), fetchClaudeQuota(), fetchCodexQuota(), fetchKiroQuota()])
 }

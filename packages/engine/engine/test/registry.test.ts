@@ -13,9 +13,11 @@ describe("CLI provider registry", () => {
   })
 
   it("only uses quota kinds the settings UI can render", () => {
-    for (const p of CLI_PROVIDER_REGISTRY) {
-      expect(["antigravity", "claude", "codex", "none"]).toContain(p.quota)
-    }
+for (const p of CLI_PROVIDER_REGISTRY) {
+    // Listed explicitly so a new provider cannot ship a quota kind the settings UI has no
+    // renderer for; that mismatch showed up as a card silently rendering no usage row.
+    expect(["antigravity", "claude", "codex", "kiro", "none"]).toContain(p.quota)
+  }
   })
 
   it("offers browser login only where the vendor actually accepts it", () => {
