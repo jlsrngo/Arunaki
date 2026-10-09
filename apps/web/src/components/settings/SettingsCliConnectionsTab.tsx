@@ -104,12 +104,24 @@ export interface DiscoveredCliItem {
   hasToken: boolean;
 }
 
+interface KiroStatus {
+  /** Kiro installs nothing: a browser device flow is the only sign-in, so installed is always true. */
+  installed: boolean;
+  signedIn: boolean;
+  requiresCli: boolean;
+  accountEmail: string | null;
+  region: string;
+  hasRefreshToken: boolean;
+  expiresAt: number | null;
+}
+
 interface LocalCliData {
   claude: ClaudeCliStatus;
   opencode: OpenCodeStatus;
   antigravity: AntigravityStatus;
   nineRouter: NineRouterStatus;
   codex?: CodexStatus;
+  kiro?: KiroStatus;
   bridgePort: number;
   bridgeRunning: boolean;
   discovered?: DiscoveredCliItem[];
@@ -373,6 +385,8 @@ export function SettingsCliConnectionsTab({
     localStorage.getItem("arunaki_active_provider") === "gemini";
   const isGeminiActive = isAntigravityActive;
 
+  const kiroProvider = providers.find((p) => p.id === "kiro");
+  const cursorProvider = providers.find((p) => p.id === "cursor");
   const nineRouterProvider = providers.find((p) => p.id === "9router" || p.type === "9router");
   const is9RouterActive =
     nineRouterProvider?.active || localStorage.getItem("arunaki_active_provider") === "9router";
@@ -424,6 +438,21 @@ export function SettingsCliConnectionsTab({
       signedIn: Boolean(data.nineRouter.running),
       active: is9RouterActive,
       version: data.nineRouter.version,
+    },
+    // Kiro signs in through a browser device flow and installs nothing, so "installed" is not the
+    // question - being signed in is. Omitting this entry left the card falling back to a default
+    // of not installed while the provider was serving requests.
+    kiro: {
+      installed: data.kiro?.installed ?? true,
+      signedIn: Boolean(data.kiro?.signedIn || discoveredKiro?.hasToken),
+      email: data.kiro?.accountEmail ?? discoveredKiro?.accountEmail,
+      active: kiroProvider?.active || localStorage.getItem("arunaki_active_provider") === "kiro",
+    },
+    cursor: {
+      installed: Boolean(discoveredCursor),
+      signedIn: Boolean(discoveredCursor?.hasToken),
+      email: discoveredCursor?.accountEmail,
+      active: cursorProvider?.active || localStorage.getItem("arunaki_active_provider") === "cursor",
     },
   };
 
