@@ -1032,7 +1032,7 @@ export function SettingsCliConnectionsTab({
     );
   };
 
-  const handleRefreshCred = async (target: "claude" | "codex" | "kiro" | "cursor" | "all") => {
+  const handleRefreshCred = async (target: string) => {
     setRefreshingTarget(target);
     setRefreshErrors((prev) => {
       const next = { ...prev };

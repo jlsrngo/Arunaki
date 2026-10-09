@@ -5,14 +5,7 @@
 // hand-rolled card. Keep this presentation-free: ids, urls, commands and file paths
 // only. Anything the user reads belongs in the web i18n map keyed by `stepKey`.
 
-export type CliProviderId =
-  | "claude"
-  | "codex"
-  | "opencode"
-  | "antigravity"
-  | "kiro"
-  | "cursor"
-  | "nineRouter"
+export type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "kiro" | "nineRouter"
 
 export type CliQuotaKind = "antigravity" | "claude" | "codex" | "kiro" | "none"
 
@@ -206,17 +199,10 @@ notice:
     supportsAutoConfigure: false,
     supportsBrowserLogin: true,
   },
-  {
-    id: "cursor",
-    name: "Cursor",
-    vendor: "Anysphere",
-    quota: "none",
-    models: [],
-    requiresCli: true,
-    loginMode: "terminal",
-    supportsAutoConfigure: false,
-    supportsBrowserLogin: false,
-  },
+  // Cursor is deliberately not listed. The credential reader works and scanLocalCredentials still
+  // surfaces a Cursor token, but there is no bridge route, no connect contract and no upstream
+  // call, so a card for it could only ever say "Not installed" - advertising a provider that
+  // cannot answer. Re-add the entry in the same commit that adds the route.
   {
     id: "nineRouter",
     name: "9Router",
