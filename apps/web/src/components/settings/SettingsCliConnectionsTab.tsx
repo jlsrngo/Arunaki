@@ -141,12 +141,16 @@ interface SettingsCliConnectionsTabProps {
 }
 
 
-/** Mirrors CliProviderId in the engine registry so handler signatures stay in sync. */
-// Providers that are actually wired end to end: a card, a bridge route and a PROVIDER_CONFIGS
-// entry. It fell behind when kiro was added, and cursor is deliberately absent - it is a registry
-// placeholder with no bridge route, no config and no status, so listing it here would claim more
-// than exists.
-type CliProviderId = "claude" | "codex" | "opencode" | "antigravity" | "nineRouter" | "kiro";
+/**
+ * A provider id. The engine registry is the source of truth, so this is deliberately not a union
+ * of literals.
+ *
+ * It used to be one, and it silently fell behind: kiro was added to the registry and got a card,
+ * but not to this type, so TypeScript rejected `id === "kiro"` and sent the fix to the wrong place.
+ * No call site depends on the members - they only pass an id along - so the union bought nothing
+ * and cost a bug.
+ */
+type CliProviderId = string;
 
 interface QuotaBucket {
   id: string;
@@ -373,34 +377,6 @@ export function SettingsCliConnectionsTab({
   }, []);
 
   // Provider states
-  const claudeProvider = providers.find((p) => p.id === "claude-code" || p.type === "claude-code");
-  const isClaudeActive =
-    claudeProvider?.active || localStorage.getItem("arunaki_active_provider") === "claude-code";
-
-  const opencodeProvider = providers.find((p) => p.id === "opencode" || p.type === "opencode");
-  const isOpenCodeActive =
-    opencodeProvider?.active || localStorage.getItem("arunaki_active_provider") === "opencode";
-
-  const codexProvider = providers.find((p) => p.id === "codex" || p.type === "codex" || p.id === "openai" || p.type === "openai");
-  const isCodexActive =
-    codexProvider?.active || localStorage.getItem("arunaki_active_provider") === "codex";
-
-  const antigravityProvider = providers.find(
-    (p) => p.id === "antigravity" || p.id === "gemini-cli" || p.id === "gemini" || p.type === "antigravity" || p.type === "gemini"
-  );
-  const isAntigravityActive =
-    antigravityProvider?.active ||
-    localStorage.getItem("arunaki_active_provider") === "antigravity" ||
-    localStorage.getItem("arunaki_active_provider") === "gemini-cli" ||
-    localStorage.getItem("arunaki_active_provider") === "gemini";
-  const isGeminiActive = isAntigravityActive;
-
-  const kiroProvider = providers.find((p) => p.id === "kiro");
-  const cursorProvider = providers.find((p) => p.id === "cursor");
-  const nineRouterProvider = providers.find((p) => p.id === "9router" || p.type === "9router");
-  const is9RouterActive =
-    nineRouterProvider?.active || localStorage.getItem("arunaki_active_provider") === "9router";
-
   // Per-provider facts the generic card needs. Everything here is derived state, so it is
   // declared unconditionally with the rest of them (React Rules of Hooks).
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -412,61 +388,81 @@ export function SettingsCliConnectionsTab({
   const discoveredKiro = data.discovered?.find((d) => d.provider === "kiro");
   const discoveredCursor = data.discovered?.find((d) => d.provider === "cursor");
 
-  const cardState: Record<
-    string,
-    { installed: boolean; signedIn: boolean; email?: string; active: boolean; version?: string }
+  /**
+   * Where each provider's card state comes from.
+   *
+   * Only the provider-specific part is written down. Every other fact is shared: the credential
+   * snapshot, and whether this provider is the active one. That split is what stops the next
+   * provider from being half-wired - the earlier literal record needed an entry per provider and
+   * silently defaulted to "not installed" when one was missing, which is how Kiro read as absent
+   * while it was serving requests.
+   */
+  const SIGNALS: Partial<
+    Record<
+      string,
+      (d: LocalCliData) => { installed: boolean; signedIn: boolean; email?: string; version?: string }
+    >
   > = {
-    claude: {
-      installed: data.claude.installed,
-      signedIn: Boolean(data.claude.loggedIn || discoveredClaude?.hasToken),
-      email: discoveredClaude?.accountEmail,
-      active: isClaudeActive,
-      version: data.claude.version,
-    },
-    codex: {
-      installed: Boolean(data.codex?.installed),
-      // Prefer the credential-derived flag. discovered is a snapshot of the same scan and lags
-      // behind, which is how a signed-in card still read "Not installed".
-      signedIn: Boolean(data.codex?.signedIn || discoveredCodex?.hasToken),
-      email: data.codex?.accountEmail ?? discoveredCodex?.accountEmail,
-      active: isCodexActive,
-      version: data.codex?.version,
-    },
-    opencode: {
-      installed: true,
-      signedIn: true,
-      active: isOpenCodeActive,
-      version: data.opencode.version,
-    },
-    antigravity: {
-      installed: Boolean(data.antigravity?.agyInstalled ?? data.antigravity?.cliInstalled),
-      signedIn: Boolean(data.antigravity?.agySignedIn),
-      email: data.antigravity?.accountEmail,
-      active: isAntigravityActive,
-      version: data.antigravity?.agyVersion,
-    },
-    nineRouter: {
-      installed: Boolean(data.nineRouter.installed),
-      signedIn: Boolean(data.nineRouter.running),
-      active: is9RouterActive,
-      version: data.nineRouter.version,
-    },
-    // Kiro signs in through a browser device flow and installs nothing, so "installed" is not the
-    // question - being signed in is. Omitting this entry left the card falling back to a default
-    // of not installed while the provider was serving requests.
-    kiro: {
-      installed: data.kiro?.installed ?? true,
-      signedIn: Boolean(data.kiro?.signedIn || discoveredKiro?.hasToken),
-      email: data.kiro?.accountEmail ?? discoveredKiro?.accountEmail,
-      active: kiroProvider?.active || localStorage.getItem("arunaki_active_provider") === "kiro",
-    },
-    cursor: {
-      installed: Boolean(discoveredCursor),
-      signedIn: Boolean(discoveredCursor?.hasToken),
-      email: discoveredCursor?.accountEmail,
-      active: cursorProvider?.active || localStorage.getItem("arunaki_active_provider") === "cursor",
-    },
+    claude: (d) => ({
+      installed: d.claude.installed,
+      signedIn: Boolean(d.claude.loggedIn || d.discovered?.some((x) => x.provider === "claude" && x.hasToken)),
+      email: d.discovered?.find((x) => x.provider === "claude")?.accountEmail,
+      version: d.claude.version,
+    }),
+    codex: (d) => ({
+      installed: Boolean(d.codex?.installed),
+      signedIn: Boolean(d.codex?.signedIn || d.discovered?.some((x) => x.provider === "codex" && x.hasToken)),
+      email: d.codex?.accountEmail ?? d.discovered?.find((x) => x.provider === "codex")?.accountEmail,
+      version: d.codex?.version,
+    }),
+    opencode: (d) => ({ installed: true, signedIn: true, version: d.opencode.version }),
+    antigravity: (d) => ({
+      installed: Boolean(d.antigravity?.agyInstalled ?? d.antigravity?.cliInstalled),
+      signedIn: Boolean(d.antigravity?.agySignedIn),
+      email: d.antigravity?.accountEmail,
+      version: d.antigravity?.agyVersion,
+    }),
+    nineRouter: (d) => ({
+      installed: Boolean(d.nineRouter?.installed),
+      signedIn: Boolean(d.nineRouter?.running),
+      version: d.nineRouter?.version,
+    }),
+    kiro: (d) => ({
+      // Installs nothing, so "installed" is always true and the credential is the only question.
+      installed: d.kiro?.installed ?? true,
+      signedIn: Boolean(d.kiro?.signedIn || d.discovered?.some((x) => x.provider === "kiro" && x.hasToken)),
+      email: d.kiro?.accountEmail ?? d.discovered?.find((x) => x.provider === "kiro")?.accountEmail,
+    }),
   };
+
+  /**
+   * Card state for every provider the engine offers. Derived from the registry so a provider
+   * added there gets a working card without touching this file.
+   */
+  const cardState: Record<string, { installed: boolean; signedIn: boolean; email?: string; active: boolean; version?: string }> =
+    Object.fromEntries(
+      (data.registry ?? []).map((d) => {
+        const facts = SIGNALS[d.id]?.(data) ?? { installed: false, signedIn: false };
+        const token = data.discovered?.find((x) => x.provider === d.id);
+        return [
+          d.id,
+          {
+            // Default to the credential when no signal is defined: a provider we do not know how
+            // to probe is still genuinely connected if it holds a token.
+            installed: facts.installed || Boolean(token?.hasToken),
+            signedIn: facts.signedIn || Boolean(token?.hasToken),
+            email: facts.email ?? token?.accountEmail,
+            version: facts.version,
+            // Active can be stored under the provider's connect id rather than its registry id
+            // (claude is saved as "claude-code"), so both the local flag and the model-provider
+            // list are consulted rather than a per-provider chain of comparisons.
+            active:
+              localStorage.getItem("arunaki_active_provider") === d.id ||
+              providers.some((p) => p.active && (p.id === d.id || p.type === d.id)),
+          },
+        ];
+      }),
+    );
 
 
   // A credential stays in the local store after its CLI cache is gone so Refresh can
@@ -1410,38 +1406,25 @@ export function SettingsCliConnectionsTab({
     }
   };
 
+  // Gemini and Antigravity are the same lane; the provider is stored under either id.
+const isGeminiActive =
+  localStorage.getItem("arunaki_active_provider") === "gemini" ||
+  localStorage.getItem("arunaki_active_provider") === "gemini-cli" ||
+  localStorage.getItem("arunaki_active_provider") === "antigravity";
+
+  /**
+   * Connect contracts, keyed by provider id.
+   *
+   * Deliberately a partial map over the engine registry rather than a Record of every provider.
+   * Writing all six out by hand meant a new provider could be added to the registry, get a card,
+   * and still have no connect contract - which is exactly the shape of the half-wired bugs this
+   * page already produced once. Anything absent is handled explicitly below.
+   */
   const PROVIDER_CONFIGS: Record<
-    CliProviderId,
+    string,
     { id: string; name: string; type: string; baseUrl: string; apiKey: string }
   > = {
-    claude: {
-      id: "claude-code",
-      name: "Claude Code CLI (Local Subscription)",
-      type: "claude-code",
-      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
-      apiKey: "claude-pro-subscription",
-    },
-    codex: {
-      id: "codex",
-      name: "OpenAI Codex Agent",
-      type: "openai",
-      baseUrl: "https://api.openai.com/v1",
-      apiKey: "codex-active",
-    },
-    opencode: {
-      id: "opencode",
-      name: "OpenCode CLI Agent",
-      type: "openai-compatible",
-      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
-      apiKey: "opencode-local-session",
-    },
-    antigravity: {
-      id: "antigravity",
-      name: "Google Antigravity CLI (agy)",
-      type: "openai-compatible",
-      baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
-      apiKey: "antigravity-local-session",
-    },
+    // The only provider that does not talk to the local bridge.
     nineRouter: {
       id: "9router",
       name: "9Router Gateway",
@@ -1449,15 +1432,25 @@ export function SettingsCliConnectionsTab({
       baseUrl: "http://localhost:20128/v1",
       apiKey: "9router",
     },
-    kiro: {
-      id: "kiro",
-      name: "Kiro (AWS Free)",
+  };
+
+  /**
+   * Resolve a connect contract for any registry provider.
+   *
+   * The bridge owns every vendor conversation, so it is the correct default: it holds the
+   * credentials, decodes each vendor's wire format, and is where the model prefix is stripped.
+   * Only a provider that genuinely bypasses it needs an entry above.
+   */
+  const connectConfigFor = (target: string, name: string) => {
+    const override = PROVIDER_CONFIGS[target];
+    if (override) return override;
+    return {
+      id: target,
+      name,
       type: "openai-compatible",
-      // Routed through the bridge: the bridge owns the AWS EventStream decoding and the
-      // kiro/ prefix is stripped there before the model id reaches AWS.
       baseUrl: `http://127.0.0.1:${data.bridgePort || 20188}/v1`,
-      apiKey: "kiro-free",
-    },
+      apiKey: `${target}-local-session`,
+    };
   };
 
   const handleConnectTarget = async (
@@ -1465,9 +1458,9 @@ export function SettingsCliConnectionsTab({
     friendlyName: string
   ) => {
     setConnectingTarget(target);
-    const config = PROVIDER_CONFIGS[target];
-    // A registry entry can exist before its connect contract does. Say so plainly rather
-    // than reading .id off undefined, which blanks the page.
+    const config = connectConfigFor(target, friendlyName);
+    // Every registry provider resolves a config now, so a card can never claim to be
+    // "not ready to connect" just because this file was not updated alongside the registry.
     if (!config) {
       setConnectingTarget(null);
       toast.error(isEn ? `${friendlyName} is not ready to connect` : `${friendlyName} belum siap dihubungkan`, {
@@ -1572,7 +1565,7 @@ export function SettingsCliConnectionsTab({
     isActive: boolean,
     friendlyName: string
   ) => {
-    const config = PROVIDER_CONFIGS[target];
+    const config = connectConfigFor(target, friendlyName);
     if (!config) {
       toast.error(isEn ? `${friendlyName} is not ready` : `${friendlyName} belum siap`, {
         description: isEn
