@@ -13,7 +13,7 @@
     "postinstall": "bun run --cwd packages/engine/core fix-node-pty",
     "test:unit": "bun run --cwd packages/engine/engine test",
     "test:smoke": "bun run scripts/smoke-local-cli.ts",
-    "verify": "npm run build && bun run --cwd packages/engine/engine typecheck && npm run test:unit && npm run test:smoke"
+    "verify": "npm run build && bun run tsc --noEmit -p packages/engine/engine/tsconfig.json && npm run test:unit && npm run test:smoke"
   },
   "workspaces": {
     "packages": [
