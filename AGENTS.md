@@ -208,10 +208,39 @@ Verify that:
 - **WORKFLOW.md updated** — Current phase items marked with ✅ if completed.
 - The task is completed and matches the actual Goal (not just a literal reading of the request).
 - No existing functionality is broken — relevant tests pass.
+- **The product was actually run — `npm run test:smoke`.** See "Live smoke test is mandatory" below.
 - The architecture and module boundaries are preserved (Section: Architecture & Intelligence Compliance).
 - No unapproved dependency was introduced.
 - The documentation is updated if necessary.
 - Any assumption made due to ambiguity was explicitly surfaced to the user, not silently baked into the code.
+
+---
+
+## Live smoke test is mandatory (MANDATORY)
+
+Unit tests can all be green while the product does not work at all. That happened repeatedly: three
+commits were pushed against an engine that was not running, and a token had been expired for hours
+while every settings card still read "Connected".
+
+**Before finishing any change that touches a provider route, sign-in, credential or model
+catalogue, run:**
+
+```bash
+npm run test:smoke
+```
+
+It checks the engine is up, then sends a real request through the local bridge for every wired
+provider — text for all, plus a tool call for the three that support it, validating that each
+tool call's `arguments` is parseable JSON. It exits non-zero on any failure.
+
+**Never report a provider change as done on the strength of unit tests alone.** If the engine is not
+running, say so and stop; do not describe what the code does as though it was observed.
+
+Full gate, for changes that need everything:
+
+```bash
+npm run verify      # build + typecheck + unit tests + live smoke
+```
 
 ---
 
