@@ -47,17 +47,26 @@ export interface CliProviderDescriptor {
    */
   supportsBrowserLogin: boolean
   /**
-   * Subscription the vendor requires before it will issue a usable token. Shown on the card so
-   * the user learns the requirement before clicking, instead of hitting a wall in the browser.
-   * Verified live on a free account: Claude answers "Claude Max atau Pro diperlukan", and the
-   * Codex endpoint answers "not supported when using Codex with a ChatGPT account" for every
-   * model. The Codex token does decode, so sign-in succeeds and the wall comes at first request.
+   * What a vendor requires before it will answer. Shown on the card so the user learns the
+   * requirement before clicking, rather than hitting a wall in the browser. Verified live, and
+   * the two providers differ in kind: Claude answers "Claude Max atau Pro diperlukan" for every
+   * model, while Codex works on a free account and simply refuses every model outside the
+   * verified list. Read the notice per provider instead of assuming paid-only.
    */
   entitlement?: { notice: string; noticeId: string; url: string }
 }
 
 const CLAUDE_MODELS = ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
-const CODEX_MODELS = ["gpt-5.1-codex", "gpt-5-codex", "codex-mini-latest"]
+// Verified live against the Codex endpoint with a free account on 2026-10-09.
+//
+// These were not guessed. The earlier list (gpt-5.1-codex, codex-mini-latest) is dead: Codex
+// dropped those names, and every request against them is refused with "not supported when using
+// Codex with a ChatGPT account", which reads exactly like a plan restriction and is not one.
+//
+// On a free plan only a subset answers. gpt-5.6-terra and gpt-5.6-luna returned 200 and produced
+// correct output; gpt-6.1-sol, gpt-6-sol, gpt-6-astra, gpt-5.6-sol and the responses-lite
+// variants were all refused. Offering the refused ones would be offering dead choices.
+const CODEX_MODELS = ["gpt-5.6-terra", "gpt-5.6-luna"]
 // Kiro ids are prefixed because they overlap every other provider's names; the prefix is
 // stripped before the request so AWS still sees its own id.
 const KIRO_MODELS = [
@@ -135,9 +144,9 @@ export const CLI_PROVIDER_REGISTRY: CliProviderDescriptor[] = [
     supportsAutoConfigure: false,
     supportsBrowserLogin: true,
     entitlement: {
-      notice:
-      "Sign-in works on any plan, but ChatGPT Plus or higher is required to actually run requests. A free account connects and then fails on the first message.",
-      noticeId: "Perlu akun ChatGPT Plus (atau lebih tinggi)",
+notice:
+      "Works on a free ChatGPT account, but only some models answer. A free login is refused by every other Codex model with \"not supported when using Codex with a ChatGPT account\".",
+    noticeId: "Gratis berfungsi, tapi hanya sebagian model",
       url: "https://chatgpt.com/codex",
     },
   },
