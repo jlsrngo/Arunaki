@@ -316,8 +316,11 @@ export function scheduleBackgroundRefresh(intervalMs = 5 * 60_000): void {
         if (reauthRequired.has(key)) continue
         if (cred.sourcePath === "mock") continue
         const horizon = cred.expiresAt ? cred.expiresAt - Date.now() : Infinity
-        // Only refresh tokens that are still active but nearing expiration (0 < horizon < 30m)
-        if (horizon <= 0 || horizon > 30 * 60_000) continue
+        // Expired counts as due. OAuth refresh tokens stay valid for weeks after the access token
+        // they minted, so skipping horizon <= 0 meant a single missed tick made the credential
+        // permanently unusable: the loop never looked at it again. ReauthRequired and
+        // MAX_REFRESH_AGE_MS are what stop a genuinely dead refresh token being retried forever.
+        if (horizon > 30 * 60_000) continue
 
         // Jitter to avoid hammering vendor servers simultaneously
         const jitter =

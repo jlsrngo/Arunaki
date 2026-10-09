@@ -1,4 +1,4 @@
-﻿import http from "node:http"
+import http from "node:http"
 import os from "node:os"
 import path from "node:path"
 import {
@@ -16,7 +16,7 @@ import {
   streamDirectAntigravityCompletion,
 } from "./upstream.js"
 import { streamKiroCompletion, stripKiroPrefix } from "./kiro.js"
-import { scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
+import { checkBeforeRequest, scheduleBackgroundRefresh, stopBackgroundRefresh } from "./refresh.js"
 
 export const LOCAL_BRIDGE_PORT = 20188
 
@@ -219,7 +219,11 @@ class LocalCliBridge {
     // Free tier, no CLI. Registered first so its shared model names never reach another
     // provider's matcher.
     if (isKiroModel) {
-      const kiroCred = readKiroCredential()
+      // Refresh on demand, not only on the background tick: a provider can sit idle past its
+    // access token lifetime, and the first request after that would fail even though the refresh
+    // token is still good.
+    const kiroCred = readKiroCredential()
+    if (kiroCred?.accessToken) await checkBeforeRequest(kiroCred)
       if (kiroCred?.accessToken) {
         await streamKiroCompletion({ ...payload, model: stripKiroPrefix(payload.model) }, res, kiroCred)
         return
@@ -242,6 +246,7 @@ class LocalCliBridge {
       /^(gpt-|o[1-9]|codex)/.test(requestedModel) && !isOpenCodeModel && !is9RouterModel && !isKiroModel
     if (isOpenAIFamily) {
       const codexCred = readCodexCredential()
+      if (codexCred?.accessToken) await checkBeforeRequest(codexCred)
       if (codexCred?.accessToken) {
         const ok = await streamDirectCodexCompletion(payload, res, codexCred)
         if (ok) {
@@ -324,6 +329,7 @@ class LocalCliBridge {
 
     // ── Fast-Path: Direct Anthropic Messages API ─────────
     const claudeCred = readClaudeCredential()
+    if (claudeCred?.accessToken) await checkBeforeRequest(claudeCred)
 
     // Direct only. Spawning the claude CLI as a fallback looked like a safety net, but its
     // tool calls are recovered by regex over markdown text blocks rather than the structured
