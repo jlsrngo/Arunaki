@@ -225,7 +225,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           },
           models,
         }
-        yield* cfg.update({
+        yield* cfg.updateGlobal({
           provider: { [providerID]: provider },
           ...(modelList.length > 0 ? { model: `${providerID}/${modelList[0]}` } : {}),
         })
@@ -250,7 +250,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         patch[id] = { ...existing, id, options: { ...(existing.options ?? {}), baseURL: bridgeUrl } }
       }
       if (Object.keys(patch).length === 0) return false
-      yield* cfg.update({ provider: patch })
+      yield* cfg.updateGlobal({ provider: patch })
       yield* markInstanceForDisposal(yield* InstanceState.context)
       return true
     })

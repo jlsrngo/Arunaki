@@ -137,15 +137,18 @@ export class Service extends Context.Service<Service, Interface>()("@arunaki/Con
 
 export const use = serviceUse(Service)
 
-function globalConfigFile() {
-  const candidates = ["arunaki.jsonc", "arunaki.json", "config.json"].map((file) =>
-    path.join(Global.Path.config, file),
-  )
-  for (const file of candidates) {
-    if (existsSync(file)) return file
+  function globalConfigFile() {
+    // Order must match the reader's in core/src/config.ts (`names`). It used to prefer arunaki.jsonc,
+    // while core resolves arunaki.json first, so a provider written by "Connect" landed in a file
+    // nothing ever read back: the UI reported Connected while the catalogue stayed empty.
+    const candidates = ["arunaki.json", "arunaki.jsonc", "config.json"].map((file) =>
+      path.join(Global.Path.config, file),
+    )
+    for (const file of candidates) {
+      if (existsSync(file)) return file
+    }
+    return candidates[0]
   }
-  return candidates[0]
-}
 
 function patchJsonc(input: string, patch: unknown, path: string[] = []): string {
   if (!isRecord(patch)) {
