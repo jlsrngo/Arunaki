@@ -233,22 +233,22 @@ export function UnifiedWorkstationPage() {
     queryKey: ["folder-files", activeFolder],
     queryFn: async () => {
       if (!activeFolder) return [];
-      try {
-        const res = await engineFetch(`/api/file?directory=${encodeURIComponent(activeFolder)}&path=${encodeURIComponent(activeFolder)}`);
-        const json = await res.json();
-        const entries: Array<{ name: string; path: string; type: string }> = json.data || json || [];
-        return entries
-          .filter((e) => e && e.type !== "directory")
-          .map((e) => ({
-            id: e.path,
-            name: e.name,
-            path: e.path,
-            type: "file",
-            size: 0,
-          }));
-      } catch {
-        return [];
-      }
+      // "path" is relative to the instance directory, and "." is the folder root.
+      const res = await engineFetch(
+        `/file?directory=${encodeURIComponent(activeFolder)}&path=${encodeURIComponent(".")}`,
+      );
+      if (!res.ok) throw new Error(`file list failed: HTTP ${res.status}`);
+      const json = await res.json();
+      const entries: Array<{ name: string; path: string; type: string }> = json.data || json || [];
+      return entries
+        .filter((e) => e && e.type !== "directory")
+        .map((e) => ({
+          id: e.path,
+          name: e.name,
+          path: e.path,
+          type: "file",
+          size: 0,
+        }));
     },
     enabled: !!activeFolder,
   });

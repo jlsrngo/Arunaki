@@ -144,7 +144,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
         if (!fileContent) {
           try {
             const res = await engineFetch(
-              `/api/file/content?directory=${encodeURIComponent(activeFolder || "")}&path=${encodeURIComponent(filePath)}`
+              `/file/content?directory=${encodeURIComponent(activeFolder || "")}&path=${encodeURIComponent(filePath)}`
             );
             if (res.ok) {
               const json = await res.json();
@@ -234,7 +234,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
             if (freshContent === null) {
               try {
                 const contentRes = await engineFetch(
-                  `/api/file/content?directory=${encodeURIComponent(activeFolder)}&path=${encodeURIComponent(filePath)}`
+                  `/file/content?directory=${encodeURIComponent(activeFolder)}&path=${encodeURIComponent(filePath)}`
                 );
                 if (contentRes.ok) {
                   const contentJson = await contentRes.json();

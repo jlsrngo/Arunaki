@@ -51,6 +51,19 @@ export function authHeader(): Record<string, string> {
   return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
 }
 
+/**
+ * Path for an engine route that is mounted at the root.
+ *
+ * Most of the UI talks to `/api/...`, but that prefix is a legacy alias covering only part of the
+ * API. The file routes are not in it: `/file`, `/file/content` and `/file/status` answer at the root,
+ * and under `/api` they fall through to the UI catch-all and come back 500 with an empty body. That
+ * is why the workspace file list silently came back empty - the caller caught the failure and
+ * rendered an empty array, which is indistinguishable from an empty folder.
+ */
+export function enginePath(path: string): string {
+  return isDesktopBundle() ? `${engineUrl()}${path}` : path;
+}
+
 function withDirectory(url: string): string {
   if (!url.startsWith(`${API_BASE}/`)) return url;
   const folder = activeDirectory();
