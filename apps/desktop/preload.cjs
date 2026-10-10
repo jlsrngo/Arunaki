@@ -1,16 +1,20 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // The engine authenticates with HTTP Basic. The password is minted per start by the launcher and
-// arrives through the Electron process env, not baked into the web bundle - a build artefact is
-// just a file anyone can read, and the renderer asks for the credentials at runtime instead.
+// arrives on argv rather than in process.env, because a sandboxed preload (webPreferences.sandbox =
+// true) does not get a full process object.
 //
 // Returns undefined when there is no desktop shell (plain browser), which is the right answer
 // there: with no shell there is no password, so the engine rejects the request.
 function credentials() {
-  const user = process.env.ARUNAKI_SERVER_USERNAME;
-  const password = process.env.ARUNAKI_SERVER_PASSWORD;
+  const arg = (prefix) => {
+    const hit = process.argv.find((a) => a.startsWith(prefix));
+    return hit ? hit.slice(prefix.length) : undefined;
+  };
+  const user = arg('--arunaki-server-user=');
+  const password = arg('--arunaki-server-password=');
   if (!user || !password) return undefined;
-  return { user, password, engineUrl: process.env.ARUNAKI_ENGINE_URL || 'http://127.0.0.1:4096' };
+  return { user, password, engineUrl: arg('--arunaki-engine-url=') || 'http://127.0.0.1:4096' };
 }
 
 contextBridge.exposeInMainWorld('arunakiDesktop', {

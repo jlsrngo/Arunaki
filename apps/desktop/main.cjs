@@ -126,7 +126,18 @@ function createWindow() {
       contextIsolation: true,
       sandbox: false,
       nodeIntegration: false,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      // A sandboxed preload does not get a full process object, so the engine credentials travel in
+      // on argv instead of through process.env. They are minted per start by scripts/server-auth.cjs
+      // and reach this process through the launcher.
+      additionalArguments: process.env.ARUNAKI_SERVER_PASSWORD
+        ? [
+            `--arunaki-server-user=${process.env.ARUNAKI_SERVER_USERNAME || 'arunaki'}`,
+            `--arunaki-server-password=${process.env.ARUNAKI_SERVER_PASSWORD}`,
+            `--arunaki-engine-url=${process.env.ARUNAKI_ENGINE_URL || 'http://127.0.0.1:4096'}`,
+          ]
+        : [],
     },
   });
 
@@ -139,20 +150,47 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Auto-reload if network service / renderer process crashes or fails to load
+  // A renderer crash used to trigger a blind win.reload() a second later. In an editor that throws
+  // away whatever was in the message box and whatever was unsaved in the open document, with no
+  // prompt first. Reload only when the crash left the process unusable, and back off for the ones
+  // it did not - a repeated reload can also turn a recoverable hiccup into a reload loop.
+  let rendererGoneAt = 0;
   win.webContents.on('render-process-gone', (_event, details) => {
-    console.warn('[main] Render process gone, reloading...', details);
+    const now = Date.now();
+    if (now - rendererGoneAt < 10000) {
+      console.warn('[main] Render process crashed again within 10s, not reloading:', details.reason);
+      return;
+    }
+    rendererGoneAt = now;
+    // 'clean-exit' means it went away on purpose; 'killed' and OOM/crashes are the cases worth
+    // recovering from automatically.
+    const recoverable = details.reason !== 'clean-exit';
+    if (!recoverable) return;
+    console.warn('[main] Render process gone, reloading:', details.reason);
     setTimeout(() => {
-      try { win.reload(); } catch {}
+      try { if (!win.isDestroyed()) win.reload(); } catch {}
     }, 1000);
   });
 
+  // Same problem on the load path: a server that is simply not running produced a retry every
+  // 1.5s forever. Bounded backoff, and give up rather than spin.
+  let loadRetries = 0;
+  let loadRetryTimer = null;
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-    console.warn(`[main] did-fail-load (${errorCode}: ${errorDescription}), retrying...`);
-    setTimeout(() => {
-      try { void win.loadURL(WEB_URL); } catch {}
-    }, 1500);
+    if (loadRetryTimer) clearTimeout(loadRetryTimer);
+    if (loadRetries >= 6) {
+      console.error(`[main] gave up loading after ${loadRetries} attempts (${errorCode}: ${errorDescription})`);
+      return;
+    }
+    const delay = Math.min(1000 * 2 ** loadRetries, 15000);
+    loadRetries++;
+    console.warn(`[main] did-fail-load (${errorCode}: ${errorDescription}), retry ${loadRetries} in ${delay}ms`);
+    loadRetryTimer = setTimeout(() => {
+      try { if (!win.isDestroyed()) void win.loadURL(WEB_URL); } catch {}
+    }, delay);
   });
+
+  win.webContents.on('did-finish-load', () => { loadRetries = 0; loadRetryTimer = null; });
 
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Menunggu Arunaki Web di 127.0.0.1:5173...</div></body></html>')}`);
 
