@@ -144,22 +144,28 @@ export const ModelsDevPlugin = define({
     yield* ctx.catalog.transform(
       Effect.fn(function* (catalog) {
         const data = yield* modelsDev.get()
-        // A provider the user configured is more specific than the public record of the same name,
-        // so it wins outright. models.dev describes a vendor's generic endpoint and cannot know the
-        // one actually in use here, so letting it define the endpoint and the model list left models
-        // in the picker that the endpoint rejects - and its own copy of the endpoint overwrote the
-        // configured one. Skipped entirely rather than merged, because the config plugin only adds
-        // models and can never remove the ones this would introduce.
+        // Configured providers outrank the public record, but only where they actually say something.
+        // A config entry that lists models is authoritative for them: models.dev cannot know the
+        // endpoint in use here, so merging left models in the picker that the endpoint rejects, and
+        // its own copy of the endpoint overwrote the configured one. A config entry that only holds
+        // credentials lists no models, and models.dev is then the only thing that supplies any - so
+        // it still contributes the catalogue, minus the endpoint and name, which config owns.
         const entries = yield* config.entries()
-        const configured = new Set(
-          entries
-            .filter((entry) => entry.type === "document")
-            .flatMap((entry) => Object.keys(entry.info.providers ?? {})),
-        )
+        const files = entries.filter((entry) => entry.type === "document")
+        const configured = new Set<string>()
+        const listingModels = new Set<string>()
+        for (const file of files) {
+          for (const [id, provider] of Object.entries(file.info.providers ?? {})) {
+            configured.add(id)
+            if (Object.keys(provider.models ?? {}).length > 0) listingModels.add(id)
+          }
+        }
         for (const item of Object.values(data)) {
           const providerID = ProviderV2.ID.make(item.id)
-          if (configured.has(item.id)) continue
+          if (listingModels.has(item.id)) continue
+          const ownsEndpoint = !configured.has(item.id)
           catalog.provider.update(providerID, (provider) => {
+            if (!ownsEndpoint) return
             provider.name = item.name
             provider.api = item.npm
               ? {
