@@ -69,6 +69,22 @@ export const Plugin = define({
                     input: [...config.capabilities.input],
                     output: [...config.capabilities.output],
                   }
+                } else if (model.capabilities.input.length === 0) {
+                  // Catalog.available() keeps only models whose capabilities start with "text", and a
+                  // model declared only in config starts from the schema default of empty
+                  // (schema/src/model.ts). Every local CLI provider is configured this way - its
+                  // catalogue comes from a sign-in flow, not models.dev - so Antigravity, Kiro and
+                  // Codex each read "Connected" in Settings while contributing nothing selectable.
+                  // An OpenAI-compatible chat endpoint is text in, text out, tools, unless told
+                  // otherwise.
+                  model.capabilities = { tools: true, input: ["text"], output: ["text"] }
+                }
+                if (model.time.released === 0) {
+                  // available() also keeps only models younger than 18 months, and age derives from
+                  // time.released, which defaults to 0 - read as 1970, roughly 20,000 days old. A model
+                  // the user configured by hand meant to be used, so treat it as current rather than
+                  // dropping it silently.
+                  model.time = { released: Date.now() }
                 }
                 if (config.request !== undefined) {
                   Object.assign(model.request.headers, config.request.headers)

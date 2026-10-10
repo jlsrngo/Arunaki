@@ -75,11 +75,21 @@ const layer = Layer.effect(
       if (integration?.connections.length) return true
       if (provider.id === "kenari") return true
       if (provider.id === "ollama" || provider.id === "lmstudio") return true
+      // Local CLI providers hold their session in the credential store and are reached through the
+      // bridge, so they carry a placeholder key rather than a real one and have no integration
+      // connection. They were matched by id, which meant a newly built provider - Kiro - read
+      // Connected in Settings, passed the local-CLI suite and the bridge smoke test, and still
+      // contributed nothing selectable in the chat because its id was not on this list. Anything
+      // pointing at the local bridge qualifies on what it is, not on what it is called.
+      const base = provider.api as { settings?: { baseURL?: string; url?: string } } | undefined
+      const target = base?.settings?.baseURL ?? base?.settings?.url
+      if (typeof target === "string" && /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(target)) return true
       if (
         provider.id === "antigravity" ||
         provider.id === "gemini-cli" ||
         provider.id === "claude-code" ||
         provider.id === "codex" ||
+        provider.id === "kiro" ||
         provider.id === "opencode" ||
         provider.id === "9router"
       ) return true
