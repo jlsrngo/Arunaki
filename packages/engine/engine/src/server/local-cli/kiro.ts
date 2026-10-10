@@ -754,6 +754,30 @@ export async function streamKiroCompletion(
     return true
   }
 
+  // Kiro paid for both of these and they were thrown away on the streaming path: credits only rode
+  // along on the non-streaming JSON completion above, and context usage had no reader at all. The
+  // chat talks SSE, so neither ever reached it.
+  //
+  // Emitted as a final OpenAI-shaped chunk carrying usage, which is where a client already looks for
+  // it. Credits stay out of prompt_tokens and friends on purpose - they are not tokens and adding
+  // them would make the number wrong rather than merely unfamiliar.
+  if (!wantsJson && (ctx.creditsUsed !== undefined || ctx.contextUsage !== undefined)) {
+    const usage = {
+      ...(ctx.creditsUsed !== undefined ? { kiro_credits: ctx.creditsUsed } : {}),
+      ...(ctx.contextUsage !== undefined ? { context_usage_percent: ctx.contextUsage } : {}),
+    }
+    emit(
+      `data: ${JSON.stringify({
+        id: ctx.id,
+        object: "chat.completion.chunk",
+        created: ctx.created,
+        model: ctx.model,
+        choices: [],
+        usage,
+      })}\n\n`,
+    )
+  }
+
   res.write("data: [DONE]\n\n")
   res.end()
   return true
