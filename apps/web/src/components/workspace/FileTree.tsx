@@ -16,7 +16,6 @@ import {
   nativeToTreeNodes,
 } from "./tree-utils";
 import { TreeNodeItem } from "./TreeNodeItem";
-import { API_BASE, apiFetch } from "../../lib/api";
 
 export interface FileTreeProps {
   files: FileItem[];
@@ -61,24 +60,25 @@ export default function FileTree({
 
   const handleItemClick = async (filePath: string, fileName: string) => {
     try {
-      let fileContent = "";
-      if ((window as any).arunakiDesktop?.readFile) {
-        const res = await (window as any).arunakiDesktop.readFile(filePath);
-        if (res?.content) fileContent = res.content;
-      } else {
-        const targetFile = files.find((f) => f.name.endsWith(fileName) || fileName.endsWith(f.name));
-        if (targetFile?.id) {
-          try {
-            const res = await apiFetch(`${API_BASE}/files/${targetFile.id}/content`);
-            const data = await res.json();
-            if (data.data?.content) fileContent = data.data.content;
-          } catch {}
-        }
+      // One path, not two. This used to fall back to apiFetch(`/files/:id/content`) when the desktop
+      // bridge was missing - a route the engine has never had. It 500'd, was swallowed by an empty
+      // catch, and produced an empty document indistinguishable from an empty file. The fallback
+      // guarded a path with a different rule than the IPC one (resolveInsideWorkspace), so leaving
+      // both in place meant two sources of truth about what may be read.
+      const desktop = (window as any).arunakiDesktop;
+      if (!desktop?.readFile) {
+        console.error("No desktop bridge available; cannot read", filePath);
+        onFileClick?.(filePath, fileName, "");
+        return;
       }
 
-      if (onFileClick) {
-        onFileClick(filePath, fileName, fileContent);
+      const res = await desktop.readFile(filePath);
+      if (res?.error) {
+        console.error("Read failed:", res.error);
+        onFileClick?.(filePath, fileName, "");
+        return;
       }
+      onFileClick?.(filePath, fileName, res?.content ?? "");
     } catch (err: any) {
       console.error("Error opening file:", err);
     }
