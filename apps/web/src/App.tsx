@@ -38,7 +38,7 @@ async function refreshModelCatalog() {
       try {
         const modelsRes = await apiFetch(`${API_BASE}/providers/fetch-models${directoryQuery()}`, {
           method: "POST",
-          body: JSON.stringify({ baseUrl: p.baseUrl, apiKey: p.apiKey }),
+          body: JSON.stringify({ baseUrl: p.baseUrl, apiKey: p.apiKey, providerId: p.id }),
         });
         const modelsData = await modelsRes.json();
         const liveModels: string[] = (modelsData?.data?.models || []).filter(Boolean);

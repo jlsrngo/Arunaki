@@ -477,6 +477,11 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
               return true
             })
         })()
+        if (ctx.payload.providerId !== undefined && models.length > 0) {
+          const entries = Object.fromEntries(models.map((id) => [id, { id, name: id }]))
+          yield* cfg.replaceProviderModels(ctx.payload.providerId, entries)
+          yield* markInstanceForDisposal(yield* InstanceState.context)
+        }
         return { data: { models } }
       },
     )

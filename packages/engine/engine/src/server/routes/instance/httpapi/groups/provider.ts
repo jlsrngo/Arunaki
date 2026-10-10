@@ -69,6 +69,9 @@ export const ProviderTestInput = Schema.Struct({
 export const ProviderFetchModelsInput = Schema.Struct({
   baseUrl: Schema.String,
   apiKey: Schema.optional(Schema.String),
+  // When set, the provider's stored model list is replaced with what the endpoint reports, so models
+  // the vendor has dropped stop appearing as selectable. Without it this only reports.
+  providerId: Schema.optional(Schema.String),
 })
 
 export const ProviderStateInput = Schema.Struct({

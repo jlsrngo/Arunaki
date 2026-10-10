@@ -128,6 +128,15 @@ export interface Interface {
   readonly update: (config: Info) => Effect.Effect<void>
   readonly updateGlobal: (config: Info) => Effect.Effect<{ info: Info; changed: boolean }>
   readonly deleteProvider: (providerID: string) => Effect.Effect<boolean>
+  /**
+   * Replace a provider's model list wholesale in the global config.
+   *
+   * updateGlobal merges, so a model the endpoint has dropped survives every sync and stays in the
+   * catalogue forever, selectable but dead. Sync has to be able to take models away as well as add
+   * them. No-ops when the set is unchanged, and refuses an empty list so a failed fetch cannot wipe
+   * a working provider.
+   */
+  readonly replaceProviderModels: (providerID: string, models: Record<string, unknown>) => Effect.Effect<boolean>
   readonly invalidate: () => Effect.Effect<void>
   readonly directories: () => Effect.Effect<string[]>
   readonly waitForDependencies: () => Effect.Effect<void>
@@ -640,6 +649,26 @@ const layer = Layer.effect(
       }
     })
 
+    const replaceProviderModels = Effect.fn("Config.replaceProviderModels")(function* (
+      providerID: string,
+      models: Record<string, unknown>,
+    ) {
+      const ids = Object.keys(models)
+      if (ids.length === 0) return false
+      const file = globalConfigFile()
+      const before = (yield* readConfigFile(file)) ?? "{}"
+      const existing = ConfigParse.schema(ConfigV1.Info, ConfigParse.jsonc(before, file), file)
+      const current = existing.provider?.[providerID]
+      if (!current) return false
+      const previous = Object.keys(current.models ?? {})
+      const same = previous.length === ids.length && ids.every((id) => id in (current.models ?? {}))
+      if (same) return false
+      const next = { ...existing, provider: { ...existing.provider, [providerID]: { ...current, models } } }
+      yield* fs.writeFileString(file, JSON.stringify(next, null, 2)).pipe(Effect.orDie)
+      yield* invalidate()
+      return true
+    })
+
     const deleteProvider = Effect.fn("Config.deleteProvider")(function* (providerID: string) {
       const dir = yield* InstanceState.directory
       const dotFile = path.join(dir, ".arunaki", "arunaki.json")
@@ -690,6 +719,7 @@ const layer = Layer.effect(
       update,
       updateGlobal,
       deleteProvider,
+      replaceProviderModels,
       invalidate,
       directories,
       waitForDependencies,
