@@ -684,12 +684,17 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           // config. Its card still listed 9 live models from the bridge, which
           // made it look connected while contributing no selectable model.
           const models = yield* Effect.promise(() => getCliSupportedModels("kiro"))
+          // getCliSupportedModels returns ids prefixed with "kiro/" so they stay unambiguous across
+          // providers in the CLI catalogue. The prefix is a display concern: stored here it becomes
+          // part of the model id the bridge is asked for, and the request comes back empty. Store the
+          // bare id and let the provider prefix restore it on the way out.
+          const ids = models.length > 0 ? models.map((m) => m.replace(/^kiro\//, "")) : ["claude-sonnet-4.5"]
           return yield* upsert("kiro", {
             name: "Kiro CLI (AWS Subscription)",
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "kiro-local-session",
-            model: models.length > 0 ? models.join(", ") : "kiro/claude-sonnet-4.5",
+            model: ids.join(", "),
           })
         }
         if (ctx.payload.target === "codex") {
