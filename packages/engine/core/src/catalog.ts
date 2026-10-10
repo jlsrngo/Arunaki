@@ -101,6 +101,9 @@ const layer = Layer.effect(
       provider.id === "gemini-cli" ||
       provider.id === "claude-code" ||
       provider.id === "codex" ||
+      // Kiro is reached through the same bridge as the rest of these and was missing from this list
+      // as well as the availability check above, so its models were projected with no bridge URL.
+      provider.id === "kiro" ||
       provider.id === "opencode" ||
       provider.id === "9router" ||
       (provider.api.url !== undefined && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(provider.api.url))
