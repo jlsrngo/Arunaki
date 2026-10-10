@@ -49,9 +49,24 @@ try {
   // Ignore if .env doesn't exist
 }
 
-const WEB_URL = process.env.ARUNAKI_WEB_URL || 'http://127.0.0.1:5173';
+// Dev mode only. npm run dev:app sets this to the Vite server; npm start does not set it, and the
+// app then loads the built bundle straight off disk.
+//
+// This used to default to 127.0.0.1:5173 unconditionally, so a production run sat on a "waiting for
+// the web app" screen for the full 15s timeout before falling back to the bundle it already had -
+// and the message named a dev server that was never going to answer.
+const WEB_URL = process.env.ARUNAKI_WEB_URL || null;
 const WAIT_TIMEOUT_MS = 15000;
 const WAIT_INTERVAL_MS = 500;
+
+function loadBundle(win) {
+  const distIndexPath = path.join(__dirname, '../web/dist/index.html');
+  if (fsSync.existsSync(distIndexPath)) {
+    void win.loadFile(distIndexPath);
+    return true;
+  }
+  return false;
+}
 
 // Workspace root, learned from the first fs:getFolderTree call (folder picked by user).
 // All fs/office IPC handlers must stay inside it.
@@ -192,19 +207,24 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => { loadRetries = 0; loadRetryTimer = null; });
 
-  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Menunggu Arunaki Web di 127.0.0.1:5173...</div></body></html>')}`);
+  // Production: no dev server was ever going to answer, so go straight to the bundle instead of
+  // showing a waiting screen for a server nobody started.
+  if (!WEB_URL) {
+    if (!loadBundle(win)) {
+      void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Bundle belum dibangun. Jalankan npm run build lalu buka ulang.</div></body></html>')}`);
+    }
+    return;
+  }
+
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Menunggu Arunaki Web di ${WEB_URL}...</div></body></html>`)}`);
 
   waitForWebApp(WEB_URL).then((isReady) => {
     if (isReady) {
       void win.loadURL(WEB_URL);
       return;
     }
-    const distIndexPath = path.join(__dirname, '../web/dist/index.html');
-    if (fsSync.existsSync(distIndexPath)) {
-      void win.loadFile(distIndexPath);
-      return;
-    }
-    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Arunaki Web belum aktif. Jalankan npm run dev:web lalu buka ulang desktop.</div></body></html>')}`);
+    if (loadBundle(win)) return;
+    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Arunaki Web belum aktif. Jalankan npm run dev:web lalu buka ulang desktop.</div></body></html>`)}`);
   }).catch((err) => {
     console.error('[main] Error loading web app:', err);
     void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#FF5E38;font:16px system-ui"><div>Gagal memuat aplikasi: ${err.message}</div></body></html>`)}`);

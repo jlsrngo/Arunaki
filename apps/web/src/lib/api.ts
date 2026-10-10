@@ -1,43 +1,67 @@
-// Centralized API configuration
-// Dev: Vite proxy forwards /api -> engine :4096, so a relative path is correct.
+// Centralized engine access.
+//
+// Dev: the Vite proxy forwards /api to the engine on :4096, so a relative path is correct.
 // Production: Electron loads the built bundle over file://, where "/api" would resolve to
-// file:///api. There the base has to be absolute, or every call fails before it leaves the page.
+// file:///api. There the base has to be absolute or every call fails before leaving the page.
+//
+// The base, the credentials and the directory resolution lived in two files. That duplication is
+// not cosmetic: engineFetch had its own copy, never gained the credentials, and would have broken
+// all 19 of its call sites the moment the engine started requiring a password. One place now.
+
+const ENGINE_URL = "http://127.0.0.1:4096";
+
+/** The bridge is a separate process on its own port with its own auth; it is not the engine. */
+export const BRIDGE_URL = "http://127.0.0.1:20188";
 
 function desktopCredentials() {
   return (globalThis as any).arunakiDesktop?.credentials?.();
 }
 
-export const API_BASE = (() => {
-  if (typeof location !== "undefined" && location.protocol === "file:") {
-    return `${desktopCredentials()?.engineUrl ?? "http://127.0.0.1:4096"}/api`;
-  }
-  return "/api";
-})();
+/** True when the UI came off disk rather than off the dev server. */
+export function isDesktopBundle() {
+  return typeof location !== "undefined" && location.protocol === "file:";
+}
+
+export function engineUrl() {
+  return desktopCredentials()?.engineUrl ?? ENGINE_URL;
+}
+
+// Stays a const so the 62 existing `${API_BASE}` call sites keep working. The preload script runs
+// before any page script, so the desktop credentials are already there when this module evaluates.
+export const API_BASE = isDesktopBundle() ? `${engineUrl()}/api` : "/api";
+
+/** The active project folder, used to route the request to the right instance. */
+export function activeDirectory(): string | undefined {
+  if (typeof localStorage === "undefined") return undefined;
+  return localStorage.getItem("arunaki_active_folder") || undefined;
+}
+
+/**
+ * The engine authenticates with HTTP Basic (engine/src/server/auth.ts), not with x-api-key - that
+ * header was sent for a long time and read by nothing.
+ *
+ * Prefer the desktop shell's runtime credentials. Baking them into the bundle would put the password
+ * in a file on disk, and the local trust boundary already includes reading local files.
+ */
+export function authHeader(): Record<string, string> {
+  const creds = desktopCredentials();
+  const password = creds?.password ?? import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
+  if (!password) return {};
+  const user = creds?.user ?? import.meta.env.VITE_ARUNAKI_SERVER_USER ?? "arunaki";
+  return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
+}
 
 function withDirectory(url: string): string {
-  const prefix = location?.protocol === "file:" ? `${desktopCredentials()?.engineUrl ?? "http://127.0.0.1:4096"}/api` : API_BASE;
   if (!url.startsWith(`${API_BASE}/`)) return url;
-  const rest = url.slice(API_BASE.length);
-  const folder = localStorage.getItem("arunaki_active_folder");
+  const folder = activeDirectory();
   if (!folder || url.includes("directory=")) return url;
   const separator = url.includes("?") ? "&" : "?";
-  return `${prefix}${rest}${separator}directory=${encodeURIComponent(folder)}`;
+  return `${url}${separator}directory=${encodeURIComponent(folder)}`;
 }
 
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
   const headers = new Headers(init?.headers);
-  // The engine authenticates with HTTP Basic (engine/src/server/auth.ts), not with x-api-key. That
-  // header was being sent here and never read by anything, so every caller was unauthenticated
-  // until the launcher started passing a password.
-  //
-  // Prefer the desktop shell's runtime credentials. Baking them into the bundle would put the
-  // password in a file on disk, which is the same place the local trust boundary already is.
-  const creds = desktopCredentials();
-  const password = creds?.password ?? import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
-  if (password) {
-    const user = creds?.user ?? import.meta.env.VITE_ARUNAKI_SERVER_USER ?? "arunaki";
-    headers.set("Authorization", `Basic ${btoa(`${user}:${password}`)}`);
-  }
+  for (const [k, v] of Object.entries(authHeader())) headers.set(k, v);
   if (init?.body && typeof init.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -46,6 +70,6 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 export function directoryQuery(): string {
-  const folder = localStorage.getItem("arunaki_active_folder");
+  const folder = activeDirectory();
   return folder ? `?directory=${encodeURIComponent(folder)}` : "";
 }

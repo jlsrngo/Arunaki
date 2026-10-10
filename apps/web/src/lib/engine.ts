@@ -1,35 +1,18 @@
 // Engine API adapter — all requests go through Vite proxy /api → engine :4096
 
-const ENGINE_BASE = "";
-
-// Engine auth is HTTP Basic (engine/src/server/auth.ts). engineFetch did not send credentials at
-// all, so enabling the password would have broken every one of its callers.
-//
-// Mirrors lib/api.ts: in the desktop shell the UI comes off disk and there is no Vite proxy, so the
-// base has to be absolute and the credentials have to come from the shell at runtime.
-function desktop() {
-  return (globalThis as any).arunakiDesktop?.credentials?.();
-}
+// Engine API adapter. Base URL, credentials and directory resolution all live in lib/api.ts -
+// this file used to carry its own copy of the first two, and the copy without credentials is how 19
+// call sites would have broken when the engine started requiring a password.
+import { activeDirectory, authHeader, engineUrl, isDesktopBundle } from "./api";
 
 function base(): string {
-  if (typeof location !== "undefined" && location.protocol === "file:") {
-    return desktop()?.engineUrl ?? "http://127.0.0.1:4096";
-  }
-  return ENGINE_BASE;
-}
-
-function authHeader(): Record<string, string> {
-  const creds = desktop();
-  const password = creds?.password ?? import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
-  if (!password) return {};
-  const user = creds?.user ?? import.meta.env.VITE_ARUNAKI_SERVER_USER ?? "arunaki";
-  return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
+  // file:// means no Vite proxy in front, so paths have to be absolute.
+  return isDesktopBundle() ? engineUrl() : "";
 }
 
 export async function engineFetch(path: string, init?: RequestInit) {
   const url = `${base()}${path}`;
-  const activeFolder =
-    (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_folder")) || undefined;
+  const activeFolder = activeDirectory();
   return fetch(url, {
     ...init,
     headers: {
