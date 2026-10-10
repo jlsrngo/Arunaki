@@ -344,7 +344,10 @@ export const LocalCliConnectInput = Schema.Struct({
 })
 
 export const LocalCliModelsInput = Schema.Struct({
-  target: Schema.Literals(["claude", "9router", "opencode", "antigravity", "agy", "codex", "gemini", "gemini-cli"]),
+  // "kiro" was missing here even though the provider is fully built, so asking for its catalogue
+  // failed schema validation and returned 500 with an empty body - the same "exists but unreachable"
+  // shape as the rest of N1.
+  target: Schema.Literals(["claude", "9router", "opencode", "antigravity", "agy", "codex", "kiro", "gemini", "gemini-cli"]),
 })
 
 export const LocalCliModelsResult = Schema.Struct({

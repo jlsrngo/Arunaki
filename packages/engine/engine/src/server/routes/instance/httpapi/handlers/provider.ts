@@ -693,7 +693,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     )
 
     const localCliModels = Effect.fnUntraced(
-      function* (ctx: { readonly payload: { readonly target: "claude" | "9router" | "opencode" | "antigravity" | "agy" | "codex" | "gemini" | "gemini-cli" } }) {
+      function* (ctx: { readonly payload: { readonly target: "claude" | "kiro" | "9router" | "opencode" | "antigravity" | "agy" | "codex" | "gemini" | "gemini-cli" } }) {
         const models = yield* Effect.promise(() => getCliSupportedModels(ctx.payload.target))
         return {
           data: {

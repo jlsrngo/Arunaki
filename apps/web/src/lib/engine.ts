@@ -533,11 +533,82 @@ export async function listAgents() {
 
 // --- Model ---
 
+/**
+ * Providers served through the local bridge are absent from the engine catalogue, because the
+ * catalogue only carries models the models.dev sync has heard of. Kiro and Codex read Connected in
+ * Settings and answer perfectly on the bridge, yet contributed nothing selectable - so they are
+ * merged in here from the engine's own local-CLI catalogue endpoint, which asks the account rather
+ * than a hardcoded list.
+ *
+ * Kept keyed so the catalogue wins on a collision: a model the engine already knows about is never
+ * duplicated by the bridge copy.
+ */
+const BRIDGE_PROVIDER_TARGETS: Record<string, string> = {
+  kiro: "kiro",
+  codex: "codex",
+  opencode: "opencode",
+  antigravity: "antigravity",
+};
+
+const BRIDGE_API_KEYS: Record<string, string> = {
+  kiro: "kiro-local-session",
+  codex: "codex-local-session",
+  opencode: "opencode-local-session",
+  antigravity: "antigravity-local-session",
+};
+
+async function localCliModels() {
+  const directory = activeDirectory();
+  const query = directory ? `?directory=${encodeURIComponent(directory)}` : "";
+  const entries = await Promise.all(
+    Object.keys(BRIDGE_PROVIDER_TARGETS).map(async (providerID) => {
+      try {
+        const res = await engineFetch(`/api/providers/local-cli/models${query}`, {
+          method: "POST",
+          body: JSON.stringify({ target: BRIDGE_PROVIDER_TARGETS[providerID] }),
+        });
+        if (!res.ok) return [];
+        const json = await res.json();
+        const ids: string[] = json?.data?.models ?? [];
+        return ids.map((id) => ({
+          id,
+          providerID,
+          name: id,
+          api: {
+            id,
+            type: "aisdk",
+            package: "@ai-sdk/openai-compatible",
+            url: `${engineUrl()}/v1`,
+            settings: { apiKey: BRIDGE_API_KEYS[providerID] },
+          },
+          capabilities: { tools: true, input: ["text"], output: ["text"] },
+          request: { headers: {}, body: {} },
+          variants: [],
+          time: { released: Date.now() },
+          cost: [],
+          status: "active",
+          enabled: true,
+          limit: { context: 0, output: 0 },
+        }));
+      } catch {
+        // One provider failing must not empty the whole picker.
+        return [];
+      }
+    }),
+  );
+  return entries.flat();
+}
+
 export async function listModels() {
   const res = await engineFetch("/api/model");
   if (!res.ok) throw new Error(`listModels failed: ${res.status}`);
   const json = await res.json();
-  return json.data;
+  const models: any[] = json.data ?? [];
+
+  const bridge = await localCliModels();
+  if (!bridge.length) return models;
+  const known = new Set(models.map((m) => `${m.providerID}/${m.id}`));
+  return [...models, ...bridge.filter((m) => !known.has(`${m.providerID}/${m.id}`))];
 }
 
 // --- Question API ---
