@@ -375,3 +375,53 @@ Nomor 1 dan 3 sering dianggap satu paket, tapi tidak: **F3 tanpa F1 tidak menutu
 
 Pindahkan item ke Bagian 1 dengan referensi `file:line` dan nomor commit. Jangan hapus yang belum
 selesai — daftar ini satu-satunya catatan akurat tentang kondisi sebenarnya.
+
+---
+
+# BAGIAN 3 — DITEMUKAN SETELAH AUDIT DITUTUP
+
+Tiga temuan ini muncul setelah daftar di atas selesai, saat memeriksa apakah Kiro bisa dipakai dari
+chat. Semuanya terverifikasi terhadap engine yang berjalan.
+
+### N1. Kiro tidak bisa dipakai dari chat sama sekali ⭐
+
+Kiro sudah lengkap: device flow, credential, model live, katalog, card di Settings, dan lolos smoke 7/7.
+Semua itu benar dan tidak satu pun bisa menjangkau chat.
+
+`
+engine config provider : kenari, antigravity
+kiro                   : tidak terdaftar
+model kiro di /api/model : 0
+`
+
+Bridge menangani Kiro lebih dulu (ridge.ts:221), jadi jalurnya ada — tapi chat tidak pernah
+menyampeainya. BRIDGE_ROUTED_PROVIDERS (handlers/provider.ts:240) hanya berisi
+["opencode", "antigravity", "claude-code"], dan Kiro tidak termasuk. Tanpa entri provider di config
+engine, tidak ada model Kiro yang muncul untuk dipilih.
+
+Ini kelas bug yang sama seperti F6: sesuatu bekerja terisolasi, terverifikasi, dan tidak terjangkau
+dari produk. Smoke test tidak menangkapnya karena smoke menguji bridge secara langsung, bukan lewat
+chat.
+
+**Belum diperbaiki** — menambahkan Kiro ke routing menyentuh provider config dan butuh pengujian ulang
+alur chat.
+
+### N2. Chat menawarkan model Codex yang ditolak
+
+/api/model mengembalikan 183 model, 25 di antaranya.model Codex. Yang terverifikasi hidup hanya 5.
+
+`
+gpt-5.6-terra  -> 200
+gpt-6.1-sol    -> 502
+gpt-5.6-sol    -> 502
+gpt-5-6-luna   -> 502
+`
+
+Katalog local-CLI sudah disaring ke 5 model terverifikasi (CODEX_VERIFIED_FALLBACK), tetapi chat
+membaca katalog engine yang terpisah dan tidak disaring. Ini regresi dari kelas bug yang sama seperti
+yang sudah diperbaiki di lapisan local-CLI — hanya di tempat lain.
+
+### N3. Kredensial tidak pernah sampai ke chat, dan itu belum selesai
+
+Usage Kiro sudah dikirim di SSE bridge (8a638181), tapi karena Kiro tidak melewati bridge, angka itu
+tidak masuk ke event stream engine. Menutupnya bergantung pada keputusan routing di N1.
