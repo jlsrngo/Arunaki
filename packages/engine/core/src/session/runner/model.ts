@@ -164,7 +164,8 @@ export const fromCatalogModel = (
     resolved.providerID === "claude-code" ||
     resolved.providerID === "9router" ||
     resolved.providerID === "gemini-cli" ||
-    resolved.providerID === "codex"
+    resolved.providerID === "codex" ||
+    resolved.providerID === "kiro"
 
   if (isCli) {
     const bridgeUrl = "http://127.0.0.1:20188/v1"
