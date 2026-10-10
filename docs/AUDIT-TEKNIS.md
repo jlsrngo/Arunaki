@@ -67,13 +67,46 @@ Tiga commit masuk melawan engine yang tidak berjalan. Ditambahkan `npm run test:
 Script `verify` memanggil `tsgo` yang mati dengan "out of memory" sebelum melaporkan apa pun — jadi
 gerbang penuh tidak pernah bisa lulus sejak dibuat. Diganti `tsc` atas project yang sama.
 
+### F5b. Auth API lokal tidak pernah aktif - commit `bd027c0c`
+
+Engine punya Basic auth sejak lama (`server/auth.ts`) dan mencetak warning setiap start, tapi tidak
+pernah ada yang menyetel `Arunaki_SERVER_PASSWORD`. Web app mengirim `x-api-key` yang tidak pernah
+dibaca siapa pun.
+
+```
+sebelum:  GET /api/session tanpa kredensial  →  200, 19482 byte
+sesudah:  setiap endpoint tanpa kredensial   →  401
+          setiap endpoint dengan kredensial  →  200
+          smoke 7/7                          →  pass
+```
+
+Launcher membangkitkan password per start (`scripts/server-auth.cjs`), meneruskannya ke engine dan
+ke Vite. `engineFetch` juga sudah diperbaiki — 19 call site tanpa kredensial akan mati seluruhnya.
+
+**Yang BELUM tertutup:** UI masih disajikan Vite di `:5173`, dan Vite men-inline password ke JS-nya
+dalam teks polos. Browser di `localhost:5173` masih berfungsi penuh. Yang tertutup adalah akses dari
+origin lain. Menutup UI sepenuhnya adalah **F6**.
+
+### E1+E2. Guard workspace gagal-terbuka — commit `bd027c0c`
+
+`resolveInsideWorkspace` mengembalikan path apa pun tanpa validasi selama `workspaceRoot` masih
+`null`, dan `workspaceRoot` hanya di-set oleh `fs:getFolderTree`. Jadi sejak app start sampai folder
+pertama di-scan, `readFile`/`writeFile`/`deletePath`/`renamePath` bisa menyentuh seluruh disk.
+
+*Perbaikan:* fail-closed — tanpa workspace, operasi ditolak. Caller yang ada (`FileTree.tsx:65`)
+hanya memicu `readFile` setelah tree tersedia, jadi tidak ada yang bergantung pada fail-open.
+
+### E3. `shell.openExternal` tanpa validasi URL — commit `bd027c0c`
+
+`window.open` dari renderer diteruskan ke OS apa pun skemanya. Sekarang hanya `http`/`https`.
+
 ---
 
 # BAGIAN 2 — TEMUAN AKTIF
 
 ## 2A — Auth dan produksi (lapisan backend)
 
-### F5. Auth: ada, tapi tidak aktif, dan web kirim header yang salah ⭐
+### F5. ~~Auth~~ (selesai, lihat Bagian 1)
 
 ```
 server/auth.ts:24   required() → aktif hanya kalau Arunaki_SERVER_PASSWORD di-set
@@ -156,7 +189,7 @@ Ditulis di `kiro.ts:612`, tidak ada pembaca di engine maupun UI (`apps/web/src` 
 
 Audit terhadap 545 baris `main.cjs` dan 27 baris `preload.cjs`.
 
-### E1 + E2. Guard workspace gagal-terbuka ⭐ TEMUAN TERBERAT
+### E1+E2. ~~Guard workspace~~ (selesai, lihat Bagian 1)
 
 ```js
 let workspaceRoot = null;                                    // L58
@@ -184,7 +217,7 @@ Guard selalu fail-closed.
 
 *Perbaikan:* `if (!workspaceRoot) throw new Error('No workspace selected')`. Satu baris, dampak besar.
 
-### E3 + E7. `shell.openExternal` tanpa validasi URL
+### E3/E7. ~~openExternal~~ (sebagian selesai)
 
 `main.cjs:130` meneruskan semua `window.open` ke OS tanpa cek skema. `contextIsolation: true` ada,
 jadi exploit harus lewat injeksi konten — tapi ini tetap anti-pattern Electron yang dikenal.

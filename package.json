@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npm run dev:web & npm run dev:desktop",
     "dev:app": "node scripts/dev-app.cjs",
+    "start": "node scripts/start-prod.cjs",
     "dev:web": "npm run dev -w apps/web",
     "dev:desktop": "npm run dev -w apps/desktop",
     "build": "npm run build -w apps/web",

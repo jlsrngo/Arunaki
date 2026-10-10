@@ -10,6 +10,11 @@ export const CorsConfig = Context.Reference<CorsOptions | undefined>("@arunaki/S
 
 export function isAllowedCorsOrigin(input: string | undefined, opts?: CorsOptions) {
   if (!input) return true
+  // Electron loads the UI from the bundle, so a page:// or file:// document sends "Origin: null".
+  // It still has to authenticate: the engine's Basic auth is checked independently of CORS, so this
+  // does not hand anything to a random web page - a browser on another origin cannot produce these
+  // credentials at all.
+  if (input === "null") return true
   if (input.startsWith("http://localhost:")) return true
   if (input.startsWith("http://127.0.0.1:")) return true
   if (input.startsWith("oc://renderer")) return true
