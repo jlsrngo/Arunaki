@@ -100,6 +100,68 @@ hanya memicu `readFile` setelah tree tersedia, jadi tidak ada yang bergantung pa
 
 `window.open` dari renderer diteruskan ke OS apa pun skemanya. Sekarang hanya `http`/`https`.
 
+### F6. Launcher produksi — commit `29de138c`
+
+`npm start` menjalankan engine ber-password, menunggu health, lalu Electron **tanpa dev server**.
+`main.cjs` jatuh ke `loadFile()` dan UI diambil dari disk. Jalur ini belum pernah dijalankan
+sebelumnya dan rusak dua lapis; sekarang diverifikasi:
+
+```
+127.0.0.1:5173                     tidak melayani
+engine tanpa kredensial            401
+engine dengan kredensial           200
+smoke                              7/7
+```
+
+Kredensial dikirim ke renderer lewat `additionalArguments`, bukan dibake ke bundle.
+
+### E4/E5/E6. Sandbox, crash, retry — commit `b6fe1574`
+
+`renderer-gone` dulu memicu `win.reload()` buta dalam 1 detik — di editor itu menghapus chat dan
+dokumen tanpa disimpan tanpa prompt, dan tanpa batas. Sekarang: tidak reload pada `clean-exit`, backoff
+kalau crash lagi dalam 10 detik. `did-fail-load` yang retry tiap 1,5 detik selamanya kini backoff
+eksponensial, enam kali, lalu menyerah. `sandbox: true` ditutup setelah kredensial pindah ke argv.
+
+### F7. Bundel 9,16 MB — commit `0e5a8dfd`
+
+`country-state-city` memuat 148.038 nama kota dalam JSON 7,69 MB, diimpor di module scope dan
+diratakan jadi konstanta — seluruhnya diunduh dan di-parse tiap start, untuk saran di satu field yang
+nilainya disimpan apa adanya dan tidak pernah divalidasi. Sekarang dimuat lewat dynamic import.
+
+```
+initial load   9161 KB  ->  1504 KB   (84% lebih kecil)
+```
+
+### U1/U2. Jalur komunikasi — commit `41cf399a`, `2d87d5ba`
+
+Base URL, kredensial, dan resolusi direktori sebelumnya diduplikasi di dua file, dan yang di
+`engine.ts` tidak pernah dapat kredensial — itu sebabnya 19 call site akan mati begitu auth aktif.
+Sekarang satu sumber.
+
+`FileTree` punya fallback ke `apiFetch('/files/:id/content')` — route yang **tidak pernah ada** di
+engine. 500, tertelan `catch {}`, hasilnya dokumen kosong yang tampak sama dengan file kosong. Fallback
+itu juga-millioneguarded berbeda dengan IPC, jadi dua sumber kebenaran. Dihapus.
+
+### F8. `/api/file` selalu 500 — commit `c6553c1a`
+
+Route-nya ter-mount di `/file`. UI meminta `/api/file`. `/api` adalah alias legacy yang hanya
+mencakup sebagian API; route file tidak termasuk, sehingga jatuh ke catch-all UI dan kembali **500
+dengan body kosong** — tanpa stack trace bahkan di `--log-level DEBUG`.
+
+Cara menemukan: route yang sengaja dikarang (`/api/totally-bogus-route-xyz`) mengembalikan 500 yang
+sama, artinya 500 adalah cara server ini mengatakan "tidak ditemukan". `/file` membalas **400** — itu
+route asli yang kurang parameter wajib. Itu langsung menunjuk ke prefix-nya.
+
+```
+/file?path=.                -> 200, daftar file sungguhan
+/api/file?path=.            -> 500
+/file/content?path=...      -> 200
+/api/file/content?path=...  -> 500
+```
+
+Ketiga call site diperbaiki, dan `catch` yang senyap dihapus supaya kegagalan terlihat, tidak
+disembunyikan sebagai daftar kosong. `path` relatif terhadap direktori instance, jadi root adalah `.`.
+
 ---
 
 # BAGIAN 2 — TEMUAN AKTIF
@@ -162,7 +224,7 @@ membuat UI tidak lagi disajikan lewat HTTP; API di `:4096` tetap terbuka tanpa p
 
 **Cara kerja populer:** produksi memuat UI dari bundle, bukan dari dev server.
 
-### F8. `/api/file` selalu 500, dan errornya ditelan
+### F8 ~~/api/file selalu 500~~ (selesai, lihat Bagian 1)
 
 ```
 GET /api/file?directory=E:\REKAPAN&path=.  →  500, body kosong
