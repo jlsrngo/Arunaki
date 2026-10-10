@@ -3,6 +3,7 @@ import type { ModelV2Info } from "@arunaki/sdk/v2/types"
 import { Effect, Stream } from "effect"
 import { EventV2 } from "../event"
 import { ModelsDev } from "../models-dev"
+import { Config } from "../config"
 import { ProviderV2 } from "../provider"
 
 function released(date: string) {
@@ -118,9 +119,10 @@ function applyModel(
 
 export const ModelsDevPlugin = define({
   id: "models-dev",
-  effect: Effect.fn(function* (ctx) {
-    const modelsDev = yield* ModelsDev.Service
-    const events = yield* EventV2.Service
+    effect: Effect.fn(function* (ctx) {
+      const modelsDev = yield* ModelsDev.Service
+      const events = yield* EventV2.Service
+      const config = yield* Config.Service
     yield* ctx.integration.transform(
       Effect.fn(function* (integrations) {
         const data = yield* modelsDev.get()
@@ -142,8 +144,21 @@ export const ModelsDevPlugin = define({
     yield* ctx.catalog.transform(
       Effect.fn(function* (catalog) {
         const data = yield* modelsDev.get()
+        // A provider the user configured is more specific than the public record of the same name,
+        // so it wins outright. models.dev describes a vendor's generic endpoint and cannot know the
+        // one actually in use here, so letting it define the endpoint and the model list left models
+        // in the picker that the endpoint rejects - and its own copy of the endpoint overwrote the
+        // configured one. Skipped entirely rather than merged, because the config plugin only adds
+        // models and can never remove the ones this would introduce.
+        const entries = yield* config.entries()
+        const configured = new Set(
+          entries
+            .filter((entry) => entry.type === "document")
+            .flatMap((entry) => Object.keys(entry.info.providers ?? {})),
+        )
         for (const item of Object.values(data)) {
           const providerID = ProviderV2.ID.make(item.id)
+          if (configured.has(item.id)) continue
           catalog.provider.update(providerID, (provider) => {
             provider.name = item.name
             provider.api = item.npm

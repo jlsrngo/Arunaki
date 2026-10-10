@@ -35,6 +35,10 @@ async function refreshModelCatalog() {
 
     for (const p of providers) {
       if (!p.id || !p.baseUrl) continue;
+      // The local bridge answers /models with every provider it fronts, not just this one, so syncing
+      // a bridge-routed provider against it would hand Kiro Claude's and OpenCode's models. Those
+      // providers are refreshed by their own Connect, which asks the account instead.
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(p.baseUrl)) continue;
       try {
         const modelsRes = await apiFetch(`${API_BASE}/providers/fetch-models${directoryQuery()}`, {
           method: "POST",
