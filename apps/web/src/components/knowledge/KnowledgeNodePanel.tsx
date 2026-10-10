@@ -5,10 +5,22 @@ import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { apiFetch, API_BASE } from '../../lib/api';
 import { subscribeKnowledgeSync } from '../../lib/knowledgeSync';
-import { City } from 'country-state-city';
 
-// Pre-calculate a lightweight list of all global cities (names only) to prevent re-evaluation on every keystroke
-const ALL_CITIES = Array.from(new Set(City.getAllCities().map(c => c.name)));
+/**
+ * country-state-city ships 148,038 city names in a 7.69 MB JSON. It was imported at module scope and
+ * flattened into ALL_CITIES on load, so the whole thing was parsed on every app start for a
+ * suggestion list on one field that is otherwise free text - the value gets saved as typed and is
+ * never validated against the list.
+ *
+ * Loaded on demand instead. The panel is opened rarely, and only someone opening it pays for it.
+ */
+let citiesPromise: Promise<string[]> | null = null;
+function loadCities(): Promise<string[]> {
+  citiesPromise ??= import('country-state-city')
+    .then((m) => Array.from(new Set(m.City.getAllCities().map((c) => c.name))))
+    .catch(() => []); // a missing city list must not break saving the node
+  return citiesPromise;
+}
 
 export interface KnowledgeDoc {
   id: string;
@@ -111,19 +123,31 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
     return unsubscribe;
   }, [nodeId]);
 
+  const [allCities, setAllCities] = useState<string[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    loadCities().then((list) => {
+      if (live) setAllCities(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const filteredCities = useMemo(() => {
-    if (!city || city.length < 2) return [];
-    
+    if (!city || city.length < 2 || allCities.length === 0) return [];
+
     const results = [];
     const query = city.toLowerCase();
-    for (let i = 0; i < ALL_CITIES.length; i++) {
-      if (ALL_CITIES[i].toLowerCase().includes(query)) {
-        results.push(ALL_CITIES[i]);
+    for (let i = 0; i < allCities.length; i++) {
+      if (allCities[i].toLowerCase().includes(query)) {
+        results.push(allCities[i]);
         if (results.length >= 7) break;
       }
     }
     return results;
-  }, [city]);
+  }, [city, allCities]);
 
   if (!nodeId || nodeId === 'main-ai-node') return null;
 
