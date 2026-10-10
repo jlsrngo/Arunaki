@@ -237,7 +237,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     // Local CLI providers MUST route through the Arunaki bridge. Older installs may have
     // persisted a stale URL (e.g. OpenCode saved with 9Router's port 20128), which causes
     // "HTTP transport failed" while the UI still shows "Connected". Heal it on read.
-    const BRIDGE_ROUTED_PROVIDERS = ["opencode", "antigravity", "claude-code"]
+    const BRIDGE_ROUTED_PROVIDERS = ["opencode", "antigravity", "claude-code", "kiro", "codex"]
     const healLocalCliProviders = Effect.fn("ProviderSettings.healLocalCliProviders")(function* () {
       const config = yield* cfg.get()
       const bridgeUrl = `http://127.0.0.1:${localCliBridge.port}/v1`
@@ -676,6 +676,20 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "antigravity-local-session",
             model: ctx.payload.model || "gemini-3.8-flash, gemini-3.1-pro, gemini-3.7-flash, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-5-5",
+          })
+        }
+        if (ctx.payload.target === "kiro") {
+          // Kiro had no branch here at all, so "Connect" fell through to the
+          // BadRequest at the end of this handler and Kiro was never written to
+          // config. Its card still listed 9 live models from the bridge, which
+          // made it look connected while contributing no selectable model.
+          const models = yield* Effect.promise(() => getCliSupportedModels("kiro"))
+          return yield* upsert("kiro", {
+            name: "Kiro CLI (AWS Subscription)",
+            type: "openai-compatible",
+            baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
+            apiKey: "kiro-local-session",
+            model: models.length > 0 ? models.join(", ") : "kiro/claude-sonnet-4.5",
           })
         }
         if (ctx.payload.target === "codex") {

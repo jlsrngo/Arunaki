@@ -339,7 +339,7 @@ export const LocalCliLoginResult = Schema.Struct({
 })
 
 export const LocalCliConnectInput = Schema.Struct({
-  target: Schema.Literals(["claude", "9router", "opencode", "groq-sync", "antigravity", "agy", "codex", "gemini", "gemini-cli"]),
+  target: Schema.Literals(["claude", "9router", "opencode", "groq-sync", "antigravity", "agy", "codex", "kiro", "gemini", "gemini-cli"]),
   model: Schema.optional(Schema.UndefinedOr(Schema.String)),
 })
 
