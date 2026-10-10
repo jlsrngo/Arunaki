@@ -7,8 +7,26 @@
  * Run against a live server: bun run scripts/smoke-local-cli.ts
  * Exits non-zero when the server is down or any provider fails, so it can gate a commit.
  */
+import { readFileSync } from 'node:fs'
+
 const BRIDGE = process.env.ARUNAKI_BRIDGE ?? "http://127.0.0.1:20188/v1/chat/completions"
 const HEALTH = process.env.ARUNAKI_HEALTH ?? "http://127.0.0.1:4096/api/health"
+
+// /api/health is behind the engine's Basic auth along with everything else, so a health check
+// without credentials gets a 401 and reports a perfectly healthy engine as unreachable. The
+// launcher writes the current credentials here on every start.
+const PASSWORD_FILE = process.env.ARUNAKI_PASSWORD_FILE
+  ?? `${process.env.USERPROFILE ?? process.env.HOME}/.arunaki/dev-server-password`
+
+function healthHeaders(): Record<string, string> {
+  try {
+    const [user, password] = readFileSync(PASSWORD_FILE, "utf8").trim().split(":")
+    if (user && password) {
+      return { Authorization: `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}` }
+    }
+  } catch {}
+  return {}
+}
 
 const tools = [
   {
@@ -75,7 +93,7 @@ async function ping(c: Case): Promise<string> {
 
 async function main() {
   try {
-    const health: any = await (await fetch(HEALTH, { signal: AbortSignal.timeout(6000) })).json()
+    const health: any = await (await fetch(HEALTH, { headers: healthHeaders(), signal: AbortSignal.timeout(6000) })).json()
     if (!health?.healthy) throw new Error("engine reports unhealthy")
     console.log(ok("engine healthy"))
   } catch (err: any) {

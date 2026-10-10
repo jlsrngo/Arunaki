@@ -2,6 +2,15 @@
 
 const ENGINE_BASE = "";
 
+// Engine auth is HTTP Basic (engine/src/server/auth.ts). engineFetch did not send credentials at
+// all, so enabling the password would have broken every one of its callers.
+function authHeader(): Record<string, string> {
+  const password = import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
+  if (!password) return {};
+  const user = import.meta.env.VITE_ARUNAKI_SERVER_USER || "arunaki";
+  return { Authorization: `Basic ${btoa(`${user}:${password}`)}` };
+}
+
 export async function engineFetch(path: string, init?: RequestInit) {
   const url = `${ENGINE_BASE}${path}`;
   const activeFolder =
@@ -10,6 +19,7 @@ export async function engineFetch(path: string, init?: RequestInit) {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...authHeader(),
       ...(activeFolder ? { "x-arunaki-directory": activeFolder } : {}),
       ...init?.headers,
     },

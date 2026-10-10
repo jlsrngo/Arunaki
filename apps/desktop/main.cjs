@@ -58,8 +58,13 @@ const WAIT_INTERVAL_MS = 500;
 let workspaceRoot = null;
 
 function resolveInsideWorkspace(p) {
-  const resolved = workspaceRoot && !path.isAbsolute(p) ? path.resolve(workspaceRoot, p) : path.resolve(p);
-  if (!workspaceRoot) return resolved; // no workspace selected yet (dev/offline) — allow
+  // Fail closed. This used to return the path unchecked whenever no workspace had been picked yet,
+  // on the theory that an empty workspace is "dev mode". It is not: workspaceRoot is only ever set by
+  // fs:getFolderTree (L302), so every readFile/writeFile/deletePath/renamePath between app start and
+  // the first folder scan was reaching any path on the machine. BOUNDARIES.md says the agent cannot
+  // touch files outside the active folder - that was enforced in the engine and not here.
+  if (!workspaceRoot) throw new Error('No workspace selected');
+  const resolved = !path.isAbsolute(p) ? path.resolve(workspaceRoot, p) : path.resolve(p);
   const rel = path.relative(workspaceRoot, resolved);
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new Error('Path outside workspace is not allowed');
@@ -128,7 +133,9 @@ function createWindow() {
   mainWindow = win;
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    // Only web links leave the app. Passing every scheme straight to the OS lets anything the
+    // renderer renders open file:// paths or whatever else the machine has registered.
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 

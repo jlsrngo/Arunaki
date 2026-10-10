@@ -12,10 +12,14 @@ function withDirectory(url: string): string {
 }
 
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
-  const apiKey = import.meta.env.VITE_ARUNAKI_API_KEY || "arunaki-dev-key";
   const headers = new Headers(init?.headers);
-  if (apiKey) {
-    headers.set("x-api-key", apiKey);
+  // The engine authenticates with HTTP Basic (engine/src/server/auth.ts), not with x-api-key. That
+  // header was being sent here and never read by anything, so every caller was unauthenticated
+  // until the launcher started passing a password.
+  const password = import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
+  if (password) {
+    const user = import.meta.env.VITE_ARUNAKI_SERVER_USER || "arunaki";
+    headers.set("Authorization", `Basic ${btoa(`${user}:${password}`)}`);
   }
   if (init?.body && typeof init.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
