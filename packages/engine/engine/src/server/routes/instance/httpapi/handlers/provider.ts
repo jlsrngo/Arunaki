@@ -698,12 +698,20 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           })
         }
         if (ctx.payload.target === "codex") {
+          // The hardcoded list this used to write (o3-mini, o1, gpt-4o) is not what the account
+          // answers - the live catalogue is gpt-5.6-terra and friends - so the picker offered models
+          // the bridge refuses. Ask the account, and fall back to the registry's verified list only
+          // when it cannot be reached.
+          const models = yield* Effect.promise(() => getCliSupportedModels("codex"))
+          const fallback = CLI_PROVIDER_REGISTRY.find((item) => item.id === "codex")?.models ?? []
+          const ids = models.length > 0 ? models : fallback
           return yield* upsert("codex", {
             name: "OpenAI Codex Agent",
             type: "openai-compatible",
-            baseUrl: "https://api.openai.com/v1",
+            // Codex is a local CLI reached through the bridge, not api.openai.com.
+            baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "codex-active",
-            model: ctx.payload.model || "o3-mini, o1, gpt-4o, gpt-4o-mini",
+            model: ctx.payload.model || ids.join(", "),
           })
         }
         console.warn(`[local-cli] Invalid connect target: ${ctx.payload.target}`)
