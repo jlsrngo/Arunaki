@@ -29,7 +29,11 @@ const liveBridgeModels = (http: HttpClient.HttpClient, url: string, providerID: 
           ),
         ),
       ),
-      Effect.timeout("8 seconds"),
+      // Longer than the slowest detector's own budget, which is the point: `opencode models` spawns
+      // the CLI and probes every configured upstream, and a shorter deadline here gave up before it
+      // answered and quietly left that provider on its config list. Bounded so a bridge that is not
+      // up yet cannot stall boot.
+      Effect.timeout("20 seconds"),
       // A provider that does not answer has no live list. That is not an error: the config entry
       // stays in charge, and it was itself written from a live fetch the last time this worked.
       Effect.orElseSucceed(() => [] as string[]),

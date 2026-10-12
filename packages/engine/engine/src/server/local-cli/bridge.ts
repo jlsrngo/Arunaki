@@ -21,6 +21,26 @@ import { checkBeforeRequest, scheduleBackgroundRefresh, stopBackgroundRefresh } 
 
 export const LOCAL_BRIDGE_PORT = 20188
 
+/**
+ * Model lists, cached briefly per provider.
+ *
+ * The catalogue asks for these every time a location is built, and `opencode models` spawns the
+ * CLI and probes every configured upstream to answer - seconds of work that would otherwise be
+ * repeated on every folder switch. Five minutes is short enough that a provider which gains or
+ * retires a model is picked up without anyone thinking about it, and long enough that opening a
+ * second folder costs nothing.
+ */
+const MODEL_LIST_TTL_MS = 5 * 60_000
+const modelLists = new Map<string, { at: number; models: string[] }>()
+
+async function bridgeModelList(provider: string): Promise<string[]> {
+  const hit = modelLists.get(provider)
+  if (hit && Date.now() - hit.at < MODEL_LIST_TTL_MS) return hit.models
+  const models = await getCliSupportedModels(provider).catch(() => [] as string[])
+  if (models.length > 0) modelLists.set(provider, { at: Date.now(), models })
+  return models
+}
+
 
 class LocalCliBridge {
   private server: http.Server | null = null
@@ -74,9 +94,7 @@ class LocalCliBridge {
           // Without it there is no honest answer, and an empty list beats a wrong one - the settings
           // UI only reads this to check the bridge is up, and reads res.ok for that.
           const provider = parsedUrl.searchParams.get("provider")
-          const models = provider
-            ? await getCliSupportedModels(provider).catch(() => [] as string[])
-            : []
+          const models = provider ? await bridgeModelList(provider) : []
           res.writeHead(200, { "Content-Type": "application/json" })
           res.end(
             JSON.stringify({
