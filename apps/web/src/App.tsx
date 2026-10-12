@@ -81,6 +81,18 @@ async function refreshModelCatalog() {
 }
 
 if (typeof window !== "undefined") {
+  // A build that let "Sync from API" overwrite Kiro's config with the shared bridge's catalogue also
+  // wrote those ids into this browser's storage, and nothing ever cleaned them up: Kiro's pool read
+  // "gemini-3.8-flash, claude-sonnet-5-5, ..." and the chat then asked Kiro for Gemini models. The
+  // model ids the bridge routes to Kiro all carry the kiro/ prefix, so a pool with none of them is
+  // not a Kiro pool whatever else it holds. Dropped on sight rather than migrated.
+  try {
+    const kiroPool = localStorage.getItem("arunaki_provider_models_kiro");
+    if (kiroPool && !kiroPool.split(",").some((m) => m.trim().startsWith("kiro/"))) {
+      localStorage.removeItem("arunaki_provider_models_kiro");
+    }
+  } catch {}
+
   // Ensure default provider is set
   if (!localStorage.getItem("arunaki_active_provider")) {
     localStorage.setItem("arunaki_active_provider", "kenari");

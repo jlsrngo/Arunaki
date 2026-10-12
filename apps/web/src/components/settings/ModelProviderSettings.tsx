@@ -10,7 +10,7 @@ import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
 
 export type { Provider };
 
-const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router", "gemini-cli", "antigravity"];
+const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router", "gemini-cli", "antigravity", "kiro"];
 
 export const isCliProvider = (p: Provider): boolean => {
   if (CLI_PROVIDER_IDS.includes(p.id)) return true;
@@ -254,7 +254,7 @@ export function ModelProviderSettings({
           body: JSON.stringify({ active: false }),
         }).catch(() => {});
 
-        const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router"];
+        const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router", "kiro"];
         const lastCli = localStorage.getItem("arunaki_last_active_cli");
         const targetCli = (lastCli && cliTargets.includes(lastCli))
           ? lastCli
@@ -270,6 +270,8 @@ export function ModelProviderSettings({
           codex: "o3-mini",
           opencode: "opencode/big-pickle",
           "9router": "cx/gpt-5.6-terra",
+          // Kiro was absent, so `|| "gemini-3.8-flash"` below handed it another provider's model.
+          kiro: localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto",
         };
         const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
         localStorage.setItem("arunaki_active_model", nextModel);

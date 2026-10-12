@@ -91,6 +91,75 @@ async function ping(c: Case): Promise<string> {
   return ok(`${c.label.padEnd(18)} ${String(ms).padStart(6)}ms  ${detail}`) + dim(`  [${c.model}]`)
 }
 
+/**
+ * The bridge cases above stop at the bridge. Everything the engine does to a message on its way
+ * there lives in the session path and nothing here touched it: catalogue lookup, provider/model
+ * resolution, streaming back out. That gap is not hypothetical - Kiro answered every bridge case
+ * while the chat path handed an unprefixed stale model id to the bridge, which routes on
+ * substrings, fell through to the Claude catch-all and reported "Claude Code is not signed in".
+ * All seven checks were green while the product could not send a message.
+ *
+ * So one case goes the whole way round, and it asserts the provider that actually answered: a
+ * bridge request that silently lands on another upstream is the failure this is here to catch.
+ */
+const CHAT_CASE = { label: "Kiro chat", providerID: "kiro", model: "kiro/auto", want: "391" }
+
+const API = process.env.ARUNAKI_API ?? "http://127.0.0.1:4096/api"
+const QUERY = process.env.ARUNAKI_SMOKE_DIRECTORY
+  ? `?directory=${encodeURIComponent(process.env.ARUNAKI_SMOKE_DIRECTORY)}`
+  : ""
+
+async function api(path: string, init: RequestInit = {}) {
+  return fetch(`${API}${path}${QUERY}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...healthHeaders(), ...(init.headers ?? {}) },
+  })
+}
+
+async function chat(c: typeof CHAT_CASE): Promise<string> {
+  const started = Date.now()
+  const created: any = await (
+    await api("/session", {
+      method: "POST",
+      body: JSON.stringify({ model: { providerID: c.providerID, id: c.model } }),
+    })
+  ).json()
+  const id = created?.data?.id
+  if (!id) return bad(`${c.label.padEnd(18)} session not created: ${String(created?.message ?? "").slice(0, 60)}`)
+
+  try {
+    const sent: any = await (
+      await api(`/session/${id}/prompt`, {
+        method: "POST",
+        body: JSON.stringify({ prompt: { text: "What is 17 times 23? Reply with only the number." } }),
+        signal: AbortSignal.timeout(180000),
+      })
+    ).json().catch(() => ({}))
+    if (sent?.error) return bad(`${c.label.padEnd(18)} prompt rejected: ${String(sent?.message ?? sent.error).slice(0, 60)}`)
+
+    // The reply arrives asynchronously, so wait for the message rather than for a duration.
+    let reply: any
+    const deadline = Date.now() + 120000
+    while (Date.now() < deadline) {
+      const listed: any = await (await api(`/session/${id}/message`)).json()
+      reply = listed?.data?.find((m: any) => m?.type === "assistant" && m?.content?.length)
+      if (reply) break
+      await Bun.sleep(1000)
+    }
+    const ms = Date.now() - started
+    if (!reply) return bad(`${c.label.padEnd(18)} no assistant reply within 120s`)
+
+    const text = String(reply.content?.find((p: any) => p.type === "text")?.text ?? "")
+    const asked = `${reply.model?.providerID}/${reply.model?.id}`
+    if (reply.model?.providerID !== c.providerID || reply.model?.id !== c.model)
+      return bad(`${c.label.padEnd(18)} answered by ${asked}, asked ${c.providerID}/${c.model}`)
+    if (!text.includes(c.want)) return bad(`${c.label.padEnd(18)} answered "${text.slice(0, 40)}", expected ${c.want}`)
+    return ok(`${c.label.padEnd(18)} ${String(ms).padStart(6)}ms  "${text.trim().slice(0, 34)}"`) + dim(`  [${asked}]`)
+  } finally {
+    await api(`/session/${id}`, { method: "DELETE" }).catch(() => {})
+  }
+}
+
 async function main() {
   try {
     const health: any = await (await fetch(HEALTH, { headers: healthHeaders(), signal: AbortSignal.timeout(6000) })).json()
@@ -102,7 +171,7 @@ async function main() {
     process.exit(1)
   }
 
-  let failed = 0
+let failed = 0
   for (const c of CASES) {
     try {
       const line = await ping(c)
@@ -114,12 +183,21 @@ async function main() {
     }
   }
 
-  console.log("")
+  try {
+    const line = await chat(CHAT_CASE)
+    if (line.startsWith("\x1b[31m")) failed++
+    console.log(line)
+  } catch (err: any) {
+    failed++
+    console.log(bad(`${CHAT_CASE.label.padEnd(18)} threw ${err?.message ?? err}`))
+  }
+
+console.log("")
   if (failed) {
-    console.log(bad(`${failed} of ${CASES.length} provider checks failed`))
+    console.log(bad(`${failed} of ${CASES.length + 1} provider checks failed`))
     process.exit(1)
   }
-  console.log(ok(`all ${CASES.length} provider checks passed`))
+  console.log(ok(`all ${CASES.length + 1} provider checks passed`))
 }
 
 await main()

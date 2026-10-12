@@ -1719,6 +1719,19 @@ const isGeminiActive =
       } else if (target === "codex") {
         isLive = !!local.codex?.installed;
         detail = isLive ? "OpenAI Codex CLI ready" : "OpenAI Codex CLI not installed";
+      } else if (target === "kiro") {
+        // Kiro used to fall out of this chain entirely. It installs nothing - a browser device
+        // flow is the only sign-in - so there is no binary to look for, and with no branch here
+        // isLive stayed false with an empty message: the card read "Test Ping failed" and the
+        // toast said "Ping Offline" with no reason, while the bridge answered 200 for every
+        // kiro/ model. A check that cannot succeed is worse than no check, because it looks like
+        // the provider is down.
+        isLive = !!local.bridgeRunning && !!local.kiro?.signedIn;
+        detail = isLive
+          ? `Kiro connected via the local CLI bridge (AWS CodeWhisperer, ${local.kiro?.region ?? "us-east-1"})`
+          : local.kiro?.signedIn
+          ? "Kiro signed in, but the local CLI bridge is offline"
+          : "Kiro sign-in needed";
       }
 
       const elapsed = Math.max(Date.now() - startMs, 14);

@@ -51,7 +51,7 @@ export function SettingsPage() {
 
         if (rawProviders.length > 0) {
           const savedActiveId = localStorage.getItem("arunaki_active_provider");
-          const CLI_PROVIDER_IDS = ["claude-code", "codex", "gemini", "opencode", "9router"];
+          const CLI_PROVIDER_IDS = ["claude-code", "codex", "gemini", "opencode", "9router", "kiro"];
           const isCliActive = savedActiveId && CLI_PROVIDER_IDS.includes(savedActiveId);
 
           const activeId = isCliActive

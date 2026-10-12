@@ -79,6 +79,13 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     if (providerId === "kenari") {
       return !clean.startsWith("gemini") && !clean.startsWith("claude");
     }
+    // Kiro was missing here and fell through to `return true`, which accepted any id at all. A
+    // remembered "gemini-3.8-flash" then went to the bridge as Kiro's model, matched nothing, fell
+    // through to the Claude catch-all, and the chat answered "Claude Code is not signed in". The
+    // bridge routes Kiro on this prefix and on nothing else.
+    if (providerId === "kiro") {
+      return clean.startsWith("kiro/");
+    }
     return true;
   };
 
@@ -98,6 +105,10 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     if (providerId === "9router") {
       return "cx/gpt-5.6-terra";
     }
+    // Not in this map, so Kiro used to fall through to "default" - a value that is not a model.
+    if (providerId === "kiro") {
+      return localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto";
+    }
     if (providerId === "kenari") {
       return "mimo-v2-5:free";
     }
@@ -110,6 +121,11 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
       ? localStorage.getItem("arunaki_cli_model_antigravity")
       : p === "claude-code"
       ? localStorage.getItem("arunaki_cli_model_claude")
+      : // Kiro was in neither branch, so this always fell through to arunaki_active_model - which
+      // held a kenari model. Provider kiro, model kenari, and the bridge routed on the model id
+      // rather than the provider, so the request left for a completely different upstream.
+      p === "kiro"
+      ? localStorage.getItem("arunaki_cli_model_kiro")
       : null) ||
     localStorage.getItem("arunaki_active_model");
 
