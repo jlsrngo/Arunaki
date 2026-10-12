@@ -1,18 +1,46 @@
-export * as ConfigProviderPlugin from "./provider"
+﻿export * as ConfigProviderPlugin from "./provider"
 
 import { define } from "../../plugin/internal"
 import { Effect } from "effect"
 import path from "path"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
 import { Config } from "../../config"
 import { Global } from "../../global"
 import { ModelV2 } from "../../model"
 import { ProviderV2 } from "../../provider"
 
-export const Plugin = define({
+/**
+ * The local CLI bridge is a network service, not a module, so this is how core reaches a live
+ * model list without depending on the engine package that hosts the detectors. The engine asks
+ * /models?provider=<id> and the provider answers - AWS, Google, the OpenCode CLI.
+ */
+const BRIDGE_URLS = /^https?:\/\/(127\.0\.0\.1|localhost):\d+\/v1$/i
+
+const liveBridgeModels = (http: HttpClient.HttpClient, url: string, providerID: string) =>
+  http
+    .execute(HttpClientRequest.get(`${url}/models?provider=${encodeURIComponent(providerID)}`))
+    .pipe(
+      Effect.flatMap((response) =>
+        response.json.pipe(
+          Effect.map((json: any) =>
+            (json?.data ?? [])
+              .map((item: { id?: unknown }) => (typeof item?.id === "string" ? item.id : ""))
+              .filter(Boolean),
+          ),
+        ),
+      ),
+      Effect.timeout("8 seconds"),
+      // A provider that does not answer has no live list. That is not an error: the config entry
+      // stays in charge, and it was itself written from a live fetch the last time this worked.
+      Effect.orElseSucceed(() => [] as string[]),
+    )
+
+export const Plugin = define<HttpClient.HttpClient | Config.Service | Global.Service>({
   id: "config-provider",
   effect: Effect.fn(function* (ctx) {
     const config = yield* Config.Service
     const global = yield* Global.Service
+    const http = yield* HttpClient.HttpClient
 
     // A provider entry is a credential and an endpoint: it belongs to the person, not to the
     // folder they happen to have open. Project config is still read for everything that is
@@ -143,7 +171,46 @@ export const Plugin = define({
             }
           }
         }
+
+        // A provider reached through the local CLI bridge does not get its catalogue from the config
+        // file. It gets it from the provider, every time the catalogue is built.
+        //
+        // Writing the live list into config and reading it back is what let a stale name outlive
+        // the model: the bridge routes on the model id rather than on the provider, so an id that has
+        // been retired does not fail, it is answered by whatever else claims that name. Kiro was
+        // serving Gemini models for hours because of it. The config entry is kept as the answer when
+        // the provider does not respond - that list was itself written from a live fetch - and is
+        // overridden, not merged, when it does, so a retired model stops being offered.
+        const bridged = new Map<string, string>()
+        for (const file of entries) {
+          for (const [id, item] of Object.entries(file.info.providers ?? {})) {
+            const url = (item.api as { url?: string } | undefined)?.url
+            if (url && BRIDGE_URLS.test(url)) bridged.set(id, url)
+          }
+        }
+        if (bridged.size > 0) {
+          const live = yield* Effect.forEach(
+            [...bridged],
+            (item) =>
+              liveBridgeModels(http, item[1], item[0]).pipe(Effect.map((models) => [item[0], models] as const)),
+            { concurrency: "unbounded", discard: false },
+          ).pipe(Effect.orElseSucceed(() => [] as (readonly [string, string[]])[]))
+
+          for (const [id, models] of live) {
+            if (models.length === 0) continue
+            for (const modelID of models) {
+              catalog.model.update(id, modelID, () => {})
+            }
+            for (const existing of catalog.provider.list()) {
+              if (existing.provider.id !== id) continue
+              for (const model of [...existing.models.keys()]) {
+                if (!models.includes(model)) catalog.model.remove(id, model)
+              }
+            }
+          }
+        }
       }),
     )
   }),
 })
+
