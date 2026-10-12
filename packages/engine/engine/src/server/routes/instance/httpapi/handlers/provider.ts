@@ -6,7 +6,7 @@ import { ProviderV2 } from "@arunaki/core/provider"
 import { Auth } from "@/auth"
 import { ConfigProviderV1 } from "@arunaki/core/v1/config/provider"
 import * as InstanceState from "@/effect/instance-state"
-import { markInstanceForDisposal } from "../lifecycle"
+  import { markInstanceForDisposal } from "../lifecycle"
 
 import { mapValues } from "remeda"
 import { Duration, Effect, Exit, Schema } from "effect"
@@ -229,8 +229,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           provider: { [providerID]: provider },
           ...(modelList.length > 0 ? { model: `${providerID}/${modelList[0]}` } : {}),
         })
-        yield* markInstanceForDisposal(yield* InstanceState.context)
-        return { data: providerUIItem(providerID, provider, !disabled.has(providerID), priority) }
+      yield* markInstanceForDisposal(yield* InstanceState.context)
+      return { data: providerUIItem(providerID, provider, !disabled.has(providerID), priority) }
       },
     )
 
@@ -689,11 +689,11 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           // config. Its card still listed 9 live models from the bridge, which
           // made it look connected while contributing no selectable model.
           const models = yield* Effect.promise(() => getCliSupportedModels("kiro"))
-          // getCliSupportedModels returns ids prefixed with "kiro/" so they stay unambiguous across
-          // providers in the CLI catalogue. The prefix is a display concern: stored here it becomes
-          // part of the model id the bridge is asked for, and the request comes back empty. Store the
-          // bare id and let the provider prefix restore it on the way out.
-          const ids = models.length > 0 ? models.map((m) => m.replace(/^kiro\//, "")) : ["claude-sonnet-4.5"]
+          // The prefix stays. The bridge routes on it: asked for "claude-sonnet-4.5" it answers
+          // 502 "Cloud Code request did not succeed", asked for "kiro/claude-sonnet-4.5" it answers.
+          // Stripping it here left the provider listed but unusable, and the failure looked like an
+          // upstream outage because the bridge reached Kiro and got the error back.
+          const ids = models.length > 0 ? models : ["kiro/claude-sonnet-4.5"]
           return yield* upsert("kiro", {
             name: "Kiro CLI (AWS Subscription)",
             type: "openai-compatible",

@@ -50,13 +50,22 @@ export interface Options<State, DraftApi> {
   readonly finalize?: (draft: DraftApi) => Effect.Effect<void>
 }
 
-export interface Interface<State, DraftApi> extends Transformable<DraftApi> {
-  readonly get: () => State
-  /**
-   * Registers and applies a scoped transform. Closing the owning Scope removes
-   * the transform and reloads the materialized state.
-   */
-}
+  export interface Interface<State, DraftApi> extends Transformable<DraftApi> {
+    readonly get: () => State
+    /**
+    * Waits for a materialization already in flight, then returns.
+    *
+    * Readers call get(), which is synchronous and cannot wait. A transform that reaches the network
+    * - the models.dev catalogue fetch - therefore leaves the state half-built for as long as it takes,
+    * and a caller arriving in that window saw a short catalogue that filled in on a later request.
+    * Taking the same permit that reload uses makes a read observe the finished state instead.
+    */
+    readonly settled: Effect.Effect<void>
+    /**
+    * Registers and applies a scoped transform. Closing the owning Scope removes
+    * the transform and reloads the materialized state.
+    */
+    }
 
 export function create<State, DraftApi>(options: Options<State, DraftApi>): Interface<State, DraftApi> {
   let state = options.initial()
@@ -86,6 +95,7 @@ export function create<State, DraftApi>(options: Options<State, DraftApi>): Inte
 
   const result: Interface<State, DraftApi> = {
     get: () => state,
+    settled: semaphore.withPermit(Effect.void),
     transform: Effect.fn("State.transform")(function* (update) {
       const scope = yield* Scope.Scope
       return yield* Effect.uninterruptible(

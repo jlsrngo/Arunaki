@@ -224,33 +224,38 @@ const layer = Layer.effect(
       transform: state.transform,
       reload: state.reload,
 
-      provider: {
-        get: Effect.fn("CatalogV2.provider.get")(function* (providerID) {
-          return state.get().providers.get(providerID)?.provider
-        }),
+    provider: {
+      get: Effect.fn("CatalogV2.provider.get")(function* (providerID) {
+        yield* state.settled
+        return state.get().providers.get(providerID)?.provider
+      }),
 
-        all: Effect.fn("CatalogV2.provider.all")(function* () {
-          return Array.fromIterable(state.get().providers.values()).map((record) => record.provider)
-        }),
+      all: Effect.fn("CatalogV2.provider.all")(function* () {
+        yield* state.settled
+        return Array.fromIterable(state.get().providers.values()).map((record) => record.provider)
+      }),
 
-        available: Effect.fn("CatalogV2.provider.available")(function* () {
-          const active = new Map((yield* integrations.list()).map((integration) => [integration.id, integration]))
-          return (yield* result.provider.all()).filter((provider) =>
-            available(provider, active.get(provider.integrationID ?? Integration.ID.make(provider.id))),
-          )
-        }),
-      },
+      available: Effect.fn("CatalogV2.provider.available")(function* () {
+        yield* state.settled
+        const active = new Map((yield* integrations.list()).map((integration) => [integration.id, integration]))
+        return (yield* result.provider.all()).filter((provider) =>
+          available(provider, active.get(provider.integrationID ?? Integration.ID.make(provider.id))),
+        )
+      }),
+    },
 
-      model: {
-        get: Effect.fn("CatalogV2.model.get")(function* (providerID, modelID) {
-          const record = state.get().providers.get(providerID)
+    model: {
+      get: Effect.fn("CatalogV2.model.get")(function* (providerID, modelID) {
+        yield* state.settled
+        const record = state.get().providers.get(providerID)
           if (!record) return
           const model = record.models.get(modelID)
           return model && projectModel(model, record.provider)
         }),
 
-        all: Effect.fn("CatalogV2.model.all")(function* () {
-          return pipe(
+      all: Effect.fn("CatalogV2.model.all")(function* () {
+        yield* state.settled
+        return pipe(
             Array.fromIterable(state.get().providers.values()),
             Array.flatMap((record) => {
               return Array.fromIterable(record.models.values()).map((model) => projectModel(model, record.provider))
@@ -259,8 +264,9 @@ const layer = Layer.effect(
           )
         }),
 
-        available: Effect.fn("CatalogV2.model.available")(function* () {
-          const providers = new Set((yield* result.provider.available()).map((provider) => provider.id))
+    available: Effect.fn("CatalogV2.model.available")(function* () {
+      yield* state.settled
+      const providers = new Set((yield* result.provider.available()).map((provider) => provider.id))
           return (yield* result.model.all()).filter((model) => providers.has(model.providerID) && model.enabled)
         }),
 
