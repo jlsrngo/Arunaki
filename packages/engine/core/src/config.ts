@@ -142,7 +142,12 @@ const layer = Layer.effect(
     const global = yield* Global.Service
     const location = yield* Location.Service
     const policy = yield* Policy.Service
-    const names = ["arunaki.json", "arunaki.jsonc", "Arunaki.json", "Arunaki.jsonc", "config.json"]
+    // "config.json" is not a config file name. It is the most common filename in a repository, so
+    // listing it made every project that had one contribute a document - a document that then merged
+    // with the real settings and, being read last, won. One that could not be written by the app
+    // either, so it could only ever go stale. The case variants below are for filesystems that
+    // distinguish them; loadFile drops the duplicates the others create.
+    const names = ["arunaki.json", "arunaki.jsonc", "Arunaki.json", "Arunaki.jsonc"]
     const decodeOptions = { errors: "all", onExcessProperty: "ignore", propertyOrder: "original" } as const
     const decodeInfo = Schema.decodeUnknownOption(Info, decodeOptions)
     const decodeV1Info = Schema.decodeUnknownOption(ConfigV1.Info, decodeOptions)
@@ -164,11 +169,19 @@ const layer = Layer.effect(
       return new Document({ type: "document", path: filepath, info })
     })
 
-    const loadDirectory = Effect.fnUntraced(function* (directory: AbsolutePath) {
+const loadDirectory = Effect.fnUntraced(function* (directory: AbsolutePath) {
+      const loaded = yield* Effect.forEach(names, (file) => loadFile(path.join(directory, file)))
+      // On a case-insensitive filesystem "Arunaki.json" and "arunaki.json" are the same file, so the
+      // two spellings loaded it twice and every one of its settings was applied twice.
+      const seen = new Set<string>()
       return [
-        ...(yield* Effect.forEach(names, (file) => loadFile(path.join(directory, file))).pipe(
-          Effect.map((configs) => configs.filter((config): config is Document => config !== undefined)),
-        )),
+        ...loaded.filter((config): config is Document => {
+          if (!config) return false
+          const key = path.resolve(config.path ?? "").toLowerCase()
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        }),
         new Directory({ type: "directory", path: directory }),
       ]
     })
@@ -186,16 +199,19 @@ const layer = Layer.effect(
             stop: location.project.directory,
           })
           .pipe(Effect.orDie)
+    // The walk is handed both spellings, and on a case-insensitive filesystem they resolve to the
+    // same file, so it reports it twice and every setting in it was applied twice.
+    const walked = [...new Map(discovered.map((item) => [path.resolve(item).toLowerCase(), item])).values()]
     const directories = [
       globalDirectory,
-      ...discovered
+      ...walked
         .filter((item) => path.basename(item).toLowerCase() === ".arunaki")
         .toReversed()
         .map((directory) => AbsolutePath.make(directory)),
     ]
     // A config closer to the opened directory should win over one higher up.
     // Search starts nearby, so reverse the results before applying them.
-    const directPaths = discovered.filter((item) => path.basename(item).toLowerCase() !== ".arunaki").toReversed()
+    const directPaths = walked.filter((item) => path.basename(item).toLowerCase() !== ".arunaki").toReversed()
     const direct = yield* Effect.forEach(directPaths, loadFile).pipe(
       Effect.orDie,
       Effect.map((configs) => configs.filter((config): config is Document => config !== undefined)),

@@ -2,7 +2,9 @@ export * as ConfigProviderPlugin from "./provider"
 
 import { define } from "../../plugin/internal"
 import { Effect } from "effect"
+import path from "path"
 import { Config } from "../../config"
+import { Global } from "../../global"
 import { ModelV2 } from "../../model"
 import { ProviderV2 } from "../../provider"
 
@@ -10,9 +12,28 @@ export const Plugin = define({
   id: "config-provider",
   effect: Effect.fn(function* (ctx) {
     const config = yield* Config.Service
+    const global = yield* Global.Service
+
+    // A provider entry is a credential and an endpoint: it belongs to the person, not to the
+    // folder they happen to have open. Project config is still read for everything that is
+    // genuinely per-project - instructions, agents, MCP, permissions - but not for this.
+    //
+    // Nothing ever wrote to a project's arunaki.json for this key, so a project file that had one
+    // could only ever go stale, and a stale one silently wins over the global file because it is
+    // read last. That is how a folder kept serving a model list the user had already replaced: the
+    // global file was corrected and the catalogue kept the folder's copy, routing requests to a
+    // different provider because the bridge reads the model id and not the provider name.
+    const accountFiles = (entries: readonly Config.Entry[]) =>
+      entries.filter(
+        (entry): entry is Config.Document =>
+          entry.type === "document" &&
+          // No path means the document did not come off disk, so it cannot be a project's.
+          (entry.path === undefined || path.resolve(entry.path).startsWith(path.resolve(global.config))),
+      )
+
     yield* ctx.integration.transform(
       Effect.fn(function* (integrations) {
-        const files = (yield* config.entries()).filter((entry): entry is Config.Document => entry.type === "document")
+        const files = accountFiles(yield* config.entries())
         const configuredIntegrations = new Set(
           files.flatMap((file) =>
             Object.entries(file.info.providers ?? {}).flatMap(([id, provider]) =>
@@ -40,14 +61,13 @@ export const Plugin = define({
 
     yield* ctx.catalog.transform(
       Effect.fn(function* (catalog) {
-        const entries = yield* config.entries()
-        const files = entries.filter((entry): entry is Config.Document => entry.type === "document")
+        const entries = accountFiles(yield* config.entries())
         const configuredDefault = Config.latest(entries, "model")
         if (configuredDefault !== undefined) {
           const model = ModelV2.parse(configuredDefault)
           catalog.model.default.set(model.providerID, model.modelID)
         }
-        for (const file of files) {
+        for (const file of entries) {
           for (const [id, item] of Object.entries(file.info.providers ?? {})) {
             const providerID = id
             catalog.provider.update(providerID, (provider) => {
