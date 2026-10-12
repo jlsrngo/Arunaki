@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Message, MessagePart, QuestionData } from "./types";
@@ -218,7 +218,28 @@ export function useWorkstationChat({
     [modelsQuery.data],
   );
 
-  const activeModel = resolveActiveSingleModel();
+  // A model id remembered before tiers were folded is a tier that no longer exists on its own:
+  // "gemini-3.8-flash-high" became "gemini-3.8-flash" with the tier as a variant. Left alone it
+  // matches nothing in the catalogue, so the picker came up empty and the request asked for a
+  // model that was never there. Fall back to the family when the exact id is gone, and write the
+  // corrected id back so it heals once instead of on every send.
+  const activeModel = useMemo(() => {
+    const active = resolveActiveSingleModel();
+    const list = modelsQuery.data;
+    if (!list?.length) return active;
+    const known = (id: string) => list.some((m) => m?.providerID === active.providerID && m?.id === id);
+    if (known(active.id)) return active;
+    const family = active.id.replace(/-(?:low|medium|high|tiered)$/i, "");
+    if (family !== active.id && known(family)) {
+      try {
+        localStorage.setItem("arunaki_active_model", family);
+        localStorage.setItem(`arunaki_provider_model_${active.providerID}`, family);
+      } catch {}
+      return { providerID: active.providerID, id: family };
+    }
+    return active;
+  }, [modelsQuery.data]);
+
   const activeTiers = tiersFor(activeModel.providerID, activeModel.id);
 
   const [isStreaming, setIsStreaming] = useState(false);
