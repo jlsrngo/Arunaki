@@ -1,4 +1,4 @@
-import { ProviderAuth } from "@/provider/auth"
+﻿import { ProviderAuth } from "@/provider/auth"
 import { Config } from "@/config/config"
 import { ModelsDev } from "@arunaki/core/models-dev"
 import { Provider } from "@/provider/provider"
@@ -185,6 +185,20 @@ function providerUIItem(
   }
 }
 
+/**
+ * A provider that reaches the network through the local CLI bridge.
+ *
+ * These are connected from Settings > Connection CLI and managed there, but the connect flow also
+ * writes them into config.provider, so they turned up in Model Providers as well - the same thing
+ * in two tabs. What made it worse than a duplicate card is that this tab writes back: "Sync from
+ * API" asks the shared bridge what models exist, and the bridge answers for every provider on the
+ * machine, so syncing Kiro replaced Kiro's list with 18 models that the bridge silently routes to
+ * Antigravity and Claude instead. Connection CLI already lists them and already syncs them per
+ * provider, so this tab drops them.
+ */
+const isBridgeRouted = (info: ConfigProviderV1.Info) =>
+  /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(info.options?.baseURL ?? "")
+
 export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "providers", (handlers) =>
   Effect.gen(function* () {
     const cfg = yield* Config.Service
@@ -204,10 +218,10 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           (existing?.options as { priority?: number } | undefined)?.priority ?? 0
         // PRESERVE existing valid apiKey if payload key is masked or empty
         let apiKeyToSave: string | undefined = payload.apiKey?.trim()
-        if (!apiKeyToSave || apiKeyToSave.includes("•") || apiKeyToSave.includes("****") || apiKeyToSave === "Not Configured") {
+        if (!apiKeyToSave || apiKeyToSave.includes("â€¢") || apiKeyToSave.includes("****") || apiKeyToSave === "Not Configured") {
           apiKeyToSave = existing?.options?.apiKey || undefined
         }
-        if ((!apiKeyToSave || apiKeyToSave.includes("•")) && (providerID === "kenari" || payload.baseUrl?.includes("kenari.id"))) {
+        if ((!apiKeyToSave || apiKeyToSave.includes("â€¢")) && (providerID === "kenari" || payload.baseUrl?.includes("kenari.id"))) {
           apiKeyToSave = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
 
@@ -265,14 +279,16 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
         return pa - pb
       })
       return {
-        data: entries.map(([providerID, info]) =>
-          providerUIItem(
-            providerID,
-            info,
-            !disabled.has(providerID),
-            (info.options as { priority?: number } | undefined)?.priority ?? 0,
+        data: entries
+          .filter(([, info]) => !isBridgeRouted(info))
+          .map(([providerID, info]) =>
+            providerUIItem(
+              providerID,
+              info,
+              !disabled.has(providerID),
+              (info.options as { priority?: number } | undefined)?.priority ?? 0,
+            ),
           ),
-        ),
       }
     })
 
@@ -334,12 +350,12 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       function* (baseURL: string, apiKey: string, model: string | undefined) {
         const prompt = "Hello, connection test."
         const cleanApiKey = (apiKey ?? "").trim()
-        if (cleanApiKey.includes("•") || cleanApiKey.includes("****")) {
+        if (cleanApiKey.includes("â€¢") || cleanApiKey.includes("****")) {
           return {
             data: {
               success: false,
               status: 400,
-              error: "API Key is masked with bullet dots (•). Please enter your actual API key in Configure.",
+              error: "API Key is masked with bullet dots (â€¢). Please enter your actual API key in Configure.",
               prompt,
               model,
             },
@@ -400,7 +416,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     const testConnection = Effect.fn("ProviderSettings.testConnection")(
       function* (ctx: { payload: Schema.Schema.Type<typeof ProviderTestInput> }) {
         let apiKey = (ctx.payload.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("•")) && (ctx.payload.baseUrl?.includes("kenari.id"))) {
+        if ((!apiKey || apiKey.includes("â€¢")) && (ctx.payload.baseUrl?.includes("kenari.id"))) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
         return yield* testRequest(ctx.payload.baseUrl, apiKey, ctx.payload.model)
@@ -420,7 +436,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           }
         }
         let apiKey = (info.options?.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("•")) && (ctx.params.providerID === "kenari" || info.options?.baseURL?.includes("kenari.id"))) {
+        if ((!apiKey || apiKey.includes("â€¢")) && (ctx.params.providerID === "kenari" || info.options?.baseURL?.includes("kenari.id"))) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
           yield* cfg.update({
             provider: {
@@ -448,9 +464,38 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
     const fetchModels = Effect.fn("ProviderSettings.fetchModels")(
       function* (ctx: { payload: Schema.Schema.Type<typeof ProviderFetchModelsInput> }) {
         const base = ctx.payload.baseUrl.replace(/\/+$/, "")
+
+        // Every local CLI provider points at one shared bridge, and that bridge's /models answers
+        // for the whole machine: Claude-CLI, Antigravity, Groq, OpenCode and 9Router at once. Asking
+        // it "what models does Kiro have?" returned all eighteen of them and this handler then
+        // replaced Kiro's list with the lot - gemini-*, claude-sonnet-*, groq/* and all. The bridge
+        // routes on substrings of the model id (bridge.ts: isAntigravity matches "gemini" and
+        // "claude-sonnet"), so those ids did not fail loudly, they went to a different provider:
+        // Kiro's models were replaced by ones the bridge silently answers for somebody else.
+        // The per-provider list is already known, so ask for that instead.
+        // Only the shared bridge, not every loopback address. 9Router listens on 20128 with its own
+        // /models that reports its own catalogue, so asking the registry instead would answer from
+        // a hardcoded probe list while a live gateway was sitting right there.
+        const isBridge = base.toLowerCase().startsWith(`http://127.0.0.1:${localCliBridge.port}`) ||
+          base.toLowerCase().startsWith(`http://localhost:${localCliBridge.port}`)
+        if (isBridge && ctx.payload.providerId !== undefined) {
+          const target = ctx.payload.providerId as Parameters<typeof getCliSupportedModels>[0]
+          const models = yield* Effect.promise(() => getCliSupportedModels(target)).pipe(
+            Effect.orElseSucceed(() => [] as string[]),
+          )
+          if (models.length > 0) {
+            yield* cfg.replaceProviderModels(
+              ctx.payload.providerId,
+              Object.fromEntries(models.map((id) => [id, { id, name: id }])),
+            )
+            yield* markInstanceForDisposal(yield* InstanceState.context)
+          }
+          return { data: { models } }
+        }
+
         const url = base.endsWith("/models") ? base : `${base}/models`
         let apiKey = (ctx.payload.apiKey ?? "").trim()
-        if ((!apiKey || apiKey.includes("•")) && url.includes("kenari.id")) {
+        if ((!apiKey || apiKey.includes("â€¢")) && url.includes("kenari.id")) {
           apiKey = "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333"
         }
         const request = HttpClientRequest.get(url).pipe(
@@ -620,6 +665,27 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       },
     )
 
+    /**
+     * The models to write for a local CLI provider, asked of the provider itself.
+     *
+     * Every one of these used to be a literal list typed in when the provider was added. They are
+     * snapshots from whenever they were written and they outlive what they name - and that is not
+     * cosmetic, because the bridge routes on the model id rather than on the provider: a stale id
+     * does not fail, it is answered by a different upstream. That is exactly how Kiro ended up
+     * holding Gemini models and answering a request for them from Google.
+     *
+     * When the provider does not answer, fall back to what config already holds - that list was
+     * itself written from a live fetch - and write nothing rather than a guess.
+     */
+    const modelsFor = Effect.fn("ProviderSettings.modelsFor")(function* (target: string, providerID: string) {
+      const live = yield* Effect.promise(() => getCliSupportedModels(target)).pipe(
+        Effect.orElseSucceed(() => [] as string[]),
+      )
+      if (live.length > 0) return live
+      const config = yield* cfg.get()
+      return Object.keys(config.provider?.[providerID]?.models ?? {})
+    })
+
     const localCliConnect = Effect.fn("ProviderSettings.localCliConnect")(
       function* (ctx: { payload: Schema.Schema.Type<typeof LocalCliConnectInput> }) {
         yield* Effect.promise(() => localCliBridge.start())
@@ -634,7 +700,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "claude-pro-subscription",
-            model: "claude-3-7-sonnet, claude-3-5-sonnet, claude-3-5-haiku",
+            model: (yield* modelsFor("claude", "claude-code")).join(", "),
           })
         }
         if (ctx.payload.target === "opencode") {
@@ -648,7 +714,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "opencode-local-session",
-            model: ctx.payload.model || "groq/openai/gpt-oss-120b, groq/qwen/qwen3.8-27b, opencode/big-pickle",
+            model: ctx.payload.model || (yield* modelsFor("opencode", "opencode")).join(", "),
           })
         }
         if (ctx.payload.target === "groq-sync") {
@@ -662,7 +728,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "groq",
             baseUrl: "https://api.groq.com/openai/v1",
             apiKey: key,
-            model: "llama-3.3-70b-versatile, deepseek-r1-distill-llama-70b",
+            model: (yield* modelsFor("groq", "groq")).join(", "),
           })
         }
         if (ctx.payload.target === "9router") {
@@ -671,7 +737,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: "http://localhost:20128/v1",
             apiKey: "9router",
-            model: ctx.payload.model || "claude-3-5-sonnet, deepseek-r1",
+            model: ctx.payload.model || (yield* modelsFor("9router", "9router")).join(", "),
           })
         }
         if (ctx.payload.target === "antigravity" || ctx.payload.target === "agy" || ctx.payload.target === "gemini" || ctx.payload.target === "gemini-cli") {
@@ -680,7 +746,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             type: "openai-compatible",
             baseUrl: `http://127.0.0.1:${localCliBridge.port}/v1`,
             apiKey: "antigravity-local-session",
-            model: ctx.payload.model || "gemini-3.8-flash, gemini-3.1-pro, gemini-3.7-flash, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-5-5",
+            model: ctx.payload.model || (yield* modelsFor("antigravity", "antigravity")).join(", "),
           })
         }
         if (ctx.payload.target === "kiro") {
@@ -688,12 +754,12 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           // BadRequest at the end of this handler and Kiro was never written to
           // config. Its card still listed 9 live models from the bridge, which
           // made it look connected while contributing no selectable model.
-          const models = yield* Effect.promise(() => getCliSupportedModels("kiro"))
+
           // The prefix stays. The bridge routes on it: asked for "claude-sonnet-4.5" it answers
           // 502 "Cloud Code request did not succeed", asked for "kiro/claude-sonnet-4.5" it answers.
           // Stripping it here left the provider listed but unusable, and the failure looked like an
           // upstream outage because the bridge reached Kiro and got the error back.
-          const ids = models.length > 0 ? models : ["kiro/claude-sonnet-4.5"]
+          const ids = yield* modelsFor("kiro", "kiro")
           return yield* upsert("kiro", {
             name: "Kiro CLI (AWS Subscription)",
             type: "openai-compatible",
@@ -707,9 +773,7 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
           // answers - the live catalogue is gpt-5.6-terra and friends - so the picker offered models
           // the bridge refuses. Ask the account, and fall back to the registry's verified list only
           // when it cannot be reached.
-          const models = yield* Effect.promise(() => getCliSupportedModels("codex"))
-          const fallback = CLI_PROVIDER_REGISTRY.find((item) => item.id === "codex")?.models ?? []
-          const ids = models.length > 0 ? models : fallback
+          const ids = yield* modelsFor("codex", "codex")
           return yield* upsert("codex", {
             name: "OpenAI Codex Agent",
             type: "openai-compatible",
@@ -940,3 +1004,6 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
       .handle("localCliOauthStatus", localCliOauthStatus)
   }),
 )
+
+
+

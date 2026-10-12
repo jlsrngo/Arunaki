@@ -768,41 +768,32 @@ export function launchClaudeLoginTerminal(): { success: boolean; message: string
   return launchTerminalWithCommand("claude auth login --claudeai", "Claude Code CLI (Login)")
 }
 
+/**
+ * The models a signed-in local CLI can actually run, asked of the provider itself.
+ *
+ * No hardcoded list. Every one of them was a snapshot taken whenever somebody wrote it, and they
+ * outlive the models they name - Kiro's already named a model AWS had never returned. That is not
+ * cosmetic: the bridge routes on the model id rather than on the provider, so a stale id does not
+ * fail loudly, it is answered by a different upstream. An empty result means the provider did not
+ * answer, and the caller keeps whatever config already holds rather than guessing a name.
+ */
 export async function getCliSupportedModels(target: string): Promise<string[]> {
   if (target === "antigravity" || target === "agy" || target === "gemini" || target === "gemini-cli") {
-    // Ask the account which models it can actually use; the list changes as Google ships
-    // and retires tiers, so a hardcoded array goes stale. Keep the old list as fallback.
+    // The list changes as Google ships and retires tiers, so only the account knows it.
     const { fetchAntigravityModels } = await import("./upstream.js")
     const live = await fetchAntigravityModels(await getAntigravityAuth())
-    if (live?.length) return live
-    return [
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-3.8-flash",
-      "gemini-3.7-flash",
-      "claude-sonnet-4.6",
-      "claude-opus-4.6",
-      "gpt-oss-120b",
-    ]
+    return live ?? []
   }
 
   if (target === "kiro") {
-    // Ask AWS what this account can run. Kiro's catalogue changed while this was being written:
-    // a hardcoded list named a model the endpoint has never returned and missed two others.
     const { fetchKiroModels } = await import("./kiro.js")
     const live = await fetchKiroModels()
-    if (live?.length) return live.map((m) => `kiro/${m}`)
-    return ["kiro/claude-sonnet-4.5", "kiro/claude-haiku-4.5", "kiro/deepseek-3.2", "kiro/qwen3-coder-next"]
+    return live?.length ? live.map((m) => `kiro/${m}`) : []
   }
   if (target === "codex") {
-    // Codex publishes a catalogue too, but it answers an empty list on a free account while
-    // individual models still answer. Fall back to the ones verified by probing.
-    const { fetchCodexModels, CODEX_VERIFIED_FALLBACK } = await import("./codex-models.js")
+    const { fetchCodexModels } = await import("./codex-models.js")
     const live = await fetchCodexModels()
-    if (live?.length) return live
-    return CODEX_VERIFIED_FALLBACK
+    return live ?? []
   }  if (target === "opencode") {
     return new Promise((resolve) => {
       try {
@@ -821,39 +812,30 @@ export async function getCliSupportedModels(target: string): Promise<string[]> {
             const lines = stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
             if (lines.length > 0) return resolve(lines)
           }
-          resolve([
-            "opencode/big-pickle",
-            "groq/llama-3.3-70b-versatile",
-            "groq/openai/gpt-oss-120b",
-            "groq/qwen/qwen3.8-27b",
-            "groq/llama-3.1-8b-instant",
-            "9router/ComboMaut",
-            "opencode/nemotron-3.5-lightning-free",
-          ])
+          // The CLI is the only thing that knows which models the account can run. When it does not
+          // answer, say so: a hardcoded list here is how "opencode/nemotron-3.5-lightning-free"
+          // outlived whatever the account actually had, and the bridge answers an unknown id from a
+          // different upstream rather than refusing it.
+          resolve([])
         })
-        proc.on("error", () => {
-          resolve([
-            "opencode/big-pickle",
-            "groq/llama-3.3-70b-versatile",
-            "groq/openai/gpt-oss-120b",
-            "groq/qwen/qwen3.8-27b",
-            "groq/llama-3.1-8b-instant",
-          ])
-        })
+        proc.on("error", () => resolve([]))
       } catch {
-        resolve(["opencode/big-pickle", "groq/llama-3.3-70b-versatile", "groq/openai/gpt-oss-120b"])
+        resolve([])
       }
     })
   }
 
-  if (target === "claude") {
-    return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"]
+if (target === "claude") {
+    // Claude publishes no catalogue endpoint this can reach, so there is nothing live to ask for.
+    // An empty answer is the honest one; the caller keeps whatever config holds, and that list was
+    // written by the user or synced from the account. A literal here is how "claude-3-7-sonnet"
+    // outlived anything the account still answered.
+    return []
   }
 
-if (target === "9router") {
+  if (target === "9router") {
     const nine = await checkNineRouterStatus()
-    if (nine.models.length > 0) return nine.models
-    return ["cx/gpt-5.6-terra", "cx/gemini-2.5-pro", "claude-3-5-sonnet", "deepseek-r1"]
+    return nine.models
   }
 
   return []

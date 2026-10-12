@@ -7,6 +7,7 @@ import {
   getOpenCodeGroqKey,
   getOpenCodeAccountToken,
   getAntigravityAuth,
+  getCliSupportedModels,
 } from "./detector"
 import { readCodexCredential, readClaudeCredential, readKiroCredential } from "./harvester.js"
 import {
@@ -41,6 +42,7 @@ class LocalCliBridge {
 
     return new Promise((resolve) => {
       this.server = http.createServer((req, res) => {
+        void (async () => {
         const parsedUrl = new URL(req.url ?? "/", `http://${req.headers.host || "127.0.0.1"}`)
 
         // Set CORS headers
@@ -61,30 +63,25 @@ class LocalCliBridge {
         }
 
         if (req.method === "GET" && (parsedUrl.pathname === "/v1/models" || parsedUrl.pathname === "/models")) {
+          // One list for the whole bridge was the worst thing in this file. Every local CLI provider
+          // points here, so "what models does Kiro have?" returned Gemini, Claude, Groq and 9Router
+          // models together, and Settings wrote all of them into Kiro. The bridge then routes on the
+          // model id rather than on the provider, so those ids did not fail - they were answered by
+          // a different upstream, which is how a Kiro request came back "Claude Code is not signed
+          // in" from an account that was never involved.
+          //
+          // So the answer is per provider, and only from the provider: ?provider=kiro asks AWS.
+          // Without it there is no honest answer, and an empty list beats a wrong one - the settings
+          // UI only reads this to check the bridge is up, and reads res.ok for that.
+          const provider = parsedUrl.searchParams.get("provider")
+          const models = provider
+            ? await getCliSupportedModels(provider).catch(() => [] as string[])
+            : []
           res.writeHead(200, { "Content-Type": "application/json" })
           res.end(
             JSON.stringify({
               object: "list",
-              data: [
-                { id: "gemini-3.8-flash", object: "model", owned_by: "antigravity-cli" },
-                { id: "gemini-3.1-pro", object: "model", owned_by: "antigravity-cli" },
-                { id: "gemini-3.7-flash", object: "model", owned_by: "antigravity-cli" },
-                { id: "claude-sonnet-5-5", object: "model", owned_by: "antigravity-cli" },
-                { id: "gemini-2.5-flash", object: "model", owned_by: "antigravity-cli" },
-                { id: "gemini-2.5-pro", object: "model", owned_by: "antigravity-cli" },
-                { id: "claude-3-7-sonnet", object: "model", owned_by: "claude-cli" },
-                { id: "claude-3-5-sonnet", object: "model", owned_by: "claude-cli" },
-                { id: "claude-3-5-haiku", object: "model", owned_by: "claude-cli" },
-                { id: "groq/openai/gpt-oss-120b", object: "model", owned_by: "opencode" },
-                { id: "openai/gpt-oss-120b", object: "model", owned_by: "opencode" },
-                { id: "groq/qwen/qwen3.8-27b", object: "model", owned_by: "opencode" },
-                { id: "qwen/qwen3.8-27b", object: "model", owned_by: "opencode" },
-                { id: "groq/openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
-                { id: "openai/gpt-oss-20b", object: "model", owned_by: "opencode" },
-                { id: "opencode/big-pickle", object: "model", owned_by: "opencode" },
-                { id: "big-pickle", object: "model", owned_by: "opencode" },
-                { id: "9router/ComboMaut", object: "model", owned_by: "9router" },
-              ],
+              data: models.map((id) => ({ id, object: "model", owned_by: provider ?? "arunaki-bridge" })),
             }),
           )
           return
@@ -113,6 +110,10 @@ class LocalCliBridge {
 
         res.writeHead(404, { "Content-Type": "application/json" })
         res.end(JSON.stringify({ error: { message: "Not found" } }))
+        })().catch(() => {
+          if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: { message: "bridge failed" } }))
+        })
       })
 
       this.server.on("error", (err: any) => {
