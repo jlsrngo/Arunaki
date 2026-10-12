@@ -1,4 +1,4 @@
-import { RefObject, useState, useMemo, useCallback, memo } from "react";
+﻿import { RefObject, useState, useMemo, useCallback, memo } from "react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import {
   Bot,
@@ -41,6 +41,7 @@ export interface WorkstationRightChatProps {
   onSearchSection?: () => void;
   reasoningEffort?: string;
   setReasoningEffort?: (effort: string) => void;
+  effortOptions?: string[];
   onNewChat?: () => void;
   onCancelStream?: () => void;
   onAnswerQuestion?: (requestId: string, selectedAnswer: string) => void;
@@ -62,7 +63,8 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   onRemoveQueuedPrompt,
   onSearchSection,
   reasoningEffort = "",
-  setReasoningEffort,
+setReasoningEffort,
+  effortOptions = [] as string[],
   onNewChat,
   onCancelStream,
   onAnswerQuestion,
@@ -222,6 +224,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
           onNewChat={onNewChat}
           reasoningEffort={reasoningEffort}
           setReasoningEffort={setReasoningEffort}
+    effortOptions={effortOptions}
           showThinking={showThinking}
           setShowThinking={setShowThinking}
           onPreviewImage={handlePreviewImage}
@@ -233,3 +236,4 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
     </aside>
   );
 });
+

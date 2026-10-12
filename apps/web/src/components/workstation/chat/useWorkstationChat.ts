@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Message, MessagePart, QuestionData } from "./types";
@@ -188,6 +188,39 @@ export function useWorkstationChat({
       }
     } catch {}
   }, []);
+
+  // Which tiers the selected model actually has, read from the catalogue rather than assumed.
+  //
+  // The picker was a fixed Low/Medium/High and "low" went out with every request whatever the
+  // provider. Kiro, Kenari and Codex have no tiers at all, so they were sent one and the bridge
+  // either ignored it or rewrote an id that has no tier suffix to the nearest tier it knows. A
+  // provider that does not offer tiers now offers no picker and is sent no variant.
+  const modelsQuery = useQuery({
+    queryKey: ["engine-models"],
+    queryFn: async () => {
+      const folder = typeof window !== "undefined" ? localStorage.getItem("arunaki_active_folder") || "" : "";
+      const res = await apiFetch(`${API_BASE}/model${folder ? `?directory=${encodeURIComponent(folder)}` : ""}`);
+      if (!res.ok) return [] as any[];
+      const json = await res.json().catch(() => ({}));
+      return (json.data ?? []) as any[];
+    },
+    staleTime: 60_000,
+  });
+
+  const tiersFor = useCallback(
+    (providerID: string, modelID: string) => {
+      const match = modelsQuery.data?.find((m) => m?.providerID === providerID && m?.id === modelID);
+      const ids: string[] = Array.isArray(match?.variants)
+        ? match.variants.map((v: any) => String(v?.id ?? "")).filter(Boolean)
+        : [];
+      return ids;
+    },
+    [modelsQuery.data],
+  );
+
+  const activeModel = resolveActiveSingleModel();
+  const activeTiers = tiersFor(activeModel.providerID, activeModel.id);
+
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
   const setStreamingState = useCallback((val: boolean) => {
@@ -320,7 +353,7 @@ export function useWorkstationChat({
         clearWatchdog();
         setLiveStatus({
           type: "thinking",
-          preview: "Network disconnected — Waiting for internet connection...",
+          preview: "Network disconnected â€” Waiting for internet connection...",
         });
         toast.warning("Network connection lost", {
           description: "Execution paused. Arunaki will resume automatically when reconnected.",
@@ -699,7 +732,13 @@ export function useWorkstationChat({
     }
 
     const activeModel = resolveActiveSingleModel();
-    const effectiveVariant = reasoningEffort || "low";
+    const effectiveVariant = (() => {
+      const tiers = tiersFor(activeModel.providerID, activeModel.id);
+      // No tiers on this model means no variant on the request: the bridge rewrites an id that has
+      // no tier suffix to the nearest tier it recognises, which is not what was asked for.
+      if (!tiers.length) return undefined;
+      return tiers.includes(reasoningEffort) ? reasoningEffort : tiers[0];
+    })();
 
     try {
       const session = await createSession({
@@ -1063,7 +1102,13 @@ export function useWorkstationChat({
     const activeModel = resolveActiveSingleModel();
 
     let chatIdToUse = activeChatId;
-    const effectiveVariant = reasoningEffort || "low";
+    const effectiveVariant = (() => {
+      const tiers = tiersFor(activeModel.providerID, activeModel.id);
+      // No tiers on this model means no variant on the request: the bridge rewrites an id that has
+      // no tier suffix to the nearest tier it recognises, which is not what was asked for.
+      if (!tiers.length) return undefined;
+      return tiers.includes(reasoningEffort) ? reasoningEffort : tiers[0];
+    })();
 
     // Strict Folder-Session Isolation Guard: verify that existing session matches activeFolder
     if (chatIdToUse && activeFolder) {
@@ -1220,11 +1265,11 @@ export function useWorkstationChat({
       clearWatchdog();
       watchdogRef.current = setTimeout(async () => {
         if (currentTurnIdRef.current !== assistantMessageId) return;
-        // If computer is offline, don't abort — wait for reconnect!
+        // If computer is offline, don't abort â€” wait for reconnect!
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           setLiveStatus({
             type: "thinking",
-            preview: "Network disconnected — Waiting for internet connection...",
+            preview: "Network disconnected â€” Waiting for internet connection...",
           });
           return;
         }
@@ -1253,7 +1298,7 @@ export function useWorkstationChat({
 
         if (!diagnostic.hasConfiguredProvider) {
           toast.error("No AI Provider Configured", {
-            description: "Please configure an active AI provider in File → Preferences → Settings.",
+            description: "Please configure an active AI provider in File â†’ Preferences â†’ Settings.",
             duration: 8000,
           });
           setOptimisticMessages((prev) =>
@@ -1261,7 +1306,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `⚠️ **No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File → Preferences → Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
+                    content: `âš ï¸ **No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File â†’ Preferences â†’ Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
                   }
                 : m
             )
@@ -1277,7 +1322,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `⚠️ **Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File → Preferences → Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
+                    content: `âš ï¸ **Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File â†’ Preferences â†’ Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
                   }
                 : m
             )
@@ -1941,7 +1986,7 @@ export function useWorkstationChat({
           setOptimisticMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: `⚠️ **Error:** ${errorMsg}` }
+                ? { ...m, content: `âš ï¸ **Error:** ${errorMsg}` }
                 : m
             )
           );
@@ -1986,6 +2031,7 @@ export function useWorkstationChat({
     isStreaming,
     reasoningEffort,
     setReasoningEffort,
+    effortOptions: activeTiers,
     queuedPrompts,
     messagesEndRef,
     pendingQuestion,
@@ -1996,3 +2042,7 @@ export function useWorkstationChat({
     handleRemoveQueuedPrompt,
   };
 }
+
+
+
+

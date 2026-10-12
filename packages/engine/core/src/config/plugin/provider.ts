@@ -10,10 +10,48 @@ import { ModelV2 } from "../../model"
 import { ProviderV2 } from "../../provider"
 
 /**
- * The local CLI bridge is a network service, not a module, so this is how core reaches a live
- * model list without depending on the engine package that hosts the detectors. The engine asks
- * /models?provider=<id> and the provider answers - AWS, Google, the OpenCode CLI.
+ * Reasoning tiers a provider expresses as a suffix on the model id.
+ *
+ * This list has to agree with the bridge, which is the only thing that turns a variant back into an
+ * id the provider accepts. An id whose suffix is not in it stays a model of its own: folding it
+ * would offer a picker that silently resolves to a tier the user did not choose.
  */
+const EFFORT_TIERS = ["low", "medium", "high", "tiered"]
+
+/**
+ * Split a live model list into models and the tiers that belong to them.
+ *
+ * Decided from the data and not from a word list, because the suffixes are not all tiers.
+ * "gemini-3.6-flash-extra-low" ends in "-low" but its family is "gemini-3.6-flash-extra", which is
+ * a model Google lists on its own; folding it would invent that model and hand the picker a tier
+ * the bridge cannot send. A real family has more than one tier, so that is the test.
+ */
+export function foldTiers(models: readonly string[]): { base: string[]; tiers: Record<string, string[]> } {
+  const families = new Map<string, Set<string>>()
+  const base: string[] = []
+  for (const model of new Set(models)) {
+    const tier = EFFORT_TIERS.find((item) => model.endsWith(`-${item}`))
+    if (!tier) {
+      base.push(model)
+      continue
+    }
+    const family = model.slice(0, -(tier.length + 1))
+    families.set(family, new Set([...(families.get(family) ?? []), tier]))
+  }
+  const tiers: Record<string, string[]> = {}
+  for (const [family, list] of families) {
+    const distinct = [...list].sort(EFFORT_TIERS.indexOf ? (a, b) => EFFORT_TIERS.indexOf(a) - EFFORT_TIERS.indexOf(b) : () => 0)
+    // A lone distinct suffix is a model, not a tier: leave the id alone. Counting distinct tiers
+    // rather than ids is what keeps "-extra-low" from inventing a "gemini-3.6-flash-extra" family
+    // that Google never listed, however many times the same suffix repeats.
+    if (distinct.length < 2) {
+      for (const tier of distinct) base.push(`${family}-${tier}`)
+      continue
+    }
+    tiers[family] = distinct
+  }
+  return { base, tiers }
+}
 const BRIDGE_URLS = /^https?:\/\/(127\.0\.0\.1|localhost):\d+\/v1$/i
 
 const liveBridgeModels = (http: HttpClient.HttpClient, url: string, providerID: string) =>
@@ -202,13 +240,26 @@ export const Plugin = define<HttpClient.HttpClient | Config.Service | Global.Ser
 
           for (const [id, models] of live) {
             if (models.length === 0) continue
-            for (const modelID of models) {
+            const { base, tiers } = foldTiers(models)
+            for (const modelID of [...base, ...Object.keys(tiers)]) {
               catalog.model.update(id, modelID, () => {})
             }
+            // The tier becomes a variant on the base model rather than a model of its own. The
+            // bridge already rewrites a base id to whichever tier the session asks for, so this is
+            // the same request with a shorter name to choose from.
+            for (const [baseID, list] of Object.entries(tiers)) {
+              catalog.model.update(id, baseID, (model) => {
+                for (const tier of list) {
+                  if (model.variants.some((item) => item.id === tier)) continue
+                  model.variants.push({ id: tier, headers: {}, body: {} })
+                }
+              })
+            }
+            const keep = new Set([...base, ...Object.keys(tiers)])
             for (const existing of catalog.provider.list()) {
               if (existing.provider.id !== id) continue
               for (const model of [...existing.models.keys()]) {
-                if (!models.includes(model)) catalog.model.remove(id, model)
+                if (!keep.has(model)) catalog.model.remove(id, model)
               }
             }
           }

@@ -1,4 +1,4 @@
-import {
+﻿import {
   useRef,
   useState,
   useMemo,
@@ -32,11 +32,22 @@ import { normalizeAttachmentName, isImageFile } from "./attachmentUtils";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
 
-const EFFORT_OPTIONS = [
-  { key: "effortLow", label: "Low", value: "low" },
-  { key: "effortMedium", label: "Medium", value: "medium" },
-  { key: "effortHigh", label: "High", value: "high" },
-] as const;
+const EFFORT_LABELS: Record<string, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  tiered: "Tiered",
+};
+
+/**
+ * A tier is named by the provider, not by us. Antigravity ships low/medium/high/tiered; a provider
+ * with no tiers sends none and gets no picker. The ids come from the model's variants in the
+ * catalogue, so this can only ever offer something the model actually has.
+ */
+const effortEffortLabel = (id: string) => {
+  const known = EFFORT_LABELS[id.toLowerCase()];
+  return known ?? id.charAt(0).toUpperCase() + id.slice(1);
+};
 
 export interface AttachedFileItem {
   id: string;
@@ -62,8 +73,10 @@ interface ChatInputBoxProps {
   onCancelStream?: () => void;
   onSearchSection?: () => void;
   onNewChat?: () => void;
-  reasoningEffort?: string;
+reasoningEffort?: string;
   setReasoningEffort?: (val: string) => void;
+  /** Tier ids the active model actually offers. Empty means no picker and no variant on the request. */
+  effortOptions?: string[];
   showThinking?: boolean;
   setShowThinking?: Dispatch<SetStateAction<boolean>>;
   collapseThinking?: boolean;
@@ -79,7 +92,8 @@ export const ChatInputBox = memo(function ChatInputBox({
   onSearchSection,
   onNewChat,
   reasoningEffort = "",
-  setReasoningEffort,
+setReasoningEffort,
+  effortOptions = [] as string[],
   showThinking,
   setShowThinking,
   setCollapseThinking,
@@ -115,8 +129,8 @@ export const ChatInputBox = memo(function ChatInputBox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const currentEffortObj = EFFORT_OPTIONS.find((opt) => opt.value === reasoningEffort) || EFFORT_OPTIONS[0];
-  const currentEffortLabel = t(currentEffortObj.key as any, currentEffortObj.label);
+  const currentEffortObj = { label: effortOptions.includes(reasoningEffort) ? effortEffortLabel(reasoningEffort) : effortEffortLabel(effortOptions[0] ?? reasoningEffort) };
+  const currentEffortLabel = currentEffortObj.label;
 
   const mentionResults = useMemo(() => {
     if (!showMentions) return [];
@@ -550,7 +564,7 @@ export const ChatInputBox = memo(function ChatInputBox({
             accept="*/*"
           />
 
-          {setReasoningEffort && (
+          {setReasoningEffort && effortOptions.length > 0 && (
             <div className="relative" ref={effortDropdownRef}>
               <button
                 type="button"
@@ -572,17 +586,17 @@ export const ChatInputBox = memo(function ChatInputBox({
                   <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5">
                     {t("reasoningEffort", "Reasoning Effort")}
                   </div>
-                  {EFFORT_OPTIONS.map((opt) => {
-                    const isSelected = reasoningEffort === opt.value;
-                    const optLabel = t(opt.key as any, opt.label);
+                  {effortOptions.map((opt) => {
+                    const isSelected = reasoningEffort === opt;
+                    const optLabel = effortEffortLabel(opt);
                     return (
                       <button
-                        key={opt.value || "natural"}
+                        key={opt}
                         type="button"
                         onClick={() => {
-                          setReasoningEffort?.(opt.value);
+                          setReasoningEffort?.(opt);
                           try {
-                            localStorage.setItem("arunaki_reasoning_effort", opt.value);
+                            localStorage.setItem("arunaki_reasoning_effort", opt);
                           } catch {}
                           setIsEffortDropdownOpen(false);
                         }}
@@ -647,3 +661,5 @@ export const ChatInputBox = memo(function ChatInputBox({
     </div>
   );
 });
+
+
