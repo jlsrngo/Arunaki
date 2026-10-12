@@ -377,6 +377,19 @@ export function SettingsCliConnectionsTab({
     for (const t of ["antigravity", "opencode", "9router"] as const) fetchModels(t);
   }, []);
 
+  // Rate-limit windows move on their own. Fetching once on mount left every bar showing whatever
+  // the numbers happened to be when the tab opened - for a weekly window that is up to a week of
+  // fiction - and the only way to correct it was the button. Sixty seconds sits well inside the
+  // shortest window any of these vendors report, and the engine caches the answer for two anyway.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      // Silent: the spinner belongs to the click, not to the timer that would blink it every minute.
+      fetchQuota(false);
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Provider states
   // Per-provider facts the generic card needs. Everything here is derived state, so it is
   // declared unconditionally with the rest of them (React Rules of Hooks).
@@ -488,8 +501,8 @@ export function SettingsCliConnectionsTab({
     }
   };
 
-  const fetchQuota = async () => {
-    setQuotaLoading(true);
+  const fetchQuota = async (manual = true) => {
+    if (manual) setQuotaLoading(true);
     try {
       const res = await apiFetch(`${API_BASE}/providers/local-cli/quota${directoryQuery()}`, {
         method: "POST",
@@ -499,9 +512,9 @@ export function SettingsCliConnectionsTab({
       const json = await res.json().catch(() => ({}));
       setQuota(json.data ?? []);
     } catch {
-      setQuota([]);
+      if (manual) setQuota([]);
     } finally {
-      setQuotaLoading(false);
+      if (manual) setQuotaLoading(false);
     }
   };
 
@@ -583,6 +596,11 @@ export function SettingsCliConnectionsTab({
     // The registry is the source of truth for which providers exist, so narrow once here
     // rather than casting at every handler call.
     const id = d.id as CliProviderId;
+    // OpenCode's credential lives in its own auth.json. Arunaki cannot refresh it, and the
+    // endpoint has no such target, so the generic buttons below used to fire a request that could
+    // only ever 400 and leave a permanent "Refresh failed" badge on a card that reads Connected.
+    // It also rendered a second, generic Sign out next to the one that delegates to its CLI.
+    const ownsOwnCredential = id === "opencode";
     const state = cardState[id] ?? {
       installed: false,
       signedIn: false,
@@ -820,7 +838,7 @@ export function SettingsCliConnectionsTab({
             )}
             {d.quota !== "none" && renderQuota(d.quota)}
             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-              {discovered?.hasToken && d.id !== "nineRouter" && (
+              {discovered?.hasToken && d.id !== "nineRouter" && !ownsOwnCredential && (
                 <button
                   type="button"
                   onClick={() => handleRefreshCred(id as "claude" | "codex")}
@@ -874,7 +892,7 @@ export function SettingsCliConnectionsTab({
               )}
               {/* Signing out deletes the stored token. Without it a user who connected a
                   subscription account had no way to remove it from Arunaki. */}
-              {state.signedIn && discovered?.hasToken && (
+              {state.signedIn && discovered?.hasToken && !ownsOwnCredential && (
                 <button
                   type="button"
                   onClick={() => handleSignOut(id)}
@@ -987,7 +1005,7 @@ export function SettingsCliConnectionsTab({
           </div>
           <button
             type="button"
-            onClick={fetchQuota}
+            onClick={() => fetchQuota(true)}
             disabled={quotaLoading}
             className="p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
             title={isEn ? "Refresh quota" : "Muat ulang kuota"}
@@ -1010,12 +1028,23 @@ export function SettingsCliConnectionsTab({
                 : pct <= 20
                   ? "bg-amber-500"
                   : "bg-emerald-500";
+              // Google hands back the same displayName for its Gemini quota and its third-party
+              // quota, so the card drew two identical "Weekly Limit Remaining" rows - one at 71%,
+              // one at 0% - and nothing said which account either one belonged to. The bucket id is
+              // the only thing that separates them, so it becomes the disambiguator, and only when
+              // the labels actually collide: Claude, Codex and Kiro all ship distinct labels and
+              // there is nothing to add.
+              const tag =
+                report.buckets.filter((o) => o.label === b.label).length > 1
+                  ? b.id.replace(/-[^-]*$/, "")
+                  : "";
               return (
                 <div key={b.id + b.window} className="min-w-0">
                   <div className="flex items-baseline justify-between gap-2 text-[10px]">
-                    <span className="truncate text-zinc-500">
+                    <span className="truncate text-zinc-500" title={tag ? `${b.label} (${tag})` : b.label}>
                       {b.label}
                       {b.window === "5h" ? ` (${b.window})` : ""}
+                      {tag && tag !== b.label ? ` · ${tag}` : ""}
                     </span>
                     <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-400" : "text-zinc-300")}>
                       {pct}% · {formatReset(b.resetAt)}
