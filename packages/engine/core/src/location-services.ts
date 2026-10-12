@@ -1,4 +1,4 @@
-import { Effect, Layer, LayerMap } from "effect"
+import { Effect, Layer, LayerMap, RcMap } from "effect"
 import { AgentV2 } from "./agent"
 import { AISDK } from "./aisdk"
 import { Catalog } from "./catalog"
@@ -11,6 +11,7 @@ import { FileSystem } from "./filesystem"
 import { FileSystemSearch } from "./filesystem/search"
 import { Watcher } from "./filesystem/watcher"
 import { Image } from "./image"
+import { InstanceRegistry } from "./instance-registry"
 import { Integration } from "./integration"
 import { Location } from "./location"
 import { LocationMutation } from "./location-mutation"
@@ -86,28 +87,48 @@ export function buildLocationServiceMap(
 ): Layer.Layer<LocationServiceMap.Service> {
   return Layer.effect(
     LocationServiceMap.Service,
-    LayerMap.make(
-      (ref: Location.Ref) => {
-        const allReplacements = replacements.concat([[Location.node, Location.boundNode(ref)]])
-        // Apply replacements during hoist, not afterward: replacements can
-        // introduce new tagged dependencies (Location.boundNode depends on
-        // Project), and the hoist walk is the only pass that can still slice
-        // those back out.
-        const location = LayerNode.hoist(locationServices, Node.tags.values.global, allReplacements)
+    Effect.gen(function* () {
+      const locations = yield* LayerMap.make(
+        (ref: Location.Ref) => {
+          const allReplacements = replacements.concat([[Location.node, Location.boundNode(ref)]])
+          // Apply replacements during hoist, not afterward: replacements can
+          // introduce new tagged dependencies (Location.boundNode depends on
+          // Project), and the hoist walk is the only pass that can still slice
+          // those back out.
+          const location = LayerNode.hoist(locationServices, Node.tags.values.global, allReplacements)
 
-        return LayerNode.compile(location.node).pipe(
-          Layer.fresh,
-          Layer.tap(() =>
-            Effect.logInfo("booting location services", {
-              directory: ref.directory,
-              workspaceID: ref.workspaceID,
-            }),
-          ),
-          Layer.provide(LayerNode.compile(location.hoisted)),
-        )
-      },
-      { idleTimeToLive: "60 minutes" },
-    ),
+          return LayerNode.compile(location.node).pipe(
+            Layer.fresh,
+            Layer.tap(() =>
+              Effect.logInfo("booting location services", {
+                directory: ref.directory,
+                workspaceID: ref.workspaceID,
+              }),
+            ),
+            Layer.provide(LayerNode.compile(location.hoisted)),
+          )
+        },
+        { idleTimeToLive: "60 minutes" },
+      )
+
+      // Everything in here is read once, when the layer is built: the config documents, the plugin
+      // transforms that project them into the catalogue, the policy they are filtered by. Disposing
+      // the instance for a directory rebuilt the instance but left this entry sitting in the map, so
+      // the next instance was handed the catalogue from the last one - a provider connected through
+      // the API landed in the config file and stayed invisible until the app was restarted.
+      const off = InstanceRegistry.registerDisposer((directory) =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            for (const ref of yield* RcMap.keys(locations.rcMap)) {
+              if (ref.directory === directory) yield* locations.invalidate(ref)
+            }
+          }),
+        ),
+      )
+      yield* Effect.addFinalizer(() => Effect.sync(off))
+
+      return locations
+    }),
   )
 }
 
