@@ -17,7 +17,13 @@ const disposeAfterResponse = new WeakMap<object, MarkedInstance>()
 
 const mark = (ctx: InstanceContext) =>
   Effect.gen(function* () {
-    return { ctx, store: yield* InstanceStore.Service, bridge: yield* EffectBridge.make() }
+    const store = yield* InstanceStore.Service
+    // Disposal is matched by object identity, so hand it the object the store produced. The ctx that
+    // reaches here is rebuilt from Location.Service on every request and never matched, which meant
+    // every marked disposal quietly did nothing - the config was written and the catalogue kept
+    // serving the previous contents.
+    const current = yield* store.current(ctx.directory)
+    return { ctx: current ?? ctx, store, bridge: yield* EffectBridge.make() }
   })
 
 export const markInstanceForDisposal = (ctx: InstanceContext) =>

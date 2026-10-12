@@ -1,4 +1,4 @@
-import { LayerNode } from "@arunaki/core/effect/layer-node"
+﻿import { LayerNode } from "@arunaki/core/effect/layer-node"
 import { makeGlobalNode, Node } from "@arunaki/core/effect/app-node"
 import { GlobalBus } from "@/bus/global"
 import { serviceUse } from "@arunaki/core/effect/service-use"
@@ -20,6 +20,7 @@ export interface Interface {
   readonly load: (input: LoadInput) => Effect.Effect<InstanceContext>
   readonly reload: (input: LoadInput) => Effect.Effect<InstanceContext>
   readonly dispose: (ctx: InstanceContext) => Effect.Effect<void>
+  readonly current: (directory: string) => Effect.Effect<InstanceContext | undefined>
   readonly disposeDirectory: (directory: string) => Effect.Effect<void>
   readonly disposeAll: () => Effect.Effect<void>
   readonly provide: <A, E, R>(input: LoadInput, effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
@@ -151,8 +152,28 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
 
       const exit = yield* Deferred.await(entry.deferred).pipe(Effect.exit)
       if (Exit.isFailure(exit)) return yield* removeEntry(ctx.directory, entry).pipe(Effect.asVoid)
+      // Object identity, not the directory: a reload swaps the cache entry before the old one has
+      // finished booting, and disposing on the directory alone would tear down the reload that
+      // replaced it. That is why callers must hand back the context this store produced - see
+      // `current` and the lifecycle handlers, which pass a freshly built InstanceContext.
       if (exit.value !== ctx) return
       yield* disposeEntry(ctx.directory, entry, ctx).pipe(Effect.asVoid)
+    })
+
+    /**
+     * The context this store currently holds for a directory, or undefined if none.
+     *
+     * Callers outside the instance path get an InstanceContext built from Location.Service, which is
+     * a different object every time, so handing that to dispose() never matched anything and no
+     * disposal ever ran: the connect handler wrote the provider to the config file, marked the
+     * instance for disposal, the mark was delivered, and the catalogue carried on serving the old
+     * contents. Disposal is identified by object, so it has to be given the object.
+     */
+    const current = Effect.fn("InstanceStore.current")(function* (directory: string) {
+      const entry = cache.get(FSUtil.resolve(directory))
+      if (!entry) return undefined
+      const exit = yield* Deferred.await(entry.deferred).pipe(Effect.exit)
+      return Exit.isSuccess(exit) ? exit.value : undefined
     })
 
     const disposeDirectory = Effect.fn("InstanceStore.disposeDirectory")(function* (input: string) {
@@ -196,6 +217,7 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
       load,
       reload,
       dispose,
+      current,
       disposeDirectory,
       disposeAll,
       provide,
@@ -212,3 +234,4 @@ export const node = makeGlobalNode({
 })
 
 export * as InstanceStore from "./instance-store"
+

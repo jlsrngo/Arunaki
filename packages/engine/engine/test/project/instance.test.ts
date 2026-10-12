@@ -50,6 +50,27 @@ describe("InstanceStore", () => {
     }),
   )
 
+  it.live("hands out the object disposal is matched by", () =>
+    Effect.gen(function* () {
+      const dir = yield* tmpdirScoped({ git: true })
+      const store = yield* InstanceStore.Service
+      const ctx = yield* store.load({ directory: dir })
+
+      // Request handlers get an InstanceContext rebuilt from Location.Service, which is a
+      // different object every time. dispose() compares identity, so those never matched and every
+      // marked disposal silently did nothing - a connect wrote the provider to the config file and
+      // the catalogue kept serving the old contents until the app was restarted. Anything outside
+      // this store has to ask for the instance by directory first.
+      expect(yield* store.current(dir)).toBe(ctx)
+
+      // And an equal-but-different context is still not the instance, which is what keeps a stale
+      // dispose from tearing down a reload that replaced it.
+      const impostor = { ...ctx }
+      expect(impostor).toEqual(ctx)
+      expect(yield* store.current(dir)).not.toBe(impostor)
+    }),
+  )
+
   it.live("runs bootstrap with InstanceRef provided", () =>
     Effect.gen(function* () {
       const dir = yield* tmpdirScoped({ git: true })
