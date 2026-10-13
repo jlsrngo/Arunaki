@@ -2,6 +2,7 @@ import path from "path"
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import { Catalog } from "@arunaki/core/catalog"
+import { Config } from "@arunaki/core/config"
 import { Integration } from "@arunaki/core/integration"
 import { AppNodeBuilder } from "@arunaki/core/effect/app-node-builder"
 import { LayerNode } from "@arunaki/core/effect/layer-node"
@@ -17,13 +18,28 @@ import { location } from "../fixture/location"
 import { testEffect } from "../lib/effect"
 import { catalogHost, host, integrationHost } from "./host"
 
+// ModelsDevPlugin reads Config to learn which providers config already lists. Without this the
+// plugin effect dies on `Service not found: @arunaki/v2/Config` and both cases fail before running
+// a single assertion - they read as a broken plugin rather than as a broken test.
+const configLayer = Layer.succeed(
+  Config.Service,
+  Config.Service.of({
+    get: () => Effect.succeed({} as any),
+    entries: () => Effect.succeed([]),
+  } as any),
+)
+
 const locationLayer = Layer.succeed(
   Location.Service,
   Location.Service.of(location({ directory: AbsolutePath.make(import.meta.dir) })),
 )
-const layer = AppNodeBuilder.build(LayerNode.group([Catalog.node, Integration.node, EventV2.node]), [
-  [Location.node, locationLayer],
-])
+const layer = AppNodeBuilder.build(
+  LayerNode.group([Catalog.node, Integration.node, EventV2.node, Config.node]),
+  [
+    [Location.node, locationLayer],
+    [Config.node, configLayer],
+  ],
+)
 const it = testEffect(layer)
 
 describe("ModelsDevPlugin", () => {

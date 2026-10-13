@@ -185,8 +185,13 @@ export function mapEngineMessages(raw: any[]): Message[] {
       content = textParts.map((p: any) => p.text).join("");
     }
 
-    if (!content && msg.error?.message) {
-      content = `⚠️ ${msg.error.message}`;
+    if (msg.error?.message) {
+      // Shown even when the turn produced text first. The error is suppressed whenever content
+      // exists, which is exactly the case that hides it here: the text arrives as streamed deltas
+      // before the failure is known, so a retired model replying "Gemini 3.5 Flash is no longer
+      // available" reads as a normal answer. Appended rather than substituted, so nothing already
+      // on screen is taken away.
+      content = content ? `${content}\n\n⚠️ ${msg.error.message}` : `⚠️ ${msg.error.message}`;
     }
 
     if (role === "assistant" && !thoughtSec) {

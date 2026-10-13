@@ -50,6 +50,57 @@ const settledOutput = (value: ToolOutput | undefined, result: ToolResultValue): 
   return { structured: record(settled.structured), content: settled.content }
 }
 
+/**
+ * Did the provider retire this model, and say so in the model's own voice?
+ *
+ * When Google retires a model it keeps answering it: HTTP 200, finish_reason "stop", no flag
+ * anywhere, and the reply is "Gemini 3.5 Flash is no longer available. Please switch to Gemini
+ * 3.7 Flash in the latest version of Antigravity." So there was nothing to branch on - not in
+ * deprecatedModelIds, which arrives empty, and not in the `model` field, which reads
+ * MODEL_PLACEHOLDER for entries that work fine. Only the text is left.
+ *
+ * Four conditions, all required, because matching prose is a guess and this runs on every reply
+ * from every provider:
+ *
+ * - the reply *starts* with the notice, rather than mentioning it in passing
+ * - nothing else came back - a model that thinks calls a tool or emits reasoning first
+ * - it is short, as vendor notices are
+ * - there is at most one text block
+ *
+ * Fail any of them and the reply is shown as it always was.
+ */
+/**
+ * The subject has to look like a model name - a handful of capitalised or id-shaped tokens - and
+ * not like the start of a sentence. Without that, "That error means Gemini 3.5 Flash is no longer
+ * available" matches too, which is a model answering a question about the notice rather than
+ * being the notice.
+ */
+const MODEL_NAME = String.raw`(?:[A-Z0-9][\w.-]*)(?: [A-Z0-9][\w.-]*){0,4}`
+const RETIREMENT_NOTICE = new RegExp(
+  String.raw`^(?:the\s+)?${MODEL_NAME}\s+(?:is no longer (?:available|supported|served)|has been retired|is deprecated)\b`,
+  "i",
+)
+
+export function isProviderRetirementNotice(
+  value: string,
+  context: { readonly hadToolCall: boolean; readonly hadReasoning: boolean; readonly textBlocks: number },
+): boolean {
+  if (context.hadToolCall || context.hadReasoning) return false
+  if (context.textBlocks > 1) return false
+  const text = value.trim()
+  // A vendor notice is a statement plus, at most, a one-line instruction - two sentences. A longer
+  // reply that happens to open with the phrase is an answer about the notice, not the notice, and
+  // the length limit alone does not tell them apart: the essay in the tests is under 200 characters
+  // too, so the sentence count is what actually separates them.
+  if (!text || text.length > 200) return false
+  const sentences = text.split(/[.!?]+(?:\s|$)/).filter((part) => part.trim().length > 0)
+  // Two is the ceiling, and it is not tight enough on its own: one long unbroken sentence can still
+  // slip through and be turned into an error. Nothing in the payload separates that case, so it is
+  // a known false positive, recorded in the test rather than papered over.
+  if (sentences.length > 2) return false
+  return RETIREMENT_NOTICE.test(text)
+}
+
 /** Persist one provider turn without executing tools or starting a continuation turn. */
 export const createLLMEventPublisher = (events: EventV2.Interface, input: Input) => {
   const tools = new Map<
@@ -69,6 +120,9 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
   let assistantActive = false
   let assistantFailed = false
   let providerFailed = false
+  let sawToolCall = false
+  let sawReasoning = false
+  let textBlocks = 0
   let stepSettlement: { readonly finish: string; readonly tokens: ReturnType<typeof tokens> } | undefined
 
   const startAssistant = Effect.fnUntraced(function* () {
@@ -134,12 +188,27 @@ const cleanAssistantText = (raw: string): string =>
 
   const text = fragments("text", (textID, value) =>
     Effect.gen(function* () {
+      textBlocks++
+      const cleaned = cleanAssistantText(value)
+      // Everything every provider goes through, so this check lives in one place rather than one
+      // per lane. A retired model that keeps answering in its own voice is a failure the user has to
+      // be told about, not a reply to read.
+      if (
+        isProviderRetirementNotice(cleaned, {
+          hadToolCall: sawToolCall,
+          hadReasoning: sawReasoning,
+          textBlocks,
+        })
+      ) {
+        yield* failAssistant(`${cleaned}\n\nThis model is no longer served by the provider.`)
+        return
+      }
       yield* events.publish(SessionEvent.Text.Ended, {
         sessionID: input.sessionID,
         assistantMessageID: yield* currentAssistantMessageID(),
         timestamp: yield* timestamp,
         textID,
-        text: cleanAssistantText(value),
+        text: cleaned,
       })
     }),
   )
@@ -280,6 +349,7 @@ const cleanAssistantText = (raw: string): string =>
         yield* text.end(event.id)
         return
       case "reasoning-start":
+        sawReasoning = true
         yield* reasoning.start(event.id)
         yield* events.publish(SessionEvent.Reasoning.Started, {
           sessionID: input.sessionID,
@@ -325,6 +395,7 @@ const cleanAssistantText = (raw: string): string =>
         yield* endToolInput(event)
         return
       case "tool-call": {
+        sawToolCall = true
         if (!tools.has(event.id)) yield* startToolInput(event)
         const tool = tools.get(event.id)!
         if (!tool.inputEnded) yield* endToolInput(event)
