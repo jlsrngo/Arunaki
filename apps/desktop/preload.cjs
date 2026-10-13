@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('arunakiDesktop', {
   readBinaryFile: (filePath) => ipcRenderer.invoke('fs:readBinaryFile', filePath),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   notify: (payload) => ipcRenderer.invoke('app:notify', payload),
+  quit: () => ipcRenderer.invoke('app:quit'),
   getSystemInfo: () => ({
     electron: process.versions.electron,
     chrome: process.versions.chrome,

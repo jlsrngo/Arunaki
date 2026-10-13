@@ -356,7 +356,12 @@ export function UnifiedWorkstationPage() {
       const activeTab = currentTabs.find((t) => t.id === currentActiveId);
       if (activeTab && activeTab.type === "file") {
         tabsRef.current.handleSaveFileTab(activeTab.id, activeTab.content || "");
+        return;
       }
+      // The chat tab is the default, so Ctrl+S or Save Document while chatting did nothing at
+      // all - no write, no toast, no hint. handleSaveFileTab itself reports success and failure
+      // faithfully; it was this caller dropping the nothing-to-save case on the floor.
+      toast.info("Nothing to save - open a document first.");
     };
     const handleSearchSessionEvent = () => setShowSearchSectionModal(true);
     const handleToggleExplorerEvent = () => setLeftCollapsed((prev) => !prev);
@@ -385,27 +390,10 @@ export function UnifiedWorkstationPage() {
     };
   }, []);
 
-  // Shortcuts: Ctrl+B (Explorer), Ctrl+J (Chat) (VS Code parity)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const isInput =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
-      if (!isInput && (e.ctrlKey || e.metaKey)) {
-        if (e.key.toLowerCase() === "b") {
-          e.preventDefault();
-          setLeftCollapsed((prev) => !prev);
-        } else if (e.key.toLowerCase() === "j") {
-          e.preventDefault();
-          setRightCollapsed((prev) => !prev);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Ctrl+B (Explorer) and Ctrl+J (Chat) are handled by TopMenuBar, which dispatches
+  // arunaki-toggle-explorer / arunaki-toggle-chat - both handled above. A second listener here
+  // fired on the same keydown and toggled the panel a second time, so the shortcut appeared to do
+  // nothing at all: collapse, then immediately expand again. One source per shortcut.
 
   return (
     <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">

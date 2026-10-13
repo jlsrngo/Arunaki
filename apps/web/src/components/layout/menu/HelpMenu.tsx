@@ -10,7 +10,9 @@ import {
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 import { BaseMenuProps } from "./types";
+import { useNavigate } from "react-router-dom";
 import { getEffectiveShortcut } from "./shortcutsConfig";
+import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
 
 interface HelpMenuProps extends BaseMenuProps {
   onOpenShortcuts: () => void;
@@ -26,6 +28,7 @@ export const HelpMenu = memo(function HelpMenu({
   onOpenAbout,
 }: HelpMenuProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
 
   return (
     <div className="relative">
@@ -33,6 +36,7 @@ export const HelpMenu = memo(function HelpMenu({
         type="button"
         onClick={onToggle}
         onMouseEnter={onMouseEnter}
+        {...menuTriggerProps(isOpen)}
         className={cn(
           "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
           isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
@@ -42,12 +46,20 @@ export const HelpMenu = memo(function HelpMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          role="menu"
+          onKeyDown={menuKeyDown}
+          ref={menuAutoFocus}
+          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
-              window.location.hash = "/knowledge";
+              // window.location.hash only routes under HashRouter, which is picked for the file:// build
+      // (main.cjs loadFile). Under the dev server App.tsx picks BrowserRouter, where setting the
+      // hash does nothing at all and this item was silently dead. navigate works under both.
+      navigate("/knowledge");
             }}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -59,6 +71,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               onOpenShortcuts();
@@ -78,6 +91,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               window.open("https://juliosiringoringo.space/id/arunaki", "_blank");
@@ -93,6 +107,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               window.open("https://github.com/jlsrngo/Arunaki", "_blank");
@@ -107,6 +122,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               window.open("https://github.com/jlsrngo/Arunaki/issues", "_blank");
@@ -123,6 +139,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               onOpenAbout();

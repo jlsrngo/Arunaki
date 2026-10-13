@@ -17,6 +17,7 @@ import { useI18n } from "../../../lib/i18n";
 import { useWordWrap } from "../../../lib/wordWrap";
 import { BaseMenuProps } from "./types";
 import { getEffectiveShortcut } from "./shortcutsConfig";
+import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
 
 export const ViewMenu = memo(function ViewMenu({
   isOpen,
@@ -65,6 +66,7 @@ export const ViewMenu = memo(function ViewMenu({
         type="button"
         onClick={onToggle}
         onMouseEnter={onMouseEnter}
+        {...menuTriggerProps(isOpen)}
         className={cn(
           "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
           isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
@@ -74,9 +76,14 @@ export const ViewMenu = memo(function ViewMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          role="menu"
+          onKeyDown={menuKeyDown}
+          ref={menuAutoFocus}
+          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
+            role="menuitem"
             onClick={handleToggleExplorer}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -91,6 +98,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleToggleChat}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -105,6 +113,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleToggleWordWrap}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -128,6 +137,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setTheme("light");
               onClose();
@@ -143,6 +153,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setTheme("dark");
               onClose();
@@ -158,6 +169,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setTheme("system");
               onClose();
@@ -181,6 +193,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setLanguage("en");
               onClose();
@@ -198,6 +211,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setLanguage("id");
               onClose();
@@ -217,6 +231,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleToggleFullscreen}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -231,6 +246,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleResetZoom}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >

@@ -46,7 +46,7 @@ export const TopMenuBar = memo(function TopMenuBar({
 
   // Global dynamic shortcut execution
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    async function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setActiveMenu(null);
         setShowShortcutsModal(false);
@@ -93,6 +93,32 @@ export const TopMenuBar = memo(function TopMenuBar({
       } else if (matchesShortcut(e, getEffectiveShortcut("toggle-word-wrap"))) {
         e.preventDefault();
         toggleStoredWordWrap();
+      } else if (matchesShortcut(e, getEffectiveShortcut("undo"))) {
+        e.preventDefault();
+        document.execCommand("undo");
+      } else if (matchesShortcut(e, getEffectiveShortcut("redo"))) {
+        e.preventDefault();
+        document.execCommand("redo");
+      } else if (matchesShortcut(e, getEffectiveShortcut("cut"))) {
+        e.preventDefault();
+        document.execCommand("cut");
+      } else if (matchesShortcut(e, getEffectiveShortcut("copy"))) {
+        e.preventDefault();
+        document.execCommand("copy");
+      } else if (matchesShortcut(e, getEffectiveShortcut("paste"))) {
+        e.preventDefault();
+        const text = await navigator.clipboard?.readText?.();
+        if (text !== undefined) document.execCommand("insertText", false, text);
+      } else if (matchesShortcut(e, getEffectiveShortcut("select-all"))) {
+        e.preventDefault();
+        document.execCommand("selectAll");
+      } else if (matchesShortcut(e, getEffectiveShortcut("fullscreen"))) {
+        e.preventDefault();
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else void document.documentElement.requestFullscreen();
+      } else if (matchesShortcut(e, getEffectiveShortcut("reset-zoom"))) {
+        e.preventDefault();
+        document.body.style.zoom = "1";
       }
     }
 

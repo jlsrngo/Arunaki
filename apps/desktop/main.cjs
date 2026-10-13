@@ -149,6 +149,14 @@ async function waitForWebApp(url) {
 
 let mainWindow = null;
 
+// "Exit Window" in the File menu called window.close() from the renderer and hoped Electron
+// honoured it. Chromium ignores window.close() for a window it did not open itself, so this is
+// the channel that makes the menu item actually close the app rather than silently doing nothing.
+ipcMain.handle('app:quit', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+  return { success: true };
+});
+
 function createWindow() {
   const isDark = nativeTheme ? nativeTheme.shouldUseDarkColors : true;
   const win = new BrowserWindow({

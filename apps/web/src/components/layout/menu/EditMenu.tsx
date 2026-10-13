@@ -15,6 +15,7 @@ import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 import { BaseMenuProps } from "./types";
 import { getEffectiveShortcut } from "./shortcutsConfig";
+import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
 
 interface EditMenuProps extends BaseMenuProps {
   onOpenShortcuts?: () => void;
@@ -80,6 +81,7 @@ export const EditMenu = memo(function EditMenu({
         type="button"
         onClick={onToggle}
         onMouseEnter={onMouseEnter}
+        {...menuTriggerProps(isOpen)}
         className={cn(
           "text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[13px] font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer",
           isOpen && "bg-[var(--bg-hover)] text-[var(--text-primary)]"
@@ -89,9 +91,14 @@ export const EditMenu = memo(function EditMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          role="menu"
+          onKeyDown={menuKeyDown}
+          ref={menuAutoFocus}
+          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
+            role="menuitem"
             onClick={handleUndo}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -106,6 +113,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleRedo}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -122,6 +130,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleCut}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -136,6 +145,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleCopy}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -150,6 +160,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handlePaste}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -164,6 +175,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleSelectAll}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -180,6 +192,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={handleFind}
             className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
@@ -197,6 +210,7 @@ export const EditMenu = memo(function EditMenu({
           {onOpenShortcuts && (
             <button
               type="button"
+            role="menuitem"
               onClick={() => {
                 onClose();
                 onOpenShortcuts();
@@ -215,6 +229,7 @@ export const EditMenu = memo(function EditMenu({
 
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               onClose();
               navigate("/settings");
