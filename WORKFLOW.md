@@ -3905,3 +3905,28 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **`bun run tsc --noEmit -p packages/engine/engine/tsconfig.json`**: Passed (0 error).
 - [x] **`npm run build -w apps/web`**: Passed (0 error, build selesai 16.83s).
 - [x] **`npm run test:smoke`**: Diulang dan passed live dengan engine aktif (8/8 provider checks passed 100%: Kiro text/tool/chat, OpenCode text/tool, Antigravity text/tool, Codex free).
+
+---
+
+## Phase 110: Pre-Merge Local CLI Audit & Stability Hardening ✅ DONE
+
+**Goal:** Melakukan audit menyeluruh pada seluruh provider Local CLI (`antigravity`, `opencode`, `claude-code`, `codex`, `9router`, `kiro`), meniadakan regresi rute model, mencegah pemblokiran event loop Node.js pada token refresh, dan memastikan kesiapan merge 17 commit branch `feature/tier-grouping` ke `main`.
+
+### 110.1 Local CLI Engine Audit & Bug Fixes
+- [x] **Model Routing Hijacking Fix (`packages/engine/engine/src/server/local-cli/bridge.ts`)**:
+  - Menghapus pengecekan longgar `requestedModel.includes("pro")` yang sebelumnya membajak model pihak ketiga (misal `llama-3.3-70b-pro`) ke Google Cloud Code.
+- [x] **Antigravity Response Lifecycle & Double `res.end()` Guard (`bridge.ts`)**:
+  - Menambahkan guard `if (handled || res.writableEnded) return` sebelum penulisan chunk fallback/galat vendor untuk mencegah error duplicate `res.end()` dan log peringatan palsu.
+- [x] **Event Loop Non-Blocking Token Refresh (`packages/engine/engine/src/server/local-cli/detector.ts`)**:
+  - Mengganti `crossSpawn.sync(..., { timeout: 45000 })` dengan eksekusi `crossSpawn` asinkron berbasis Promise + timeout pada token refresh Antigravity. Menghilangkan freeze Node.js event loop (1.5–4 detik).
+- [x] **Antigravity Model Catalogue Sync (`packages/engine/engine/src/server/local-cli/registry.ts`)**:
+  - Menyelaraskan daftar model aktif Antigravity (menghapus model usang dan menambahkan `claude-sonnet-4-6`), meloloskan seluruh 11 unit test di `registry.test.ts`.
+- [x] **Universal Sleep Runner (`scripts/smoke-local-cli.ts`)**:
+  - Memperbaiki `Bun.sleep` dengan fallback Promise standar agar smoke test dapat dijalankan baik lewat Bun maupun Node (`npx tsx`).
+
+### 110.2 Verification Gate
+- [x] **Live Smoke Test (8/8 Providers)**: Lolos 100% (`Kiro text/tool/chat`, `OpenCode text/tool`, `Antigravity text/tool`, `Codex free`).
+- [x] **Unit Tests (`fastpath.test.ts`, `registry.test.ts`, `upstream.test.ts`)**: Lolos 100% (52 pass, 207 expect assertions).
+- [x] **Web Build (`npm run build -w apps/web`)**: 0 TypeScript compilation errors.
+- [x] **Branch Status**: 17 commits ahead of `main`, working tree clean, siap fast-forward merge ke `main`.
+
