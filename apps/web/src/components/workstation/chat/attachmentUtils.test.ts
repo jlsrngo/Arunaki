@@ -2,21 +2,24 @@ import { describe, it, expect } from "vitest";
 import { normalizeAttachmentName, isImageFile } from "./attachmentUtils";
 
 describe("attachmentUtils", () => {
+  // The names carry a Date.now() stamp (added in e790e64d, after this test was written), so the
+  // assertion has to be on the contract - unique, sequential, correctly offset - not a literal.
   it("generates unique sequential names for generic clipboard image.png files", () => {
-    const name1 = normalizeAttachmentName("image.png", 0, 4, 0);
-    const name2 = normalizeAttachmentName("image.png", 1, 4, 0);
-    const name3 = normalizeAttachmentName("image.png", 2, 4, 0);
-    const name4 = normalizeAttachmentName("image.png", 3, 4, 0);
+    const names = [0, 1, 2, 3].map((i) => normalizeAttachmentName("image.png", i, 4, 0));
 
-    expect(name1).toBe("image_1.png");
-    expect(name2).toBe("image_2.png");
-    expect(name3).toBe("image_3.png");
-    expect(name4).toBe("image_4.png");
+    expect(new Set(names).size).toBe(4);
+    expect(names[0]).toMatch(/^image_\d+_1\.png$/);
+    expect(names[1]).toMatch(/^image_\d+_2\.png$/);
+    expect(names[2]).toMatch(/^image_\d+_3\.png$/);
+    expect(names[3]).toMatch(/^image_\d+_4\.png$/);
   });
 
   it("handles offset when files are already attached", () => {
-    const name = normalizeAttachmentName("image.png", 0, 1, 2);
-    expect(name).toBe("image_3.png");
+    expect(normalizeAttachmentName("image.png", 0, 1, 2)).toMatch(/^image_\d+_3\.png$/);
+  });
+
+  it("omits the sequence for a lone paste with nothing attached", () => {
+    expect(normalizeAttachmentName("image.png", 0, 1, 0)).toMatch(/^image_\d+\.png$/);
   });
 
   it("preserves descriptive filenames for non-generic files", () => {
