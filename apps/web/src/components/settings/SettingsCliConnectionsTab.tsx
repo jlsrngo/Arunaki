@@ -312,9 +312,11 @@ export function SettingsCliConnectionsTab({
   const [modelsAreLive, setModelsAreLive] = useState<Record<string, boolean>>({});
   const [oauthPendingTarget, setOauthPendingTarget] = useState<CliProviderId | null>(null);
 
-  // One source for model ids: the account's live catalogue first, the registry fallback
-  // second. Nothing is hardcoded, so a provider added to the registry just works.
+  // One source for model ids: the engine catalogue first, then the account's live list, then the
+  // registry fallback. Nothing is hardcoded, so a provider added to the registry just works.
   const modelsFor = (id: string): string[] => {
+    const catalogued = catalogueModels[id];
+    if (catalogued?.length) return catalogued;
     const live = liveModels[id];
     if (live?.length) return live;
     return data.registry?.find((d) => d.id === id)?.models ?? [];
@@ -480,6 +482,38 @@ export function SettingsCliConnectionsTab({
 
 
   // Live rate-limit windows straight from each vendor ” nothing here is hardcoded.
+  //
+  // The engine catalogue is the source, not a second listing built here. The bridge returns raw
+  // ids, so Antigravity's card listed 22 tier models — gemini-3.8-flash-high and its four siblings
+  // as separate entries — while the composer had folded those into 16 models with the tier as a
+  // variant, so picking one here chose something the chat could not use. Reading the same
+  // catalogue the composer reads means the two cannot drift again.
+  const [catalogueModels, setCatalogueModels] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await apiFetch(`${API_BASE}/model${directoryQuery()}`);
+        if (!res.ok) return;
+        const json = await res.json().catch(() => ({}));
+        const grouped: Record<string, string[]> = {};
+        for (const entry of (json?.data ?? []) as any[]) {
+          const providerID = String(entry?.providerID ?? "");
+          const id = String(entry?.id ?? "");
+          if (!providerID || !id) continue;
+          (grouped[providerID] ??= []).push(id);
+        }
+        if (!cancelled && Object.keys(grouped).length > 0) setCatalogueModels(grouped);
+      } catch {
+        // The bridge fetch below still fills the card.
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Live model catalogue per provider. The registry list is only a fallback: Google ships
   // and retires tiers constantly, and the static list named models this account cannot call
   // (claude-sonnet-5-5 and gemini-3.7-flash are not in the live catalogue).

@@ -103,13 +103,41 @@ only be used from within OpenCode"` to anything that does not come from the real
 - The UI still labels the picker "Reasoning Effort". For every provider that reaches it
   today those values are effort levels, so the label is accurate; a provider with a non-effort
   knob would need it widened.
-- `packages/engine/engine/src/plugin/modal/models.ts:117` still derives variants from
-  `reasoning_options` independently. Duplicated, not yet consolidated.
+- `packages/engine/engine/src/plugin/modal/models.ts` also derives variants from
+  `reasoning_options`, and an earlier note here called that duplicated logic. It is not: that
+  file builds `Record<id, { reasoningEffort }>` for Modal in the engine package, while the rule
+  above builds `Array<{ id, headers, body }>` for the catalogue in core. Different shapes, and
+  core cannot import engine. Its schema also only admits `effort` options, so `option.values` is
+  always present. Left alone.
+
+## Two things that looked like bugs and were not
+
+Checked before changing, because "fixing" intended behaviour is worse than leaving it:
+
+- **Selecting a model on an inactive Settings card does not change the composer's model.** That
+  is deliberate, and it says so: the card writes `arunaki_cli_model_<key>`, and only writes
+  `arunaki_active_model` when the card is the active provider, with the toast *"Will be used
+  when you connect …"*. There is a separate action for switching providers.
+- **The Modal plugin repeats the `reasoning_options` derivation.** See above — different shape,
+  different package, and the dependency direction forbids sharing it.
+
+## Settings card now reads the catalogue (follow-up)
+
+`modelsFor()` in `SettingsCliConnectionsTab.tsx` built its list from the bridge, which returns
+raw ids, so Antigravity's card listed 22 tier models — `gemini-3.8-flash-high` and its siblings
+as separate entries — while the composer had folded those into one model with the tier as a
+variant. Picking one from the card therefore chose something the chat could not use. It now
+prefers the engine catalogue, falling back to the bridge list and then the registry. One source
+of truth means the two cannot drift again.
+
+Measured on the live catalogue at the time of writing: Antigravity served as 12 entries with
+`gemini-3.8-flash -> low, medium, high`, down from 22 flat. The count moves with the account —
+Google ships and retires tiers — and earlier the same command returned 16.
 
 ## Follow-ups
 
-- The Settings card for Antigravity still lists 22 flat tiers instead of the 16 grouped
-  entries, and selecting Space Bunny there writes `arunaki_cli_model_opencode` while the
-  composer keeps using `arunaki_active_provider` / `arunaki_active_model`.
-- The picker has not been confirmed visually in the app; the backend contract and the request
-  were verified directly.
+- The composer picker has not been confirmed visually in the app; the backend contract and the
+  request were verified directly, and the user confirmed the dropdown lists Low, Medium, High,
+  Xhigh and Max.
+- The Settings card change is verified by build and by the catalogue response it reads, not by
+  looking at the rendered card.
