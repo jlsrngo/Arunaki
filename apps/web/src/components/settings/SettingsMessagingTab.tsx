@@ -67,10 +67,18 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
   const fetchConfigAndStatus = useCallback(async () => {
     try {
       setLoading(true);
-      const [configRes, statusRes] = await Promise.all([
+      let [configRes, statusRes] = await Promise.all([
         apiFetch(`${API_BASE}/messaging/config`),
         apiFetch(`${API_BASE}/messaging/status`),
       ]);
+
+      // Fallback to root route if /api alias returned non-200
+      if (!configRes.ok) {
+        configRes = await apiFetch("/messaging/config");
+      }
+      if (!statusRes.ok) {
+        statusRes = await apiFetch("/messaging/status");
+      }
 
       if (configRes.ok) {
         let configJson: any = null;
@@ -133,10 +141,16 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
     try {
       setTesting(true);
       setTestResult(null);
-      const res = await apiFetch(`${API_BASE}/messaging/test`, {
+      let res = await apiFetch(`${API_BASE}/messaging/test`, {
         method: "POST",
         body: JSON.stringify({ botToken: botToken.trim() }),
       });
+      if (!res.ok) {
+        res = await apiFetch("/messaging/test", {
+          method: "POST",
+          body: JSON.stringify({ botToken: botToken.trim() }),
+        });
+      }
 
       let result: any = null;
       try {
@@ -186,10 +200,16 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
         },
       };
 
-      const res = await apiFetch(`${API_BASE}/messaging/config`, {
+      let res = await apiFetch(`${API_BASE}/messaging/config`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        res = await apiFetch("/messaging/config", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!res.ok) {
         let errorMsg = `Failed to save (HTTP ${res.status})`;
@@ -225,6 +245,23 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
       toast.info(`Target folder set to: ${active}`);
     } else {
       toast.error("No active folder currently loaded in workspace.");
+    }
+  };
+
+  const handleBrowseFolder = async () => {
+    try {
+      const desktop = (globalThis as any).arunakiDesktop;
+      if (desktop?.pickFolder) {
+        const picked = await desktop.pickFolder();
+        if (picked) {
+          setTargetFolder(picked);
+          toast.info(`Target folder set to: ${picked}`);
+          return;
+        }
+      }
+      handleUseCurrentFolder();
+    } catch {
+      handleUseCurrentFolder();
     }
   };
 
@@ -462,13 +499,23 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 <Folder className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 {t("targetFolderLabel", "Target Project Folder")}
               </label>
-              <button
-                type="button"
-                onClick={handleUseCurrentFolder}
-                className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer font-medium"
-              >
-                {t("useActiveFolder", "Use Active Workspace Folder")}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBrowseFolder}
+                  className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer font-medium"
+                >
+                  Browse...
+                </button>
+                <span className="text-[var(--border-strong)]">|</span>
+                <button
+                  type="button"
+                  onClick={handleUseCurrentFolder}
+                  className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer font-medium"
+                >
+                  {t("useActiveFolder", "Use Active Workspace Folder")}
+                </button>
+              </div>
             </div>
             <input
               type="text"

@@ -50,3 +50,51 @@ export const messagingHandlers = HttpApiBuilder.group(InstanceHttpApi, "messagin
       .handle("setActiveSession", setActiveSession);
   })
 );
+
+export const messagingUiHandlers = HttpApiBuilder.group(InstanceHttpApi, "messagingUi", (handlers) =>
+  Effect.gen(function* () {
+    const getConfig = Effect.fn("MessagingUiHttpApi.getConfig")(function* () {
+      return yield* Effect.promise(() => telegramService.getConfig());
+    });
+
+    const updateConfig = Effect.fn("MessagingUiHttpApi.updateConfig")(function* (ctx: {
+      payload: MessagingConfig;
+    }) {
+      return yield* Effect.promise(() => telegramService.saveConfig(ctx.payload));
+    });
+
+    const getStatus = Effect.fn("MessagingUiHttpApi.getStatus")(function* () {
+      const s = telegramService.getStatus();
+      return {
+        telegram: {
+          connected: s.telegram.connected,
+          botUsername: s.telegram.botUsername ?? null,
+          botFirstName: s.telegram.botFirstName ?? null,
+          lastActive: s.telegram.lastActive ?? null,
+          lastError: s.telegram.lastError ?? null,
+        },
+      };
+    });
+
+    const testConnection = Effect.fn("MessagingUiHttpApi.testConnection")(function* (ctx: {
+      payload: { botToken: string };
+    }) {
+      return yield* Effect.promise(() => telegramService.testToken(ctx.payload.botToken));
+    });
+
+    const setActiveSession = Effect.fn("MessagingUiHttpApi.setActiveSession")(function* (ctx: {
+      payload: { sessionID: string; directory: string };
+    }) {
+      telegramService.setActiveSession(ctx.payload.directory, ctx.payload.sessionID);
+      return true;
+    });
+
+    return handlers
+      .handle("getConfig", getConfig)
+      .handle("updateConfig", updateConfig)
+      .handle("getStatus", getStatus)
+      .handle("testConnection", testConnection)
+      .handle("setActiveSession", setActiveSession);
+  })
+);
+

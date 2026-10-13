@@ -306,7 +306,10 @@ app.whenReady().then(() => {
   // and receives { status, statusText, headers, body, ok }.
   ipcMain.handle('engine:fetch', async (_event, relPath, init) => {
     try {
-      const cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
+      let cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
+      if (cleanPath.startsWith('/api/messaging/')) {
+        cleanPath = cleanPath.replace(/^\/api\/messaging/, '/messaging');
+      }
       const url = `${getEngineUrl()}${cleanPath}`;
       const method = init?.method || 'GET';
       const outHeaders = {
