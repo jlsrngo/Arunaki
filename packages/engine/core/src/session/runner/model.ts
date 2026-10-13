@@ -119,7 +119,7 @@ const withVariant = (
 ): Effect.Effect<ModelV2.Info, VariantUnavailableError> => {
   const id = variantID === "default" || variantID === undefined ? model.request.variant : variantID
   const variant = model.variants.find((item) => item.id === id)
-  if (!variant && (id === "high" || id === "medium" || id === "low" || id === "max")) {
+  if (!variant && (id === "high" || id === "medium" || id === "low" || id === "xhigh" || id === "max")) {
     return Effect.succeed(
       produce(model, (draft) => {
         draft.request.body.reasoning_effort = id

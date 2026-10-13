@@ -32,7 +32,6 @@ import { CommandPlugin } from "./command"
 import { ModelsDevPlugin } from "./models-dev"
 import { ProviderPlugins } from "./provider"
 import { SkillPlugin } from "./skill"
-import { VariantPlugin } from "./variant"
 
 export type Requirements =
   | AgentV2.Service
@@ -117,8 +116,7 @@ const layer = Layer.effectDiscard(
         yield* add(ConfigSkillPlugin.Plugin)
         for (const item of ProviderPlugins) yield* add(item)
         yield* add(ConfigExternalPlugin.Plugin)
-        yield* add(ConfigProviderPlugin.Plugin)
-        yield* add(VariantPlugin.Plugin)
+yield* add(ConfigProviderPlugin.Plugin)
       }),
     ).pipe(Effect.withSpan("PluginInternal.boot"))
   }),

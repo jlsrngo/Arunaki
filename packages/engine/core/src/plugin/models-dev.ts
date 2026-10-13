@@ -74,6 +74,37 @@ function modeName(model: ModelsDev.Model, mode: string) {
   return `${model.name} ${mode.charAt(0).toUpperCase()}${mode.slice(1)}`
 }
 
+// Transports that take a plain OpenAI-style effort knob. Keyed on the package the provider
+// speaks rather than on the provider name, so a provider that ships one of these is covered
+// without a line of configuration. Everything else stays variantless: guessing a field name
+// for an API that does not have one is how a request starts getting rejected.
+const EFFORT_PACKAGES = new Set([
+  "@ai-sdk/openai-compatible",
+  "@ai-sdk/xai",
+  "@ai-sdk/mistral",
+  "@ai-sdk/groq",
+  "@ai-sdk/cerebras",
+  "@ai-sdk/deepinfra",
+  "@ai-sdk/togetherai",
+  "venice-ai-sdk-provider",
+  "ai-gateway-provider",
+  "merge-gateway-ai-sdk-provider",
+])
+
+/**
+ * models.dev says which effort levels a model accepts; the transport says where the knob goes.
+ * Reading both is the whole rule - there is no per-provider list to keep in step.
+ */
+function reasoningVariants(model: ModelsDev.Model, npm: string | undefined): ModelV2Info["variants"] {
+  if (!npm || !EFFORT_PACKAGES.has(npm)) return []
+  const effort = model.reasoning_options?.find((option) => option.type === "effort")
+  if (!effort) return []
+  return effort.values.map((value) => {
+    const id = value ?? "none"
+    return { id, headers: {}, body: { reasoning_effort: id } }
+  })
+}
+
 function applyModel(
   draft: ModelV2Info,
   model: ModelsDev.Model,
@@ -81,6 +112,7 @@ function applyModel(
     readonly name?: string
     readonly cost?: ModelV2Info["cost"]
     readonly request?: NonNullable<NonNullable<ModelsDev.Model["experimental"]>["modes"]>[string]["provider"]
+    readonly npm?: string
   } = {},
 ) {
   draft.name = input.name ?? model.name
@@ -103,7 +135,7 @@ function applyModel(
     input: [...(model.modalities?.input ?? [])],
     output: [...(model.modalities?.output ?? [])],
   }
-  draft.variants = []
+  draft.variants = reasoningVariants(model, input.npm)
   draft.time.released = released(model.release_date)
   draft.cost = input.cost ?? cost(model.cost)
   draft.status = model.status ?? "active"
@@ -153,16 +185,40 @@ export const ModelsDevPlugin = define({
         const entries = yield* config.entries()
         const files = entries.filter((entry) => entry.type === "document")
         const configured = new Set<string>()
-        const listingModels = new Set<string>()
+        const declared = new Map<string, Set<string>>()
         for (const file of files) {
           for (const [id, provider] of Object.entries(file.info.providers ?? {})) {
             configured.add(id)
-            if (Object.keys(provider.models ?? {}).length > 0) listingModels.add(id)
+            const ids = Object.keys(provider.models ?? {})
+            if (ids.length > 0) declared.set(id, new Set(ids))
           }
         }
         for (const item of Object.values(data)) {
           const providerID = ProviderV2.ID.make(item.id)
-          if (listingModels.has(item.id)) continue
+          const listed = declared.get(item.id)
+          if (listed) {
+            // A config entry that lists models is authoritative for which models exist - that is how
+            // a retired id stops being offered, and it is why models this provider never knew about
+            // are not added here. But it says nothing about how those models are driven, and skipping
+            // the provider outright left every one of them undescribed: no variants, so no picker, on
+            // models that models.dev describes in full. Config owns the list, models.dev describes it.
+            for (const model of Object.values(item.models)) {
+              // The same model is spelled two ways: models.dev writes "space-bunny-free", a CLI
+              // bridge writes "opencode/space-bunny-free". Accept whichever the list on file uses.
+              if (!listed.has(model.id) && !listed.has(`${item.id}/${model.id}`)) continue
+              const variants = reasoningVariants(model, item.npm)
+              if (variants.length === 0) continue
+              catalog.model.update(providerID, model.id, (draft) => {
+                if (draft.variants.length > 0) return
+                draft.variants = variants.map((variant) => ({
+                  id: variant.id,
+                  headers: { ...variant.headers },
+                  body: { ...variant.body },
+                }))
+              })
+            }
+            continue
+          }
           const ownsEndpoint = !configured.has(item.id)
           catalog.provider.update(providerID, (provider) => {
             if (!ownsEndpoint) return
@@ -182,13 +238,16 @@ export const ModelsDevPlugin = define({
 
           for (const model of Object.values(item.models)) {
             const baseCost = cost(model.cost)
-            catalog.model.update(providerID, model.id, (draft) => applyModel(draft, model, { cost: baseCost }))
+            catalog.model.update(providerID, model.id, (draft) =>
+              applyModel(draft, model, { cost: baseCost, npm: item.npm }),
+            )
             for (const [mode, options] of Object.entries(model.experimental?.modes ?? {})) {
               catalog.model.update(providerID, `${model.id}-${mode}`, (draft) =>
                 applyModel(draft, model, {
                   name: modeName(model, mode),
                   cost: mergeCost(baseCost, options.cost),
                   request: options.provider,
+                  npm: item.npm,
                 }),
               )
             }

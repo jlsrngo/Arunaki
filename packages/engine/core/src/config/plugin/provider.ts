@@ -241,8 +241,30 @@ export const Plugin = define<HttpClient.HttpClient | Config.Service | Global.Ser
           for (const [id, models] of live) {
             if (models.length === 0) continue
             const { base, tiers } = foldTiers(models)
+
+            // A provider reached through the bridge and a provider described by models.dev can be the
+            // same provider, and they spell the same model two ways: models.dev writes
+            // "space-bunny-free", `opencode models` writes "opencode/space-bunny-free". The removal
+            // below drops the first, so anything models.dev knew about it - the variants that make a
+            // picker appear - went with it. The prefix stays, because the bridge routes on the model
+            // id and the prefix is the only thing telling it which provider is being asked for; only
+            // the description travels across.
+            const record = catalog.provider.list().find((existing) => existing.provider.id === id)
+            const described = new Map(record ? [...record.models] : [])
+            const prefix = `${id}/`
+            const inherit = (modelID: string) =>
+              described.get(modelID.startsWith(prefix) ? modelID.slice(prefix.length) : modelID)
+
             for (const modelID of [...base, ...Object.keys(tiers)]) {
-              catalog.model.update(id, modelID, () => {})
+              const source = inherit(modelID)
+              catalog.model.update(id, modelID, (model) => {
+                if (!source || model.variants.length > 0) return
+                model.variants = source.variants.map((variant) => ({
+                  id: variant.id,
+                  headers: { ...variant.headers },
+                  body: { ...variant.body },
+                }))
+              })
             }
             // The tier becomes a variant on the base model rather than a model of its own. The
             // bridge already rewrites a base id to whichever tier the session asks for, so this is

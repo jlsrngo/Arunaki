@@ -2,9 +2,12 @@ import { Schema } from "effect"
 import type { LLMRequest, ReasoningEffort, TextVerbosity as TextVerbosityValue } from "../../schema"
 import { ReasoningEfforts, TextVerbosity } from "../../schema"
 
-export const OpenAIReasoningEfforts = ReasoningEfforts.filter(
-  (effort): effort is Exclude<ReasoningEffort, "max"> => effort !== "max",
-)
+// OpenAI's own API stops at "xhigh", but this protocol also carries every OpenAI-compatible
+// provider - OpenCode Zen among them - and they ship levels of their own. Dropping "max" here
+// rejected the request locally with "does not support reasoning effort max" before it was ever
+// sent, on models that advertise it and accept it. Which levels a model offers is models.dev's
+// call, made per model, so validating the value here only ever rejected something legitimate.
+export const OpenAIReasoningEfforts = ReasoningEfforts
 export type OpenAIReasoningEffort = (typeof OpenAIReasoningEfforts)[number]
 
 // Mirrors OpenAI's `ResponseIncludable` union from the official SDK. Keep this
