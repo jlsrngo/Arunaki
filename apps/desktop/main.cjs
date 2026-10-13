@@ -157,6 +157,15 @@ ipcMain.handle('app:quit', () => {
   return { success: true };
 });
 
+// Ctrl+0 used to be handled with document.body.style.zoom = "1". Nothing in the app ever sets a
+// CSS zoom, so that reset a property nobody touched - and its preventDefault() had meanwhile
+// blocked Chromium's own Ctrl+0, which does work. Page zoom lives on webContents.
+ipcMain.handle('app:resetZoom', (event) => {
+  const target = BrowserWindow.fromWebContents(event.sender);
+  target?.webContents.setZoomLevel(0);
+  return { success: true };
+});
+
 function createWindow() {
   const isDark = nativeTheme ? nativeTheme.shouldUseDarkColors : true;
   const win = new BrowserWindow({
@@ -176,8 +185,9 @@ function createWindow() {
       backgroundThrottling: false,
       spellcheck: false,
       contextIsolation: true,
-      sandbox: false,
       nodeIntegration: false,
+      // The second of these two used to be preceded by "sandbox: false", so the last key won and
+      // the value was right by accident. The comment below depends on it being true.
       sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
       // A sandboxed preload does not get a full process object, so the engine credentials travel in

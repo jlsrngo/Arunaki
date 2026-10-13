@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('arunakiDesktop', {
   readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
   writeFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', filePath, content),
   createFolder: (folderPath) => ipcRenderer.invoke('fs:createFolder', folderPath),
+  resetZoom: () => ipcRenderer.invoke('app:resetZoom'),
   backupFolder: () => ipcRenderer.invoke('fs:backupFolder'),
   deletePath: (targetPath) => ipcRenderer.invoke('fs:deletePath', targetPath),
   renamePath: (oldPath, newPath) => ipcRenderer.invoke('fs:renamePath', oldPath, newPath),
@@ -42,7 +43,7 @@ contextBridge.exposeInMainWorld('arunakiDesktop', {
     chrome: process.versions.chrome,
     node: process.versions.node,
     v8: process.versions.v8,
-    os: `${process.platform === 'win32' ? 'Windows_NT' : process.platform} ${process.arch} 10.0.26200`,
+    os: `${process.platform === 'win32' ? 'Windows_NT' : process.platform} ${process.arch} ${process.getSystemVersion()}`,
   }),
 
   // ── IPC Engine Relay ───────────────────────────────────────────────────
