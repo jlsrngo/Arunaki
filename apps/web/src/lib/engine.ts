@@ -113,6 +113,13 @@ export async function getSession(sessionID: string) {
   return json.data;
 }
 
+export async function deleteSession(sessionID: string): Promise<boolean> {
+  const res = await engineFetch(`/api/session/${sessionID}`, {
+    method: "DELETE",
+  });
+  return res.ok;
+}
+
 export async function switchSessionModel(sessionID: string, model: { providerID: string; id: string; variant?: string }) {
   let id = model.id;
   if (id && id.includes(",")) {

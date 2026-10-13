@@ -4,6 +4,9 @@ export interface ChatSession {
   createdAt: string;
   updatedAt?: string;
   directory?: string;
+  messageCount?: number;
+  lastMessagePreview?: string;
+  isLoadingStats?: boolean;
 }
 
 export interface SessionGroup {
@@ -15,6 +18,13 @@ export interface SessionGroup {
  * Groups chat sessions into Windows Explorer-like chronological date buckets
  */
 export function groupSessionsByDate(sessions: ChatSession[]): SessionGroup[] {
+  // Sort descending by time so newest sessions are always on top
+  const sorted = [...sessions].sort((a, b) => {
+    const timeA = new Date(a.updatedAt || a.createdAt || "").getTime() || 0;
+    const timeB = new Date(b.updatedAt || b.createdAt || "").getTime() || 0;
+    return timeB - timeA;
+  });
+
   const today: ChatSession[] = [];
   const yesterday: ChatSession[] = [];
   const earlierThisWeek: ChatSession[] = [];
@@ -31,8 +41,8 @@ export function groupSessionsByDate(sessions: ChatSession[]): SessionGroup[] {
   const lastWeekDate = todayDate - 13 * 86400000;
   const lastMonthDate = todayDate - 30 * 86400000;
 
-  for (const session of sessions) {
-    const time = new Date(session.createdAt || session.updatedAt || "").getTime();
+  for (const session of sorted) {
+    const time = new Date(session.updatedAt || session.createdAt || "").getTime();
     if (isNaN(time) || time >= todayDate) {
       today.push(session);
     } else if (time >= yesterdayDate) {

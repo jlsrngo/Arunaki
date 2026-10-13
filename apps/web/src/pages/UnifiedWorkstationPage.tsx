@@ -98,20 +98,23 @@ export function UnifiedWorkstationPage() {
   const isUpdatingUrlFromStateRef = useRef(false);
 
   // 1. Open / Switch Active Folder with complete workspace isolation (Antigravity Parity)
-  const openFolder = useCallback((folderPath: string) => {
+  const openFolder = useCallback((folderPath: string, preferredChatId?: string) => {
     const cleanPath = (folderPath || "").trim();
     if (!cleanPath) return;
 
     setActiveFolder(cleanPath);
     localStorage.setItem("arunaki_active_folder", cleanPath);
 
-    // Workspace folder isolation: check if this folder already has an existing session
+    // Workspace folder isolation: check if preferredChatId exists or if folder has existing session
     const savedFolderSession = localStorage.getItem(`arunaki_active_chat_id_${cleanPath}`) || "";
-    const nextChatId = savedFolderSession.startsWith("ses_") ? savedFolderSession : "";
+    const nextChatId = (preferredChatId && preferredChatId.startsWith("ses_"))
+      ? preferredChatId
+      : (savedFolderSession.startsWith("ses_") ? savedFolderSession : "");
 
     setActiveChatId(nextChatId);
     if (nextChatId) {
       localStorage.setItem("arunaki_active_chat_id", nextChatId);
+      localStorage.setItem(`arunaki_active_chat_id_${cleanPath}`, nextChatId);
     } else {
       localStorage.removeItem("arunaki_active_chat_id");
     }
@@ -192,7 +195,7 @@ export function UnifiedWorkstationPage() {
     const targetChatId = searchParams.get("chatId") || "";
 
     if (targetFolder && targetFolder !== activeFolder) {
-      openFolder(targetFolder);
+      openFolder(targetFolder, targetChatId);
     } else if (targetChatId !== activeChatId) {
       if (!targetChatId || targetChatId.startsWith("ses_")) {
         setActiveChatId(targetChatId);
@@ -205,7 +208,8 @@ export function UnifiedWorkstationPage() {
     function handleFolderChange() {
       const saved = localStorage.getItem("arunaki_active_folder") || "";
       if (saved && saved !== activeFolder) {
-        openFolder(saved);
+        const savedSession = localStorage.getItem("arunaki_active_chat_id") || "";
+        openFolder(saved, savedSession);
       }
     }
     function handleSessionChange() {
