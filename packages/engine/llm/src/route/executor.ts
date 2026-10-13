@@ -201,9 +201,29 @@ const responseBody = (body: string | void, request: HttpClientRequest.HttpClient
   return { body: redacted.slice(0, BODY_LIMIT), bodyTruncated: true }
 }
 
+/**
+ * A provider error the user can act on.
+ *
+ * The body is nearly always JSON, and it was being handed over verbatim:
+ *
+ *   Provider request failed with HTTP 429: {"error":{"message":"Individual quota
+ *   reached ... Resets in 2h41m6s.","type":"quota_exceeded"}}
+ *
+ * The sentence inside is the entire answer; the braces and key names are not, and they were all the
+ * user had to read. Pull the message out when the body is shaped like an error, and fall back to the
+ * raw text when it is not - a body that genuinely is not JSON still has to reach whoever can debug
+ * it.
+ */
 const providerMessage = (status: number, body: { readonly body?: string }) => {
-  if (body.body && body.body.length <= 500) return `Provider request failed with HTTP ${status}: ${body.body}`
-  return `Provider request failed with HTTP ${status}`
+  const raw = body.body
+  if (!raw || raw.length > 500) return `Provider request failed with HTTP ${status}`
+  try {
+    const parsed = JSON.parse(raw)
+    const message = parsed?.error?.message ?? parsed?.message
+    if (typeof message === "string" && message.trim())
+      return `Provider request failed with HTTP ${status}: ${message.trim()}`
+  } catch {}
+  return `Provider request failed with HTTP ${status}: ${raw}`
 }
 
 const responseHttp = (input: {
