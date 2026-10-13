@@ -1059,9 +1059,9 @@ export function SettingsCliConnectionsTab({
               const pct = Math.round(b.remaining * 100);
               const bar = b.exhausted
                 ? "bg-red-500"
-                : pct <= 20
-                  ? "bg-amber-500"
-                  : "bg-emerald-500";
+                : pct <= 15
+                  ? "bg-red-400"
+                  : "bg-[#e59344]";
               // Google hands back the same displayName for its Gemini quota and its third-party
               // quota, so the card drew two identical "Weekly Limit Remaining" rows - one at 71%,
               // one at 0% - and nothing said which account either one belonged to. The bucket id is
@@ -1994,25 +1994,23 @@ const isGeminiActive =
         {(data.registry ?? []).map((descriptor) => renderProviderCard(descriptor))}
 
         {(data.discovered ?? []).some((x) => x.hasToken) && (
-          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="min-w-0 text-xs text-zinc-400 flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-zinc-200">Discovered Local Caches:</span>
-                {/* Derived, not enumerated. This row used to test four providers by name, so
-                    OpenCode was found by the harvester and then never rendered. */}
-                {(data.discovered ?? [])
-                  .filter((x) => x.hasToken)
-                  .map((x) => (
-                    <span
-                      key={x.provider}
-                      className="inline-flex items-center gap-1 text-emerald-400 font-medium"
-                    >
-                      {x.displayName || x.provider} &middot; OK
-                    </span>
-                  ))}
-              </div>
-              </div>
+          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-center flex-wrap gap-3">
+            <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-zinc-300">
+              <Sparkles className="w-4 h-4 text-white shrink-0" />
+              <span className="font-semibold text-white">Discovered Local Caches:</span>
+              {/* Derived, not enumerated. This row used to test four providers by name, so
+                  OpenCode was found by the harvester and then never rendered. */}
+              {(data.discovered ?? [])
+                .filter((x) => x.hasToken)
+                .map((x) => (
+                  <span
+                    key={x.provider}
+                    className="inline-flex items-center gap-1 text-white font-medium"
+                  >
+                    {x.displayName || x.provider} &middot; OK
+                  </span>
+                ))}
+            </div>
             <button
               type="button"
               onClick={() => handleRefreshCred("all")}
