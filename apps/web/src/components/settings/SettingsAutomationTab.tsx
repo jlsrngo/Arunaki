@@ -221,16 +221,16 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         </div>
         <span
           className={cn(
-            "px-3 py-1 rounded-full text-[10px] font-semibold border flex items-center gap-1.5",
+            "px-3 py-1 rounded-full text-[10px] font-semibold border flex items-center gap-1.5 shadow-xs",
             isDesktop
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
               : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60"
           )}
         >
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full shrink-0",
-              isDesktop ? "bg-emerald-400" : "bg-zinc-500"
+              isDesktop ? "bg-white" : "bg-zinc-500"
             )}
           />
           {isDesktop ? t("connected") : "Web Browser Mode"}

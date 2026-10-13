@@ -9,6 +9,8 @@ import {
   Sun,
   Moon,
   Folder,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import { cn } from "../../lib/utils";
@@ -308,20 +310,19 @@ export function AppLayout() {
         <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px] justify-end">
           <div
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none",
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none shadow-xs",
               isOnline
-                ? "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]"
+                ? "bg-[var(--bg-card)] border-[var(--border-strong)] text-white"
                 : "bg-rose-500/10 border-rose-500/30 text-rose-400 font-medium"
             )}
             title={isOnline ? t("networkConnected", "Computer is connected to the network") : t("networkOffline", "Computer is offline")}
           >
-            <span
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all",
-                isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
-              )}
-            />
-            <span className="text-[11px] font-medium">
+            {isOnline ? (
+              <Wifi className="w-3.5 h-3.5 text-white shrink-0" />
+            ) : (
+              <WifiOff className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            )}
+            <span className={cn("text-[11px] font-medium", isOnline ? "text-white" : "text-rose-400")}>
               {isOnline ? t("online", "Online") : t("offline", "Offline")}
             </span>
           </div>

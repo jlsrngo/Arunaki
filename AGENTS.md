@@ -156,6 +156,13 @@ Setiap AI agent yang menyentuh kode Frontend (`apps/web`) WAJIB mematuhi aturan 
 5. **Mandatory Build Verification**:
    - Setiap sebelum commit pekerjaan yang mengubah frontend/backend, WAJIB jalankan `npm run build -w apps/web` untuk memastikan 0 error kompilasi TypeScript dan tidak ada regresi.
 
+6. **Strict Monochrome & No-Emerald Rule (CRITICAL DESIGN RULE)**:
+   - **DILARANG KERAS menggunakan warna hijau terang / emerald (`text-emerald-*`, `bg-emerald-*`, titik hijau `bg-emerald-500/400`) untuk status telemetry, badge status koneksi (seperti Online, Connected, Shell status), dan pill indikator.**
+   - Semua badge status teknis, koneksi (Online/Connected), dan kontrol status WAJIB menggunakan palet **monokrom bersih / putih (`text-white`, `border-[var(--border-strong)]`, `bg-[var(--bg-hover)]`, atau titik putih `bg-white`)**.
+   - Indikator jaringan online pada footer WAJIB menggunakan icon WiFi putih (`<Wifi className="w-3.5 h-3.5 text-white" />`), BUKAN titik hijau.
+   - Aksen warna hangat hanya diperbolehkan untuk status thinking/progress LLM (`#e59344` / orange Arunaki) atau status error (`rose-500` / merah).
+
+
 ---
 
 ---
