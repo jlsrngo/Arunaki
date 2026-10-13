@@ -95,7 +95,7 @@ const EFFORT_PACKAGES = new Set([
  * models.dev says which effort levels a model accepts; the transport says where the knob goes.
  * Reading both is the whole rule - there is no per-provider list to keep in step.
  */
-function reasoningVariants(model: ModelsDev.Model, npm: string | undefined): ModelV2Info["variants"] {
+export function reasoningVariants(model: ModelsDev.Model, npm: string | undefined): ModelV2Info["variants"] {
   if (!npm || !EFFORT_PACKAGES.has(npm)) return []
   const effort = model.reasoning_options?.find((option) => option.type === "effort")
   if (!effort) return []
@@ -105,6 +105,17 @@ function reasoningVariants(model: ModelsDev.Model, npm: string | undefined): Mod
   })
 }
 
+/**
+ * Whether a model config already lists is the same test both spellings have to pass.
+ *
+ * models.dev writes "space-bunny-free"; a CLI bridge writes "opencode/space-bunny-free". Config
+ * for the local-CLI providers is written by the bridge, so the prefixed form is the common one,
+ * but matching only that form left every model.dev variant stranded on an id config never names -
+ * which is what kept the picker empty for OpenCode.
+ */
+export function isListed(providerID: string, modelID: string, listed: ReadonlySet<string>): boolean {
+  return listed.has(modelID) || listed.has(`${providerID}/${modelID}`)
+}
 function applyModel(
   draft: ModelV2Info,
   model: ModelsDev.Model,
@@ -205,7 +216,7 @@ export const ModelsDevPlugin = define({
             for (const model of Object.values(item.models)) {
               // The same model is spelled two ways: models.dev writes "space-bunny-free", a CLI
               // bridge writes "opencode/space-bunny-free". Accept whichever the list on file uses.
-              if (!listed.has(model.id) && !listed.has(`${item.id}/${model.id}`)) continue
+              if (!isListed(item.id, model.id, listed)) continue
               const variants = reasoningVariants(model, item.npm)
               if (variants.length === 0) continue
               catalog.model.update(providerID, model.id, (draft) => {
