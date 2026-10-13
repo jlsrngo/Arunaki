@@ -212,6 +212,18 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  // Guard against in-window navigation away from the local bundle or dev server.
+  // setWindowOpenHandler only handles target="_blank" and window.open.
+  // will-navigate prevents standard <a> links or location.href changes from navigating the
+  // main window away to an external untrusted URL while retaining preload script IPC privileges.
+  win.webContents.on('will-navigate', (event, url) => {
+    const isLocal = url.startsWith('file:') || url.startsWith('http://127.0.0.1:') || url.startsWith('http://localhost:');
+    if (!isLocal) {
+      event.preventDefault();
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    }
+  });
+
   // A renderer crash used to trigger a blind win.reload() a second later. In an editor that throws
   // away whatever was in the message box and whatever was unsaved in the open document, with no
   // prompt first. Reload only when the crash left the process unusable, and back off for the ones
