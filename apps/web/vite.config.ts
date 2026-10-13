@@ -39,6 +39,10 @@ export default defineConfig({
       ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
     },
     proxy: {
+      '/session': {
+        target: 'http://127.0.0.1:4096',
+        changeOrigin: true,
+      },
       '/api/messaging': {
         target: 'http://127.0.0.1:4096',
         changeOrigin: true,

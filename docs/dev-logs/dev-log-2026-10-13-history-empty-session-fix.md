@@ -27,7 +27,23 @@ Diagnosed and fixed the issue where clicking older chat sessions in the "Chat Hi
 
 ## Tests
 - `npm run build -w apps/web` — ✅ passed (0 errors, clean build in 12.44s)
-- `npx vitest run apps/web` — ✅ passed (9/9 tests pass)
+## What (Part 2 — Real Message Count & DB Pruning)
+1. **DB Pruning for 0-Message Sessions**:
+   - Checked database `Arunaki-local.db` and identified 110 empty 0-message sessions.
+   - Deleted all 110 empty ghost sessions permanently from the database via the engine's native removal handler. Remaining empty sessions in DB: **0**.
+2. **Exact Message Count Calculation Fix**:
+   - Diagnosed why all active sessions were displaying `"2 msgs"`: `HistoryPage.tsx` previously used `limit=1` and `count = Math.max(2, count)`.
+   - Updated message querying to fetch full history (`limit=200`) and calculate the exact number of conversational chat turns (user + assistant messages), extracting the newest message snippet for preview.
+   - Sesi hari ini yang memiliki 104 data pesan (97 chat turns) kini tampil dengan tepat sebagai `97 msgs` (bukan lagi `2 msgs`), dan sesi-sesi lain menampilkan jumlah turn yang sebenarnya (misal 59, 37, 19, 8, dst).
+3. **Vite Proxy & Delete Route**:
+   - Added `/session` proxy target in [vite.config.ts](file:///e:/JS/Arunika/apps/web/vite.config.ts) and improved fallback in `deleteSession` ([engine.ts](file:///e:/JS/Arunika/apps/web/src/lib/engine.ts)).
 
-## Notes
-- Engine database verification verified that sessions with 0 messages are safely deletable and active sessions preserve all their message records.
+## Files Changed
+- `apps/web/src/lib/engine.ts` — Enhanced `deleteSession` to try `/session/:id` then `/api/session/:id`.
+- `apps/web/vite.config.ts` — Added `/session` proxy rule to forward to engine.
+- `apps/web/src/pages/HistoryPage.tsx` — Fixed message count resolution using `limit=200` and chat turns filtering.
+- `docs/dev-logs/dev-log-2026-10-13-history-empty-session-fix.md` — Updated dev log.
+
+## Tests
+- `npm run build -w apps/web` — ✅ passed (0 errors, 9.73s clean build)
+- `npx vitest run apps/web` — ✅ passed (9/9 tests pass)

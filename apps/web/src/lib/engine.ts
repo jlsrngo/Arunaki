@@ -114,9 +114,10 @@ export async function getSession(sessionID: string) {
 }
 
 export async function deleteSession(sessionID: string): Promise<boolean> {
-  const res = await engineFetch(`/api/session/${sessionID}`, {
-    method: "DELETE",
-  });
+  let res = await engineFetch(`/session/${sessionID}`, { method: "DELETE" });
+  if (!res.ok) {
+    res = await engineFetch(`/api/session/${sessionID}`, { method: "DELETE" });
+  }
   return res.ok;
 }
 

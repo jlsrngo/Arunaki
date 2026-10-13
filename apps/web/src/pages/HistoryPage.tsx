@@ -65,26 +65,38 @@ export function HistoryPage() {
           const updates = await Promise.all(
             chunk.map(async (sess) => {
               try {
-                const res = await engineFetch(`/api/session/${sess.id}/message?limit=1&order=desc`);
+                const res = await engineFetch(`/api/session/${sess.id}/message?limit=200&order=desc`);
                 if (res.ok) {
                   const json = await res.json();
-                  const msgs = json.data || [];
-                  const first = msgs[0];
-                  let preview = "";
-                  if (first) {
-                    if (typeof first.content === "string") {
-                      preview = first.content;
-                    } else if (typeof first.text === "string") {
-                      preview = first.text;
-                    } else if (Array.isArray(first.content)) {
-                      const textPart = first.content.find((p: any) => p && p.type === "text" && typeof p.text === "string");
-                      if (textPart) preview = textPart.text;
-                    }
-                  }
+                  const rawMsgs = json.data || [];
 
-                  let count = msgs.length;
-                  if (json.cursor?.previous || json.cursor?.next) {
-                    count = Math.max(2, count);
+                  // Count real conversational messages (user & assistant turns)
+                  const chatMsgs = rawMsgs.filter(
+                    (m: any) => m && m.type !== "system" && m.type !== "compaction" && m.type !== "model-switched"
+                  );
+                  const count = chatMsgs.length > 0 ? chatMsgs.length : rawMsgs.length;
+
+                  // Extract latest message snippet from newest message
+                  let preview = "";
+                  const candidateMsgs = chatMsgs.length > 0 ? chatMsgs : rawMsgs;
+                  for (const m of candidateMsgs) {
+                    if (typeof m.content === "string" && m.content.trim()) {
+                      preview = m.content;
+                      break;
+                    }
+                    if (typeof m.text === "string" && m.text.trim()) {
+                      preview = m.text;
+                      break;
+                    }
+                    if (Array.isArray(m.content)) {
+                      const textPart = m.content.find(
+                        (p: any) => p && (p.type === "text" || !p.type) && typeof p.text === "string" && p.text.trim()
+                      );
+                      if (textPart) {
+                        preview = textPart.text;
+                        break;
+                      }
+                    }
                   }
 
                   return {
