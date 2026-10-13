@@ -245,18 +245,25 @@ function createWindow() {
     return;
   }
 
-  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Menunggu Arunaki Web di ${WEB_URL}...</div></body></html>`)}`);
-
-  waitForWebApp(WEB_URL).then((isReady) => {
-    if (isReady) {
+  checkUrl(WEB_URL).then((alreadyUp) => {
+    if (alreadyUp) {
       void win.loadURL(WEB_URL);
       return;
     }
-    if (loadBundle(win)) return;
-    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Arunaki Web belum aktif. Jalankan npm run dev:web lalu buka ulang desktop.</div></body></html>`)}`);
-  }).catch((err) => {
-    console.error('[main] Error loading web app:', err);
-    void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#FF5E38;font:16px system-ui"><div>Gagal memuat aplikasi: ${err.message}</div></body></html>`)}`);
+    // Only show waiting screen if web dev server is not ready yet
+    win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Menunggu Arunaki Web di ${WEB_URL}...</div></body></html>`)}`);
+
+    waitForWebApp(WEB_URL).then((isReady) => {
+      if (isReady) {
+        void win.loadURL(WEB_URL);
+        return;
+      }
+      if (loadBundle(win)) return;
+      void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Arunaki Web belum aktif. Jalankan npm run dev:web lalu buka ulang desktop.</div></body></html>`)}`);
+    }).catch((err) => {
+      console.error('[main] Error loading web app:', err);
+      void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#FF5E38;font:16px system-ui"><div>Gagal memuat aplikasi: ${err.message}</div></body></html>`)}`);
+    });
   });
 }
 
