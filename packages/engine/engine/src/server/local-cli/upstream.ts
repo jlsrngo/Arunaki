@@ -1034,6 +1034,27 @@ export async function resolveAntigravityProjectIdWithRefresh(
   return projectId ? { auth: fresh, projectId } : null
 }
 
+/**
+ * What the vendor said, in the vendor's words.
+ *
+ * Every one of these used to collapse into a bare 502 that told the user to go read the terminal.
+ * That made "Individual quota reached, resets in 3h" (429) indistinguishable from "no capacity
+ * available for model gemini-2.5-pro" (503) and from a genuine fault, so the only honest thing a
+ * user could be told was a number they could not act on. Google's message already says which it
+ * is and when it lifts; it just was not being passed on.
+ */
+function antigravityFailure(errText: string, status: number): { message: string; type: string } {
+  try {
+    const parsed = JSON.parse(errText)
+    const message = parsed?.error?.message
+    if (typeof message === "string" && message.trim())
+      return {
+        message: message.trim(),
+        type: status === 429 ? "quota_exceeded" : status === 503 ? "model_capacity" : "antigravity_upstream",
+      }
+  } catch {}
+  return { message: `Antigravity returned HTTP ${status}.`, type: "antigravity_upstream" }
+}
 export async function streamDirectAntigravityCompletion(
   payload: any,
   res: http.ServerResponse,
@@ -1108,7 +1129,19 @@ export async function streamDirectAntigravityCompletion(
         }
       }
     }
-    if (!upstreamRes.ok || !upstreamRes.body) return false
+    if (!upstreamRes.ok || !upstreamRes.body) {
+      // The token-refresh retry above has already run, so this is the real outcome. Hand the
+      // vendor's own status and wording back rather than a generic 502; the bridge only writes its
+      // fallback when nothing has been sent yet, and by then this has been.
+      if (!res.headersSent) {
+        const failure = antigravityFailure(errText, upstreamRes.status)
+        res.writeHead(upstreamRes.status === 401 || upstreamRes.status === 403 ? 502 : upstreamRes.status, {
+          "Content-Type": "application/json",
+        })
+        res.end(JSON.stringify({ error: { message: failure.message, type: failure.type } }))
+      }
+      return false
+    }
   }
 
   const wantsStream = payload.stream !== false
