@@ -202,7 +202,6 @@ class LocalCliBridge {
       (requestedModel.includes("gemini") ||
         requestedModel.includes("antigravity") ||
         requestedModel.includes("agy") ||
-        requestedModel.includes("pro") ||
         requestedModel.includes("claude-sonnet") ||
         requestedModel.includes("claude-opus"))
 
@@ -311,7 +310,7 @@ class LocalCliBridge {
       const auth = await getAntigravityAuth()
       if (auth?.accessToken) {
         const handled = await streamDirectAntigravityCompletion(payload, res, auth)
-        if (handled) return
+        if (handled || res.writableEnded) return
       }
       // No silent degradation. agy is only used to renew the credential, never to carry a
       // conversation: its tool calls arrive as markdown text blocks rather than structured

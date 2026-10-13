@@ -704,10 +704,25 @@ export async function refreshAntigravityCredentialViaAgy(): Promise<boolean> {
   if (!cmd || !fs.existsSync(cmd)) return false
   const before = readAntigravityCredentialManager()?.accessToken
   try {
-    crossSpawn.sync(cmd, ["models"], {
-      timeout: 45000,
-      windowsHide: true,
-      stdio: ["ignore", "ignore", "ignore"],
+    await new Promise<void>((resolve) => {
+      const child = crossSpawn(cmd, ["models"], {
+        windowsHide: true,
+        stdio: ["ignore", "ignore", "ignore"],
+      })
+      const timer = setTimeout(() => {
+        try {
+          child.kill()
+        } catch {}
+        resolve()
+      }, 45000)
+      child.on("close", () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      child.on("error", () => {
+        clearTimeout(timer)
+        resolve()
+      })
     })
   } catch {
     return false

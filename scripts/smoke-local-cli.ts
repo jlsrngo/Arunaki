@@ -164,7 +164,7 @@ async function chat(c: typeof CHAT_CASE): Promise<string> {
       const listed: any = await (await api(`/session/${id}/message`)).json()
       reply = listed?.data?.find((m: any) => m?.type === "assistant" && m?.content?.length)
       if (reply) break
-      await Bun.sleep(1000)
+      await (globalThis.Bun?.sleep ? Bun.sleep(1000) : new Promise((r) => setTimeout(r, 1000)))
     }
     const ms = Date.now() - started
     if (!reply) return bad(`${c.label.padEnd(18)} no assistant reply within 120s`)

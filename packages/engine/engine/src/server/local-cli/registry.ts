@@ -95,11 +95,9 @@ const ANTIGRAVITY_MODELS = [
   "gemini-3.8-flash-medium",
   "gemini-3.8-flash-low",
   "gemini-3.8-flash-high",
-  "gemini-3.7-flash-medium",
-  "gemini-3.6-flash-medium",
-  "gemini-pro-agent",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
+  "claude-sonnet-4-6",
 ]
 const NINEROUTER_MODELS = [
   "9router/ComboMaut",
