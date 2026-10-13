@@ -1,4 +1,4 @@
-﻿import { RefObject, useState, useMemo, useCallback, memo } from "react";
+import { RefObject, useState, useMemo, useCallback, memo } from "react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import {
   Bot,
@@ -42,6 +42,9 @@ export interface WorkstationRightChatProps {
   reasoningEffort?: string;
   setReasoningEffort?: (effort: string) => void;
   effortOptions?: string[];
+  activeModel?: { providerID: string; id: string };
+  modelOptions?: Array<{ id: string; name: string }>;
+  onSelectModel?: (model: { id: string; name: string }) => void;
   onNewChat?: () => void;
   onCancelStream?: () => void;
   onAnswerQuestion?: (requestId: string, selectedAnswer: string) => void;
@@ -65,6 +68,9 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   reasoningEffort = "",
 setReasoningEffort,
   effortOptions = [] as string[],
+  activeModel,
+  modelOptions = [] as Array<{ id: string; name: string }>,
+  onSelectModel,
   onNewChat,
   onCancelStream,
   onAnswerQuestion,
@@ -225,6 +231,9 @@ setReasoningEffort,
           reasoningEffort={reasoningEffort}
           setReasoningEffort={setReasoningEffort}
     effortOptions={effortOptions}
+          activeModel={activeModel}
+          modelOptions={modelOptions}
+          onSelectModel={onSelectModel}
           showThinking={showThinking}
           setShowThinking={setShowThinking}
           onPreviewImage={handlePreviewImage}

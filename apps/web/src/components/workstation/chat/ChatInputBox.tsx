@@ -1,4 +1,4 @@
-﻿import {
+import {
   useRef,
   useState,
   useMemo,
@@ -26,6 +26,7 @@ import {
   FileText,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { describeModel } from "../../settings/SettingsCliConnectionsTab";
 import { ArunakiLogo } from "../../common/ArunakiLogo";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { normalizeAttachmentName, isImageFile } from "./attachmentUtils";
@@ -126,10 +127,18 @@ setReasoningEffort,
   const [isEffortDropdownOpen, setIsEffortDropdownOpen] = useState(false);
   const effortDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Model dropdown. Only the active provider's own models are listed, so choosing here cannot land
+  // on a model belonging to a CLI that is not the connected one.
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (effortDropdownRef.current && !effortDropdownRef.current.contains(event.target as Node)) {
         setIsEffortDropdownOpen(false);
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -571,6 +580,56 @@ setReasoningEffort,
             accept="*/*"
           />
 
+          {onSelectModel && modelOptions.length > 0 && (
+            <div className="relative" ref={modelDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs max-w-[150px]"
+                title={t("allModels", "Model")}
+              >
+                <span className="truncate">
+                  {describeModel(modelOptions.find((m) => m.id === activeModel?.id)?.id).label}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "w-2.5 h-2.5 text-[var(--text-muted)] transition-transform duration-150 shrink-0",
+                    isModelDropdownOpen && "rotate-180"
+                  )}
+                />
+              </button>
+
+              {isModelDropdownOpen && (
+                <div className="absolute bottom-full mb-1.5 left-0 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
+                  <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5">
+                    {t("allModels", "Model")}
+                  </div>
+                  {modelOptions.map((m) => {
+                    const isSelected = m.id === activeModel?.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectModel?.(m);
+                          setIsModelDropdownOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-2 py-1 rounded-lg text-[10px] flex items-center justify-between gap-2 cursor-pointer transition-colors",
+                          isSelected
+                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                        )}
+                      >
+                        <span className="truncate">{describeModel(m.id).label}</span>
+                        {isSelected && <span className="text-[9px] opacity-60">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {setReasoningEffort && effortOptions.length > 0 && (
             <div className="relative" ref={effortDropdownRef}>
               <button

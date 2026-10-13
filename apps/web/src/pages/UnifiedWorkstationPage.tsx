@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -473,6 +473,9 @@ export function UnifiedWorkstationPage() {
             reasoningEffort={chat.reasoningEffort}
             setReasoningEffort={chat.setReasoningEffort}
     effortOptions={chat.effortOptions}
+      activeModel={chat.activeModel}
+      modelOptions={chat.providerModels}
+      onSelectModel={(m) => chat.setActiveModel(chat.activeModel?.providerID ?? '', m.id)}
             onNewChat={chat.handleNewChat}
             onCancelStream={chat.handleCancelStream}
             onAnswerQuestion={chat.handleAnswerQuestion}
