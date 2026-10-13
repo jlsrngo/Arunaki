@@ -48,9 +48,10 @@ export const HelpMenu = memo(function HelpMenu({
       {isOpen && (
         <div
           role="menu"
+          aria-label={t("help", "Help")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
             role="menuitem"
@@ -61,7 +62,7 @@ export const HelpMenu = memo(function HelpMenu({
       // hash does nothing at all and this item was silently dead. navigate works under both.
       navigate("/knowledge");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <BookOpen className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -76,13 +77,13 @@ export const HelpMenu = memo(function HelpMenu({
               onClose();
               onOpenShortcuts();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Keyboard className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("keyboardShortcuts", "Keyboard Shortcuts")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("shortcuts") || "Ctrl+/"}
             </span>
           </button>
@@ -96,7 +97,7 @@ export const HelpMenu = memo(function HelpMenu({
               onClose();
               window.open("https://juliosiringoringo.space/id/arunaki", "_blank");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <BookText className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -112,7 +113,7 @@ export const HelpMenu = memo(function HelpMenu({
               onClose();
               window.open("https://github.com/jlsrngo/Arunaki", "_blank");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <ExternalLink className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -127,7 +128,7 @@ export const HelpMenu = memo(function HelpMenu({
               onClose();
               window.open("https://github.com/jlsrngo/Arunaki/issues", "_blank");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Bug className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -144,7 +145,7 @@ export const HelpMenu = memo(function HelpMenu({
               onClose();
               onOpenAbout();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Info className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />

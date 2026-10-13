@@ -45,5 +45,10 @@ export function menuKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
 /** Focus the first item as soon as the menu opens, so a keyboard user lands on it. */
 export function menuAutoFocus(container: HTMLElement | null): void {
   if (!container) return
+  // Only when the trigger itself holds focus. The menus also open on hover, and focusing then
+  // would yank the caret out of whatever the user was typing in just because the mouse crossed
+  // the menu bar.
+  const trigger = container.parentElement?.querySelector<HTMLElement>('[aria-haspopup="menu"]')
+  if (document.activeElement !== trigger) return
   container.querySelector<HTMLElement>(ITEMS)?.focus()
 }

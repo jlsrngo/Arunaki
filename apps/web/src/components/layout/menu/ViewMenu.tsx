@@ -15,6 +15,7 @@ import { cn } from "../../../lib/utils";
 import { useTheme } from "../../../lib/theme";
 import { useI18n } from "../../../lib/i18n";
 import { useWordWrap } from "../../../lib/wordWrap";
+import { usePanels } from "../../../lib/panels";
 import { BaseMenuProps } from "./types";
 import { getEffectiveShortcut } from "./shortcutsConfig";
 import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
@@ -28,6 +29,7 @@ export const ViewMenu = memo(function ViewMenu({
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, t } = useI18n();
   const { wordWrap, toggleWordWrap } = useWordWrap();
+  const { explorerOpen, chatOpen } = usePanels();
 
   const handleToggleExplorer = () => {
     window.dispatchEvent(new CustomEvent("arunaki-toggle-explorer"));
@@ -55,9 +57,10 @@ export const ViewMenu = memo(function ViewMenu({
 
   const handleResetZoom = () => {
     onClose();
-    if (typeof document !== "undefined") {
-      (document.body.style as any).zoom = "1";
-    }
+    const desktop = typeof window !== "undefined" ? (window as any).arunakiDesktop : null;
+    // Page zoom lives on webContents. The previous document.body.style.zoom = "1" reset a CSS
+    // property nothing in this app ever sets, so the item did nothing at all.
+    if (desktop?.resetZoom) void desktop.resetZoom();
   };
 
   return (
@@ -78,51 +81,58 @@ export const ViewMenu = memo(function ViewMenu({
       {isOpen && (
         <div
           role="menu"
+          aria-label={t("view", "View")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
             role="menuitem"
             onClick={handleToggleExplorer}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <PanelLeft className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("explorerPanel", "Explorer Panel")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("toggle-explorer") || "Ctrl+B"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
+                {getEffectiveShortcut("toggle-explorer") || "Ctrl+B"}
+              </span>
+              {explorerOpen && <Check className="w-4 h-4 text-[var(--text-primary)]" strokeWidth={2.25} />}
+            </div>
           </button>
 
           <button
             type="button"
             role="menuitem"
             onClick={handleToggleChat}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <PanelRight className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("chatPanel", "Chat Panel")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("toggle-chat") || "Ctrl+J"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
+                {getEffectiveShortcut("toggle-chat") || "Ctrl+J"}
+              </span>
+              {chatOpen && <Check className="w-4 h-4 text-[var(--text-primary)]" strokeWidth={2.25} />}
+            </div>
           </button>
 
           <button
             type="button"
             role="menuitem"
             onClick={handleToggleWordWrap}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <WrapText className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("wrapText", "Wrap Text")}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-[var(--text-muted)] font-mono">
+              <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
                 {getEffectiveShortcut("toggle-word-wrap") || "Alt+Z"}
               </span>
               {wordWrap && <Check className="w-4 h-4 text-[var(--text-primary)]" strokeWidth={2.25} />}
@@ -142,7 +152,7 @@ export const ViewMenu = memo(function ViewMenu({
               setTheme("light");
               onClose();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Sun className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -158,7 +168,7 @@ export const ViewMenu = memo(function ViewMenu({
               setTheme("dark");
               onClose();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Moon className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -174,7 +184,7 @@ export const ViewMenu = memo(function ViewMenu({
               setTheme("system");
               onClose();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Laptop className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
@@ -198,7 +208,7 @@ export const ViewMenu = memo(function ViewMenu({
               setLanguage("en");
               onClose();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-color)]">
@@ -216,7 +226,7 @@ export const ViewMenu = memo(function ViewMenu({
               setLanguage("id");
               onClose();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-color)]">
@@ -233,13 +243,13 @@ export const ViewMenu = memo(function ViewMenu({
             type="button"
             role="menuitem"
             onClick={handleToggleFullscreen}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Maximize className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("toggleFullscreen", "Toggle Fullscreen")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("fullscreen") || "F11"}
             </span>
           </button>
@@ -248,13 +258,13 @@ export const ViewMenu = memo(function ViewMenu({
             type="button"
             role="menuitem"
             onClick={handleResetZoom}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <RotateCcw className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("resetZoom", "Reset Zoom")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("reset-zoom") || "Ctrl+0"}
             </span>
           </button>

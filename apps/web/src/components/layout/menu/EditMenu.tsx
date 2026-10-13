@@ -93,20 +93,21 @@ export const EditMenu = memo(function EditMenu({
       {isOpen && (
         <div
           role="menu"
+          aria-label={t("edit", "Edit")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
           <button
             type="button"
             role="menuitem"
             onClick={handleUndo}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Undo2 className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("undo", "Undo")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("undo") || "Ctrl+Z"}
             </span>
           </button>
@@ -115,13 +116,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handleRedo}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Redo2 className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("redo", "Redo")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("redo") || "Ctrl+Y"}
             </span>
           </button>
@@ -132,13 +133,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handleCut}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Scissors className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("cut", "Cut")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("cut") || "Ctrl+X"}
             </span>
           </button>
@@ -147,13 +148,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handleCopy}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Copy className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("copy", "Copy")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("copy") || "Ctrl+C"}
             </span>
           </button>
@@ -162,13 +163,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handlePaste}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Clipboard className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("paste", "Paste")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("paste") || "Ctrl+V"}
             </span>
           </button>
@@ -177,13 +178,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handleSelectAll}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <CheckSquare className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("selectAll", "Select All")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("select-all") || "Ctrl+A"}
             </span>
           </button>
@@ -194,13 +195,13 @@ export const EditMenu = memo(function EditMenu({
             type="button"
             role="menuitem"
             onClick={handleFind}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Search className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("findInSession", "Find in Session...")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("find-session") || "Ctrl+F"}
             </span>
           </button>
@@ -215,13 +216,13 @@ export const EditMenu = memo(function EditMenu({
                 onClose();
                 onOpenShortcuts();
               }}
-              className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+              className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
             >
               <div className="flex items-center gap-2.5">
                 <Keyboard className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
                 <span>{t("keyboardShortcuts", "Keyboard Shortcuts")}</span>
               </div>
-              <span className="text-[11px] text-[var(--text-muted)] font-mono">
+              <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
                 {getEffectiveShortcut("shortcuts") || "Ctrl+/"}
               </span>
             </button>
@@ -234,13 +235,13 @@ export const EditMenu = memo(function EditMenu({
               onClose();
               navigate("/settings");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Settings className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("preferencesSettings", "Preferences / Settings")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("settings") || "Ctrl+,"}
             </span>
           </button>

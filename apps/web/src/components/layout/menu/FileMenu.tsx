@@ -96,19 +96,19 @@ export const FileMenu = memo(function FileMenu({
           aria-label={t("file", "File")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
         >
           <button
             type="button"
             role="menuitem"
             onClick={handleNewChat}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <MessageSquarePlus className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("newSession", "New Session")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("new-session") || "Ctrl+N"}
             </span>
           </button>
@@ -120,13 +120,13 @@ export const FileMenu = memo(function FileMenu({
               onClose();
               onOpenFolder();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("openFolder", "Open Folder...")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("open-folder") || "Ctrl+O"}
             </span>
           </button>
@@ -137,13 +137,13 @@ export const FileMenu = memo(function FileMenu({
             type="button"
             role="menuitem"
             onClick={handleSave}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Save className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("saveDocument", "Save Document")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("save-file") || "Ctrl+S"}
             </span>
           </button>
@@ -194,13 +194,13 @@ export const FileMenu = memo(function FileMenu({
               onClose();
               navigate("/settings");
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <Settings className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("preferencesSettings", "Preferences / Settings")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
               {getEffectiveShortcut("settings") || "Ctrl+,"}
             </span>
           </button>
@@ -211,13 +211,13 @@ export const FileMenu = memo(function FileMenu({
             type="button"
             role="menuitem"
             onClick={handleExit}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
           >
             <div className="flex items-center gap-2.5">
               <LogOut className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
               <span>{t("exitWindow", "Exit Window")}</span>
             </div>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">Alt+F4</span>
+            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">Alt+F4</span>
           </button>
         </div>
       )}

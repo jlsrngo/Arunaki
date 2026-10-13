@@ -107,18 +107,30 @@ export const TopMenuBar = memo(function TopMenuBar({
         document.execCommand("copy");
       } else if (matchesShortcut(e, getEffectiveShortcut("paste"))) {
         e.preventDefault();
-        const text = await navigator.clipboard?.readText?.();
-        if (text !== undefined) document.execCommand("insertText", false, text);
+        // Without this, a denied clipboard permission rejects inside an async listener and
+        // surfaces as an unhandled rejection rather than a failed paste.
+        try {
+          const text = await navigator.clipboard?.readText?.();
+          if (text !== undefined) document.execCommand("insertText", false, text);
+        } catch {
+          document.execCommand("paste");
+        }
       } else if (matchesShortcut(e, getEffectiveShortcut("select-all"))) {
         e.preventDefault();
         document.execCommand("selectAll");
       } else if (matchesShortcut(e, getEffectiveShortcut("fullscreen"))) {
         e.preventDefault();
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen();
+        // requestFullscreen rejects when the gesture is not trusted or the window is not
+        // allowed; ViewMenu already swallowed that, this copy did not.
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        else void document.documentElement.requestFullscreen().catch(() => {});
       } else if (matchesShortcut(e, getEffectiveShortcut("reset-zoom"))) {
         e.preventDefault();
-        document.body.style.zoom = "1";
+        const desktop = (window as any).arunakiDesktop;
+        // Reset the real page zoom. This used to set document.body.style.zoom = "1", which
+        // reset a property nothing sets - while the preventDefault above blocked Chromium's
+        // own Ctrl+0, so the shortcut actively stopped working.
+        if (desktop?.resetZoom) void desktop.resetZoom();
       }
     }
 

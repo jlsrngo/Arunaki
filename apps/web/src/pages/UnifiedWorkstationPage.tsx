@@ -12,6 +12,7 @@ import { useWorkstationChat } from "../components/workstation/chat/useWorkstatio
 import { WorkspaceFile } from "../components/workstation/chat/types";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { engineFetch, getSession, listSessions } from "../lib/engine";
+import { setPanel, togglePanel, usePanels } from "../lib/panels";
 
 export function UnifiedWorkstationPage() {
   const location = useLocation();
@@ -277,8 +278,9 @@ export function UnifiedWorkstationPage() {
   });
 
   // 4. Panel UI layout & resize controls
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const { explorerOpen, chatOpen } = usePanels();
+  const leftCollapsed = !explorerOpen;
+  const rightCollapsed = !chatOpen;
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showSearchSectionModal, setShowSearchSectionModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -322,9 +324,9 @@ export function UnifiedWorkstationPage() {
     []
   );
 
-  const handleCloseLeft = useCallback(() => setLeftCollapsed(true), []);
-  const handleToggleLeft = useCallback(() => setLeftCollapsed((prev) => !prev), []);
-  const handleToggleRight = useCallback(() => setRightCollapsed((prev) => !prev), []);
+  const handleCloseLeft = useCallback(() => setPanel("explorer", false), []);
+  const handleToggleLeft = useCallback(() => togglePanel("explorer"), []);
+  const handleToggleRight = useCallback(() => togglePanel("chat"), []);
   const handleOpenFolderModal = useCallback(() => setShowFolderModal(true), []);
   const handleCloseFolderModal = useCallback(() => setShowFolderModal(false), []);
   const handleOpenSearchModal = useCallback(() => setShowSearchSectionModal(true), []);
@@ -364,8 +366,8 @@ export function UnifiedWorkstationPage() {
       toast.info("Nothing to save - open a document first.");
     };
     const handleSearchSessionEvent = () => setShowSearchSectionModal(true);
-    const handleToggleExplorerEvent = () => setLeftCollapsed((prev) => !prev);
-    const handleToggleChatEvent = () => setRightCollapsed((prev) => !prev);
+    const handleToggleExplorerEvent = () => togglePanel("explorer");
+    const handleToggleChatEvent = () => togglePanel("chat");
     const handleOpenCanvasEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ content: string }>;
       if (customEvent.detail?.content) {
