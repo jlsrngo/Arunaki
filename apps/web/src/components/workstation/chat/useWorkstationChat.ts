@@ -253,13 +253,38 @@ export function useWorkstationChat({
   // lists every provider's catalogue offers models this account cannot reach from the provider it
   // is connected to, and the bridge answers an unknown id from a different upstream rather than
   // refusing it.
+  const [retiredModels, setRetiredModels] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("arunaki_retired_models");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  const markModelRetired = useCallback((modelId: string) => {
+    if (!modelId) return;
+    setRetiredModels((prev) => {
+      const next = new Set(prev);
+      next.add(modelId);
+      try {
+        localStorage.setItem("arunaki_retired_models", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const providerModels = useMemo(() => {
     const list = modelsQuery.data ?? [];
     return list
       .filter((m: any) => m?.providerID === activeModel.providerID)
-      .map((m: any) => ({ id: String(m?.id ?? ""), name: String(m?.name ?? m?.id ?? "") }))
+      .map((m: any) => ({
+        id: String(m?.id ?? ""),
+        name: String(m?.name ?? m?.id ?? ""),
+        isRetired: retiredModels.has(String(m?.id ?? "")),
+      }))
       .filter((m: any) => m.id !== "");
-  }, [modelsQuery.data, activeModel.providerID]);
+  }, [modelsQuery.data, activeModel.providerID, retiredModels]);
 
   const setActiveModel = useCallback(
     (providerID: string, id: string) => {
@@ -2049,11 +2074,18 @@ export function useWorkstationChat({
             abortCtrl.abort();
           } catch {}
           const errorMsg = event.data?.message || "An error occurred.";
+          if (
+            /no longer served by the provider|has been retired|is no longer available|is deprecated/i.test(
+              errorMsg
+            )
+          ) {
+            markModelRetired(activeModel.id);
+          }
           toast.error(errorMsg);
           setOptimisticMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: `âš ï¸ **Error:** ${errorMsg}` }
+                ? { ...m, content: `⚠️ **Error:** ${errorMsg}` }
                 : m
             )
           );

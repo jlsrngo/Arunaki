@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test"
 import { Effect, Fiber, Layer, Random, Ref } from "effect"
 import * as TestClock from "effect/testing/TestClock"
-import { Headers, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
+import { Headers, HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { LLM, LLMError } from "../src"
 import { LLMClient, RequestExecutor } from "../src/route"
 import * as OpenAIChat from "../src/protocols/openai-chat"
@@ -29,7 +29,8 @@ const responsesLayer = (responses: ReadonlyArray<Response>) =>
             HttpClient.make((request) =>
               Effect.gen(function* () {
                 const index = yield* Ref.getAndUpdate(cursor, (value) => value + 1)
-                return HttpClientResponse.fromWeb(request, responses[index] ?? responses[responses.length - 1])
+                const resp = responses[index] ?? responses[responses.length - 1]
+                return HttpClientResponse.fromWeb(request, resp.clone())
               }),
             ),
           )
@@ -55,6 +56,25 @@ const countedResponsesLayer = (attempts: Ref.Ref<number>, responses: ReadonlyArr
             ),
           )
         }),
+      ),
+    ),
+  )
+
+const transportFailureLayer = (cause: unknown) =>
+  RequestExecutor.layer.pipe(
+    Layer.provide(
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make((request) =>
+          Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: new HttpClientError.TransportError({
+                request,
+                cause,
+              }),
+            }),
+          ),
+        ),
       ),
     ),
   )
@@ -454,5 +474,89 @@ describe("RequestExecutor", () => {
       expect(error.reason).toMatchObject({ _tag: "InvalidProviderOutput" })
       expect(yield* Ref.get(attempts)).toBe(1)
     }),
+  )
+
+  it.effect("formats transport error for local connection refused with helpful guidance", () =>
+    Effect.gen(function* () {
+      const executor = yield* RequestExecutor.Service
+      const localReq = HttpClientRequest.post("http://localhost:20128/v1/chat/completions")
+      const error = yield* executor.execute(localReq).pipe(Effect.flip)
+
+      expectLLMError(error)
+      expect(error.reason).toMatchObject({
+        _tag: "Transport",
+        message: "Could not connect to localhost:20128: connection refused. Is the local service running?",
+      })
+    }).pipe(
+      Effect.provide(
+        transportFailureLayer({ code: "ConnectionRefused", message: "Unable to connect." }),
+      ),
+    ),
+  )
+
+  it.effect("extracts clean prose for rate limit 429 without reset time (per-minute quota)", () =>
+    Effect.gen(function* () {
+      const executor = yield* RequestExecutor.Service
+      const fiber = yield* executor.execute(request).pipe(Effect.flip, Effect.forkChild)
+
+      yield* Effect.yieldNow
+      yield* TestClock.adjust(100_000)
+      const error = yield* Fiber.join(fiber)
+
+      expectLLMError(error)
+      expect(error.reason).toMatchObject({
+        _tag: "RateLimit",
+        message: "Provider request failed with HTTP 429: Rate limit reached for requests per minute (RPM). Please wait.",
+      })
+      expect(error.retryAfterMs).toBeUndefined()
+    }).pipe(
+      Effect.provide(
+        responsesLayer([
+          new Response(
+            '{"error":{"message":"Rate limit reached for requests per minute (RPM). Please wait.","type":"requests"}}',
+            { status: 429 },
+          ),
+        ]),
+      ),
+      Effect.provideService(Random.Random, randomMidpoint),
+    ),
+  )
+
+  it.effect("extracts string error field from 429 without dumping raw JSON", () =>
+    Effect.gen(function* () {
+      const executor = yield* RequestExecutor.Service
+      const fiber = yield* executor.execute(request).pipe(Effect.flip, Effect.forkChild)
+      yield* Effect.yieldNow
+      yield* TestClock.adjust(100_000)
+      const error = yield* Fiber.join(fiber)
+
+      expectLLMError(error)
+      expect(error.reason).toMatchObject({
+        _tag: "RateLimit",
+        message: "Provider request failed with HTTP 429: Too many requests",
+      })
+    }).pipe(
+      Effect.provide(responsesLayer([new Response('{"error":"Too many requests"}', { status: 429 })])),
+      Effect.provideService(Random.Random, randomMidpoint),
+    ),
+  )
+
+  it.effect("extracts detail field from 429 without dumping raw JSON", () =>
+    Effect.gen(function* () {
+      const executor = yield* RequestExecutor.Service
+      const fiber = yield* executor.execute(request).pipe(Effect.flip, Effect.forkChild)
+      yield* Effect.yieldNow
+      yield* TestClock.adjust(100_000)
+      const error = yield* Fiber.join(fiber)
+
+      expectLLMError(error)
+      expect(error.reason).toMatchObject({
+        _tag: "RateLimit",
+        message: "Provider request failed with HTTP 429: Rate limit exceeded",
+      })
+    }).pipe(
+      Effect.provide(responsesLayer([new Response('{"detail":"Rate limit exceeded"}', { status: 429 })])),
+      Effect.provideService(Random.Random, randomMidpoint),
+    ),
   )
 })

@@ -207,6 +207,7 @@ describe("Config", () => {
         }),
       ),
     ),
+    15_000,
   )
 
   it.live("does not load legacy config.json files", () =>

@@ -3861,5 +3861,47 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **`npm run typecheck`**: Passed (0 error).
 - [x] **`npm run build -w apps/web`**: Passed (0 error).
 
+---
 
+## Phase 109: Handoff Execution (Items 1–8: Transport Errors, Rate Limits, Retired Models, Test Stability) ✅ DONE
 
+**Goal:** Menyelesaikan seluruh 8 tugas pending dari dokumen serah terima (`HANDOFF-arunaki.md`), mencakup penanganan galat transport lokal (9router/lmstudio), pengujian & format kuota/rate-limit 429 tanpa reset time, visualisasi & deteksi model pensiun (retired models) di picker dan bubble chat, serta stabilisasi batch test suite `PluginV2`.
+
+### 109.1 Task 1 & 2: Transport Error & Rate-Limit Diagnostics
+- [x] **`packages/engine/llm/src/route/executor.ts`**:
+  - Mengimplementasikan `formatTransportErrorMessage` yang mendeteksi koneksi gagal (`ConnectionRefused`, DNS failure, Timeout) dan menyebutkan hostname/port tujuan secara eksplisit (contoh: `"Could not connect to localhost:20128: connection refused. Is the local service running?"`).
+  - Mengupgrade `providerMessage` untuk mem-parse JSON pesan vendor dalam format string error (`{ error: "..." }`) maupun detail (`{ detail: "..." }`) tanpa mengekspos raw JSON mentah ke user bubble.
+  - Memastikan 429 tanpa header reset time (rate limit per-menit) terformat rapi dan bersih.
+- [x] **`packages/engine/llm/test/executor.test.ts`**:
+  - Menambahkan test suite untuk transport failure koneksi lokal (passed).
+  - Menambahkan test suite untuk rate limit 429 tanpa reset time (passed).
+  - Menambahkan test suite untuk parsing string error dan detail format (passed).
+  - Total 19/19 test passed di `executor.test.ts`.
+
+### 109.2 Task 3 & 6: Retired Models Detection & Visual Error Callout
+- [x] **`apps/web/src/components/workstation/chat/useWorkstationChat.ts`**:
+  - Melacak state `retiredModels` yang persisten di `localStorage`.
+  - Otomatis mencatat model aktif sebagai retired saat vendor upstream mengembalikan pengumuman pensiun.
+- [x] **`apps/web/src/components/workstation/chat/ChatInputBox.tsx`**:
+  - Menampilkan badge visual amber `retired` pada model dropdown di composer.
+- [x] **`apps/web/src/components/workstation/chat/ChatMessageContent.tsx`**:
+  - Memformat paragraf peringatan / galat `⚠️` menjadi kartu callout alert berdesain dark-tech modern dengan border dan aksen amber yang jelas.
+
+### 109.3 Task 4: Flaky PluginV2 Test Isolation
+- [x] **`packages/engine/core/test/plugin.test.ts`**:
+  - Mengganti `it.effect` dengan `it.live` dan menambahkan timeout eksplisit 15 detik untuk meniadakan stall virtual clock `TestClock`. Eksekusi test drop dari 4432ms ke 275ms (16x lebih cepat).
+- [x] **`packages/engine/core/test/config/config.test.ts`**:
+  - Menambahkan timeout 15 detik pada operasi pembersihan tempdir Windows (EBUSY protection).
+  - Batch test `test/config test/plugin.test.ts` lolos 100% konsisten (54 pass, 0 fail).
+
+### 109.4 Task 5: Retirement Notice Boundaries Verification
+- [x] **`packages/engine/core/test/session-runner-retirement-notice.test.ts`**:
+  - Memverifikasi 8/8 boundary tests untuk `isProviderRetirementNotice`. Semua tes lolos 100%.
+
+### 109.5 Task 7 & 8: PR Readiness & Full Verification
+- [x] **`git log` & branch inspection**: Branch `feature/tier-grouping` berada tepat di depan `main` tanpa konflik merge.
+- [x] **`npm run typecheck`**: Passed (0 error).
+- [x] **`bun run typecheck` (core)**: Passed (0 error).
+- [x] **`bun run tsc --noEmit -p packages/engine/engine/tsconfig.json`**: Passed (0 error).
+- [x] **`npm run build -w apps/web`**: Passed (0 error, build selesai 16.83s).
+- [x] **`npm run test:smoke`**: Passed live (8/8 provider checks passed 100%: Kiro text/tool/chat, OpenCode text/tool, Antigravity text/tool, Codex free).

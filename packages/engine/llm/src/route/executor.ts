@@ -219,7 +219,11 @@ const providerMessage = (status: number, body: { readonly body?: string }) => {
   if (!raw || raw.length > 500) return `Provider request failed with HTTP ${status}`
   try {
     const parsed = JSON.parse(raw)
-    const message = parsed?.error?.message ?? parsed?.message
+    const message =
+      (typeof parsed?.error === "string" ? parsed.error : undefined) ??
+      parsed?.error?.message ??
+      parsed?.message ??
+      (typeof parsed?.detail === "string" ? parsed.detail : undefined)
     if (typeof message === "string" && message.trim())
       return `Provider request failed with HTTP ${status}: ${message.trim()}`
   } catch {}
@@ -324,43 +328,136 @@ const statusError =
       })
     })
 
-const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>) => (error: unknown) => {
-  const transportError = (input: {
-    readonly message: string
-    readonly kind?: string | undefined
-    readonly request?: HttpClientRequest.HttpClientRequest | undefined
-  }) =>
-    new LLMError({
-      module: "RequestExecutor",
-      method: "execute",
-      reason: new TransportReason({
-        message: input.message,
-        kind: input.kind,
-        url: input.request ? redactUrl(input.request.url) : undefined,
-        http: input.request ? new HttpContext({ request: requestDetails(input.request, redactedNames) }) : undefined,
-      }),
-    })
+const formatTransportErrorMessage = (
+  request: HttpClientRequest.HttpClientRequest | undefined,
+  cause: unknown,
+  description?: string,
+): string => {
+  const url = request?.url
+  const endpoint = url && URL.canParse(url) ? new URL(url).host : url
+  const isLocal =
+    endpoint !== undefined &&
+    (endpoint.startsWith("localhost") ||
+      endpoint.startsWith("127.0.0.1") ||
+      endpoint.startsWith("0.0.0.0") ||
+      endpoint.startsWith("[::1]"))
 
-  if (Cause.isTimeoutError(error)) {
-    return transportError({ message: error.message, kind: "Timeout" })
+  const causeObj = cause && typeof cause === "object" ? (cause as Record<string, unknown>) : undefined
+  const nestedCause = causeObj && typeof causeObj.cause === "object" ? (causeObj.cause as Record<string, unknown>) : undefined
+  const code =
+    typeof causeObj?.code === "string"
+      ? causeObj.code
+      : typeof nestedCause?.code === "string"
+        ? nestedCause.code
+        : undefined
+  const causeMsg =
+    typeof causeObj?.message === "string"
+      ? causeObj.message
+      : typeof cause === "string"
+        ? cause
+        : undefined
+
+  const isConnRefused =
+    code === "ConnectionRefused" ||
+    code === "ECONNREFUSED" ||
+    /connection refused|unable to connect/i.test(causeMsg ?? "")
+
+  const isDnsFailure =
+    code === "ENOTFOUND" ||
+    code === "EAI_AGAIN" ||
+    /getaddrinfo ENOTFOUND|could not resolve/i.test(causeMsg ?? "")
+
+  const isTimedOut =
+    code === "ETIMEDOUT" ||
+    code === "TimeoutError" ||
+    /timed? ?out/i.test(causeMsg ?? "")
+
+  if (endpoint) {
+    if (isConnRefused) {
+      return isLocal
+        ? `Could not connect to ${endpoint}: connection refused. Is the local service running?`
+        : `Could not connect to ${endpoint}: connection refused.`
+    }
+    if (isDnsFailure) {
+      return `Could not resolve host ${endpoint}. Check your network connection.`
+    }
+    if (isTimedOut) {
+      return `Connection to ${endpoint} timed out.`
+    }
+    if (description && description.trim()) {
+      return `Could not reach ${endpoint}: ${description.trim()}`
+    }
+    if (causeMsg && !/fetch failed/i.test(causeMsg.trim())) {
+      return `Could not reach ${endpoint}: ${causeMsg.trim()}`
+    }
+    return `Could not reach ${endpoint}: network transport failed`
   }
-  if (!HttpClientError.isHttpClientError(error)) {
-    return transportError({ message: "HTTP transport failed" })
+
+  if (description && description.trim()) {
+    return description.trim()
   }
-  const request = "request" in error ? error.request : undefined
-  if (error.reason._tag === "TransportError") {
+  if (causeMsg && !/fetch failed/i.test(causeMsg.trim())) {
+    return causeMsg.trim()
+  }
+  return "HTTP transport failed"
+}
+
+const toHttpError =
+  (redactedNames: ReadonlyArray<string | RegExp>, req?: HttpClientRequest.HttpClientRequest) =>
+  (error: unknown) => {
+    const request = req ?? (error && typeof error === "object" && "request" in error ? (error as any).request : undefined)
+    const cause =
+      error &&
+      typeof error === "object" &&
+      "reason" in error &&
+      (error as any).reason &&
+      typeof (error as any).reason === "object" &&
+      "cause" in (error as any).reason
+        ? (error as any).reason.cause
+        : error && typeof error === "object" && "cause" in error
+          ? (error as any).cause
+          : undefined
+
+    const transportError = (input: {
+      readonly message: string
+      readonly kind?: string | undefined
+      readonly request?: HttpClientRequest.HttpClientRequest | undefined
+    }) =>
+      new LLMError({
+        module: "RequestExecutor",
+        method: "execute",
+        reason: new TransportReason({
+          message: input.message,
+          kind: input.kind,
+          url: input.request ? redactUrl(input.request.url) : undefined,
+          http: input.request ? new HttpContext({ request: requestDetails(input.request, redactedNames) }) : undefined,
+        }),
+      })
+
+    if (Cause.isTimeoutError(error)) {
+      const endpoint = request?.url && URL.canParse(request.url) ? new URL(request.url).host : request?.url
+      const message = endpoint ? `Connection to ${endpoint} timed out.` : error.message
+      return transportError({ message, kind: "Timeout", request })
+    }
+    if (!HttpClientError.isHttpClientError(error)) {
+      const message = formatTransportErrorMessage(request, cause)
+      return transportError({ message, request })
+    }
+    const resolvedRequest = request ?? error.request
+    if (error.reason._tag === "TransportError") {
+      const message = formatTransportErrorMessage(resolvedRequest, error.reason.cause ?? cause, error.reason.description)
+      return transportError({
+        message,
+        kind: error.reason._tag,
+        request: resolvedRequest,
+      })
+    }
     return transportError({
-      message: error.reason.description ?? "HTTP transport failed",
+      message: formatTransportErrorMessage(resolvedRequest, cause, `HTTP transport failed: ${error.reason._tag}`),
       kind: error.reason._tag,
-      request,
+      request: resolvedRequest,
     })
   }
-  return transportError({
-    message: `HTTP transport failed: ${error.reason._tag}`,
-    kind: error.reason._tag,
-    request,
-  })
-}
 
 const retryDelay = (error: LLMError, attempt: number) => {
   if (error.retryAfterMs !== undefined) return Effect.succeed(Math.min(error.retryAfterMs, MAX_DELAY_MS))
@@ -392,7 +489,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient> = Layer.e
         const redactedNames = yield* Headers.CurrentRedactedNames
         return yield* http
           .execute(request)
-          .pipe(Effect.mapError(toHttpError(redactedNames)), Effect.flatMap(statusError(request, redactedNames)))
+          .pipe(Effect.mapError(toHttpError(redactedNames, request)), Effect.flatMap(statusError(request, redactedNames)))
       })
     return Service.of({
       execute: (request) => retryStatusFailures(executeOnce(request)),
