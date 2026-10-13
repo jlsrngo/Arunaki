@@ -35,6 +35,60 @@ function getHealthUrl() {
 }
 
 const auth = serverAuth.create();
+const ENGINE_PORT = Number(process.env.ARUNAKI_ENGINE_PORT ?? 4096);
+
+function cleanStaleEngineProcesses(repoDir) {
+  const isWin = process.platform === 'win32';
+  const normalizedRepo = (repoDir || process.cwd()).replace(/\\/g, '/').toLowerCase();
+
+  if (isWin) {
+    try {
+      const script = "Get-CimInstance Win32_Process -Filter \\\"Name = 'bun.exe'\\\" | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress";
+      const stdout = execSync(`powershell -NoProfile -NonInteractive -Command "${script}"`, {
+        stdio: ['pipe', 'pipe', 'ignore'],
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 10000,
+      }).trim();
+      if (!stdout) return;
+      const parsed = JSON.parse(stdout);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      let killedAny = false;
+      for (const item of list) {
+        if (!item || !item.ProcessId || !item.CommandLine) continue;
+        const pid = Number(item.ProcessId);
+        if (pid === process.pid) continue;
+        const cmd = item.CommandLine.replace(/\\/g, '/').toLowerCase();
+        if (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts')) {
+          console.log(`[start] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          try {
+            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', windowsHide: true });
+            killedAny = true;
+          } catch {}
+        }
+      }
+      if (killedAny) {
+        try { execSync('powershell -NoProfile -Command "Start-Sleep -Milliseconds 1000"', { stdio: 'ignore', windowsHide: true }); } catch {}
+      }
+    } catch {}
+  } else {
+    try {
+      const stdout = execSync('ps -eo pid,command', { stdio: ['pipe', 'pipe', 'ignore'], encoding: 'utf8', timeout: 5000 });
+      for (const line of stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parts = trimmed.split(/\s+/);
+        const pid = parseInt(parts[0], 10);
+        if (pid === process.pid) continue;
+        const cmd = parts.slice(1).join(' ').toLowerCase();
+        if (cmd.includes('bun') && (cmd.includes(normalizedRepo) || cmd.includes('serve-only.ts'))) {
+          console.log(`[start] Cleaning stale Arunaki engine process (PID ${pid})...`);
+          try { process.kill(pid, 'SIGKILL'); } catch {}
+        }
+      }
+    } catch {}
+  }
+}
 
 function freePort(port) {
   try {
@@ -79,6 +133,7 @@ async function main() {
     process.exit(1);
   }
 
+  cleanStaleEngineProcesses(rootDir);
   freePort(ENGINE_PORT);
   console.log(`[start] Arunaki engine on :${ENGINE_PORT} (auth required)`);
   const engine = spawn(
@@ -87,9 +142,19 @@ async function main() {
     { cwd: rootDir, env: { ...process.env, ...auth.engineEnv }, stdio: 'inherit', windowsHide: true },
   );
 
-  const stop = () => { try { engine.kill('SIGKILL'); } catch {} };
+  const stop = () => {
+    if (engine && engine.pid && !engine.killed) {
+      if (process.platform === 'win32') {
+        try { execSync(`taskkill /F /T /PID ${engine.pid}`, { stdio: 'ignore', windowsHide: true }); } catch {}
+      } else {
+        try { engine.kill('SIGKILL'); } catch {}
+      }
+    }
+    cleanStaleEngineProcesses(rootDir);
+  };
   process.on('exit', stop);
   process.on('SIGINT', () => { stop(); process.exit(0); });
+  process.on('SIGTERM', () => { stop(); process.exit(0); });
 
   console.log('[start] Waiting for engine...');
   if (!(await waitForEngine(90000))) {
