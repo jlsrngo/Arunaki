@@ -1,5 +1,11 @@
 import { memo, useState, useEffect, useCallback, useMemo } from "react";
 import { X, Check } from "lucide-react";
+import { useI18n } from "../../../lib/i18n";
+
+// Substituted by vite `define` at build time; see apps/web/vite.config.ts.
+declare const __ARUNAKI_COMMIT__: string;
+declare const __ARUNAKI_BUILD_DATE__: string;
+declare const __ARUNAKI_VERSION__: string;
 
 interface AboutArunakiModalProps {
   isOpen: boolean;
@@ -11,6 +17,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
   onClose,
 }: AboutArunakiModalProps) {
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
 
   // Close on Escape key
   useEffect(() => {
@@ -26,25 +33,29 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Dynamically detect runtime versions with accurate fallbacks
+  // Runtime versions are read live; a missing one reads "unavailable" instead of a
+  // plausible-looking literal, because a wrong version in a bug report costs more than a
+  // blank one. navigator.userAgent is a genuine detection, so Chromium still resolves in the
+  // browser where there is no Electron preload at all. Labels go through i18n like every other
+  // menu - this was the only one still hardcoding English.
   const specs = useMemo(() => {
     const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
     const sys = desktop?.getSystemInfo ? desktop.getSystemInfo() : null;
     const chromeMatch = typeof navigator !== "undefined" ? navigator.userAgent.match(/Chrome\/([0-9.]+)/) : null;
-    const detectedChrome = chromeMatch ? chromeMatch[1] : "150.0.7871.129";
+    const na = "unavailable";
 
     return [
-      { label: "Arunaki Version", value: "0.1.0 (Phase 109)" },
-      { label: "Commit", value: "87e1d5c3bd8c6c46f8425e8527ce4dad460bb787" },
-      { label: "Date", value: "2026-09-26T10:23:28.000Z" },
-      { label: "Electron", value: sys?.electron || "43.2.0" },
-      { label: "Chromium", value: sys?.chrome || detectedChrome },
-      { label: "Node.js", value: sys?.node || "24.15.0" },
-      { label: "V8", value: sys?.v8 || "13.6.233.17-electron.0" },
-      { label: "OS", value: sys?.os || "Windows_NT x64 10.0.26200" },
-      { label: "Isolation", value: "Active Folder Sandbox" },
+      { label: t("version", "Version"), value: __ARUNAKI_VERSION__ },
+      { label: "Commit", value: __ARUNAKI_COMMIT__ },
+      { label: t("buildDate", "Build Date"), value: __ARUNAKI_BUILD_DATE__ },
+      { label: "Electron", value: sys?.electron || na },
+      { label: "Chromium", value: sys?.chrome || chromeMatch?.[1] || na },
+      { label: "Node.js", value: sys?.node || na },
+      { label: "V8", value: sys?.v8 || na },
+      { label: "OS", value: sys?.os || na },
+      { label: t("isolation", "Isolation"), value: t("activeFolderSandbox", "Active Folder Sandbox") },
     ];
-  }, [isOpen]);
+  }, [isOpen, t]);
 
   const fullSpecsText = useMemo(() => {
     return specs.map((item) => `${item.label}: ${item.value}`).join("\n");
@@ -150,10 +161,10 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Copied</span>
+                    <span>{t("done", "Done")}</span>
                   </>
                 ) : (
-                  <span>Copy</span>
+                  <span>{t("copy", "Copy")}</span>
                 )}
               </button>
 
@@ -162,7 +173,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                 onClick={onClose}
                 className="min-w-[58px] px-4 py-1.5 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] active:bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] rounded text-[13px] font-medium transition-colors cursor-pointer"
               >
-                OK
+                {t("done", "OK")}
               </button>
             </div>
           </div>
