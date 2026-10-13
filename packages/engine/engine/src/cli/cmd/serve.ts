@@ -2,6 +2,9 @@ import { Effect } from "effect"
 import { effectCmd } from "../effect-cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "@arunaki/core/flag/flag"
+import os from "node:os"
+import path from "node:path"
+import fs from "node:fs"
 
 export const ServeCommand = effectCmd({
   command: "serve",
@@ -18,6 +21,25 @@ export const ServeCommand = effectCmd({
     const opts = yield* resolveNetworkOptions(args)
     const server = yield* Effect.promise(() => Server.listen(opts))
     console.log(`Arunaki server listening on http://${server.hostname}:${server.port}`)
+
+    try {
+      const infoDir = path.join(os.homedir(), ".arunaki")
+      fs.mkdirSync(infoDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(infoDir, "engine-info.json"),
+        JSON.stringify(
+          {
+            port: server.port,
+            hostname: server.hostname,
+            url: `http://${server.hostname}:${server.port}`,
+            pid: process.pid,
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      )
+    } catch {}
 
     yield* Effect.never
   }),

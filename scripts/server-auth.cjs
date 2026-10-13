@@ -17,7 +17,8 @@ const crypto = require('node:crypto');
  */
 
 /** Where the current credentials are written so out-of-band tools (the smoke test) can read them. */
-const PASSWORD_FILE = path.join(os.homedir(), '.arunaki', 'dev-server-password')
+const PASSWORD_FILE = path.join(os.homedir(), '.arunaki', 'dev-server-password');
+const ENGINE_INFO_FILE = path.join(os.homedir(), '.arunaki', 'engine-info.json');
 
 /**
  * Fresh password per start, so a copy left on disk stops working at the next launch.
@@ -60,4 +61,4 @@ function read() {
   return { username: user, password }
 }
 
-module.exports = { PASSWORD_FILE, create, read }
+module.exports = { PASSWORD_FILE, ENGINE_INFO_FILE, create, read }

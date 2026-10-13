@@ -64,7 +64,17 @@ const WAIT_INTERVAL_MS = 500;
 // communication is relayed through IPC so that no localhost port is exposed to
 // the Chromium sandbox and no auth credentials need to leave the main process.
 
-const ENGINE_URL = process.env.ARUNAKI_ENGINE_URL || 'http://127.0.0.1:4096';
+function getEngineUrl() {
+  if (process.env.ARUNAKI_ENGINE_URL) return process.env.ARUNAKI_ENGINE_URL;
+  try {
+    const infoPath = path.join(os.homedir(), '.arunaki', 'engine-info.json');
+    if (fsSync.existsSync(infoPath)) {
+      const info = JSON.parse(fsSync.readFileSync(infoPath, 'utf8'));
+      if (info && info.url) return info.url;
+    }
+  } catch {}
+  return 'http://127.0.0.1:4096';
+}
 const BRIDGE_URL = process.env.ARUNAKI_BRIDGE_URL || 'http://127.0.0.1:20188';
 
 function engineAuthHeader() {
@@ -260,7 +270,7 @@ app.whenReady().then(() => {
   ipcMain.handle('engine:fetch', async (_event, relPath, init) => {
     try {
       const cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
-      const url = `${ENGINE_URL}${cleanPath}`;
+      const url = `${getEngineUrl()}${cleanPath}`;
       const method = init?.method || 'GET';
       const outHeaders = {
         ...engineAuthHeader(),
@@ -334,7 +344,7 @@ app.whenReady().then(() => {
         const ac = new AbortController();
         sub.controller = ac;
         try {
-          const url = `${ENGINE_URL}${cleanPath}`;
+          const url = `${getEngineUrl()}${cleanPath}`;
           const res = await fetch(url, {
             headers: {
               Accept: 'text/event-stream',
@@ -417,7 +427,7 @@ app.whenReady().then(() => {
 
   // Expose engine info to renderer (URL for display purposes only, no auth)
   ipcMain.handle('engine:info', () => ({
-    url: ENGINE_URL,
+    url: getEngineUrl(),
     bridgeUrl: BRIDGE_URL,
   }));
 

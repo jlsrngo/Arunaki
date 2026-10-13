@@ -21,8 +21,19 @@ const fs = require('node:fs');
 const rootDir = path.join(__dirname, '..');
 const serverAuth = require('./server-auth.cjs');
 
-const ENGINE_PORT = Number(process.env.ARUNAKI_ENGINE_PORT ?? 4096);
-const HEALTH = `http://127.0.0.1:${ENGINE_PORT}/api/health`;
+function getHealthUrl() {
+  if (process.env.ARUNAKI_HEALTH) return process.env.ARUNAKI_HEALTH;
+  try {
+    const infoPath = path.join(require('node:os').homedir(), '.arunaki', 'engine-info.json');
+    if (fs.existsSync(infoPath)) {
+      const info = JSON.parse(fs.readFileSync(infoPath, 'utf8'));
+      if (info && info.url) return `${info.url}/api/health`;
+    }
+  } catch {}
+  const port = Number(process.env.ARUNAKI_ENGINE_PORT ?? 4096);
+  return `http://127.0.0.1:${port}/api/health`;
+}
+
 const auth = serverAuth.create();
 
 function freePort(port) {
@@ -46,7 +57,7 @@ function waitForEngine(timeoutMs) {
     const started = Date.now();
     const tick = () => {
       // Engine auth protects /api/health too, so an unauthenticated 401 here still means "up".
-      const req = http.get(HEALTH, { headers: { Authorization: auth.authorization } }, (res) => {
+      const req = http.get(getHealthUrl(), { headers: { Authorization: auth.authorization } }, (res) => {
         res.resume();
         resolve(res.statusCode && res.statusCode < 500);
       });

@@ -3838,4 +3838,28 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **`npm run build -w apps/web`**: Passed (0 error kompilasi TypeScript, bundling berhasil).
 - [x] **`npm run test:smoke`**: Passed (8/8 provider checks passed live).
 
+---
+
+## Phase 108: Dynamic Ephemeral Port Discovery & Fallback Resilience ✅ DONE
+
+**Goal:** Menghilangkan ketergantungan pada hardcoded port `:4096`, mencegah port collision, dan mengimplementasikan dynamic runtime port discovery yang terintegrasi dengan Electron IPC relay bridge.
+
+### 108.1 Core & Launcher Changes
+- [x] **`packages/engine/engine/src/cli/cmd/serve.ts`**:
+  - Menyimpan informasi server runtime dinamis (`port`, `hostname`, `url`, `pid`) ke `~/.arunaki/engine-info.json` saat boot.
+  - Mendukung fallback otomatis ke port bebas dinamis OS jika port 4096 sedang digunakan.
+- [x] **`apps/desktop/main.cjs`**:
+  - Implementasi `getEngineUrl()` yang membaca port aktif dari `engine-info.json` sehingga IPC relay selalu terarah ke port yang benar.
+- [x] **`scripts/smoke-local-cli.ts` & `scripts/start-prod.cjs`**:
+  - Resolusi URL `HEALTH` dan `API` secara dinamis dari `engine-info.json`.
+- [x] **`scripts/server-auth.cjs`**:
+  - Mengekspos path konstanta `ENGINE_INFO_FILE`.
+
+### 108.2 Verifikasi & Uji Ketahanan
+- [x] **Simulasi Port Collision**: Sukses fallback ke port dinamis (misal `:56200`) saat `:4096` diblokir.
+- [x] **Live Smoke Test (8/8 Providers)**: Lolos 100% pada port dinamis acak (Kiro text/tool/chat, OpenCode text/tool, Antigravity text/tool, Codex free).
+- [x] **`npm run typecheck`**: Passed (0 error).
+- [x] **`npm run build -w apps/web`**: Passed (0 error).
+
+
 
