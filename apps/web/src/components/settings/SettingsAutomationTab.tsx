@@ -23,6 +23,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const [desktopNotification, setDesktopNotification] = useState(
     () => localStorage.getItem("arunaki_pref_desktop_notification") !== "false"
   );
+  const isDesktop = typeof window !== "undefined" && !!(window as any).arunakiDesktop;
 
   return (
     <div className="w-full space-y-6">
@@ -218,8 +219,21 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
             </p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-full bg-[var(--bg-hover)] text-[var(--text-primary)] text-[10px] font-semibold border border-[var(--border-strong)]">
-          {t("connected")}
+        <span
+          className={cn(
+            "px-3 py-1 rounded-full text-[10px] font-semibold border flex items-center gap-1.5",
+            isDesktop
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60"
+          )}
+        >
+          <span
+            className={cn(
+              "w-1.5 h-1.5 rounded-full shrink-0",
+              isDesktop ? "bg-emerald-400" : "bg-zinc-500"
+            )}
+          />
+          {isDesktop ? t("connected") : "Web Browser Mode"}
         </span>
       </div>
     </div>
