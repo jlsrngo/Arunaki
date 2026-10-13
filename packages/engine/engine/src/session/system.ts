@@ -260,6 +260,7 @@ const layer = Layer.effect(
               "- The user has connected external business data sources via the Arunaki Knowledge menu (/knowledge) (e.g. Google Sheets, product catalog, price lists).",
               "- 'Knowledge' is an Arunaki UI menu/feature — it is NEVER a directory or folder in the filesystem! NEVER run bash/dir/ls or glob looking for a 'knowledge folder'.",
               "- When the user asks about stock, inventory, products, catalog items, prices, or refers to 'katalog di knowledge' / 'rekap ke excel':",
+              "  0. If a <data_source> block contains a 'Notes:' line, that text IS the data for that source. Answer from those notes directly. Do NOT webfetch, do NOT search the filesystem, and do NOT ask the user to upload a file - the answer is already in your context.",
               "  1. If 'Cached Live Data' is present in <knowledge_base> above, USE IT DIRECTLY! It is pre-loaded into your context. DO NOT execute webfetch, bash, or file search tools to re-fetch it.",
               "  2. If Cached Live Data is not present but a Direct CSV Export URL exists, use webfetch on that URL.",
               "  3. Respond warmly and politely: 'Katalog sudah terhubung di menu Knowledge — saya bisa akses dan analisis data produk/harganya.'",
