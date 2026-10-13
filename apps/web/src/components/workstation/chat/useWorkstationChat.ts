@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Message, MessagePart, QuestionData } from "./types";
@@ -1203,7 +1203,19 @@ export function useWorkstationChat({
         return;
       }
     } else {
-      switchSessionModel(chatIdToUse, { ...activeModel, variant: effectiveVariant }).catch(() => {});
+      // switchSessionModel resolves false when the engine refuses and rejects when the request
+      // never lands, so both are failures. Swallowing them let the reply arrive from the previous
+      // model while the composer showed the new one, with nothing on screen saying so.
+      const warnModelNotApplied = () =>
+        toast.error("Could not switch model", {
+          description: `This reply may come from ${activeModel.providerID}/${activeModel.id}.`,
+        });
+      switchSessionModel(chatIdToUse, { ...activeModel, variant: effectiveVariant }).then(
+        (ok) => {
+          if (!ok) warnModelNotApplied();
+        },
+        warnModelNotApplied,
+      );
     }
 
     let hasDispatchedNotification = false;
