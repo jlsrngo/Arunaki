@@ -624,7 +624,12 @@ setReasoningEffort,
                         <span className="truncate">{describeModel(m.id).label}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           {(m as any).isRetired && (
-                            <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-normal">retired</span>
+                            <span
+                              className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-normal"
+                              title="Reported unavailable by provider. Click to select and retry."
+                            >
+                              retired
+                            </span>
                           )}
                           {isSelected && <span className="text-[9px] opacity-60">✓</span>}
                         </div>

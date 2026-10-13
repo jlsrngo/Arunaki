@@ -159,6 +159,69 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
   };
 }
 
+const RETIRED_MODELS_STORAGE_KEY = "arunaki_retired_models";
+const RETIREMENT_TTL_MS = 60 * 60 * 1000; // 1 hour TTL: models can be revived or retried
+
+function loadRetiredModelsFromStorage(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    const active = new Set<string>();
+    const cleanedRecord: Record<string, number> = {};
+
+    if (Array.isArray(parsed)) {
+      // Legacy unversioned string array format: clean up and discard old permanent flags
+      localStorage.removeItem(RETIRED_MODELS_STORAGE_KEY);
+      return new Set();
+    } else if (typeof parsed === "object" && parsed !== null) {
+      for (const [id, ts] of Object.entries(parsed)) {
+        if (typeof ts === "number" && now - ts < RETIREMENT_TTL_MS) {
+          active.add(id);
+          cleanedRecord[id] = ts;
+        }
+      }
+      localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(cleanedRecord));
+    }
+    return active;
+  } catch {
+    return new Set();
+  }
+}
+
+function saveRetiredModelToStorage(modelId: string) {
+  if (typeof window === "undefined" || !modelId) return;
+  try {
+    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
+    let record: Record<string, number> = {};
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+          record = parsed;
+        }
+      } catch {}
+    }
+    record[modelId] = Date.now();
+    localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(record));
+  } catch {}
+}
+
+function removeRetiredModelFromStorage(modelId: string) {
+  if (typeof window === "undefined" || !modelId) return;
+  try {
+    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
+    if (!raw) return;
+    const record = JSON.parse(raw);
+    if (typeof record === "object" && record !== null && !Array.isArray(record)) {
+      delete record[modelId];
+      localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(record));
+    }
+  } catch {}
+}
+
 export function useWorkstationChat({
   activeFolder,
   activeChatId,
@@ -254,22 +317,26 @@ export function useWorkstationChat({
   // is connected to, and the bridge answers an unknown id from a different upstream rather than
   // refusing it.
   const [retiredModels, setRetiredModels] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem("arunaki_retired_models");
-      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
-    } catch {
-      return new Set<string>();
-    }
+    return loadRetiredModelsFromStorage();
   });
 
   const markModelRetired = useCallback((modelId: string) => {
     if (!modelId) return;
+    saveRetiredModelToStorage(modelId);
     setRetiredModels((prev) => {
       const next = new Set(prev);
       next.add(modelId);
-      try {
-        localStorage.setItem("arunaki_retired_models", JSON.stringify(Array.from(next)));
-      } catch {}
+      return next;
+    });
+  }, []);
+
+  const unmarkModelRetired = useCallback((modelId: string) => {
+    if (!modelId) return;
+    removeRetiredModelFromStorage(modelId);
+    setRetiredModels((prev) => {
+      if (!prev.has(modelId)) return prev;
+      const next = new Set(prev);
+      next.delete(modelId);
       return next;
     });
   }, []);
@@ -289,6 +356,8 @@ export function useWorkstationChat({
   const setActiveModel = useCallback(
     (providerID: string, id: string) => {
       if (!id) return;
+      // Selecting a model clears its retired flag, allowing immediate retry
+      unmarkModelRetired(id);
       try {
         localStorage.setItem("arunaki_active_provider", providerID);
         localStorage.setItem("arunaki_active_model", id);
@@ -298,7 +367,7 @@ export function useWorkstationChat({
       setModelTick((n) => n + 1);
       queryClient.invalidateQueries({ queryKey: ["engine-models"] });
     },
-    [queryClient],
+    [queryClient, unmarkModelRetired],
   );
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -2074,11 +2143,9 @@ export function useWorkstationChat({
             abortCtrl.abort();
           } catch {}
           const errorMsg = event.data?.message || "An error occurred.";
-          if (
-            /no longer served by the provider|has been retired|is no longer available|is deprecated/i.test(
-              errorMsg
-            )
-          ) {
+          // Rely strictly on the server-side retirement detection from publish-llm-event.ts,
+          // which attaches this explicit sentinel. No loose client regexes.
+          if (errorMsg.includes("This model is no longer served by the provider.")) {
             markModelRetired(activeModel.id);
           }
           toast.error(errorMsg);

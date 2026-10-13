@@ -3874,18 +3874,18 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Memastikan 429 tanpa header reset time (rate limit per-menit) terformat rapi dan bersih.
 - [x] **`packages/engine/llm/test/executor.test.ts`**:
   - Menambahkan test suite untuk transport failure koneksi lokal (passed).
-  - Menambahkan test suite untuk rate limit 429 tanpa reset time (passed).
+  - Menambahkan test suite untuk parsing respons sintetis rate limit 429 tanpa reset time (passed). *(Catatan: parsing ter-cover via unit test; rate limit asli upstream belum pernah diinduksi live)*.
   - Menambahkan test suite untuk parsing string error dan detail format (passed).
   - Total 19/19 test passed di `executor.test.ts`.
 
-### 109.2 Task 3 & 6: Retired Models Detection & Visual Error Callout
+### 109.2 Task 3 & 6: Retired Models Lifecycle & Visual Error Callout
 - [x] **`apps/web/src/components/workstation/chat/useWorkstationChat.ts`**:
-  - Melacak state `retiredModels` yang persisten di `localStorage`.
-  - Otomatis mencatat model aktif sebagai retired saat vendor upstream mengembalikan pengumuman pensiun.
+  - Menghapus regex duplikat di frontend; mendeteksi pensiun dari server sentinel `"This model is no longer served by the provider."` (`publish-llm-event.ts`) dengan TTL 1 jam dan pembersihan otomatis entri usang.
+  - Menyediakan jalur un-mark (`unmarkModelRetired`) saat user memilih model di picker (`setActiveModel`), sehingga user tidak pernah terkunci permanen.
 - [x] **`apps/web/src/components/workstation/chat/ChatInputBox.tsx`**:
   - Menampilkan badge visual amber `retired` pada model dropdown di composer.
 - [x] **`apps/web/src/components/workstation/chat/ChatMessageContent.tsx`**:
-  - Memformat paragraf peringatan / galat `⚠️` menjadi kartu callout alert berdesain dark-tech modern dengan border dan aksen amber yang jelas.
+  - Memformat paragraf peringatan / galat `⚠️` menjadi kartu callout alert berdesain dark-tech modern dengan border dan aksen amber yang jelas. *(Catatan: implementasi kode selesai, tampilan visual live di browser belum diinspeksi langsung)*.
 
 ### 109.3 Task 4: Flaky PluginV2 Test Isolation
 - [x] **`packages/engine/core/test/plugin.test.ts`**:
@@ -3899,9 +3899,9 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - Memverifikasi 8/8 boundary tests untuk `isProviderRetirementNotice`. Semua tes lolos 100%.
 
 ### 109.5 Task 7 & 8: PR Readiness & Full Verification
-- [x] **`git log` & branch inspection**: Branch `feature/tier-grouping` berada tepat di depan `main` tanpa konflik merge.
+- [x] **`git log` & branch status**: Branch `feature/tier-grouping` berada 14 commit di depan `main` (`d21679ff`). PR belum dibuat di GitHub upstream; siap dibuka PR atau di-merge ke `main`.
 - [x] **`npm run typecheck`**: Passed (0 error).
 - [x] **`bun run typecheck` (core)**: Passed (0 error).
 - [x] **`bun run tsc --noEmit -p packages/engine/engine/tsconfig.json`**: Passed (0 error).
 - [x] **`npm run build -w apps/web`**: Passed (0 error, build selesai 16.83s).
-- [x] **`npm run test:smoke`**: Passed live (8/8 provider checks passed 100%: Kiro text/tool/chat, OpenCode text/tool, Antigravity text/tool, Codex free).
+- [x] **`npm run test:smoke`**: Diulang dan passed live dengan engine aktif (8/8 provider checks passed 100%: Kiro text/tool/chat, OpenCode text/tool, Antigravity text/tool, Codex free).
