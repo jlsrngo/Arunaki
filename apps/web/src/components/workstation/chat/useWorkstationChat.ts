@@ -174,7 +174,11 @@ export function useWorkstationChat({
   const [reasoningEffort, setReasoningEffortState] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("arunaki_reasoning_effort");
-      if (saved && (saved === "low" || saved === "medium" || saved === "high")) return saved;
+      // Every level the active model offers is a real setting, not a typo to be filtered out. This
+      // used to accept low/medium/high only, so picking xhigh or max worked for the session and
+      // silently reverted to low on the next load. A stored value the current model does not offer
+      // is handled where it is used, which falls back to that model's first level.
+      if (saved) return saved;
       return "low";
     }
     return "low";
@@ -223,11 +227,13 @@ export function useWorkstationChat({
   // matches nothing in the catalogue, so the picker came up empty and the request asked for a
   // model that was never there. Fall back to the family when the exact id is gone, and write the
   // corrected id back so it heals once instead of on every send.
+  const [modelTick, setModelTick] = useState(0);
+
   const activeModel = useMemo(() => {
     const active = resolveActiveSingleModel();
     const list = modelsQuery.data;
     if (!list?.length) return active;
-    const known = (id: string) => list.some((m) => m?.providerID === active.providerID && m?.id === id);
+    const known = (id: string) => list.some((m: any) => m?.providerID === active.providerID && m?.id === id);
     if (known(active.id)) return active;
     const family = active.id.replace(/-(?:low|medium|high|tiered)$/i, "");
     if (family !== active.id && known(family)) {
@@ -238,9 +244,37 @@ export function useWorkstationChat({
       return { providerID: active.providerID, id: family };
     }
     return active;
-  }, [modelsQuery.data]);
+    // modelTick is what makes this re-read localStorage after setActiveModel writes it.
+  }, [modelsQuery.data, modelTick]);
 
   const activeTiers = tiersFor(activeModel.providerID, activeModel.id);
+
+  // Only the active provider's own models, the same rule the tier picker follows: a picker that
+  // lists every provider's catalogue offers models this account cannot reach from the provider it
+  // is connected to, and the bridge answers an unknown id from a different upstream rather than
+  // refusing it.
+  const providerModels = useMemo(() => {
+    const list = modelsQuery.data ?? [];
+    return list
+      .filter((m: any) => m?.providerID === activeModel.providerID)
+      .map((m: any) => ({ id: String(m?.id ?? ""), name: String(m?.name ?? m?.id ?? "") }))
+      .filter((m: any) => m.id !== "");
+  }, [modelsQuery.data, activeModel.providerID]);
+
+  const setActiveModel = useCallback(
+    (providerID: string, id: string) => {
+      if (!id) return;
+      try {
+        localStorage.setItem("arunaki_active_provider", providerID);
+        localStorage.setItem("arunaki_active_model", id);
+        localStorage.setItem(`arunaki_provider_model_${providerID}`, id);
+        localStorage.setItem(`arunaki_cli_model_${providerID}`, id);
+      } catch {}
+      setModelTick((n) => n + 1);
+      queryClient.invalidateQueries({ queryKey: ["engine-models"] });
+    },
+    [queryClient],
+  );
 
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
@@ -2053,6 +2087,9 @@ export function useWorkstationChat({
     reasoningEffort,
     setReasoningEffort,
     effortOptions: activeTiers,
+    activeModel,
+    providerModels,
+    setActiveModel,
     queuedPrompts,
     messagesEndRef,
     pendingQuestion,

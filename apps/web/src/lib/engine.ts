@@ -3,25 +3,15 @@
 // Engine API adapter. Base URL, credentials and directory resolution all live in lib/api.ts -
 // this file used to carry its own copy of the first two, and the copy without credentials is how 19
 // call sites would have broken when the engine started requiring a password.
-import { activeDirectory, authHeader, engineUrl, isDesktopBundle } from "./api";
+import { authHeader, engineUrl, isDesktopBundle, apiFetch } from "./api";
 
 function base(): string {
   // file:// means no Vite proxy in front, so paths have to be absolute.
   return isDesktopBundle() ? engineUrl() : "";
 }
 
-export async function engineFetch(path: string, init?: RequestInit) {
-  const url = `${base()}${path}`;
-  const activeFolder = activeDirectory();
-  return fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeader(),
-      ...(activeFolder ? { "x-arunaki-directory": activeFolder } : {}),
-      ...init?.headers,
-    },
-  });
+export async function engineFetch(path: string, init?: RequestInit): Promise<Response> {
+  return apiFetch(path, init);
 }
 
 // --- Session (maps to old "chat") ---
@@ -240,6 +230,40 @@ export function subscribeEvents(
         return c.signal;
       })()
     : controller.signal;
+
+  const d = typeof globalThis !== "undefined" ? (globalThis as any).arunakiDesktop : undefined;
+
+  // In Electron desktop, route SSE events through the main process IPC relay
+  if (d?.startEngineSSE && d?.onEngineSSE) {
+    const channel = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const query = directory ? `?directory=${encodeURIComponent(directory)}` : "";
+    const extraHeaders: Record<string, string> = directory ? { "x-arunaki-directory": directory } : {};
+
+    const unsubscribe = d.onEngineSSE(channel, (parsed: any) => {
+      if (finalSignal.aborted) return;
+      if (parsed.type !== "text_delta" && parsed.type !== "reasoning_delta") {
+        console.log("[SSE-IPC-RCVD]", parsed.type, parsed.data?.sessionID || parsed.sessionID);
+      }
+      onEvent(parsed);
+    });
+
+    d.startEngineSSE(channel, `/api/event${query}`, extraHeaders).catch((err: any) => {
+      console.warn("[SSE-IPC] Failed to start SSE relay:", err);
+    });
+
+    const cleanup = () => {
+      try { unsubscribe(); } catch {}
+      try { d.stopEngineSSE?.(channel); } catch {}
+    };
+
+    if (finalSignal.aborted) {
+      cleanup();
+    } else {
+      finalSignal.addEventListener("abort", cleanup, { once: true });
+    }
+
+    return controller;
+  }
 
   (async () => {
     while (!finalSignal.aborted) {

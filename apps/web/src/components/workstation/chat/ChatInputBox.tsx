@@ -77,6 +77,10 @@ reasoningEffort?: string;
   setReasoningEffort?: (val: string) => void;
   /** Tier ids the active model actually offers. Empty means no picker and no variant on the request. */
   effortOptions?: string[];
+  /** The model in use now, and the active provider's catalogue to switch between. */
+  activeModel?: { providerID: string; id: string };
+  modelOptions?: Array<{ id: string; name: string }>;
+  onSelectModel?: (model: { id: string; name: string }) => void;
   showThinking?: boolean;
   setShowThinking?: Dispatch<SetStateAction<boolean>>;
   collapseThinking?: boolean;
@@ -94,6 +98,9 @@ export const ChatInputBox = memo(function ChatInputBox({
   reasoningEffort = "",
 setReasoningEffort,
   effortOptions = [] as string[],
+  activeModel,
+  modelOptions = [] as Array<{ id: string; name: string }>,
+  onSelectModel,
   showThinking,
   setShowThinking,
   setCollapseThinking,

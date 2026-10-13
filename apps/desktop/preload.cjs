@@ -43,4 +43,57 @@ contextBridge.exposeInMainWorld('arunakiDesktop', {
     v8: process.versions.v8,
     os: `${process.platform === 'win32' ? 'Windows_NT' : process.platform} ${process.arch} 10.0.26200`,
   }),
+
+  // ── IPC Engine Relay ───────────────────────────────────────────────────
+  // These methods replace direct HTTP fetch from the renderer. The main
+  // process handles auth headers and proxies to the engine's localhost port.
+
+  /**
+   * Relay an HTTP request to the engine via the main process.
+   * @param {string} path - Engine route, e.g. '/api/session'
+   * @param {{ method?: string, headers?: Record<string,string>, body?: string }} init
+   * @returns {Promise<{ status: number, statusText: string, headers: Record<string,string>, body: string, ok: boolean }>}
+   */
+  engineFetch: (path, init) => ipcRenderer.invoke('engine:fetch', path, init),
+
+  /**
+   * Relay an HTTP request to the bridge server via the main process.
+   * @param {string} path - Bridge route, e.g. '/v1/models'
+   * @param {{ method?: string, headers?: Record<string,string>, body?: string }} init
+   * @returns {Promise<{ status: number, statusText: string, headers: Record<string,string>, body: string, ok: boolean }>}
+   */
+  bridgeFetch: (path, init) => ipcRenderer.invoke('bridge:fetch', path, init),
+
+  /**
+   * Start an SSE subscription via the main process.
+   * Events are received on the 'engine:sse:event:<channel>' IPC channel.
+   * @param {string} channel - Unique channel name for this subscription
+   * @param {string} path - Engine SSE route, e.g. '/api/event?directory=...'
+   * @param {Record<string,string>} [extraHeaders] - Additional headers
+   * @returns {Promise<{ ok: boolean, channel: string }>}
+   */
+  startEngineSSE: (channel, path, extraHeaders) =>
+    ipcRenderer.invoke('engine:sse:start', channel, path, extraHeaders),
+
+  /**
+   * Stop an SSE subscription.
+   * @param {string} channel - The channel name used in startEngineSSE
+   */
+  stopEngineSSE: (channel) => ipcRenderer.invoke('engine:sse:stop', channel),
+
+  /**
+   * Listen for SSE events on a specific channel.
+   * @param {string} channel - The channel name
+   * @param {(data: any) => void} callback - Event handler
+   * @returns {() => void} Cleanup function to remove the listener
+   */
+  onEngineSSE: (channel, callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on(`engine:sse:event:${channel}`, handler);
+    return () => ipcRenderer.removeListener(`engine:sse:event:${channel}`, handler);
+  },
+
+  /** Get engine/bridge URLs (display only, no credentials) */
+  getEngineInfo: () => ipcRenderer.invoke('engine:info'),
 });
+

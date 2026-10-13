@@ -3806,3 +3806,36 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - **Total Error Typecheck Awal:** 73 error
 - **Total Error Typecheck Akhir:** **0 ERROR (100% CLEAN)** across all packages.
 
+---
+
+## Phase 107: Electron IPC Relay Communication Bridge (Zero Direct HTTP Calls) ✅ DONE
+
+**Goal:** Memigrasikan seluruh komunikasi renderer-ke-backend di lingkungan Electron dari direct HTTP menjadi Electron IPC Relay (Fase 1 IPC Bridge), menjaga isolasi keamanan sandbox, meniadakan kebocoran credential di renderer, dan mempertahankan 100% fungsi dokumen dan streaming tanpa breaking changes.
+
+### 107.1 Main Process & Preload Bridge
+- [x] **`apps/desktop/main.cjs`**:
+  - Implementasi handler `engine:fetch` dengan HTTP Basic Auth injection dari proses main, header sanitization, dan normalisasi path.
+  - Implementasi handler `bridge:fetch` untuk proxy service bridge `:20188`.
+  - Implementasi handler `engine:sse:start` dan `engine:sse:stop` untuk multiplexing event stream terurai (`EventSource` simulation) langsung ke `_event.sender` dengan auto-abort saat webContents dihancurkan.
+  - Implementasi `engine:info` tanpa ekspos password.
+- [x] **`apps/desktop/preload.cjs`**:
+  - Ekspos method `engineFetch`, `bridgeFetch`, `startEngineSSE`, `stopEngineSSE`, `onEngineSSE`, dan `getEngineInfo` ke `window.arunakiDesktop`.
+
+### 107.2 Web Client Adapters
+- [x] **`apps/web/src/lib/api.ts`**:
+  - Deteksi `isDesktop()` otomatis via `window.arunakiDesktop.engineFetch`.
+  - Implementasi `wrapIpcResponse()` yang mengembalikan web-standard `Response` interface (`.ok`, `.status`, `.json()`, `.text()`, dll).
+  - Integrasi `AbortSignal` handling dan cancellation race-promise.
+  - Mempertahankan direct HTTP fallback transparan saat running di browser dev mode.
+- [x] **`apps/web/src/lib/engine.ts`**:
+  - Redireksi `engineFetch()` langsung ke `apiFetch()`.
+  - Integrasi streaming `subscribeEvents()` ke IPC SSE listener (`startEngineSSE` / `onEngineSSE`) dengan auto-cleanup saat signal abort.
+- [x] **`apps/web/src/components/settings/SettingsCliConnectionsTab.tsx`**:
+  - Reroute direct fetch ke `bridgeFetch()` untuk pengecekan model CLI bridge.
+
+### 107.3 Verifikasi & Kualitas
+- [x] **`npm run typecheck`**: Passed (0 error).
+- [x] **`npm run build -w apps/web`**: Passed (0 error kompilasi TypeScript, bundling berhasil).
+- [x] **`npm run test:smoke`**: Passed (8/8 provider checks passed live).
+
+

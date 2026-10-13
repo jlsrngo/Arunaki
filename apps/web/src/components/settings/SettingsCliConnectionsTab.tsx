@@ -16,7 +16,7 @@ import {
   Sparkles,
   Gauge,
 } from "lucide-react";
-import { API_BASE, BRIDGE_URL, apiFetch, directoryQuery } from "../../lib/api";
+import { API_BASE, BRIDGE_URL, apiFetch, bridgeFetch, directoryQuery } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -1660,7 +1660,7 @@ const isGeminiActive =
     try {
       if (target === "antigravity" || target === "opencode") {
         try {
-          const directRes = await fetch(`${BRIDGE_URL}/v1/models`, {
+          const directRes = await bridgeFetch(`${BRIDGE_URL}/v1/models`, {
             signal: AbortSignal.timeout(1200),
           }).catch(() => null);
           if (directRes && directRes.ok) {

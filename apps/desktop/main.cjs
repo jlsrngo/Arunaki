@@ -59,6 +59,25 @@ const WEB_URL = process.env.ARUNAKI_WEB_URL || null;
 const WAIT_TIMEOUT_MS = 15000;
 const WAIT_INTERVAL_MS = 500;
 
+// ── IPC Engine Relay ─────────────────────────────────────────────────────────
+// The renderer never talks to the engine over HTTP directly. All engine
+// communication is relayed through IPC so that no localhost port is exposed to
+// the Chromium sandbox and no auth credentials need to leave the main process.
+
+const ENGINE_URL = process.env.ARUNAKI_ENGINE_URL || 'http://127.0.0.1:4096';
+const BRIDGE_URL = process.env.ARUNAKI_BRIDGE_URL || 'http://127.0.0.1:20188';
+
+function engineAuthHeader() {
+  const user = process.env.ARUNAKI_SERVER_USERNAME || process.env.Arunaki_SERVER_USERNAME || 'arunaki';
+  const pw = process.env.ARUNAKI_SERVER_PASSWORD || process.env.Arunaki_SERVER_PASSWORD;
+  if (!pw) return {};
+  return { Authorization: `Basic ${Buffer.from(`${user}:${pw}`).toString('base64')}` };
+}
+
+// Active SSE subscriptions keyed by a client-chosen channel name.
+// Each entry: { reader, aborted }
+const activeSseSubscriptions = new Map();
+
 function loadBundle(win) {
   const distIndexPath = path.join(__dirname, '../web/dist/index.html');
   if (fsSync.existsSync(distIndexPath)) {
@@ -234,6 +253,173 @@ function createWindow() {
 
 app.whenReady().then(() => {
   ipcMain.handle('app:ping', () => 'desktop');
+
+  // ── Engine IPC Relay ─────────────────────────────────────────────────────
+  // Generic HTTP relay: renderer calls engine:fetch(path, serializableInit)
+  // and receives { status, statusText, headers, body, ok }.
+  ipcMain.handle('engine:fetch', async (_event, relPath, init) => {
+    try {
+      const cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
+      const url = `${ENGINE_URL}${cleanPath}`;
+      const method = init?.method || 'GET';
+      const outHeaders = {
+        ...engineAuthHeader(),
+        ...(init?.headers || {}),
+      };
+      if (init?.body && !outHeaders['Content-Type'] && !outHeaders['content-type']) {
+        outHeaders['Content-Type'] = 'application/json';
+      }
+      const fetchOpts = { method, headers: outHeaders };
+      if (init?.body) fetchOpts.body = init.body;
+      const res = await fetch(url, fetchOpts);
+      const body = await res.text();
+      const resHeaders = {};
+      res.headers.forEach((v, k) => { resHeaders[k] = v; });
+      return { status: res.status, statusText: res.statusText, headers: resHeaders, body, ok: res.ok };
+    } catch (err) {
+      return { status: 0, statusText: 'IPC relay error', headers: {}, body: JSON.stringify({ error: err.message }), ok: false };
+    }
+  });
+
+  // Bridge relay (separate server, e.g. model validation on :20188)
+  ipcMain.handle('bridge:fetch', async (_event, relPath, init) => {
+    try {
+      const cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
+      const url = `${BRIDGE_URL}${cleanPath}`;
+      const method = init?.method || 'GET';
+      const outHeaders = { ...engineAuthHeader(), ...(init?.headers || {}) };
+      if (init?.body && !outHeaders['Content-Type'] && !outHeaders['content-type']) {
+        outHeaders['Content-Type'] = 'application/json';
+      }
+      const fetchOpts = { method, headers: outHeaders };
+      if (init?.body) fetchOpts.body = init.body;
+      const res = await fetch(url, fetchOpts);
+      const body = await res.text();
+      const resHeaders = {};
+      res.headers.forEach((v, k) => { resHeaders[k] = v; });
+      return { status: res.status, statusText: res.statusText, headers: resHeaders, body, ok: res.ok };
+    } catch (err) {
+      return { status: 0, statusText: 'IPC bridge relay error', headers: {}, body: JSON.stringify({ error: err.message }), ok: false };
+    }
+  });
+
+  // SSE relay: main process opens the EventSource-style connection and
+  // forwards parsed events to the renderer via webContents.send.
+  ipcMain.handle('engine:sse:start', async (_event, channel, relPath, extraHeaders) => {
+    const sender = _event.sender;
+    // Stop any existing subscription on this channel first
+    const existing = activeSseSubscriptions.get(channel);
+    if (existing) {
+      existing.aborted = true;
+      try { existing.controller?.abort(); } catch {}
+      activeSseSubscriptions.delete(channel);
+    }
+
+    const sub = { aborted: false, controller: null };
+    activeSseSubscriptions.set(channel, sub);
+
+    // Auto-abort if the calling webContents is destroyed (e.g. reload or window closed)
+    if (sender && !sender.isDestroyed()) {
+      sender.once('destroyed', () => {
+        sub.aborted = true;
+        try { sub.controller?.abort(); } catch {}
+        activeSseSubscriptions.delete(channel);
+      });
+    }
+
+    // Run the SSE loop in the background (not awaited)
+    (async () => {
+      const cleanPath = typeof relPath === 'string' && relPath.startsWith('/') ? relPath : `/${relPath || ''}`;
+      while (!sub.aborted) {
+        const ac = new AbortController();
+        sub.controller = ac;
+        try {
+          const url = `${ENGINE_URL}${cleanPath}`;
+          const res = await fetch(url, {
+            headers: {
+              Accept: 'text/event-stream',
+              ...engineAuthHeader(),
+              ...(extraHeaders || {}),
+            },
+            signal: ac.signal,
+          });
+          if (!res.body) {
+            if (!sub.aborted) await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (!sub.aborted) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const messages = buffer.split(/\r?\n\r?\n/);
+            buffer = messages.pop() || '';
+            for (const msg of messages) {
+              const lines = msg.split(/\r?\n/);
+              let eventData = '';
+              let eventType = '';
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('data:')) {
+                  const slice = trimmed.slice(5).trim();
+                  eventData += (eventData ? '\n' : '') + slice;
+                } else if (trimmed.startsWith('event:')) {
+                  eventType = trimmed.slice(6).trim();
+                }
+              }
+              const target = sender && !sender.isDestroyed() ? sender : (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null);
+              if (eventData && target) {
+                try {
+                  const parsed = JSON.parse(eventData);
+                  if (eventType && !parsed.type) parsed.type = eventType;
+                  target.send(`engine:sse:event:${channel}`, parsed);
+                } catch {
+                  // Forward raw lines if JSON parse fails
+                  for (const line of lines) {
+                    const t = line.trim();
+                    if (t.startsWith('data:')) {
+                      try {
+                        const single = JSON.parse(t.slice(5).trim());
+                        target.send(`engine:sse:event:${channel}`, single);
+                      } catch {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+          try { reader.cancel(); } catch {}
+        } catch {
+          // Connection dropped or aborted
+        }
+        if (!sub.aborted) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+      activeSseSubscriptions.delete(channel);
+    })();
+
+    return { ok: true, channel };
+  });
+
+  ipcMain.handle('engine:sse:stop', async (_event, channel) => {
+    const sub = activeSseSubscriptions.get(channel);
+    if (sub) {
+      sub.aborted = true;
+      try { sub.controller?.abort(); } catch {}
+      activeSseSubscriptions.delete(channel);
+    }
+    return { ok: true };
+  });
+
+  // Expose engine info to renderer (URL for display purposes only, no auth)
+  ipcMain.handle('engine:info', () => ({
+    url: ENGINE_URL,
+    bridgeUrl: BRIDGE_URL,
+  }));
 
   ipcMain.handle('theme:set', async (_event, theme) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
