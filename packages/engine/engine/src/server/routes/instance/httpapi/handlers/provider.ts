@@ -327,7 +327,8 @@ export const providerSettingsHandlers = HttpApiBuilder.group(InstanceHttpApi, "p
             },
           }
         }
-        yield* cfg.update(patch)
+        yield* cfg.updateGlobal(patch)
+        yield* cfg.update(patch).pipe(Effect.catch(() => Effect.void))
         yield* markInstanceForDisposal(yield* InstanceState.context)
       }
       return {

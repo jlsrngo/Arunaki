@@ -245,7 +245,7 @@ export function ModelProviderSettings({
 
   const handleToggleActive = async (provider: Provider) => {
     try {
-      const isCurrentlyActive = provider.active || localStorage.getItem("arunaki_active_provider") === provider.id;
+      const isCurrentlyActive = Boolean(provider.active);
 
       if (isCurrentlyActive) {
         // Matikan (OFF) -> Alihkan rute obrolan ke CLI / Local Agent

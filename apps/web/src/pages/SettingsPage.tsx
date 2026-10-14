@@ -27,10 +27,22 @@ export function SettingsPage() {
   const fetchProviders = async () => {
     try {
       // 1. Fetch user-configured providers from /api/providers and catalog models from /api/model
-      const [providersRes, modelRes] = await Promise.all([
+      let [providersRes, modelRes] = await Promise.all([
         apiFetch(`${API_BASE}/providers${directoryQuery()}`),
         apiFetch(`${API_BASE}/model${directoryQuery()}`),
       ]);
+
+      // Fallback to global catalogue if directory-scoped fetch failed
+      if (!providersRes.ok && directoryQuery()) {
+        const [fallbackP, fallbackM] = await Promise.all([
+          apiFetch(`${API_BASE}/providers`),
+          apiFetch(`${API_BASE}/model`),
+        ]);
+        if (fallbackP.ok) {
+          providersRes = fallbackP;
+          modelRes = fallbackM;
+        }
+      }
 
       const mJson = modelRes.ok ? await modelRes.json() : { data: [] };
       const rawModels: any[] = mJson.data || [];

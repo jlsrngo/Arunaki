@@ -195,7 +195,11 @@ const layer = Layer.effect(
     const npmSvc = yield* Npm.Service
     const http = yield* HttpClient.HttpClient
 
-    const readConfigFile = (filepath: string) => fs.readFileStringSafe(filepath).pipe(Effect.orDie)
+    const readConfigFile = (filepath: string) =>
+      fs.readFileStringSafe(filepath).pipe(
+        Effect.map((text) => (text ? text.replace(/\0/g, "") : text)),
+        Effect.orDie,
+      )
 
     const fetchRemoteJson = Effect.fnUntraced(function* <S extends Schema.Top>(
       url: string,
@@ -253,7 +257,15 @@ const layer = Layer.effect(
       yield* Effect.logInfo("loading", { path: filepath })
       const text = yield* readConfigFile(filepath)
       if (!text) return {} as Info
-      return yield* loadConfig(text, { path: filepath }, env)
+      return yield* loadConfig(text, { path: filepath }, env).pipe(
+        Effect.tapError((error) =>
+          Effect.logWarning("failed to parse config file, using empty fallback", {
+            path: filepath,
+            error: String(error),
+          }),
+        ),
+        Effect.orElseSucceed((): Info => ({})),
+      )
     })
 
     const loadGlobal = Effect.fnUntraced(function* (env?: Record<string, string>) {
@@ -634,6 +646,17 @@ const layer = Layer.effect(
       )
     })
 
+    const safeWriteFile = (targetFile: string, text: string) =>
+      Effect.uninterruptible(
+        Effect.gen(function* () {
+          const tmpFile = `${targetFile}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`
+          yield* fs.writeFileString(tmpFile, text).pipe(Effect.orDie)
+          yield* Effect.promise(() => fsNode.rename(tmpFile, targetFile)).pipe(
+            Effect.catch(() => fs.writeFileString(targetFile, text).pipe(Effect.orDie)),
+          )
+        }),
+      )
+
     const update = Effect.fn("Config.update")(function* (config: Info) {
       const dir = yield* InstanceState.directory
       const dotArunaki = path.join(dir, ".arunaki")
@@ -641,9 +664,7 @@ const layer = Layer.effect(
       const rootFile = path.join(dir, "arunaki.json")
       yield* fs.ensureDir(dotArunaki).pipe(Effect.orDie)
       const existing = (yield* loadFile(dotFile)) ?? (yield* loadFile(rootFile))
-      yield* fs
-        .writeFileString(dotFile, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
-        .pipe(Effect.orDie)
+      yield* safeWriteFile(dotFile, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
       if (yield* fs.existsSafe(rootFile)) {
         yield* fs.remove(rootFile).pipe(Effect.ignore)
       }
@@ -664,7 +685,7 @@ const layer = Layer.effect(
       const same = previous.length === ids.length && ids.every((id) => id in (current.models ?? {}))
       if (same) return false
       const next = { ...existing, provider: { ...existing.provider, [providerID]: { ...current, models } } }
-      yield* fs.writeFileString(file, JSON.stringify(next, null, 2)).pipe(Effect.orDie)
+      yield* safeWriteFile(file, JSON.stringify(next, null, 2))
       yield* invalidate()
       return true
     })
@@ -679,7 +700,7 @@ const layer = Layer.effect(
       const existing = ConfigParse.schema(ConfigV1.Info, ConfigParse.jsonc(before, file), file)
       if (!existing.provider || !(providerID in existing.provider)) return false
       delete existing.provider[providerID as keyof NonNullable<typeof existing.provider>]
-      yield* fs.writeFileString(file, JSON.stringify(existing, null, 2)).pipe(Effect.orDie)
+      yield* safeWriteFile(file, JSON.stringify(existing, null, 2))
       return true
     })
 
@@ -699,13 +720,13 @@ const layer = Layer.effect(
         const merged = mergeDeep(writable(existing), patch)
         const serialized = JSON.stringify(merged, null, 2)
         changed = serialized !== before
-        if (changed) yield* fs.writeFileString(file, serialized).pipe(Effect.orDie)
+        if (changed) yield* safeWriteFile(file, serialized)
         next = merged
       } else {
         const updated = patchJsonc(before, patch)
         next = ConfigParse.schema(ConfigV1.Info, ConfigParse.jsonc(updated, file), file)
         changed = updated !== before
-        if (changed) yield* fs.writeFileString(file, updated).pipe(Effect.orDie)
+        if (changed) yield* safeWriteFile(file, updated)
       }
 
       if (changed) yield* invalidate()
