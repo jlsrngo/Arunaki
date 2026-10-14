@@ -2,6 +2,7 @@
   "name": "arunaki-desktop",
   "productName": "Arunaki",
   "description": "Desktop Computer Use Agent untuk Dokumen",
+  "license": "Apache-2.0",
   "private": true,
   "version": "0.1.0",
   "type": "commonjs",

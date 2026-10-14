@@ -14,6 +14,7 @@
   [![Runtime](https://img.shields.io/badge/Runtime-Bun%201.3%20%7C%20Electron%2043-09090b?style=for-the-badge&logo=bun&logoColor=white)](https://github.com/jlsrngo/Arunaki)
   [![Stack](https://img.shields.io/badge/Tech-TypeScript%20%7C%20React%20%7C%20Effect-09090b?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/jlsrngo/Arunaki)
   [![Telegram Remote](https://img.shields.io/badge/Remote%20Control-Telegram%20Bot-09090b?style=for-the-badge&logo=telegram&logoColor=26A5E4)](https://github.com/jlsrngo/Arunaki)
+  [![License](https://img.shields.io/badge/License-Apache%202.0-09090b?style=for-the-badge&logo=apache&logoColor=white)](LICENSE)
   [![Security](https://img.shields.io/badge/Security-Folder%20Isolation%20Sandbox-e59344?style=for-the-badge&logoColor=black)](docs/BOUNDARIES.md)
 
   <br />
@@ -253,4 +254,4 @@ npm run verify       # Full verification gate (build + typecheck + smoke tests)
 ## 📄 License & Credits
 
 Open source and crafted with precision by [Julio Siringoringo](https://juliosiringoringo.space).  
-Distributed under the **MIT License**. Built for local, private, and automated document workflows.
+Distributed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for the full license text, trademark policies, and patent grants.
