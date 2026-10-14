@@ -1,9 +1,34 @@
 # GitHub Linguist Overrides
-# Treat skills runtime tooling, documentation, and auxiliary scripts as vendored/documentation
-# so language statistics accurately reflect Arunaki's primary TypeScript codebase.
+# Accurately showcase Arunaki's multi-tier architecture:
+# TypeScript (Core AI Engine & React UI), JavaScript (Electron Desktop Shell & Automation), CSS, HTML, and Shell.
 
+# Documentation & Specifications
+docs/** linguist-documentation
+*.md linguist-documentation
+*.txt linguist-documentation
+
+# Test Suites & Fixtures (prevent test mock data from artificially inflating code metrics)
+packages/engine/engine/test/** linguist-vendored
+packages/engine/engine/specs/** linguist-vendored
+packages/arunaki-tools/test/** linguist-vendored
+**/*.test.ts linguist-vendored
+**/*.test.tsx linguist-vendored
+**/*.spec.ts linguist-vendored
+
+# Generated SDK & External Agent Runtime Assets
+packages/engine/sdk/** linguist-vendored
 .opencode/** linguist-vendored
 .agents/** linguist-vendored
-scripts/** linguist-vendored
-docs/** linguist-documentation
-*.cjs linguist-vendored
+
+# Detectable UI Styling & Markup
+*.css linguist-detectable=true
+*.html linguist-detectable=true
+
+# Recognize Electron Desktop Process & Tooling as JavaScript
+apps/desktop/*.cjs linguist-language=JavaScript linguist-detectable=true
+scripts/*.cjs linguist-language=JavaScript linguist-detectable=true
+*.cjs linguist-language=JavaScript
+
+# Shell & OS native automation
+*.sh linguist-detectable=true
+*.ps1 linguist-detectable=true

@@ -42,6 +42,8 @@ scratch/
 **/.arunaki-backup/
 
 # Root-level local business files
+9ROUTER-DEEPDIVE-REPORT.txt
+*DEEPDIVE-REPORT.txt
 REKAPAN TERBARU*.txt
 TABEL REKAPAN*.xlsm
 testing.xlsx
