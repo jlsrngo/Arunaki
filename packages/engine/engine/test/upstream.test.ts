@@ -219,6 +219,29 @@ describe("Upstream request builders", () => {
     expect(res.input[0].role).toBe("user")
   })
 
+  it("chatToResponses: preserves multimodal images as input_image parts", () => {
+    const res = chatToResponses({
+      model: "gpt-5.6-terra",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "check this diagram" },
+            { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==" } },
+          ],
+        },
+      ],
+    })
+    expect(res.input).toHaveLength(1)
+    expect(res.input[0].role).toBe("user")
+    expect(res.input[0].content).toHaveLength(2)
+    expect(res.input[0].content[0]).toEqual({ type: "input_text", text: "check this diagram" })
+    expect(res.input[0].content[1]).toEqual({
+      type: "input_image",
+      image_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+    })
+  })
+
   it("tool id announced in output_item.added BEFORE argument deltas", () => {
     const ctx = { id: "c1", created: 1, model: "gpt-5.1-codex" }
     const added = JSON.parse(

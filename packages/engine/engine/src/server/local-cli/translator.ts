@@ -29,14 +29,70 @@ export function openaiToAnthropic(payload: any): any | null {
           if (part.type === "text") {
             contentParts.push({ type: "text", text: part.text || "" })
           } else if (part.type === "image_url") {
-            const url = part.image_url?.url || ""
+            const url = typeof part.image_url === "string" ? part.image_url : part.image_url?.url || ""
             if (url.startsWith("data:")) {
               const [header, base64] = url.split(",")
               const mediaType = header.replace("data:", "").replace(";base64", "")
+              if (mediaType.includes("pdf")) {
+                contentParts.push({
+                  type: "document",
+                  source: { type: "base64", media_type: "application/pdf", data: base64 },
+                })
+              } else {
+                contentParts.push({
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType || "image/png", data: base64 },
+                })
+              }
+            }
+          } else if (part.type === "image") {
+            if (part.source?.data) {
               contentParts.push({
                 type: "image",
-                source: { type: "base64", media_type: mediaType, data: base64 },
+                source: {
+                  type: "base64",
+                  media_type: part.source.media_type || "image/png",
+                  data: part.source.data,
+                },
               })
+            } else if (typeof part.image === "string" && part.image.startsWith("data:")) {
+              const [header, base64] = part.image.split(",")
+              const mediaType = header.replace("data:", "").replace(";base64", "")
+              contentParts.push({
+                type: "image",
+                source: { type: "base64", media_type: mediaType || "image/png", data: base64 },
+              })
+            }
+          } else if (part.type === "media" || part.type === "file") {
+            const rawUrl = part.dataUrl || part.data || part.url || ""
+            const mediaType = part.mediaType || part.mime || "image/png"
+            if (rawUrl.startsWith("data:")) {
+              const [header, base64] = rawUrl.split(",")
+              const parsedMime = header.replace("data:", "").replace(";base64", "") || mediaType
+              if (parsedMime.includes("pdf")) {
+                contentParts.push({
+                  type: "document",
+                  source: { type: "base64", media_type: "application/pdf", data: base64 },
+                })
+              } else {
+                contentParts.push({
+                  type: "image",
+                  source: { type: "base64", media_type: parsedMime, data: base64 },
+                })
+              }
+            } else if (rawUrl.length > 50) {
+              // Assume already base64 string
+              if (mediaType.includes("pdf")) {
+                contentParts.push({
+                  type: "document",
+                  source: { type: "base64", media_type: "application/pdf", data: rawUrl },
+                })
+              } else {
+                contentParts.push({
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: rawUrl },
+                })
+              }
             }
           }
         }

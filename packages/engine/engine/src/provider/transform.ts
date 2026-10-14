@@ -26,6 +26,83 @@ export function sanitizeSurrogates(content: string) {
   return content.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD")
 }
 
+export function isKnownVisionModel(id?: string): boolean {
+  if (!id) return false
+  const s = id.toLowerCase()
+  if (
+    s.includes("vision") ||
+    s.includes("multimodal") ||
+    s.includes("-vl") ||
+    s.includes("vl-") ||
+    s.includes("pixtral")
+  ) {
+    return true
+  }
+  if (
+    s.includes("gpt-4") ||
+    s.includes("gpt-5") ||
+    s.includes("gpt-6") ||
+    s.includes("gpt-reserve") ||
+    s.includes("codex") ||
+    s.includes("o1") ||
+    s.includes("o3") ||
+    s.includes("o4") ||
+    s.includes("cx/gpt") ||
+    s.startsWith("cx/")
+  ) {
+    return true
+  }
+  if (
+    s.includes("claude-3") ||
+    s.includes("claude-sonnet") ||
+    s.includes("claude-haiku") ||
+    s.includes("claude-opus") ||
+    s.includes("kr/claude") ||
+    s.includes("oc/claude") ||
+    s.startsWith("kr/") ||
+    s.startsWith("oc/")
+  ) {
+    return true
+  }
+  if (
+    s.includes("gemini") ||
+    s.includes("antigravity") ||
+    s.includes("agy") ||
+    s.includes("vx/gemini") ||
+    s.startsWith("vx/")
+  ) {
+    return true
+  }
+  if (
+    s.startsWith("kiro/") &&
+    (s.includes("claude") || s.includes("auto") || s.includes("sonnet") || s.includes("haiku"))
+  ) {
+    return true
+  }
+  return false
+}
+
+export function isKnownPdfModel(id?: string): boolean {
+  if (!id) return false
+  const s = id.toLowerCase()
+  if (
+    s.includes("claude-3-5") ||
+    s.includes("claude-3-7") ||
+    s.includes("claude-sonnet") ||
+    s.includes("claude-opus") ||
+    s.includes("gemini-1.5") ||
+    s.includes("gemini-2") ||
+    s.includes("gemini-3") ||
+    s.includes("antigravity") ||
+    s.includes("vx/gemini") ||
+    s.includes("oc/claude") ||
+    s.includes("kr/claude")
+  ) {
+    return true
+  }
+  return false
+}
+
 function isKimiFamily(model: Provider.Model) {
   if (
     [model.providerID, model.api.id].some((id) => {
@@ -434,6 +511,10 @@ function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMes
       if (!modality) return part
       if (model.capabilities.input[modality]) return part
 
+      const modelId = `${model.id}/${model.api?.id ?? ""}/${model.providerID ?? ""}`
+      if (modality === "image" && isKnownVisionModel(modelId)) return part
+      if (modality === "pdf" && isKnownPdfModel(modelId)) return part
+
       const name = filename ? `"${filename}"` : modality
       return {
         type: "text" as const,
@@ -553,7 +634,7 @@ export function topP(model: Provider.Model) {
   }
   if (
     ["deepseek-v4-flash-0731", "deepseek-v4-flash:0731"].some((name) => id.includes(name)) ||
-    (id.includes("deepseek-v4-flash") && (model.providerID === "deepseek" || model.providerID.startsWith("arunaki")))
+    (id.includes("deepseek-v4-flash") && (model.providerID === "deepseek" || model.providerID.toLowerCase().startsWith("arunaki")))
   ) {
     return 0.95
   }

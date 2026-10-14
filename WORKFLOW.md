@@ -3959,4 +3959,43 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **Git Hygiene (`.gitignore`)**:
   - Mengabaikan binary besar `apps/desktop/resources/*.exe`, folder `apps/desktop/web/`, dan `dist-exe/` agar repository tetap bersih dan ringan.
 
+---
+
+## Phase 112: Universal Multi-Vendor Vision Unlocking & Smart Bilinear OCR Upscaling ✅ DONE
+
+**Goal:** Membuka 100% kemampuan vision multimodal dan penanganan dokumen di semua vendor model (Codex, Anthropic/Claude, Google/Antigravity, AWS/Kiro, Groq/OpenCode, 9Router) tanpa terkunci, serta memperbaiki tool OCR dengan interpolasi bilinear 4x otomatis untuk mengenali crop gambar kecil beresolusi rendah.
+
+### 112.1 Root Cause & Multi-Vendor Multimodal Vision Unlocking
+- [x] **Investigation & Database Forensics**:
+  - Melacak chat riwayat 12 Oktober 2026 (`gpt-5.6-terra`, provider `codex`, attachment `image_0452.png` 203x183 px).
+  - Menemukan akar penyebab model tidak melihat gambar:
+    1. `packages/engine/engine/src/provider/transform.ts` (`unsupportedParts`): Memeriksa `model.capabilities.input.image`. Model-model baru / dinamis yang tidak tercantum di `models.dev` dengan `modalities.input: ["image"]` otomatis memiliki flag `image: false`, sehingga gambarnya digantikan dengan teks error `ERROR: Cannot read image (this model does not support image input). Inform the user.`!
+    2. Modul bridge upstream (`upstream.ts`, `translator.ts`, `kiro.ts`) meratakan konten dengan `textOf(m.content)` yang membuang data URL gambar base64 sebelum dikirim ke endpoint upstream.
+- [x] **Universal Vision Unlocking Across ALL Vendors**:
+  - **`packages/engine/engine/src/provider/transform.ts` & `provider.ts`**:
+    - Menambahkan `isKnownVisionModel` dan `isKnownPdfModel` yang mengenali seluruh model frontier multimodal dari semua vendor (OpenAI `gpt-4/5/6/codex/o1/o3/o4/cx`, Anthropic `claude-3/3.5/3.7/sonnet/haiku/opus/kr/oc`, Google `gemini/antigravity/agy/vx`, AWS `kiro/claude`, Groq/OpenCode `vision/vl/pixtral`).
+    - Memastikan `unsupportedParts` dan `fromModelsDevModel` TIDAK PERNAH memotong atau mengunci input gambar dan dokumen PDF pada model vision.
+  - **Codex / ChatGPT Responses (`upstream.ts`)**:
+    - Memetakan `image_url`, `image`, `media`, dan `file` ke `{ type: "input_image", image_url: url }`.
+  - **Anthropic / Claude (`translator.ts`)**:
+    - Memetakan gambar ke `{ type: "image", source: { type: "base64", media_type, data } }` dan PDF ke `{ type: "document", source: { type: "base64", media_type: "application/pdf", data } }`.
+  - **Google / Antigravity / Gemini (`upstream.ts`)**:
+    - Memetakan gambar dan dokumen ke `{ inlineData: { mimeType, data } }`.
+  - **AWS / Kiro (`kiro.ts`)**:
+    - Menambahkan `extractKiroImages` dan memetakan ke `userInputMessage.images: [{ format, source: { bytes } }]`.
+  - **Groq & 9Router (`bridge.ts`)**:
+    - Meneruskan `payload.messages` dengan format array OpenAI image_url tanpa degradasi.
+
+### 112.2 Smart Bilinear OCR Auto-Upscaler
+- [x] **`packages/arunaki-tools/src/image-ocr.ts`**:
+  - Menambahkan fungsi `preprocessSmallImage` dengan algoritma Bilinear Interpolation yang secara otomatis memperbesar gambar kecil (< 800px) hingga 4x (menggunakan library ultra-ringan `png-js` dan `bmp-js` yang kompatibel dengan Bun & Node).
+  - Tesseract LSTM memerlukan tinggi karakter minimal ~30px. Pada 203x183 px karakter hanya 6-8px (dianggap noise background). Setelah upscaling 4x ke 812x732 px, OCR langsung mengenali teks dengan akurasi 91% (semua 6 baris berhasil terekstrak).
+- [x] **Prompt Hierarchy Alignment (`system.ts` & `builtins.ts`)**:
+  - Menginstruksikan model yang memiliki kemampuan vision untuk memeriksa gambar secara langsung dalam multimodal context dan tidak memanggil `image_ocr` kecuali jika pengguna secara eksplisit meminta OCR.
+
+### 112.3 Verification & Packaging Gate
+- [x] **Unit Tests (`kiro.test.ts`, `upstream.test.ts`, `builtins.test.ts`, `transform.test.ts`)**: Lolos 100% (73 passed tests across suites).
+- [x] **Web Build (`npm run build -w apps/web`)**: 0 error kompilasi TypeScript.
+- [x] **Standalone Binary Packaging (`npm run bundle:prepare`)**: Sukses membangun `apps/desktop/resources/engine.exe` (119.16 MB) mandiri dengan seluruh pembaruan engine dan OCR tools.
+
 

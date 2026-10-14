@@ -1287,11 +1287,15 @@ function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model
       attachment: model.attachment ?? false,
       toolcall: model.tool_call ?? true,
       input: {
-        text: model.modalities?.input?.includes("text") ?? false,
+        text: model.modalities?.input?.includes("text") ?? true,
         audio: model.modalities?.input?.includes("audio") ?? false,
-        image: model.modalities?.input?.includes("image") ?? false,
+        image:
+          model.modalities?.input?.includes("image") ??
+          ProviderTransform.isKnownVisionModel(`${model.id}/${provider.id}`),
         video: model.modalities?.input?.includes("video") ?? false,
-        pdf: model.modalities?.input?.includes("pdf") ?? false,
+        pdf:
+          model.modalities?.input?.includes("pdf") ??
+          ProviderTransform.isKnownPdfModel(`${model.id}/${provider.id}`),
       },
       output: {
         text: model.modalities?.output?.includes("text") ?? false,
@@ -1520,9 +1524,15 @@ const layer = Layer.effect(
                 input: {
                   text: model.modalities?.input?.includes("text") ?? existingModel?.capabilities.input.text ?? true,
                   audio: model.modalities?.input?.includes("audio") ?? existingModel?.capabilities.input.audio ?? false,
-                  image: model.modalities?.input?.includes("image") ?? existingModel?.capabilities.input.image ?? false,
+                  image:
+                    model.modalities?.input?.includes("image") ??
+                    existingModel?.capabilities.input.image ??
+                    ProviderTransform.isKnownVisionModel(`${apiID}/${providerID}`),
                   video: model.modalities?.input?.includes("video") ?? existingModel?.capabilities.input.video ?? false,
-                  pdf: model.modalities?.input?.includes("pdf") ?? existingModel?.capabilities.input.pdf ?? false,
+                  pdf:
+                    model.modalities?.input?.includes("pdf") ??
+                    existingModel?.capabilities.input.pdf ??
+                    ProviderTransform.isKnownPdfModel(`${apiID}/${providerID}`),
                 },
                 output: {
                   text: model.modalities?.output?.includes("text") ?? existingModel?.capabilities.output.text ?? true,

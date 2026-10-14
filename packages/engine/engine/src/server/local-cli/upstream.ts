@@ -71,10 +71,42 @@ export function chatToResponses(p: any): any {
       continue
     }
     if (m.role === "user") {
+      const contentParts: any[] = []
+      if (Array.isArray(m.content)) {
+        for (const part of m.content) {
+          if (typeof part === "string") {
+            if (part) contentParts.push({ type: "input_text", text: part })
+          } else if (part.type === "text") {
+            if (part.text) contentParts.push({ type: "input_text", text: part.text })
+          } else if (part.type === "image_url") {
+            const url = part.image_url?.url || part.image_url || ""
+            if (url) contentParts.push({ type: "input_image", image_url: url })
+          } else if (part.type === "image") {
+            const url =
+              typeof part.image === "string"
+                ? part.image
+                : part.source?.data
+                ? `data:${part.source?.media_type || "image/png"};base64,${part.source.data}`
+                : ""
+            if (url) contentParts.push({ type: "input_image", image_url: url })
+          } else if (part.type === "media" || part.type === "file") {
+            const raw = part.dataUrl || part.data || part.url || ""
+            const mime = part.mediaType || part.mime || "image/png"
+            const url = raw.startsWith("data:") ? raw : raw.length > 50 ? `data:${mime};base64,${raw}` : ""
+            if (url) contentParts.push({ type: "input_image", image_url: url })
+          }
+        }
+      } else {
+        const text = textOf(m.content)
+        if (text) contentParts.push({ type: "input_text", text })
+      }
+      if (contentParts.length === 0) {
+        contentParts.push({ type: "input_text", text: "" })
+      }
       input.push({
         type: "message",
         role: m.role,
-        content: [{ type: "input_text", text: textOf(m.content) }],
+        content: contentParts,
       })
     } else if (m.role === "assistant") {
       if (m.tool_calls?.length) {
@@ -713,12 +745,46 @@ export function chatToAntigravityContents(payload: any): any[] {
 
     if (Array.isArray(m.content)) {
       for (const part of m.content) {
-        if (part.type === "text" && part.text) parts.push({ text: part.text })
-        else if (part.type === "image_url" && part.image_url?.url?.startsWith("data:")) {
-          const [header, data] = part.image_url.url.split(",")
-          parts.push({
-            inlineData: { mimeType: header.replace("data:", "").replace(";base64", ""), data },
-          })
+        if (part.type === "text" && part.text) {
+          parts.push({ text: part.text })
+        } else if (part.type === "image_url") {
+          const url = typeof part.image_url === "string" ? part.image_url : part.image_url?.url || ""
+          if (url.startsWith("data:")) {
+            const [header, data] = url.split(",")
+            const mimeType = header.replace("data:", "").replace(";base64", "") || "image/png"
+            parts.push({
+              inlineData: { mimeType, data },
+            })
+          }
+        } else if (part.type === "image") {
+          if (part.source?.data) {
+            parts.push({
+              inlineData: {
+                mimeType: part.source.media_type || "image/png",
+                data: part.source.data,
+              },
+            })
+          } else if (typeof part.image === "string" && part.image.startsWith("data:")) {
+            const [header, data] = part.image.split(",")
+            const mimeType = header.replace("data:", "").replace(";base64", "") || "image/png"
+            parts.push({
+              inlineData: { mimeType, data },
+            })
+          }
+        } else if (part.type === "media" || part.type === "file") {
+          const rawUrl = part.dataUrl || part.data || part.url || ""
+          const mimeType = part.mediaType || part.mime || "image/png"
+          if (rawUrl.startsWith("data:")) {
+            const [header, data] = rawUrl.split(",")
+            const parsedMime = header.replace("data:", "").replace(";base64", "") || mimeType
+            parts.push({
+              inlineData: { mimeType: parsedMime, data },
+            })
+          } else if (rawUrl.length > 50) {
+            parts.push({
+              inlineData: { mimeType, data: rawUrl },
+            })
+          }
         }
       }
     } else if (typeof m.content === "string" && m.content) {

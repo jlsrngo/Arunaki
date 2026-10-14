@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Kiro (AWS) direct route.
  *
  * Kiro is the only provider here that needs no CLI and no paid subscription, so it is the
@@ -191,6 +191,68 @@ function textOf(content: any): string {
   return content?.text ?? ""
 }
 
+export function extractKiroImages(content: any): any[] {
+  const images: any[] = []
+  if (!Array.isArray(content)) return images
+
+  for (const part of content) {
+    if (part.type === "image_url") {
+      const url = typeof part.image_url === "string" ? part.image_url : part.image_url?.url || ""
+      if (url.startsWith("data:")) {
+        const [header, base64] = url.split(",")
+        const mime = header.replace("data:", "").replace(";base64", "").toLowerCase()
+        const format = mime.includes("png")
+          ? "png"
+          : mime.includes("jpeg") || mime.includes("jpg")
+          ? "jpeg"
+          : mime.includes("webp")
+          ? "webp"
+          : mime.includes("gif")
+          ? "gif"
+          : "png"
+        if (base64) images.push({ format, source: { bytes: base64 } })
+      }
+    } else if (part.type === "image") {
+      const base64 =
+        part.source?.data ||
+        (typeof part.image === "string" && part.image.startsWith("data:") ? part.image.split(",")[1] : "")
+      const mime = (
+        part.source?.media_type ||
+        (typeof part.image === "string" ? part.image.split(";")[0].replace("data:", "") : "")
+      ).toLowerCase()
+      const format = mime.includes("png")
+        ? "png"
+        : mime.includes("jpeg") || mime.includes("jpg")
+        ? "jpeg"
+        : mime.includes("webp")
+        ? "webp"
+        : mime.includes("gif")
+        ? "gif"
+        : "png"
+      if (base64) images.push({ format, source: { bytes: base64 } })
+    } else if (part.type === "media" || part.type === "file") {
+      const rawUrl = part.dataUrl || part.data || part.url || ""
+      if (rawUrl.startsWith("data:")) {
+        const [header, base64] = rawUrl.split(",")
+        const mime = header.replace("data:", "").replace(";base64", "").toLowerCase()
+        const format = mime.includes("png")
+          ? "png"
+          : mime.includes("jpeg") || mime.includes("jpg")
+          ? "jpeg"
+          : mime.includes("webp")
+          ? "webp"
+          : mime.includes("gif")
+          ? "gif"
+          : "png"
+        if (base64) images.push({ format, source: { bytes: base64 } })
+      } else if (rawUrl.length > 50) {
+        images.push({ format: "png", source: { bytes: rawUrl } })
+      }
+    }
+  }
+  return images
+}
+
 export function kiroProfileArn(cred: DiscoveredCredential): string {
   return cred.profileArn || DEFAULT_PROFILE_ARNS["builder-id"]
 }
@@ -235,8 +297,17 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
   let pendingResults: any[] = []
   let leadingSystem = system
 
-  const userTurn = (content: string) => {
-    const turn: any = { userInputMessage: { content, modelId: model, origin: "AI_EDITOR" } }
+  const userTurn = (content: string, images?: any[]) => {
+    const turn: any = {
+      userInputMessage: {
+        content: content || (images?.length ? "Inspect image" : ""),
+        modelId: model,
+        origin: "AI_EDITOR",
+      },
+    }
+    if (images && images.length) {
+      turn.userInputMessage.images = images
+    }
     if (pendingResults.length) {
       turn.userInputMessage.userInputMessageContext = { toolResults: pendingResults }
       pendingResults = []
@@ -255,7 +326,8 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
       continue
     }
     const content = textOf(m.content)
-    if (!content && !m.tool_calls?.length) continue
+    const images = m.role === "user" ? extractKiroImages(m.content) : []
+    if (!content && !images.length && !m.tool_calls?.length) continue
 
     if (m.role === "user") {
       let text = content
@@ -263,7 +335,7 @@ export function buildKiroRequest(payload: any, cred: DiscoveredCredential): Kiro
         text = `${leadingSystem}\n\n${content}`
         leadingSystem = ""
       }
-      userTurn(text)
+      userTurn(text, images)
     } else if (m.role === "assistant") {
       // A tool result still needs a user turn to hang off, even with no accompanying text.
       if (pendingResults.length) userTurn("Tool results:")

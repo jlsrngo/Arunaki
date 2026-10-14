@@ -23,8 +23,10 @@
   "dependencies": {
     "@arunaki/engine": "workspace:*",
     "effect": "catalog:",
+    "bmp-js": "^0.1.0",
     "jszip": "^3.10.1",
     "pdf-parse": "^2.4.5",
+    "png-js": "^1.0.0",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   },

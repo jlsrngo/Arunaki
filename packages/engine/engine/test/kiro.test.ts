@@ -1,4 +1,4 @@
-﻿import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import {
   buildKiroRequest,
   newKiroStreamCtx,
@@ -247,6 +247,30 @@ describe("Kiro request payload", () => {
     expect(history[0].userInputMessage.content).toBe("first")
     expect(history[1].assistantResponseMessage.content).toBe("answer")
     expect(currentMessage.userInputMessage.content).toBe("second")
+  })
+
+  test("preserves multimodal images in userInputMessage.images", () => {
+    const req = buildKiroRequest(
+      {
+        model: "kiro/claude-sonnet-4.5",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "what is in this picture?" },
+              { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA" } },
+            ],
+          },
+        ],
+      },
+      cred,
+    )
+    const { currentMessage } = JSON.parse(req.body).conversationState
+    expect(currentMessage.userInputMessage.content).toContain("what is in this picture?")
+    expect(currentMessage.userInputMessage.images).toBeDefined()
+    expect(currentMessage.userInputMessage.images).toHaveLength(1)
+    expect(currentMessage.userInputMessage.images[0].format).toBe("png")
+    expect(currentMessage.userInputMessage.images[0].source.bytes).toBe("iVBORw0KGgoAAAANSUhEUgAA")
   })
 })
 

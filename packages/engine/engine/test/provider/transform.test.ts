@@ -2180,6 +2180,37 @@ describe("ProviderTransform.message - empty image handling", () => {
       text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
     })
   })
+
+  test("preserves images for known vision models even when capabilities.input.image is false or undeclared", () => {
+    const validBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    const codexTerraModel = {
+      id: "codex/gpt-5.6-terra",
+      providerID: "codex",
+      api: { id: "gpt-5.6-terra", url: "http://127.0.0.1:20188/v1", npm: "@ai-sdk/openai-compatible" },
+      name: "GPT 5.6 Terra",
+      capabilities: {
+        input: { text: true, audio: false, image: false, video: false, pdf: false },
+      },
+    } as any
+
+    const msgs = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Look at this screenshot" },
+          { type: "image", image: `data:image/png;base64,${validBase64}` },
+        ],
+      },
+    ] as any[]
+
+    const result = ProviderTransform.message(msgs, codexTerraModel, {})
+    expect(result).toHaveLength(1)
+    expect(result[0].content).toHaveLength(2)
+    expect(result[0].content[0]).toEqual({ type: "text", text: "Look at this screenshot" })
+    // The image must NOT be replaced with "ERROR: Cannot read image (this model does not support image input)"
+    expect(result[0].content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
+  })
 })
 
 describe("ProviderTransform.message - anthropic empty content filtering", () => {
