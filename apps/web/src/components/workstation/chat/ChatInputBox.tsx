@@ -24,6 +24,7 @@ import {
   Square,
   Paperclip,
   FileText,
+  Minimize2,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { describeModel } from "../../settings/SettingsCliConnectionsTab";
@@ -87,6 +88,7 @@ reasoningEffort?: string;
   collapseThinking?: boolean;
   setCollapseThinking?: Dispatch<SetStateAction<boolean>>;
   onPreviewImage: (url: string) => void;
+  onCompactSession?: () => void;
 }
 
 export const ChatInputBox = memo(function ChatInputBox({
@@ -106,6 +108,7 @@ setReasoningEffort,
   setShowThinking,
   setCollapseThinking,
   onPreviewImage,
+  onCompactSession,
 }: ChatInputBoxProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -163,6 +166,7 @@ setReasoningEffort,
       description: showThinking ? "Collapse thinking" : "Expand thinking",
       icon: ArunakiLogo,
     },
+    { name: "/compact", description: "Smart compaction: summarize history & slash context tokens", icon: Minimize2 },
     { name: "/grill-me", description: "Interview requirements deeply before executing", icon: Flame },
     { name: "/new", description: "Start a new conversation session", icon: Plus },
     { name: "/search-section", description: "Search topics across sessions", icon: FileSearch },
@@ -264,6 +268,12 @@ setReasoningEffort,
       setShowThinking?.(next);
       setCollapseThinking?.(!next);
       toast.info(next ? "Thinking expanded" : "Thinking collapsed");
+      return;
+    }
+    if (cmdName === "/compact") {
+      setLocalPrompt("");
+      setShowCommands(false);
+      onCompactSession?.();
       return;
     }
     if (cmdName === "/search-section") {

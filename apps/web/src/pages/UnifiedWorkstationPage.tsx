@@ -473,6 +473,9 @@ export function UnifiedWorkstationPage() {
             onNewChat={chat.handleNewChat}
             onCancelStream={chat.handleCancelStream}
             onAnswerQuestion={chat.handleAnswerQuestion}
+            onCompactSession={chat.handleCompactSession}
+            isCompacting={chat.isCompacting}
+            isCompacted={chat.isCompacted}
           />
         </ErrorBoundary>
       </div>

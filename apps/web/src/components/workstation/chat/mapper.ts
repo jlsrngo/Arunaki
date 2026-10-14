@@ -59,7 +59,16 @@ export function mapEngineMessages(raw: any[]): Message[] {
     .filter((m) => {
       if (!m) return false;
       const t = m.type || m.role;
-      if (t === "compaction" || t === "system" || t === "model-switched" || t === "plan") return false;
+      if (
+        t === "compaction" ||
+        t === "system" ||
+        t === "model-switched" ||
+        t === "plan" ||
+        m.agent === "compaction" ||
+        m.summary === true ||
+        m.info?.summary === true ||
+        m.mode === "compaction"
+      ) return false;
       return true;
     })
     .sort((a, b) => {
@@ -351,6 +360,7 @@ export function mapEngineMessages(raw: any[]): Message[] {
       question: (parts.find((p) => p.type === "question") as any)?.data,
       files: mappedFiles,
       createdAt: msg.createdAt || msg.time?.created || (msg.time?.start ? msg.time.start : undefined),
+      summary: Boolean(msg.summary || msg.info?.summary),
     };
   });
 

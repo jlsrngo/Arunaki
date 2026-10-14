@@ -18,6 +18,7 @@ import {
   replySessionQuestion,
   isSessionActive,
   interruptSession,
+  summarizeSession,
 } from "../../../lib/engine";
 import { API_BASE, apiFetch } from "../../../lib/api";
 
@@ -467,6 +468,7 @@ export function useWorkstationChat({
   const resetWatchdogRef = useRef<((timeoutMs?: number) => void) | null>(null);
   const currentTurnIdRef = useRef<string>("");
   const isLocalSendingRef = useRef(false);
+  const isCompactingRef = useRef(false);
 
   const clearWatchdog = useCallback(() => {
     if (watchdogRef.current) {
@@ -681,8 +683,8 @@ export function useWorkstationChat({
 
     subscribeEvents(
       (rawEvent) => {
-        // If local user is actively driving the stream via desktop input box, let handleSendMessage manage it
-        if (isLocalSendingRef.current) return;
+        // If local user is actively driving the stream or compaction is running, let background listener skip
+        if (isLocalSendingRef.current || isCompactingRef.current) return;
 
         const event = mapEngineEvent(rawEvent, activeChatId);
         if (!event) return;
@@ -2263,6 +2265,74 @@ export function useWorkstationChat({
     }
   };
 
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [isCompacted, setIsCompacted] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !activeChatId) return false;
+    return localStorage.getItem(`arunaki_compacted_${activeChatId}`) === "true";
+  });
+
+  useEffect(() => {
+    if (!activeChatId) {
+      setIsCompacted(false);
+      return;
+    }
+    const saved = localStorage.getItem(`arunaki_compacted_${activeChatId}`);
+    if (saved === "disabled") {
+      setIsCompacted(false);
+      return;
+    }
+    if (saved === "true") {
+      setIsCompacted(true);
+      return;
+    }
+    const hasSummaryMsg = chatMessages.some((m) => m.summary === true);
+    setIsCompacted(hasSummaryMsg);
+  }, [activeChatId, chatMessages]);
+
+  const handleCompactSession = useCallback(async () => {
+    if (!activeChatId) {
+      toast.error("No active session to compact");
+      return;
+    }
+    if (isStreaming) {
+      toast.warning("Please wait for current response to finish");
+      return;
+    }
+
+    // Toggle OFF: if already compacted/active, turn it off cleanly
+    if (isCompacted) {
+      try {
+        localStorage.setItem(`arunaki_compacted_${activeChatId}`, "disabled");
+      } catch {}
+      setIsCompacted(false);
+      toast.info("Context compaction disabled.");
+      return;
+    }
+
+    // Toggle ON: trigger compaction
+    setIsCompacting(true);
+    isCompactingRef.current = true;
+    const toastId = toast.loading("Compacting session context...");
+    try {
+      const ok = await summarizeSession(activeChatId, activeModel, activeFolder);
+      if (ok) {
+        toast.success("Active session context compacted successfully.", { id: toastId });
+        try {
+          localStorage.setItem(`arunaki_compacted_${activeChatId}`, "true");
+        } catch {}
+        setIsCompacted(true);
+        await queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
+      } else {
+        toast.error("Failed to compact session context.", { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(`Compaction error: ${err?.message || err}`, { id: toastId });
+    } finally {
+      setIsCompacting(false);
+      isCompactingRef.current = false;
+    }
+  }, [activeChatId, isStreaming, isCompacted, activeModel, activeFolder, queryClient]);
+
   return {
     chatMessages,
     optimisticMessages,
@@ -2282,6 +2352,9 @@ export function useWorkstationChat({
     handleCancelStream,
     handleNewChat,
     handleRemoveQueuedPrompt,
+    handleCompactSession,
+    isCompacting,
+    isCompacted,
   };
 }
 

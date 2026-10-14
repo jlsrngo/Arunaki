@@ -47,6 +47,7 @@ export interface Message {
   parts?: MessagePart[];
   question?: QuestionData;
   files?: MessageFileAttachment[];
+  summary?: boolean;
 }
 
 export interface AttachedImage {

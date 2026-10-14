@@ -48,6 +48,9 @@ export interface WorkstationRightChatProps {
   onNewChat?: () => void;
   onCancelStream?: () => void;
   onAnswerQuestion?: (requestId: string, selectedAnswer: string) => void;
+  onCompactSession?: () => void;
+  isCompacting?: boolean;
+  isCompacted?: boolean;
   activeChatId?: string;
 }
 
@@ -74,6 +77,9 @@ setReasoningEffort,
   onNewChat,
   onCancelStream,
   onAnswerQuestion,
+  onCompactSession,
+  isCompacting,
+  isCompacted,
   activeChatId,
 }: WorkstationRightChatProps) {
   // CRITICAL: React Rules of Hooks - all hooks declared unconditionally at top
@@ -164,6 +170,9 @@ setReasoningEffort,
       <WorkstationRightChatHeader
         activeChatId={activeChatId}
         onNewChat={onNewChat}
+        onCompactSession={onCompactSession}
+        isCompacting={isCompacting}
+        isCompacted={isCompacted}
         onClose={onClose}
       />
 
@@ -237,6 +246,7 @@ setReasoningEffort,
           showThinking={showThinking}
           setShowThinking={setShowThinking}
           onPreviewImage={handlePreviewImage}
+          onCompactSession={onCompactSession}
         />
       </div>
 

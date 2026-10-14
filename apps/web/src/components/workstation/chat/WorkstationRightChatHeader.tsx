@@ -1,17 +1,24 @@
 import { memo, useState, useEffect, type KeyboardEvent, type FocusEvent } from "react";
-import { Bot, Plus, PanelRightClose } from "lucide-react";
+import { Bot, Plus, PanelRightClose, Minimize2 } from "lucide-react";
 import { getSession } from "../../../lib/engine";
 import { useI18n } from "../../../lib/i18n";
+import { cn } from "../../../lib/utils";
 
 interface WorkstationRightChatHeaderProps {
   activeChatId?: string;
   onNewChat?: () => void;
+  onCompactSession?: () => void;
+  isCompacting?: boolean;
+  isCompacted?: boolean;
   onClose: () => void;
 }
 
 export const WorkstationRightChatHeader = memo(function WorkstationRightChatHeader({
   activeChatId,
   onNewChat,
+  onCompactSession,
+  isCompacting,
+  isCompacted,
   onClose,
 }: WorkstationRightChatHeaderProps) {
   const { t } = useI18n();
@@ -84,6 +91,34 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
         )}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
+        {onCompactSession && (
+          <button
+            type="button"
+            disabled={isCompacting}
+            onClick={onCompactSession}
+            className={cn(
+              "p-1 rounded transition-colors cursor-pointer flex items-center justify-center hover:bg-[var(--bg-hover)]",
+              isCompacted || isCompacting
+                ? "text-[#f97316]"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            )}
+            title={
+              isCompacting
+                ? "Compacting session context..."
+                : isCompacted
+                ? "Token pruning active — Click to disable"
+                : t("compactSessionContext", "Compact Context (/compact)")
+            }
+          >
+            <Minimize2
+              className={cn(
+                "w-3.5 h-3.5 transition-colors",
+                (isCompacting || isCompacted) ? "text-[#f97316] animate-pulse" : "text-[var(--text-muted)]"
+              )}
+              strokeWidth={isCompacted ? 2 : 1.5}
+            />
+          </button>
+        )}
         {onNewChat && (
           <button
             type="button"

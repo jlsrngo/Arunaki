@@ -139,6 +139,52 @@ export async function switchSessionModel(sessionID: string, model: { providerID:
   return res.ok;
 }
 
+export async function summarizeSession(
+  sessionID: string,
+  model?: { providerID?: string; id?: string } | string,
+  directory?: string
+): Promise<boolean> {
+  let providerID = "default";
+  let modelID = "";
+
+  if (typeof model === "object" && model) {
+    if (model.providerID) providerID = model.providerID;
+    if (model.id) modelID = model.id;
+  } else if (typeof model === "string" && model) {
+    if (model.includes("/")) {
+      const [p, m] = model.split("/", 2);
+      providerID = p;
+      modelID = m;
+    } else {
+      providerID =
+        (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_provider")) || "default";
+      modelID = model;
+    }
+  }
+
+  if (!modelID) {
+    modelID = (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_model")) || "default";
+  }
+  if (!providerID || providerID === "default") {
+    providerID =
+      (typeof localStorage !== "undefined" && localStorage.getItem("arunaki_active_provider")) || "default";
+  }
+
+  const res = await engineFetch(`/session/${sessionID}/summarize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(directory && { "x-arunaki-directory": directory }),
+    },
+    body: JSON.stringify({
+      providerID,
+      modelID,
+      auto: false,
+    }),
+  });
+  return res.ok;
+}
+
 export async function getMessages(sessionID: string, opts?: { limit?: number; order?: "asc" | "desc" }) {
   const allMessages: any[] = [];
   let nextCursor: string | undefined = undefined;
@@ -382,6 +428,17 @@ export function mapEngineEvent(
   const payload = event.data || event.properties || event;
   const sessionID = payload.sessionID || event.sessionID;
   if (sessionID && sessionID !== currentSessionID) return null;
+
+  // Filter out internal compaction events from leaking into chat streams
+  if (
+    event.agent === "compaction" ||
+    payload.agent === "compaction" ||
+    payload.summary === true ||
+    payload.mode === "compaction" ||
+    (event as any)?.summary === true
+  ) {
+    return null;
+  }
 
   const normalizedType = event.type ? event.type.replace(/\.\d+$/, "") : "";
 

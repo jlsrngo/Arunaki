@@ -5,10 +5,12 @@ import {
   ShieldCheck,
   Bell,
   Sliders,
+  Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
+import { summarizeSession } from "../../lib/engine";
 
 export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const { t } = useI18n();
@@ -23,6 +25,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const [desktopNotification, setDesktopNotification] = useState(
     () => localStorage.getItem("arunaki_pref_desktop_notification") !== "false"
   );
+  const [smartCompaction, setSmartCompaction] = useState(
+    () => localStorage.getItem("arunaki_pref_smart_compaction") !== "false"
+  );
+  const [isCompacting, setIsCompacting] = useState(false);
   const isDesktop = typeof window !== "undefined" && !!(window as any).arunakiDesktop;
 
   return (
@@ -196,6 +202,83 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               className={cn(
                 "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
                 desktopNotification
+                  ? "translate-x-5 bg-[var(--bg-app)]"
+                  : "translate-x-0 bg-[var(--text-muted)]"
+              )}
+            />
+          </button>
+        </div>
+
+        {/* 4. Smart Context Compaction & Token Pruning */}
+        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
+          <div className="flex gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
+              <Minimize2 className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-[var(--text-primary)]">
+                {t("smartCompactionTitle")}
+              </h4>
+              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed mt-0.5">
+                {t("smartCompactionDesc")}
+              </p>
+              {smartCompaction && (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isCompacting}
+                    onClick={async () => {
+                      const activeChatId = localStorage.getItem("arunaki_active_chat_id");
+                      const activeFolder = localStorage.getItem("arunaki_active_folder") || undefined;
+                      if (!activeChatId) {
+                        toast.info("No active conversation session found.");
+                        return;
+                      }
+                      setIsCompacting(true);
+                      const tid = toast.loading("Compacting active session context...");
+                      try {
+                        const ok = await summarizeSession(activeChatId, undefined, activeFolder);
+                        if (ok) {
+                          toast.success("✨ Active session context compacted successfully!", { id: tid });
+                        } else {
+                          toast.error("Failed to compact session context", { id: tid });
+                        }
+                      } catch (err: any) {
+                        toast.error(`Compaction error: ${err?.message || err}`, { id: tid });
+                      } finally {
+                        setIsCompacting(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Minimize2 className="w-3 h-3 text-[var(--text-muted)]" />
+                    <span>{isCompacting ? "Compacting..." : t("compactActiveSessionNow")}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !smartCompaction;
+              setSmartCompaction(next);
+              localStorage.setItem("arunaki_pref_smart_compaction", String(next));
+              toast.success(
+                next
+                  ? "Smart context compaction & token pruning enabled."
+                  : "Smart context compaction disabled (full conversation history retained)."
+              );
+            }}
+            className={cn(
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-[var(--border-strong)] items-center p-0.5 transition-colors duration-200 ease-in-out focus:outline-none",
+              smartCompaction ? "bg-[var(--text-primary)]" : "bg-[var(--bg-panel)]"
+            )}
+          >
+            <span
+              className={cn(
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                smartCompaction
                   ? "translate-x-5 bg-[var(--bg-app)]"
                   : "translate-x-0 bg-[var(--text-muted)]"
               )}
