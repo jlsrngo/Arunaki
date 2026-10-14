@@ -28,6 +28,8 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
     .replace(/<arg_value:[a-zA-Z0-9_-]+>[\s\S]*?<\/arg_value:[a-zA-Z0-9_-]+>/gi, "")
     .replace(/<\/?(?:tool_call|tool_calls|tool_sep|arg_key|arg_value)(?::[a-zA-Z0-9_-]+)?>/gi, "")
     // Remove pseudo tool calls and compaction transcript leaks
+    .replace(/\[Tool call:\s*[a-zA-Z0-9_-]+(?:\([\s\S]*?\))?\]/gi, "")
+    .replace(/\[Tool call:[^\]]*\]/gi, "")
     .replace(/\[Assistant tool call\]:[^\n]*(\n|$)/gi, "")
     .replace(/\[Tool (?:result|error)\]:?[^\n]*(\n|$)/gi, "")
     .replace(/\[Tool result:[^\n]*(\n|$)/gi, "")

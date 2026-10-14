@@ -329,7 +329,7 @@ export function SettingsCliConnectionsTab({
   const [connectingTarget, setConnectingTarget] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => {
     const out: Record<string, string> = {};
-    for (const key of ["claude", "opencode", "codex", "antigravity", "nineRouter"]) {
+    for (const key of ["claude", "opencode", "codex", "antigravity", "nineRouter", "kiro"]) {
       const saved = localStorage.getItem(`arunaki_cli_model_${key}`);
       if (saved) out[key] = saved;
     }
@@ -1543,6 +1543,19 @@ const isGeminiActive =
     const chosenModel = selectedModels[target] || modelsFor(target)[0];
     const activeId = config.id;
 
+    // Optimistic instant update: update state & notify chat immediately (0ms delay)
+    localStorage.setItem("arunaki_active_provider", activeId);
+    localStorage.setItem("arunaki_last_active_cli", activeId);
+    localStorage.setItem("arunaki_active_model", chosenModel);
+    localStorage.setItem(`arunaki_cli_model_${target}`, chosenModel);
+    localStorage.setItem(`arunaki_provider_model_${activeId}`, chosenModel);
+
+    window.dispatchEvent(
+      new CustomEvent("arunaki:provider-change", {
+        detail: { providerId: activeId, model: chosenModel },
+      })
+    );
+
     try {
       // 1. Ensure provider exists / is updated in SQLite
       await apiFetch(`${API_BASE}/providers/${activeId}${directoryQuery()}`, {
@@ -1581,22 +1594,18 @@ const isGeminiActive =
         }).catch(() => {});
       }
 
-      // If Claude, OpenCode, or Google Antigravity, also notify bridge/local-cli
-      if (target === "claude" || target === "antigravity" || target === "opencode") {
+      // If any local CLI or bridge provider, also notify bridge/local-cli
+      const localCliTargets = ["claude", "antigravity", "opencode", "kiro", "codex", "9router", "gemini", "agy"];
+      if (localCliTargets.includes(target)) {
         await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            target: target === "claude" ? "claude" : target === "opencode" ? "opencode" : "antigravity",
+            target: target === "claude" ? "claude" : target === "opencode" ? "opencode" : target === "antigravity" ? "antigravity" : target,
             model: chosenModel,
           }),
         }).catch(() => {});
       }
-
-      // 3. Save to localStorage
-      localStorage.setItem("arunaki_active_provider", activeId);
-      localStorage.setItem("arunaki_last_active_cli", activeId);
-      localStorage.setItem("arunaki_active_model", chosenModel);
 
       toast.success(`${friendlyName} Connected & Active`, {
         description: `Ready to run document tasks using ${chosenModel}.`,
@@ -1620,6 +1629,11 @@ const isGeminiActive =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active: false }),
       }).catch(() => {});
+      window.dispatchEvent(
+        new CustomEvent("arunaki:provider-change", {
+          detail: { providerId: "kenari", model: "mimo-v2-5:free" },
+        })
+      );
       toast.info(`${friendlyName} Disconnected`, {
         description: "CLI agent disconnected. Arunaki is in standby.",
       });
@@ -1819,6 +1833,7 @@ const isGeminiActive =
 
     if (isActive) {
       localStorage.setItem("arunaki_active_model", modelName);
+      localStorage.setItem(`arunaki_provider_model_${activeId}`, modelName);
       try {
         await apiFetch(`${API_BASE}/providers/${activeId}/state${directoryQuery()}`, {
           method: "PUT",
@@ -1828,6 +1843,11 @@ const isGeminiActive =
         toast.success(`${friendlyName} Model Updated`, {
           description: `Now using ${modelName}.`,
         });
+        window.dispatchEvent(
+          new CustomEvent("arunaki:provider-change", {
+            detail: { providerId: activeId, model: modelName },
+          })
+        );
         onRefresh();
       } catch {
         toast.error(`Failed to update ${friendlyName} model`);

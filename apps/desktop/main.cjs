@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification, nativeImage } = require('electron');
 const http = require('node:http');
 const path = require('node:path');
 const os = require('node:os');
@@ -12,9 +12,27 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-// Windows requires explicit AppUserModelId for desktop notifications in Action Center
+// Windows requires explicit AppUserModelId for desktop notifications in Action Center and taskbar icon
 if (process.platform === 'win32') {
   app.setAppUserModelId('Arunaki');
+  try {
+    const icoPath = path.join(__dirname, 'resources', 'icon.ico');
+    if (fsSync.existsSync(icoPath) && typeof shell?.writeShortcutLink === 'function') {
+      const shortcutDir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+      const shortcutFile = path.join(shortcutDir, 'Arunaki.lnk');
+      const op = fsSync.existsSync(shortcutFile) ? 'replace' : 'create';
+      shell.writeShortcutLink(shortcutFile, op, {
+        target: process.execPath,
+        args: `"${path.join(__dirname, 'main.cjs')}"`,
+        appUserModelId: 'Arunaki',
+        icon: icoPath,
+        iconIndex: 0,
+        description: 'Arunaki - Desktop Document Agent',
+      });
+    }
+  } catch (err) {
+    // Non-fatal if shortcut cannot be written
+  }
 }
 
 // Gracefully handle Chromium network service or GPU helper process restarts without terminating Electron
@@ -300,20 +318,21 @@ ipcMain.handle('app:resetZoom', (event) => {
 function createWindow() {
   const isDark = nativeTheme ? nativeTheme.shouldUseDarkColors : true;
   const candidateIcons = [
-    path.join(process.resourcesPath || '', 'icon.png'),
     path.join(process.resourcesPath || '', 'icon.ico'),
-    path.join(__dirname, 'resources', 'icon.png'),
+    path.join(process.resourcesPath || '', 'icon.png'),
     path.join(__dirname, 'resources', 'icon.ico'),
+    path.join(__dirname, 'resources', 'icon.png'),
     path.join(__dirname, '../web/public/favicon.svg'),
   ];
-  const appIcon = candidateIcons.find(p => fsSync.existsSync(p));
+  const appIconPath = candidateIcons.find(p => fsSync.existsSync(p));
+  const appIcon = appIconPath ? nativeImage.createFromPath(appIconPath) : undefined;
 
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1100,
     minHeight: 720,
-    icon: appIcon || undefined,
+    icon: (appIcon && !appIcon.isEmpty()) ? appIcon : (appIconPath || undefined),
     backgroundColor: isDark ? '#0A0A0A' : '#FFFFFF',
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
@@ -349,6 +368,15 @@ function createWindow() {
   });
 
   mainWindow = win;
+  if (appIcon && !appIcon.isEmpty()) {
+    try {
+      win.setIcon(appIcon);
+    } catch {}
+  } else if (appIconPath) {
+    try {
+      win.setIcon(appIconPath);
+    } catch {}
+  }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     // Only web links leave the app. Passing every scheme straight to the OS lets anything the

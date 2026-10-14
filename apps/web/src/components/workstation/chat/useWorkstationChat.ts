@@ -62,7 +62,13 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
       return clean.startsWith("claude") && !clean.endsWith(":free");
     }
     if (providerId === "codex") {
-      return (clean.startsWith("o1") || clean.startsWith("o3") || clean.startsWith("gpt-4")) && !clean.endsWith(":free");
+      return (
+        clean.startsWith("o1") ||
+        clean.startsWith("o3") ||
+        clean.startsWith("gpt-4") ||
+        clean.startsWith("gpt-5") ||
+        clean.startsWith("gpt-6")
+      ) && !clean.endsWith(":free");
     }
     if (providerId === "opencode") {
       return (
@@ -93,17 +99,17 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
       return localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash";
     }
-    if (providerId === "claude-code") {
+    if (providerId === "claude-code" || providerId === "claude") {
       return localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet";
     }
     if (providerId === "codex") {
-      return "o3-mini";
+      return localStorage.getItem("arunaki_cli_model_codex") || "o3-mini";
     }
     if (providerId === "opencode") {
       return localStorage.getItem("arunaki_cli_model_opencode") || "groq/openai/gpt-oss-120b";
     }
-    if (providerId === "9router") {
-      return "cx/gpt-5.6-terra";
+    if (providerId === "9router" || providerId === "nineRouter") {
+      return localStorage.getItem("arunaki_cli_model_nineRouter") || "cx/gpt-5.6-terra";
     }
     // Not in this map, so Kiro used to fall through to "default" - a value that is not a model.
     if (providerId === "kiro") {
@@ -157,6 +163,31 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
     providerID: p,
     id: fallback,
   };
+}
+
+export function getProviderDefaultModels(providerId: string): string[] {
+  if (providerId === "kiro") {
+    return ["kiro/auto", "kiro/claude-sonnet-4.5", "kiro/claude-haiku-4.5", "kiro/deepseek-3.2", "kiro/qwen3-coder-next"];
+  }
+  if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
+    return ["gemini-3.8-flash", "gemini-2.5-pro", "gemini-2.5-flash", "claude-sonnet-4-6"];
+  }
+  if (providerId === "claude-code" || providerId === "claude") {
+    return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"];
+  }
+  if (providerId === "codex") {
+    return ["o3-mini", "o1", "gpt-4o", "gpt-5.6-terra"];
+  }
+  if (providerId === "opencode") {
+    return ["groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b", "opencode/big-pickle", "9router/ComboMaut"];
+  }
+  if (providerId === "9router" || providerId === "nineRouter") {
+    return ["cx/gpt-5.6-terra", "cx/gpt-5.5", "deepseek-r1", "9router/ComboMaut"];
+  }
+  if (providerId === "kenari") {
+    return ["mimo-v2-5:free", "nemotron-3-super-120b-a12b:free", "glm-4-7-flash:free", "agnes-2-0-flash:free"];
+  }
+  return [];
 }
 
 const RETIRED_MODELS_STORAGE_KEY = "arunaki_retired_models";
@@ -343,7 +374,7 @@ export function useWorkstationChat({
 
   const providerModels = useMemo(() => {
     const list = modelsQuery.data ?? [];
-    return list
+    const fromApi = list
       .filter((m: any) => m?.providerID === activeModel.providerID)
       .map((m: any) => ({
         id: String(m?.id ?? ""),
@@ -351,7 +382,28 @@ export function useWorkstationChat({
         isRetired: retiredModels.has(String(m?.id ?? "")),
       }))
       .filter((m: any) => m.id !== "");
-  }, [modelsQuery.data, activeModel.providerID, retiredModels]);
+
+    if (fromApi.length > 0) return fromApi;
+
+    // Fallback if engine catalogue hasn't synced this provider's models yet
+    const pool = typeof window !== "undefined" ? localStorage.getItem(`arunaki_provider_models_${activeModel.providerID}`) : null;
+    if (pool) {
+      const items = pool.split(",").map((s) => s.trim()).filter(Boolean);
+      if (items.length > 0) {
+        return items.map((id) => ({ id, name: id, isRetired: retiredModels.has(id) }));
+      }
+    }
+
+    const defaults = getProviderDefaultModels(activeModel.providerID);
+    if (defaults.length > 0) {
+      return defaults.map((id) => ({ id, name: id, isRetired: retiredModels.has(id) }));
+    }
+
+    if (activeModel.id) {
+      return [{ id: activeModel.id, name: activeModel.id, isRetired: false }];
+    }
+    return [];
+  }, [modelsQuery.data, activeModel.providerID, activeModel.id, retiredModels]);
 
   const setActiveModel = useCallback(
     (providerID: string, id: string) => {
@@ -366,9 +418,30 @@ export function useWorkstationChat({
       } catch {}
       setModelTick((n) => n + 1);
       queryClient.invalidateQueries({ queryKey: ["engine-models"] });
+      window.dispatchEvent(
+        new CustomEvent("arunaki:provider-change", {
+          detail: { providerId: providerID, model: id },
+        })
+      );
     },
     [queryClient, unmarkModelRetired],
   );
+
+  // Listen for provider / model changes dispatched from Settings, menus, or other tabs
+  useEffect(() => {
+    const handleProviderChange = () => {
+      setModelTick((n) => n + 1);
+      queryClient.invalidateQueries({ queryKey: ["engine-models"] });
+    };
+
+    window.addEventListener("arunaki:provider-change", handleProviderChange);
+    window.addEventListener("storage", handleProviderChange);
+
+    return () => {
+      window.removeEventListener("arunaki:provider-change", handleProviderChange);
+      window.removeEventListener("storage", handleProviderChange);
+    };
+  }, [queryClient]);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);

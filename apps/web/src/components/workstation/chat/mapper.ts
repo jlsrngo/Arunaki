@@ -106,7 +106,12 @@ export function mapEngineMessages(raw: any[]): Message[] {
       }
 
       const textParts = msg.content.filter((p: any) => p && p.type === "text" && typeof p.text === "string");
-      content = textParts.map((p: any) => p.text).join("");
+      content = textParts
+        .map((p: any) => p.text)
+        .join("")
+        .replace(/\[Tool call:\s*[a-zA-Z0-9_-]+(?:\([\s\S]*?\))?\]/gi, "")
+        .replace(/\[Tool call:[^\]]*\]/gi, "")
+        .trim();
 
       const toolParts = msg.content.filter(
         (p: any) =>

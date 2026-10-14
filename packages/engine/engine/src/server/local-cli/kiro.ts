@@ -510,8 +510,8 @@ function parseArgs(args: any): any {
 }
 
 /** Stand-in text for an assistant turn that only made tool calls; Kiro needs some content. */
-function toolCallText(toolUses: any[]): string {
-  return toolUses.map((t) => `[Tool call: ${t.name}(${JSON.stringify(t.input)})]`).join("\n")
+function toolCallText(_toolUses: any[]): string {
+  return ""
 }
 
 /** Kiro only accepts tool names matching `[a-zA-Z0-9_-]`, so anything else is mapped. */

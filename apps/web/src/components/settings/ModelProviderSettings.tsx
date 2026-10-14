@@ -275,6 +275,11 @@ export function ModelProviderSettings({
         };
         const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
         localStorage.setItem("arunaki_active_model", nextModel);
+        window.dispatchEvent(
+          new CustomEvent("arunaki:provider-change", {
+            detail: { providerId: targetCli, model: nextModel },
+          })
+        );
 
         // Aktifkan target CLI di backend jika terdaftar
         await apiFetch(`${API_BASE}/providers/${targetCli}/state${directoryQuery()}`, {
@@ -306,6 +311,11 @@ export function ModelProviderSettings({
         if (primary) {
           localStorage.setItem("arunaki_active_model", primary);
         }
+        window.dispatchEvent(
+          new CustomEvent("arunaki:provider-change", {
+            detail: { providerId: provider.id, model: primary || "" },
+          })
+        );
         await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
           method: "PUT",
           body: JSON.stringify({ active: true }),

@@ -580,7 +580,7 @@ setReasoningEffort,
             accept="*/*"
           />
 
-          {onSelectModel && modelOptions.length > 0 && (
+          {onSelectModel && (modelOptions.length > 0 || activeModel?.id) && (
             <div className="relative" ref={modelDropdownRef}>
               <button
                 type="button"
@@ -589,7 +589,7 @@ setReasoningEffort,
                 title={t("model", "Model")}
               >
                 <span className="truncate">
-                  {describeModel(modelOptions.find((m) => m.id === activeModel?.id)?.id).label}
+                  {describeModel(modelOptions.find((m) => m.id === activeModel?.id)?.id || activeModel?.id).label}
                 </span>
                 <ChevronDown
                   className={cn(
@@ -601,8 +601,11 @@ setReasoningEffort,
 
               {isModelDropdownOpen && (
                 <div className="absolute bottom-full mb-1.5 left-0 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
-                  <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5">
-                    {t("model", "Model")}
+                  <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5 flex items-center justify-between">
+                    <span>{t("model", "Model")}</span>
+                    <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold border border-[var(--border-color)]">
+                      {activeModel?.providerID || "Active"}
+                    </span>
                   </div>
                   {modelOptions.map((m) => {
                     const isSelected = m.id === activeModel?.id;
