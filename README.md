@@ -4,9 +4,9 @@
 
   # arunaki
 
-  **Workstation Agen Dokumen Desktop & Otomasi Sandboxed**
+  **The Desktop Document Agent Workstation & Automation Harness**
   
-  *Native desktop computer-use untuk spreadsheet Microsoft Excel, kontrak Word, slide presentasi PowerPoint, pipeline PDF, dan pembukuan finansial — beroperasi 100% lokal dan sandboxed di folder proyek Anda.*
+  *Native desktop computer-use for Microsoft Excel spreadsheets, Word contracts, PowerPoint decks, PDF pipelines, and financial ledgers — operating 100% locally and sandboxed to your active project folder.*
 
   <br />
 
@@ -17,12 +17,13 @@
 
   <br />
 
-  [🌐 Website Resmi](https://juliosiringoringo.space/id/arunaki) •
-  [🚀 Panduan Mulai](#-panduan-memulai-3-langkah-cepat) •
-  [📊 Fitur Dokumen](#-fitur-utama--otomasi-dokumen) •
-  [🏛️ Arsitektur](#-arsitektur-sistem) •
-  [🛠️ 50+ Katalog Tool](#-katalog-50-tool-agen) •
-  [🔒 Batasan Keamanan](#-keamanan--isolasi-sandbox)
+  [🌐 Official Website](https://juliosiringoringo.space/en/arunaki) •
+  [🚀 Quick Start](#-getting-started-3-simple-steps) •
+  [📊 Document Features](#-core-document-features) •
+  [🏛️ Architecture](#-system-architecture) •
+  [🛠️ 50+ Tool Catalog](#-50-agent-tool-catalog) •
+  [🔒 Security Boundaries](#-security--sandbox-boundaries) •
+  [💻 Developer Guide](#-developer-guide)
 
 </div>
 
@@ -30,100 +31,100 @@
 
 ---
 
-## 🖥️ Pratinjau Konsol Langsung
+## 🖥️ Live Workstation Console Preview
 
 ```bash
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │ ● ● ●  arunaki-agent // headless-com-worker                bun: 1.3.14 • electron: 43.2 │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ > Workspace Root: C:\Users\Finance\Documents\Workspace                                  │
-│ > "Rekap pemasukan dan pengeluaran hari ini ke laporan_keuangan.xlsx pada               │
-│    sheet 'Agustus 2026', hitung total margin otomatis."                                │
+│ > "Summarize today's expenses into financial_report.xlsx on sheet                       │
+│    'August 2026', calculate total net margin automatically."                           │
 │                                                                                        │
-│ [Security]      Memeriksa jalur dalam sandbox: ./workspace/laporan.xlsx (IZIN DIBERIKAN)│
-│ [Snapshot]      Membuat checkpoint lokal: .arunaki/checkpoints/20260924_1340_laporan    │
-│ [COM Bridge]    Menghubungkan ke Microsoft Excel COM (headless)... Terhubung PID 9482  │
-│ [Execution]     Menyisipkan 34 baris data ke sheet "Agustus 2026" (Rentang A24:E57)    │
-│ [Formula Guard] Menjaga rumus dinamis: =SUM(D24:D57) dan =IF(E58>0,"PROFIT","DEFICIT") │
-│ [Success]       Worksheet berhasil disimpan. 0 konflik terdeteksi. 1-Klik Rollback siap.│
+│ [Security]      Checked path inside sandbox: ./workspace/report.xlsx (ACCESS GRANTED)  │
+│ [Snapshot]      Created immutable checkpoint: .arunaki/checkpoints/20260924_1340_report │
+│ [COM Bridge]    Attaching to native Microsoft Excel COM (headless)... Attached PID 9482 │
+│ [Execution]     Injected 34 rows into sheet "August 2026" (Range A24:E57)              │
+│ [Formula Guard] Preserved dynamic formulas: =SUM(D24:D57) and =IF(E58>0,"PROFIT",...) │
+│ [Success]       Worksheet saved & closed. 0 schema conflicts. 1-Click Rollback ready.  │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚡ Nilai Inti: *Minimal Typing, Maximum Automation*
+## ⚡ Core Philosophy: *Minimal Typing, Maximum Automation*
 
-Arunaki dirancang dengan filosofi **pengguna mengetik seminimal mungkin, agen mengeksekusi dengan automasi maksimal**:
-- **Copy-Paste Teks Mentah:** Cukup tempelkan pesan WhatsApp atau catatan keuangan berantakan langsung ke composer chat (`"update ini ke laporan harian:" + [paste teks mentah]`).
-- **Instruksi 3 Kata:** Cukup ketik instruksi singkat seperti *"Rekap ke Excel"*, dan Arunaki secara cerdas memahami file mana yang harus dibuka, kolom mana yang harus diisi, dan total formula mana yang wajib dihitung ulang.
-- **Tanpa Rumus Manual:** Jangan pernah membebani pengguna dengan sintaks formula matematika buatan — biarkan LLM Arunaki menanganinya secara otonom dan presisi.
+Arunaki is engineered with a strict user-first principle: **users type minimally; the agent automates comprehensively**:
+- **Paste Raw Notes Directly:** Simply copy and paste unformatted WhatsApp messages or raw transaction notes straight into the chat composer (`"update this to daily report:" + [paste unformatted text]`).
+- **3-Word Prompts:** Type concise instructions such as *"Summarize to Excel"* — Arunaki autonomously determines which workbook to open, which columns to populate, and which summary totals require recalculation.
+- **Zero Formula Hassle:** Never force users to craft custom mathematical formulas or rigid layout rules — Arunaki's LLM engine parses and executes them autonomously.
 
 ---
 
-## 🚀 Panduan Memulai (3 Langkah Cepat)
+## 🚀 Getting Started (3 Simple Steps)
 
 ```mermaid
 graph LR
-    A[01. Unduh Installer] --> B[02. Buka Folder Workspace] --> C[03. Ketik Instruksi / Rekap]
+    A[01. Download Package] --> B[02. Select Workspace Folder] --> C[03. Automate Documents]
 ```
 
-### 1. Unduh Paket Aplikasi
-| Platform | Format Distribusi | Status Kesiapan | Persyaratan Sistem |
+### 1. Download Installer
+| Platform | Distribution Format | Packaging Status | System Requirements |
 | :--- | :--- | :--- | :--- |
-| **Windows** | `Arunaki-Setup.exe`<br>`Arunaki-Portable.exe` | ✅ Standalone Ready | Windows 10 / 11 (64-bit)<br>MS Office 2016+ *(opsional, untuk native COM)* |
-| **macOS** | `Arunaki-Universal.dmg` | 🔄 Dalam Pengerjaan | macOS 12.0 (Monterey) ke atas |
+| **Windows** | `Arunaki-Setup.exe`<br>`Arunaki-Portable.exe` | ✅ Standalone Ready | Windows 10 / 11 (64-bit)<br>MS Office 2016+ *(optional, for native COM)* |
+| **macOS** | `Arunaki-Universal.dmg` | 🔄 In Development | macOS 12.0 (Monterey) or higher |
 
-### 2. Tentukan Folder Proyek Aktif
-Buka Arunaki dan pilih folder kerja lokal Anda (misal: `D:\Laporan_Keuangan_2026`). 
-> **Prinsip Isolasi Kritis:** Arunaki mengadopsi model **agent-per-folder** (seperti `cwd` di VSCode). Agen hanya dapat membaca dan memodifikasi file di dalam folder aktif yang dipilih. Seluruh file sistem, OS, dan folder di luar workspace diblokir secara permanen.
+### 2. Choose Your Workspace Folder
+Launch Arunaki and select your local working directory (e.g. `D:\Company_Financials_2026`).
+> **Strict Folder Isolation:** Arunaki operates on an **agent-per-folder** model (identical to VS Code's `cwd`). The agent is strictly sandboxed to read and modify files only within your active folder. Operating system files, user home directories, and external paths are permanently blocked.
 
-### 3. Eksekusi Perintah Dokumen
-Ketik kebutuhan Anda dalam bahasa Indonesia alami:
-- *"Rekap seluruh nota pengeluaran di folder ini ke tabel rekap_operasional.xlsx"*
-- *"Ganti nama pihak kedua di kontrak_sewa.docx menjadi PT Surya Mandiri"*
-- *"Gabungkan seluruh file invoice PDF bulan ini dan pasang stempel LUNAS"*
-
----
-
-## 📊 Fitur Utama & Otomasi Dokumen
-
-### 1. 📈 Microsoft Excel Spreadsheet Automation (`.xlsx`, `.xlsm`, `.csv`)
-- **Native Windows COM Automation (WinAX):** Mengendalikan aplikasi Microsoft Excel asli secara *headless* di background untuk performa dan akurasi 100%.
-- **Formula Guard:** Mempertahankan dan mengevaluasi rumus dinamis (`=SUM()`, `=VLOOKUP()`, `=IF()`, `=INDEX(MATCH())`) tanpa pernah menimpanya menjadi teks statis angka mati.
-- **Multi-Sheet Management:** Kloning template sheet bulanan, penataan rentang cell, pewarnaan border selaras tema, dan kalkulasi subtotal otomatis.
-- **Embedded Fast Viewer:** Pratinjau grid lembar kerja langsung di antarmuka desktop workstation tanpa harus membuka aplikasi luar.
-
-### 2. 📝 Dokumen Kontrak & Administrasi Word (`.docx`)
-- **Template Placeholder Matching:** Mengisi variabel dinamis dokumen secara instan (contoh: `{{NAMA_KLIEN}}`, `{{TANGGAL}}`, `{{NOMOR_KONTRAK}}`, `{{NILAI_PROYEK}}`).
-- **Structured Content Generation:** Menyusun paragraf resmi, butir perjanjian terformat, dan tabel bergaris rapi sesuai format baku korporasi.
-- **Export Langsung ke PDF:** Mengonversi dokumen kontrak `.docx` menjadi PDF siap tanda tangan dalam satu langkah.
-
-### 3. 📑 Presentasi PowerPoint (`.pptx`)
-- **Slide Authoring:** Membuat slide baru dengan struktur judul, subjudul, dan kartu poin otomatis.
-- **Text Frame Updating:** Memperbarui metrik laporan bulanan dan grafik ringkasan pada deck presentasi eksekutif.
-
-### 4. 🛡️ Pipeline PDF, e-Materai, & Redaksi Privasi (PII)
-- **Manipulasi Halaman (`pdf_manage_pages`):** Menggabungkan (*merge*) puluhan invoice menjadi satu berkas atau memecah (*split*) halaman tertentu.
-- **Stempel & Digital Signature (`pdf_stamp_image`):** Membubuhkan stempel digital, tanda tangan basah transparan, dan e-Materai pada koordinat milimeter yang presisi.
-- **Redaksi Data Pribadi (`doc_redact_pii`):** Mendeteksi dan menyensor otomatis data identitas sensitif Indonesia untuk kepatuhan hukum:
-  - NIK KTP (Nomor Induk Kependudukan)
-  - NPWP (Nomor Pokok Wajib Pajak)
-  - Nomor Rekening Bank & Kartu Kredit
-  - Nomor Telepon Seluler & Alamat Email Pribadi
-
-### 5. ⚖️ Audit Dokumen & Perbandingan Redline (`doc_compare_versions`)
-- Membandingkan dua draf kontrak yang berbeda secara visual.
-- Menghasilkan tabel redline komparatif: klausul yang ditambahkan, dihapus, atau diubah beserta persentase kemiripan dokumen.
-
-### 6. 🔄 1-Klik Checkpoint & Instant Rollback
-- Setiap kali agen hendak mengubah isi file, Arunaki secara otomatis mengambil snapshot lokal di `.arunaki/checkpoints/`.
-- Jika hasil rekap tidak sesuai kehendak pengguna, cukup klik tombol **Rollback** untuk mengembalikan dokumen ke keadaan semula tanpa kehilangan data asli.
+### 3. Automate with Natural Language
+Type your instructions naturally:
+- *"Extract all receipt files in this folder into operational_recap.xlsx"*
+- *"Update the client name in service_agreement.docx to PT Surya Mandiri"*
+- *"Merge all monthly invoices into a single PDF and apply a PAID stamp"*
 
 ---
 
-## 🏛️ Arsitektur Sistem
+## 📊 Core Document Features
 
-Arunaki dibangun dengan arsitektur **Hybrid Client-Server Desktop**:
+### 1. 📈 Microsoft Excel Automation (`.xlsx`, `.xlsm`, `.csv`)
+- **Native Windows COM Bridge (WinAX):** Controls Microsoft Excel headless in the background with 100% native formatting fidelity.
+- **Formula Guard:** Preserves and evaluates dynamic formulas (`=SUM()`, `=VLOOKUP()`, `=IF()`, `=INDEX(MATCH())`) without ever flattening them into static numbers.
+- **Multi-Sheet Management:** Clones monthly template sheets, formats cell ranges, applies branded border colors, and generates automatic subtotal blocks.
+- **Embedded Fast Viewer:** Native grid spreadsheet viewer embedded directly in the workstation UI without requiring external software.
+
+### 2. 📝 Word Contracts & Legal Authoring (`.docx`)
+- **Template Placeholder Matching:** Automatically detects and populates dynamic variables (e.g. `{{CLIENT_NAME}}`, `{{EFFECTIVE_DATE}}`, `{{CONTRACT_VALUE}}`).
+- **Structured Content Generation:** Authors formal legal clauses, formatted numbered lists, and styled multi-column tables.
+- **Direct PDF Export:** Compiles completed Word contracts directly to PDF ready for execution.
+
+### 3. 📑 PowerPoint Presentation Decks (`.pptx`)
+- **Automated Slide Generation:** Constructs new slides complete with titles, structured bullet cards, and layout containers.
+- **Text Frame Updates:** Updates executive metric callouts and summary tables across existing slide decks.
+
+### 4. 🛡️ PDF Pipelines, Digital Stamps, & PII Redaction
+- **Page Manipulation (`pdf_manage_pages`):** Merges dozens of invoice documents or splits specific page ranges cleanly.
+- **Stamping & Signatures (`pdf_stamp_image`):** Applies digital stamps, transparent signatures, and e-Materai seals on precise millimeter coordinates.
+- **PII Privacy Redaction (`doc_redact_pii`):** Automatically detects and masks sensitive personal identifiers for regulatory compliance:
+  - NIK KTP (Indonesian National Identity Numbers)
+  - NPWP (Tax Identification Numbers)
+  - Bank Account & Credit Card Numbers
+  - Mobile Phone Numbers & Personal Emails
+
+### 5. ⚖️ Document Audit & Redline Comparison (`doc_compare_versions`)
+- Compares two contract drafts with visual redline diffing.
+- Generates a structured comparison table highlighting added, modified, and removed clauses alongside similarity percentages.
+
+### 6. 🔄 1-Click Checkpoints & Instant Rollback
+- Automatically captures an immutable snapshot in `.arunaki/checkpoints/` before applying any file modifications.
+- Undo changes instantly with a single click if the result does not match user expectations.
+
+---
+
+## 🏛️ System Architecture
+
+Arunaki is built on a **Hybrid Client-Server Desktop Architecture**:
 
 ```mermaid
 graph TD
@@ -141,7 +142,7 @@ graph TD
         SQLite[(Local SQLite - Arunaki-local.db)]
     end
 
-    subgraph Sandbox [Proyek Aktif Terisolasi]
+    subgraph Sandbox [Sandboxed Active Project]
         Folder[(Workspace Folder)]
         Checkpoint[.arunaki/checkpoints]
     end
@@ -159,80 +160,81 @@ graph TD
 ```
 
 1. **Desktop Shell (`apps/desktop`):**
-   - Jendela aplikasi berbasis Electron 43 dengan custom titlebar monokrom gelap.
-   - IPC relay aman: Chromium sandbox tidak pernah mengekspos port HTTP atau kredensial langsung ke renderer.
-   - Auto-Spawn: Electron otomatis menyalakan binary `engine.exe` saat app dibuka dan mematikannya saat app ditutup.
-2. **Frontend Workstation (`apps/web`):**
-   - Dibangun dengan React 18, Vite, dan Tailwind CSS.
-   - Dilengkapi Monaco Editor, Spreadsheet viewer native, visual telemetry developer, dan tab sistem multi-dokumen.
+   - Built on Electron 43 with a borderless dark-mode titlebar overlay.
+   - Secure IPC relay: Renderer process never directly contacts localhost ports or handles credentials.
+   - Autonomous Engine Lifecycle: Electron automatically launches `engine.exe` on startup and cleanly terminates it on exit.
+2. **Workstation UI (`apps/web`):**
+   - Built with React 18, Vite, and Tailwind CSS.
+   - Features Monaco Editor, native spreadsheet viewer, developer telemetry metrics, and multi-tab document management.
 3. **Backend AI Engine (`packages/engine`):**
-   - Server Effect-TS super-cepat berbasis Bun.
-   - Terintegrasi dengan berbagai penyedia LLM (OpenAI, Anthropic Claude, Google Gemini, Antigravity, OpenCode, Kiro, Codex, Groq, dan OpenRouter).
+   - Ultra-fast Effect-TS server powered by Bun.
+   - Comprehensive model routing (OpenAI, Anthropic Claude, Google Gemini, Antigravity, OpenCode, Kiro, Codex, Groq, and OpenRouter).
 4. **Local CLI Bridge (`port 20188`):**
-   - Daemon lokal untuk token-pooling dari langganan CLI yang sudah terpasang di komputer pengguna tanpa perlu menyewa API cloud tambahan.
+   - Local daemon enabling token-pooling from existing installed CLI subscriptions without cloud API fees.
 
 ---
 
-## 🛠️ Katalog 50+ Tool Agen
+## 🛠️ 50+ Agent Tool Catalog
 
-| Kategori | Tool Utama | Cakupan Kemampuan |
+| Category | Primary Tools | Operational Scope |
 | :--- | :--- | :--- |
-| **Workspace File** | `read_file`, `write_file`, `edit_file`, `list_directory`, `search_files`, `rename_file`, `delete_file` | CRUD dokumen aman, patch diff baris spesifik, pencarian regex, manajemen path. |
-| **Office Automation** | `desktop_excel_edit`, `desktop_word_edit`, `desktop_ppt_edit`, `desktop_open_file` | Automasi COM native, formula retention, edit cell, pemformatan template, ekspor PDF. |
-| **PDF & Kepatuhan** | `pdf_manage_pages`, `pdf_stamp_image`, `doc_redact_pii`, `convert_document` | Penggabungan berkas, ekstraksi halaman, stempel e-Materai, masking NIK/NPWP. |
-| **Audit Dokumen** | `doc_compare_versions`, `extract_structured_data`, `document_reader` | Tabel redline komparatif, ekstraksi tabel angka finansial, analisis kemiripan draf. |
-| **Data & Kalkulasi** | `data_query`, `unit_converter`, `draft_communication`, `generate_export` | Query database SQLite lokal, konversi mata uang/satuan, draft pesan, ekspor CSV/XLSX. |
-| **Orkestrator** | `todo_write`, `batch_execute`, `agent_spawn`, `ask_user` | Checklist working memory, Programmatic Tool Calling (PTC), sub-agent delegator. |
+| **Workspace Files** | `read_file`, `write_file`, `edit_file`, `list_directory`, `search_files`, `rename_file`, `delete_file` | Safe CRUD operations, surgical diff line patching, regex search, atomic file lifecycle. |
+| **Office Automation** | `desktop_excel_edit`, `desktop_word_edit`, `desktop_ppt_edit`, `desktop_open_file` | Native COM automation, formula retention, cell manipulation, template styling, PDF export. |
+| **PDF & Compliance** | `pdf_manage_pages`, `pdf_stamp_image`, `doc_redact_pii`, `convert_document` | Document merging, page extraction, watermark/signature stamping, PII masking. |
+| **Document Audit** | `doc_compare_versions`, `extract_structured_data`, `document_reader` | Redline differential tables, financial table extraction, clause similarity analysis. |
+| **Data & Calculations** | `data_query`, `unit_converter`, `draft_communication`, `generate_export` | Local SQLite database queries, unit/currency conversions, message drafting, CSV/XLSX export. |
+| **Orchestration** | `todo_write`, `batch_execute`, `agent_spawn`, `ask_user` | Working memory task tracking, Programmatic Tool Calling (PTC), sub-agent delegation. |
 
 ---
 
-## 🔒 Keamanan & Isolasi Sandbox
+## 🔒 Security & Sandbox Boundaries
 
-- 🛡️ **Zero Computer Access:** Agen tidak memiliki akses ke drive `C:\Windows`, registry sistem, dokumen pribadi di luar folder aktif, atau source code aplikasi lain.
-- 🚫 **Zero Terminal Execution:** Agen dilarang keras mengeksekusi perintah shell berbahaya (`cmd.exe`, `powershell`, `bash`, `rmdir /s`).
-- 📂 **Original File Protection:** Dokumen asli selalu diproteksi dengan *snapshot backup* sebelum dilakukan modifikasi apa pun.
-- 👁️ **Transparansi Penuh:** Setiap langkah eksekusi ditampilkan secara visual di panel telemetry antarmuka (*collapsible execution card*).
+- 🛡️ **Zero Operating System Access:** The agent cannot access `C:\Windows`, system registries, user documents outside the active folder, or source code of other applications.
+- 🚫 **Zero Arbitrary Shell Execution:** The agent is strictly prohibited from running arbitrary terminal commands (`cmd.exe`, `powershell`, `bash`, `rmdir /s`).
+- 📂 **Original File Protection:** Original documents are backed up to local checkpoints prior to any write or edit operation.
+- 👁️ **Full Execution Transparency:** Every action taken by the agent is displayed in real-time within collapsible execution telemetry cards.
 
 ---
 
-## 💻 Panduan Pengembangan (Developer Guide)
+## 💻 Developer Guide
 
-### Prasyarat Lingkungan
+### Environment Prerequisites
 - [Node.js](https://nodejs.org/) v20+ / npm v10+
-- [Bun](https://bun.sh/) v1.2+ (untuk eksekusi engine dan compiler native)
+- [Bun](https://bun.sh/) v1.2+ (for engine execution and native compilation)
 - Git
 
-### Menjalankan Mode Pengembangan
+### Running in Development Mode
 ```bash
-# 1. Clone repository
+# 1. Clone the repository
 git clone https://github.com/jlsrngo/Arunaki.git
 cd Arunaki
 
-# 2. Install seluruh dependensi
+# 2. Install workspace dependencies
 npm install
 
-# 3. Jalankan aplikasi workstation (Web UI + Electron Shell)
+# 3. Start development environment (Vite UI + Electron Desktop Shell)
 npm run dev:app
 ```
 
-### Mempersiapkan Bundel Produksi Standalone
+### Standalone Bundle Preparation
 ```bash
-# Menjalankan pipeline kompilasi 1-klik:
-# - Build frontend React Vite
-# - Sync bundle ke folder desktop
-# - Compile AI engine ke engine.exe (Bun standalone)
-# - Verifikasi integritas artefak
+# Run the 1-click preparation pipeline:
+# - Builds the React Vite frontend
+# - Syncs bundle into apps/desktop/web/
+# - Compiles the AI engine into engine.exe (Bun native binary)
+# - Verifies artifact integrity
 npm run bundle:prepare
 ```
 
-### Pengecekan Kualitas Kode
+### Code Quality & Verification
 ```bash
-npm run typecheck    # Verifikasi TypeScript web (0 error)
-npm run verify       # Full verification gate (build + typecheck + smoke test)
+npm run typecheck    # Verify web TypeScript types (0 errors)
+npm run verify       # Full verification gate (build + typecheck + smoke tests)
 ```
 
 ---
 
-## 📄 Lisensi & Hak Cipta
+## 📄 License & Credits
 
-Hak Cipta © 2026 **Arunaki** — Dikembangkan oleh [Julio Siringoringo](https://juliosiringoringo.space). Seluruh hak cipta dilindungi undang-undang.
+Open source and crafted with precision by [Julio Siringoringo](https://juliosiringoringo.space).  
+Distributed under the **MIT License**. Built for local, private, and automated document workflows.
