@@ -13,6 +13,7 @@
   [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-09090b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/jlsrngo/Arunaki)
   [![Runtime](https://img.shields.io/badge/Runtime-Bun%201.3%20%7C%20Electron%2043-09090b?style=for-the-badge&logo=bun&logoColor=white)](https://github.com/jlsrngo/Arunaki)
   [![Stack](https://img.shields.io/badge/Tech-TypeScript%20%7C%20React%20%7C%20Effect-09090b?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/jlsrngo/Arunaki)
+  [![Telegram Remote](https://img.shields.io/badge/Remote%20Control-Telegram%20Bot-09090b?style=for-the-badge&logo=telegram&logoColor=26A5E4)](https://github.com/jlsrngo/Arunaki)
   [![Security](https://img.shields.io/badge/Security-Folder%20Isolation%20Sandbox-e59344?style=for-the-badge&logoColor=black)](docs/BOUNDARIES.md)
 
   <br />
@@ -120,6 +121,12 @@ Type your instructions naturally:
 - Automatically captures an immutable snapshot in `.arunaki/checkpoints/` before applying any file modifications.
 - Undo changes instantly with a single click if the result does not match user expectations.
 
+### 7. 📱 Remote Control via Telegram Bot (Mobile Document Gateway)
+- **Zero-Friction Mobile Dispatch:** Forward unformatted receipts, voice notes, or WhatsApp text directly to your paired Arunaki Telegram Bot from anywhere.
+- **Bi-directional Live Streaming:** The desktop workstation processes document tasks locally and streams progress notifications, step checklists, and confirmation badges back to your Telegram chat.
+- **Secure Pair-Code Authentication:** Zero unauthorized access — only Telegram User IDs explicitly paired via the workstation settings panel can dispatch commands.
+- **On-the-Go File Delivery:** Receive finalized PDF reports, Excel recap sheets, and clause diff summaries straight to your Telegram chat.
+
 ---
 
 ## 🏛️ System Architecture
@@ -128,6 +135,10 @@ Arunaki is built on a **Hybrid Client-Server Desktop Architecture**:
 
 ```mermaid
 graph TD
+    subgraph Mobile [Mobile Remote Dispatch]
+        Telegram[Telegram Bot Mobile App]
+    end
+
     subgraph Desktop Shell [Electron Desktop Shell - apps/desktop]
         UI[React Workstation UI - apps/web]
         Preload[Secure Context Bridge - preload.cjs]
@@ -137,6 +148,7 @@ graph TD
 
     subgraph Backend Engine [AI Engine Daemon - packages/engine]
         Engine[Standalone engine.exe :4096]
+        TGService[Telegram Gateway Service]
         Router[Universal LLM Provider Router]
         CLIBridge[Local CLI Bridge :20188]
         SQLite[(Local SQLite - Arunaki-local.db)]
@@ -147,6 +159,8 @@ graph TD
         Checkpoint[.arunaki/checkpoints]
     end
 
+    Telegram <-->|Polling / Realtime Sync| TGService
+    TGService <--> Engine
     UI -->|IPC Relay / SSE| Preload
     Preload --> Main
     Main --> WinAX
@@ -169,6 +183,7 @@ graph TD
 3. **Backend AI Engine (`packages/engine`):**
    - Ultra-fast Effect-TS server powered by Bun.
    - Comprehensive model routing (OpenAI, Anthropic Claude, Google Gemini, Antigravity, OpenCode, Kiro, Codex, Groq, and OpenRouter).
+   - Embedded Telegram Gateway Service (`TelegramService`) for secure mobile command dispatch.
 4. **Local CLI Bridge (`port 20188`):**
    - Local daemon enabling token-pooling from existing installed CLI subscriptions without cloud API fees.
 
@@ -182,6 +197,7 @@ graph TD
 | **Office Automation** | `desktop_excel_edit`, `desktop_word_edit`, `desktop_ppt_edit`, `desktop_open_file` | Native COM automation, formula retention, cell manipulation, template styling, PDF export. |
 | **PDF & Compliance** | `pdf_manage_pages`, `pdf_stamp_image`, `doc_redact_pii`, `convert_document` | Document merging, page extraction, watermark/signature stamping, PII masking. |
 | **Document Audit** | `doc_compare_versions`, `extract_structured_data`, `document_reader` | Redline differential tables, financial table extraction, clause similarity analysis. |
+| **Messaging & Remote** | `telegram_notify`, `telegram_send_document`, `remote_dispatch` | Telegram Bot mobile integration, remote task execution, mobile document delivery. |
 | **Data & Calculations** | `data_query`, `unit_converter`, `draft_communication`, `generate_export` | Local SQLite database queries, unit/currency conversions, message drafting, CSV/XLSX export. |
 | **Orchestration** | `todo_write`, `batch_execute`, `agent_spawn`, `ask_user` | Working memory task tracking, Programmatic Tool Calling (PTC), sub-agent delegation. |
 
