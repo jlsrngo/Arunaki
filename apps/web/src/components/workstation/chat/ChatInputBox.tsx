@@ -339,6 +339,18 @@ setReasoningEffort,
       }
     }
 
+    if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
+      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      if (typeof desktop?.readClipboardImage === "function") {
+        desktop.readClipboardImage().then((dataUrl: string | null) => {
+          if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
+            e.preventDefault();
+            handleAddImageDataUrl(dataUrl, "screenshot");
+          }
+        }).catch(() => {});
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitPrompt();
@@ -353,6 +365,42 @@ setReasoningEffort,
       reader.readAsDataURL(file);
     });
   };
+
+  const handleAddImageDataUrl = useCallback(
+    (dataUrl: string, nameHint = "screenshot") => {
+      const currentCount = attachedFiles.length;
+      const rawFileName = `${nameHint}.png`;
+      const resolvedName = normalizeAttachmentName(rawFileName, 0, 1, currentCount);
+      const timestamp = Date.now();
+      const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
+
+      // Calculate approximate byte size from base64 data URL
+      const base64Str = dataUrl.split(",")[1] || "";
+      const approxBytes = Math.round((base64Str.length * 3) / 4);
+
+      setAttachedFiles((prev) => [
+        ...prev,
+        {
+          id: fileId,
+          name: resolvedName,
+          url: dataUrl,
+          dataUrl,
+          mime: "image/png",
+          size: approxBytes,
+          isImage: true,
+        },
+      ]);
+
+      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      if (desktop?.writeFile) {
+        const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
+        desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
+          console.warn("[ChatInputBox] Could not cache attachment internally:", e);
+        });
+      }
+    },
+    [attachedFiles.length]
+  );
 
   const handleAddFiles = useCallback(
     async (filesToAdd: File[]) => {
@@ -383,9 +431,6 @@ setReasoningEffort,
             },
           ]);
 
-          // CRITICAL: DO NOT save chat attachments to the root workspace folder!
-          // Chat attachments are ephemeral context parts passed in sendPrompt.
-          // For documents and images requiring tool access (image_ocr/pdf_read), cache to hidden .arunaki/attachments/
           const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
           if (desktop?.writeFile) {
             const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
@@ -437,12 +482,55 @@ setReasoningEffort,
     return fileList;
   };
 
+  const processPaste = useCallback(
+    async (clipboardData?: DataTransfer | null): Promise<boolean> => {
+      // 1. First priority: Check desktop native clipboard bridge (Electron Win32 GetClipboardData)
+      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      if (typeof desktop?.readClipboardImage === "function") {
+        try {
+          const nativeDataUrl = await desktop.readClipboardImage();
+          if (nativeDataUrl && typeof nativeDataUrl === "string" && nativeDataUrl.startsWith("data:image/")) {
+            handleAddImageDataUrl(nativeDataUrl, "screenshot");
+            return true;
+          }
+        } catch (e) {
+          console.warn("[ChatInputBox] desktop.readClipboardImage error:", e);
+        }
+      }
+
+      // 2. Second priority: Standard web clipboard files / items
+      const fileList = extractClipboardFiles(clipboardData);
+      if (fileList.length > 0) {
+        await handleAddFiles(fileList);
+        return true;
+      }
+
+      // 3. Third priority: Async navigator.clipboard.read() for modern browsers
+      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.read === "function") {
+        try {
+          const clipItems = await navigator.clipboard.read();
+          for (const item of clipItems) {
+            const imgType = item.types.find((t) => t.startsWith("image/"));
+            if (imgType) {
+              const blob = await item.getType(imgType);
+              const file = new File([blob], `screenshot_${Date.now()}.png`, { type: imgType });
+              await handleAddFiles([file]);
+              return true;
+            }
+          }
+        } catch {}
+      }
+
+      return false;
+    },
+    [handleAddImageDataUrl, handleAddFiles]
+  );
+
   const handlePaste = async (e: ClipboardEvent<HTMLElement>) => {
-    const fileList = extractClipboardFiles(e.clipboardData);
-    if (fileList.length > 0) {
+    const handled = await processPaste(e.clipboardData);
+    if (handled) {
       e.preventDefault();
       e.stopPropagation();
-      await handleAddFiles(fileList);
     }
   };
 
@@ -458,18 +546,17 @@ setReasoningEffort,
         return;
       }
 
-      const fileList = extractClipboardFiles(e.clipboardData);
-      if (fileList.length > 0) {
+      const handled = await processPaste(e.clipboardData);
+      if (handled) {
         e.preventDefault();
         e.stopPropagation();
-        await handleAddFiles(fileList);
         textareaRef.current?.focus();
       }
     };
 
     window.addEventListener("paste", onWindowPaste);
     return () => window.removeEventListener("paste", onWindowPaste);
-  }, [handleAddFiles]);
+  }, [processPaste]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();

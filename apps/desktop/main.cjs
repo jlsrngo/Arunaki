@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification, nativeImage, clipboard } = require('electron');
 const http = require('node:http');
 const path = require('node:path');
 const os = require('node:os');
@@ -998,6 +998,17 @@ app.whenReady().then(async () => {
       return { success: true, base64: data.toString('base64') };
     } catch (err) {
       return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('clipboard:readImage', async () => {
+    try {
+      const img = clipboard.readImage();
+      if (!img || img.isEmpty()) return null;
+      return img.toDataURL();
+    } catch (err) {
+      console.warn('[main] clipboard:readImage failed:', err.message);
+      return null;
     }
   });
 
