@@ -28,6 +28,7 @@ interface ModelProviderSettingsProps {
   availableCatalogModels?: Record<string, string[]>;
   loading: boolean;
   onRefresh: () => void;
+  onUpdateProviders?: (updater: (prev: Provider[]) => Provider[]) => void;
 }
 
 export function ModelProviderSettings({
@@ -35,11 +36,18 @@ export function ModelProviderSettings({
   availableCatalogModels,
   loading,
   onRefresh,
+  onUpdateProviders,
 }: ModelProviderSettingsProps) {
   const { t } = useI18n();
-  const cloudProviders = useMemo(() => {
-    return providers.filter((p) => !isCliProvider(p));
+  const [internalProviders, setInternalProviders] = useState<Provider[]>(providers);
+
+  useEffect(() => {
+    setInternalProviders(providers);
   }, [providers]);
+
+  const cloudProviders = useMemo(() => {
+    return internalProviders.filter((p) => !isCliProvider(p));
+  }, [internalProviders]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -234,106 +242,127 @@ export function ModelProviderSettings({
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this provider configuration?")) return;
+    setInternalProviders((prev) => prev.filter((p) => p.id !== id));
+    if (onUpdateProviders) onUpdateProviders((prev) => prev.filter((p) => p.id !== id));
     try {
       await apiFetch(`${API_BASE}/providers/${id}${directoryQuery()}`, { method: "DELETE" });
       toast.success("Provider deleted successfully.");
-      onRefresh();
     } catch {
       toast.error("Failed to delete provider.");
+      onRefresh();
     }
   };
 
-  const handleToggleActive = async (provider: Provider) => {
-    try {
-      const isCurrentlyActive = Boolean(provider.active);
+  const handleToggleActive = (provider: Provider) => {
+    const isCurrentlyActive = Boolean(provider.active);
+    const targetState = !isCurrentlyActive;
 
-      if (isCurrentlyActive) {
-        // Matikan (OFF) -> Alihkan rute obrolan ke CLI / Local Agent
-        await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
+    // 1. INSTANT OPTIMISTIC UI: flip switch immediately (0ms delay)
+    const updateFn = (prev: Provider[]) =>
+      prev.map((p) => {
+        if (p.id === provider.id) {
+          return { ...p, active: targetState };
+        }
+        if (targetState && !isCliProvider(p)) {
+          return { ...p, active: false };
+        }
+        return p;
+      });
+
+    setInternalProviders(updateFn);
+    if (onUpdateProviders) onUpdateProviders(updateFn);
+
+    if (isCurrentlyActive) {
+      // Matikan (OFF) -> Alihkan rute obrolan ke CLI / Local Agent
+      const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router", "kiro"];
+      const lastCli = localStorage.getItem("arunaki_last_active_cli");
+      const targetCli = (lastCli && cliTargets.includes(lastCli))
+        ? lastCli
+        : (internalProviders.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
+
+      localStorage.setItem("arunaki_active_provider", targetCli);
+
+      const cliDefaultModels: Record<string, string> = {
+        "claude-code": localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet",
+        gemini: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+        antigravity: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+        "gemini-cli": localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
+        codex: "o3-mini",
+        opencode: "opencode/big-pickle",
+        "9router": "cx/gpt-5.6-terra",
+        kiro: localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto",
+      };
+      const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
+      localStorage.setItem("arunaki_active_model", nextModel);
+      window.dispatchEvent(
+        new CustomEvent("arunaki:provider-change", {
+          detail: { providerId: targetCli, model: nextModel },
+        })
+      );
+
+      const cliNames: Record<string, string> = {
+        "claude-code": "Claude Code CLI",
+        codex: "OpenAI Codex CLI",
+        gemini: "Google Antigravity",
+        opencode: "OpenCode Interpreter",
+        "9router": "9Router Gateway",
+      };
+      const friendlyName = cliNames[targetCli] || targetCli;
+
+      toast.success(
+        `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOff", "turned OFF")}`,
+        {
+          description: `${t("chatRoutingDivertedDesc", "Chat routing automatically diverted to CLI")} (${friendlyName}).`,
+        }
+      );
+
+      // Async background sync without blocking UI
+      void Promise.all([
+        apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
           method: "PUT",
           body: JSON.stringify({ active: false }),
-        }).catch(() => {});
-
-        const cliTargets = ["claude-code", "gemini", "antigravity", "opencode", "codex", "9router", "kiro"];
-        const lastCli = localStorage.getItem("arunaki_last_active_cli");
-        const targetCli = (lastCli && cliTargets.includes(lastCli))
-          ? lastCli
-          : (providers.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
-
-        localStorage.setItem("arunaki_active_provider", targetCli);
-
-        const cliDefaultModels: Record<string, string> = {
-          "claude-code": localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet",
-          gemini: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
-          antigravity: localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
-          "gemini-cli": localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash",
-          codex: "o3-mini",
-          opencode: "opencode/big-pickle",
-          "9router": "cx/gpt-5.6-terra",
-          // Kiro was absent, so `|| "gemini-3.8-flash"` below handed it another provider's model.
-          kiro: localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto",
-        };
-        const nextModel = cliDefaultModels[targetCli] || "gemini-3.8-flash";
-        localStorage.setItem("arunaki_active_model", nextModel);
-        window.dispatchEvent(
-          new CustomEvent("arunaki:provider-change", {
-            detail: { providerId: targetCli, model: nextModel },
-          })
-        );
-
-        // Aktifkan target CLI di backend jika terdaftar
-        await apiFetch(`${API_BASE}/providers/${targetCli}/state${directoryQuery()}`, {
+        }),
+        apiFetch(`${API_BASE}/providers/${targetCli}/state${directoryQuery()}`, {
           method: "PUT",
           body: JSON.stringify({ active: true }),
-        }).catch(() => {});
-
-        const cliNames: Record<string, string> = {
-          "claude-code": "Claude Code CLI",
-          codex: "OpenAI Codex CLI",
-          gemini: "Google Antigravity",
-          opencode: "OpenCode Interpreter",
-          "9router": "9Router Gateway",
-        };
-        const friendlyName = cliNames[targetCli] || targetCli;
-
-        toast.success(
-          `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOff", "turned OFF")}`,
-          {
-            description: `${t("chatRoutingDivertedDesc", "Chat routing automatically diverted to CLI")} (${friendlyName}).`,
-          }
-        );
+        }),
+      ]).catch(() => {
+        toast.error(t("failedToChangeProviderStatus", "Failed to update provider status."));
         onRefresh();
-      } else {
-        // Nyalakan (ON) -> Jadikan Primary Active
-        localStorage.setItem("arunaki_active_provider", provider.id);
-        const pool = localStorage.getItem("arunaki_provider_models_" + provider.id) || provider.model;
-        const primary = pool ? pool.split(",").map((s) => s.trim()).filter(Boolean)[0] : "";
-        if (primary) {
-          localStorage.setItem("arunaki_active_model", primary);
-        }
-        window.dispatchEvent(
-          new CustomEvent("arunaki:provider-change", {
-            detail: { providerId: provider.id, model: primary || "" },
-          })
-        );
-        await apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
-          method: "PUT",
-          body: JSON.stringify({ active: true }),
-        }).catch(() => {});
-        toast.success(
-          `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOnPrimary", "turned ON (Primary Active)")}`,
-          {
-            description: `${t("chatRoutingNowUsing", "Chat routing is now using")} ${provider.name || provider.id}.`,
-          }
-        );
-        onRefresh();
+      });
+    } else {
+      // Nyalakan (ON) -> Jadikan Primary Active
+      localStorage.setItem("arunaki_active_provider", provider.id);
+      const pool = localStorage.getItem("arunaki_provider_models_" + provider.id) || provider.model;
+      const primary = pool ? pool.split(",").map((s) => s.trim()).filter(Boolean)[0] : "";
+      if (primary) {
+        localStorage.setItem("arunaki_active_model", primary);
       }
-    } catch {
-      toast.error(t("failedToChangeProviderStatus", "Failed to update provider status."));
+      window.dispatchEvent(
+        new CustomEvent("arunaki:provider-change", {
+          detail: { providerId: provider.id, model: primary || "" },
+        })
+      );
+
+      toast.success(
+        `${t("provider", "Provider")} ${provider.name || provider.id} ${t("providerTurnedOnPrimary", "turned ON (Primary Active)")}`,
+        {
+          description: `${t("chatRoutingNowUsing", "Chat routing is now using")} ${provider.name || provider.id}.`,
+        }
+      );
+
+      // Async background sync without blocking UI
+      void apiFetch(`${API_BASE}/providers/${provider.id}/state${directoryQuery()}`, {
+        method: "PUT",
+        body: JSON.stringify({ active: true }),
+      }).catch(() => {
+        toast.error(t("failedToChangeProviderStatus", "Failed to update provider status."));
+        onRefresh();
+      });
     }
   };
 
-  const handleMoveProviderPriority = async (index: number, direction: "up" | "down") => {
+  const handleMoveProviderPriority = (index: number, direction: "up" | "down") => {
     const list = [...cloudProviders];
     const targetIdx = direction === "up" ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= list.length) return;
@@ -341,23 +370,40 @@ export function ModelProviderSettings({
     const currentP = list[index];
     const targetP = list[targetIdx];
 
-    try {
-      // Swap priorities
-      await Promise.all([
-        apiFetch(`${API_BASE}/providers/${currentP.id}/state${directoryQuery()}`, {
-          method: "PUT",
-          body: JSON.stringify({ priority: targetP.priority ?? targetIdx }),
-        }),
-        apiFetch(`${API_BASE}/providers/${targetP.id}/state${directoryQuery()}`, {
-          method: "PUT",
-          body: JSON.stringify({ priority: currentP.priority ?? index }),
-        }),
-      ]);
-      toast.success("Routing priority updated.");
+    // 1. INSTANT OPTIMISTIC SWAP (0ms delay)
+    const reorderedCloud = [...list];
+    reorderedCloud[index] = targetP;
+    reorderedCloud[targetIdx] = currentP;
+
+    const updatedWithPriority = reorderedCloud.map((p, idx) => ({
+      ...p,
+      priority: idx + 1,
+    }));
+
+    const updateFn = (prev: Provider[]) => {
+      const nonCloud = prev.filter((p) => isCliProvider(p));
+      return [...updatedWithPriority, ...nonCloud];
+    };
+
+    setInternalProviders(updateFn);
+    if (onUpdateProviders) onUpdateProviders(updateFn);
+
+    toast.success("Routing priority updated.");
+
+    // 2. Background sync without blocking UI
+    void Promise.all([
+      apiFetch(`${API_BASE}/providers/${currentP.id}/state${directoryQuery()}`, {
+        method: "PUT",
+        body: JSON.stringify({ priority: targetIdx + 1 }),
+      }),
+      apiFetch(`${API_BASE}/providers/${targetP.id}/state${directoryQuery()}`, {
+        method: "PUT",
+        body: JSON.stringify({ priority: index + 1 }),
+      }),
+    ]).catch(() => {
+      toast.error("Failed to persist provider priority.");
       onRefresh();
-    } catch {
-      toast.error("Failed to update provider priority.");
-    }
+    });
   };
 
   const handleFetchModelsInForm = async () => {

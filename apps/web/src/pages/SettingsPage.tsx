@@ -165,6 +165,7 @@ export function SettingsPage() {
               availableCatalogModels={availableCatalogModels}
               loading={loading}
               onRefresh={fetchProviders}
+              onUpdateProviders={setProviders}
             />
           )}
 

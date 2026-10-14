@@ -58,8 +58,11 @@ export function ProviderCard({
               <button
                 type="button"
                 disabled={index === 0}
-                onClick={() => onMovePriority(index, "up")}
-                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-20 cursor-pointer transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMovePriority(index, "up");
+                }}
+                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] active:scale-90 disabled:opacity-20 cursor-pointer transition-transform"
                 title={t("moveProviderUp")}
               >
                 <ArrowUp className="w-3 h-3" />
@@ -67,8 +70,11 @@ export function ProviderCard({
               <button
                 type="button"
                 disabled={index === totalProviders - 1}
-                onClick={() => onMovePriority(index, "down")}
-                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-20 cursor-pointer transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMovePriority(index, "down");
+                }}
+                className="p-1 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] active:scale-90 disabled:opacity-20 cursor-pointer transition-transform"
                 title={t("moveProviderDown")}
               >
                 <ArrowDown className="w-3 h-3" />
@@ -79,14 +85,17 @@ export function ProviderCard({
           {/* ON / OFF Toggle Switch */}
           <button
             type="button"
-            onClick={() => onToggleActive(p)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleActive(p);
+            }}
             title={
               p.active
                 ? t("clickToTurnOffDivertCli", "Click to turn OFF & divert routing to CLI / Local Agent")
                 : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
             }
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shrink-0 mt-0.5 shadow-xs select-none",
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border shrink-0 mt-0.5 shadow-xs select-none",
               p.active
                 ? "bg-white text-zinc-950 border-white hover:bg-zinc-200"
                 : "bg-zinc-900/90 text-zinc-400 hover:text-zinc-200 border-zinc-700 hover:border-zinc-500"
