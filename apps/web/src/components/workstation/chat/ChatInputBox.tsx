@@ -3,6 +3,7 @@ import {
   useState,
   useMemo,
   useEffect,
+  useCallback,
   memo,
   type Dispatch,
   type SetStateAction,
@@ -353,47 +354,53 @@ setReasoningEffort,
     });
   };
 
-  const handleAddFiles = async (filesToAdd: File[]) => {
-    const currentCount = attachedFiles.length;
-    for (let i = 0; i < filesToAdd.length; i++) {
-      const file = filesToAdd[i];
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        const resolvedName = normalizeAttachmentName(file.name, i, filesToAdd.length, currentCount);
-        const isImg = isImageFile(resolvedName, file.type);
-        const localPreviewUrl = isImg ? URL.createObjectURL(file) : "";
-        const timestamp = Date.now();
-        const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
+  const handleAddFiles = useCallback(
+    async (filesToAdd: File[]) => {
+      const currentCount = attachedFiles.length;
+      for (let i = 0; i < filesToAdd.length; i++) {
+        const file = filesToAdd[i];
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          const rawFileName =
+            file.name ||
+            (file.type ? `screenshot.${file.type.split("/")[1] || "png"}` : "screenshot.png");
+          const resolvedName = normalizeAttachmentName(rawFileName, i, filesToAdd.length, currentCount);
+          const isImg = isImageFile(resolvedName, file.type);
+          const localPreviewUrl = isImg ? URL.createObjectURL(file) : "";
+          const timestamp = Date.now();
+          const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
 
-        setAttachedFiles((prev) => [
-          ...prev,
-          {
-            id: fileId,
-            name: resolvedName,
-            url: localPreviewUrl,
-            dataUrl,
-            mime: file.type || (isImg ? "image/png" : "application/octet-stream"),
-            size: file.size,
-            isImage: isImg,
-          },
-        ]);
+          setAttachedFiles((prev) => [
+            ...prev,
+            {
+              id: fileId,
+              name: resolvedName,
+              url: localPreviewUrl,
+              dataUrl,
+              mime: file.type || (isImg ? "image/png" : "application/octet-stream"),
+              size: file.size,
+              isImage: isImg,
+            },
+          ]);
 
-        // CRITICAL: DO NOT save chat attachments to the root workspace folder!
-        // Chat attachments are ephemeral context parts passed in sendPrompt.
-        // For documents and images requiring tool access (image_ocr/pdf_read), cache to hidden .arunaki/attachments/
-        const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-        if (desktop?.writeFile) {
-          const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
-          desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
-            console.warn("[ChatInputBox] Could not cache attachment internally:", e);
-          });
+          // CRITICAL: DO NOT save chat attachments to the root workspace folder!
+          // Chat attachments are ephemeral context parts passed in sendPrompt.
+          // For documents and images requiring tool access (image_ocr/pdf_read), cache to hidden .arunaki/attachments/
+          const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+          if (desktop?.writeFile) {
+            const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
+            desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
+              console.warn("[ChatInputBox] Could not cache attachment internally:", e);
+            });
+          }
+        } catch (err) {
+          console.warn("[ChatInputBox] Failed to read file:", err);
+          toast.error(`Failed to read file ${file.name || "attachment"}`);
         }
-      } catch (err) {
-        console.warn("[ChatInputBox] Failed to read file:", err);
-        toast.error(`Failed to read file ${file.name}`);
       }
-    }
-  };
+    },
+    [attachedFiles.length]
+  );
 
   const handleFileInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -402,21 +409,67 @@ setReasoningEffort,
     e.target.value = "";
   };
 
-  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  const extractClipboardFiles = (clipboardData?: DataTransfer | null): File[] => {
+    if (!clipboardData) return [];
     const fileList: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.kind === "file") {
-        const file = item.getAsFile();
-        if (file) fileList.push(file);
+
+    // 1. Files from file list (e.g. copied from explorer or standard file drop)
+    if (clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const f = clipboardData.files[i];
+        if (f) fileList.push(f);
       }
     }
+
+    // 2. Items from clipboard data (e.g. pasted screenshots, image data)
+    if (fileList.length === 0 && clipboardData.items && clipboardData.items.length > 0) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.kind === "file" || item.type.startsWith("image/")) {
+          const blob = item.getAsFile();
+          if (blob) {
+            fileList.push(blob);
+          }
+        }
+      }
+    }
+
+    return fileList;
+  };
+
+  const handlePaste = async (e: ClipboardEvent<HTMLElement>) => {
+    const fileList = extractClipboardFiles(e.clipboardData);
     if (fileList.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
       await handleAddFiles(fileList);
     }
   };
+
+  // Window-level paste listener so user can paste a screenshot right after capturing with Snipping Tool
+  useEffect(() => {
+    const onWindowPaste = async (e: globalThis.ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        activeEl !== textareaRef.current &&
+        (activeEl.tagName === "INPUT" || (activeEl.tagName === "TEXTAREA" && activeEl !== textareaRef.current))
+      ) {
+        return;
+      }
+
+      const fileList = extractClipboardFiles(e.clipboardData);
+      if (fileList.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        await handleAddFiles(fileList);
+        textareaRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("paste", onWindowPaste);
+    return () => window.removeEventListener("paste", onWindowPaste);
+  }, [handleAddFiles]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -435,6 +488,7 @@ setReasoningEffort,
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onPaste={handlePaste}
       className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--border-strong)] rounded-2xl p-2.5 transition-[border-color] duration-150"
     >
       {/* File Mentions Popup */}

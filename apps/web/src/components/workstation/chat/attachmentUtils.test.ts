@@ -27,9 +27,18 @@ describe("attachmentUtils", () => {
     expect(name).toBe("financial_report_september.xlsx");
   });
 
+  it("safely generates valid image names for empty, undefined, or blob clipboard pastes", () => {
+    expect(normalizeAttachmentName(undefined)).toMatch(/^image_\d+\.png$/);
+    expect(normalizeAttachmentName("")).toMatch(/^image_\d+\.png$/);
+    expect(normalizeAttachmentName("blob")).toMatch(/^image_\d+\.png$/);
+    expect(normalizeAttachmentName("screenshot")).toMatch(/^image_\d+\.png$/);
+  });
+
   it("correctly identifies image extensions and mime types", () => {
     expect(isImageFile("photo.png", "image/png")).toBe(true);
     expect(isImageFile("photo.jpg", "")).toBe(true);
+    expect(isImageFile("", "image/png")).toBe(true);
+    expect(isImageFile(undefined, "image/png")).toBe(true);
     expect(isImageFile("doc.pdf", "application/pdf")).toBe(false);
   });
 });
