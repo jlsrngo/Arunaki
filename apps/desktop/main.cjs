@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification } = require('electron');
 const http = require('node:http');
 const path = require('node:path');
+const os = require('node:os');
 const fs = require('node:fs/promises');
 const fsSync = require('node:fs');
 
@@ -77,22 +78,152 @@ function getEngineUrl() {
 }
 const BRIDGE_URL = process.env.ARUNAKI_BRIDGE_URL || 'http://127.0.0.1:20188';
 
-function engineAuthHeader() {
-  const user = process.env.ARUNAKI_SERVER_USERNAME || process.env.Arunaki_SERVER_USERNAME || 'arunaki';
-  const pw = process.env.ARUNAKI_SERVER_PASSWORD || process.env.Arunaki_SERVER_PASSWORD;
-  if (!pw) return {};
-  return { Authorization: `Basic ${Buffer.from(`${user}:${pw}`).toString('base64')}` };
+// ── Engine Process & Credentials Lifecycle ──────────────────────────────────
+let engineChildProcess = null;
+
+function getEngineCredentials() {
+  let user = process.env.ARUNAKI_SERVER_USERNAME || process.env.Arunaki_SERVER_USERNAME || 'arunaki';
+  let password = process.env.ARUNAKI_SERVER_PASSWORD || process.env.Arunaki_SERVER_PASSWORD;
+  if (!password) {
+    try {
+      const passPath = path.join(os.homedir(), '.arunaki', 'dev-server-password');
+      if (fsSync.existsSync(passPath)) {
+        const parts = fsSync.readFileSync(passPath, 'utf8').trim().split(':');
+        if (parts.length === 2) {
+          user = parts[0];
+          password = parts[1];
+        }
+      }
+    } catch {}
+  }
+  return { user, password, engineUrl: getEngineUrl() };
 }
+
+function engineAuthHeader() {
+  const creds = getEngineCredentials();
+  if (!creds.password) return {};
+  return { Authorization: `Basic ${Buffer.from(`${creds.user}:${creds.password}`).toString('base64')}` };
+}
+
+function isEngineUp(url) {
+  return new Promise((resolve) => {
+    const healthUrl = `${(url || getEngineUrl()).replace(/\/$/, '')}/api/health`;
+    const req = http.get(healthUrl, {
+      headers: engineAuthHeader(),
+    }, (res) => {
+      res.resume();
+      resolve(res.statusCode && res.statusCode < 500);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(1500, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function findEngineBinary() {
+  const candidatePaths = [
+    // 1. Packaged Electron resources (resources/engine/engine.exe or resources/engine.exe)
+    path.join(process.resourcesPath || '', 'engine', 'engine.exe'),
+    path.join(process.resourcesPath || '', 'engine.exe'),
+    // 2. Bundled inside desktop app directory (apps/desktop/resources/engine.exe)
+    path.join(__dirname, 'resources', 'engine.exe'),
+    path.join(__dirname, 'resources', 'engine', 'engine.exe'),
+    // 3. Monorepo root directory
+    path.join(__dirname, '..', '..', 'engine.exe'),
+  ];
+  for (const p of candidatePaths) {
+    if (fsSync.existsSync(p)) return p;
+  }
+  return null;
+}
+
+async function ensureEngineRunning() {
+  const engineUrl = getEngineUrl();
+  const up = await isEngineUp(engineUrl);
+  if (up) {
+    console.log(`[main] Engine already running and healthy at ${engineUrl}`);
+    return true;
+  }
+
+  const binPath = findEngineBinary();
+  if (!binPath) {
+    console.log('[main] No bundled engine binary found; expecting external engine daemon.');
+    return false;
+  }
+
+  console.log(`[main] Spawning bundled engine binary: ${binPath}`);
+  const { spawn } = require('node:child_process');
+  const port = process.env.ARUNAKI_ENGINE_PORT || '4096';
+
+  try {
+    engineChildProcess = spawn(binPath, ['serve', '--port', port], {
+      cwd: path.dirname(binPath),
+      env: { ...process.env, ARUNAKI_ENGINE_PORT: port },
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+
+    engineChildProcess.on('error', (err) => {
+      console.error('[main] Failed to spawn engine process:', err);
+    });
+
+    // Wait up to 12s for engine to come up
+    const start = Date.now();
+    while (Date.now() - start < 12000) {
+      await wait(500);
+      if (await isEngineUp(engineUrl)) {
+        console.log(`[main] Bundled engine successfully started on ${engineUrl}`);
+        return true;
+      }
+    }
+    console.warn('[main] Engine spawned but did not respond within 12s');
+  } catch (e) {
+    console.error('[main] Error starting engine binary:', e);
+  }
+  return false;
+}
+
+function cleanupEngine() {
+  if (engineChildProcess && !engineChildProcess.killed) {
+    console.log('[main] Cleaning up child engine process...');
+    try {
+      if (process.platform === 'win32') {
+        const { execSync } = require('node:child_process');
+        execSync(`taskkill /F /T /PID ${engineChildProcess.pid}`, { stdio: 'ignore', windowsHide: true });
+      } else {
+        engineChildProcess.kill('SIGKILL');
+      }
+    } catch {}
+    engineChildProcess = null;
+  }
+}
+
+app.on('before-quit', cleanupEngine);
+app.on('will-quit', cleanupEngine);
+process.on('exit', cleanupEngine);
 
 // Active SSE subscriptions keyed by a client-chosen channel name.
 // Each entry: { reader, aborted }
 const activeSseSubscriptions = new Map();
 
 function loadBundle(win) {
-  const distIndexPath = path.join(__dirname, '../web/dist/index.html');
-  if (fsSync.existsSync(distIndexPath)) {
-    void win.loadFile(distIndexPath);
-    return true;
+  const candidatePaths = [
+    // 1. Packaged Electron resources (resources/web/index.html)
+    path.join(process.resourcesPath || '', 'web', 'index.html'),
+    // 2. Bundled inside app directory (apps/desktop/web/index.html or apps/desktop/dist/index.html)
+    path.join(__dirname, 'web', 'index.html'),
+    path.join(__dirname, 'dist', 'index.html'),
+    // 3. Monorepo dev sibling path (apps/web/dist/index.html)
+    path.join(__dirname, '../web/dist/index.html'),
+  ];
+
+  for (const p of candidatePaths) {
+    if (fsSync.existsSync(p)) {
+      void win.loadFile(p);
+      return true;
+    }
   }
   return false;
 }
@@ -168,11 +299,21 @@ ipcMain.handle('app:resetZoom', (event) => {
 
 function createWindow() {
   const isDark = nativeTheme ? nativeTheme.shouldUseDarkColors : true;
+  const candidateIcons = [
+    path.join(process.resourcesPath || '', 'icon.png'),
+    path.join(process.resourcesPath || '', 'icon.ico'),
+    path.join(__dirname, 'resources', 'icon.png'),
+    path.join(__dirname, 'resources', 'icon.ico'),
+    path.join(__dirname, '../web/public/favicon.svg'),
+  ];
+  const appIcon = candidateIcons.find(p => fsSync.existsSync(p));
+
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1100,
     minHeight: 720,
+    icon: appIcon || undefined,
     backgroundColor: isDark ? '#0A0A0A' : '#FFFFFF',
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
@@ -193,13 +334,17 @@ function createWindow() {
       // A sandboxed preload does not get a full process object, so the engine credentials travel in
       // on argv instead of through process.env. They are minted per start by scripts/server-auth.cjs
       // and reach this process through the launcher.
-      additionalArguments: process.env.ARUNAKI_SERVER_PASSWORD
-        ? [
-            `--arunaki-server-user=${process.env.ARUNAKI_SERVER_USERNAME || 'arunaki'}`,
-            `--arunaki-server-password=${process.env.ARUNAKI_SERVER_PASSWORD}`,
-            `--arunaki-engine-url=${process.env.ARUNAKI_ENGINE_URL || 'http://127.0.0.1:4096'}`,
-          ]
-        : [],
+      additionalArguments: (() => {
+        const creds = getEngineCredentials();
+        if (creds.password) {
+          return [
+            `--arunaki-server-user=${creds.user}`,
+            `--arunaki-server-password=${creds.password}`,
+            `--arunaki-engine-url=${creds.engineUrl}`,
+          ];
+        }
+        return [];
+      })(),
     },
   });
 
@@ -298,7 +443,10 @@ function createWindow() {
 }
 
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Ensure engine daemon is responsive or spawn bundled engine binary
+  await ensureEngineRunning();
+
   ipcMain.handle('app:ping', () => 'desktop');
 
   // ── Engine IPC Relay ─────────────────────────────────────────────────────
@@ -721,6 +869,7 @@ app.whenReady().then(() => {
       
       return { success: true, hwnd: hwnd.toString() };
     } catch (err) {
+      console.warn('[main] Native Excel automation unavailable, falling back to shell.openPath:', err.message);
       try {
         const safePath = resolveInsideWorkspace(filePath);
         const r = await shell.openPath(safePath);
@@ -741,6 +890,7 @@ app.whenReady().then(() => {
       word.Documents.Open(safePath);
       return { success: true };
     } catch (err) {
+      console.warn('[main] Native Word automation unavailable, falling back to shell.openPath:', err.message);
       try {
         const safePath = resolveInsideWorkspace(filePath);
         const r = await shell.openPath(safePath);

@@ -498,12 +498,8 @@ export class TelegramService {
   }
 
   private getLocalServerUrl(): string {
-    try {
-      // Dynamically resolve Server.url if running inside engine
-      // oxlint-disable-next-line @typescript-eslint/no-var-requires
-      const { url } = require("../server/server");
-      if (url) return url.toString().replace(/\/$/, "");
-    } catch {}
+    const envUrl = process.env.ARUNAKI_ENGINE_URL || process.env.ARUNAKI_HEALTH?.replace(/\/api\/health$/, "");
+    if (envUrl) return envUrl.replace(/\/$/, "");
     return "http://127.0.0.1:4096";
   }
 

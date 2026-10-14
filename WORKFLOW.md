@@ -3930,3 +3930,33 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **Web Build (`npm run build -w apps/web`)**: 0 TypeScript compilation errors.
 - [x] **Branch Status**: 17 commits ahead of `main`, working tree clean, siap fast-forward merge ke `main`.
 
+---
+
+## Phase 111: Desktop Standalone Packaging Readiness & Bug Fixes ✅ DONE
+
+**Goal:** Melakukan audit menyeluruh pada packaging Electron desktop, memperbaiki bug import OS dan path resolver, mengimplementasikan auto-spawn engine lifecycle, menyelaraskan canonical ArunakiLogo, serta membangun pipeline `npm run bundle:prepare` mandiri.
+
+### 111.1 Packaging Blocker & Runtime Bug Fixes
+- [x] **Electron Shell Missing `os` Module Import (`apps/desktop/main.cjs`)**:
+  - Menambahkan import `const os = require('node:os');` untuk mencegah `ReferenceError: os is not defined` saat mencari kredensial/info engine di `os.homedir()`.
+- [x] **Packaged ASAR Bundle Path Resolver (`apps/desktop/main.cjs`)**:
+  - Memperbarui `loadBundle()` dengan multi-path fallback (`process.resourcesPath/web/index.html`, `__dirname/web`, `__dirname/dist`, dan sibling dev monorepo) agar tidak blank saat dibundel.
+- [x] **Dynamic Require Elimination for Bun Native Compiler (`packages/engine/engine/src/messaging/telegram.ts`)**:
+  - Mengganti pemanggilan `require('../server/server')` di modul ESM dengan env variable URL yang aman, meloloskan kompilasi `bun build --compile` 3.560 modul menjadi standalone `engine.exe` (119 MB).
+- [x] **Canonical ArunakiLogo Alignment (`apps/web/public/arunakiLogo.svg`, `favicon.svg`, `apps/desktop/resources/icon.png`)**:
+  - Menyelaraskan icon desktop dan favicon ke canonical Arunaki tri-pill insignia sesuai `ArunakiLogo.tsx`.
+
+### 111.2 Desktop Autonomous Engine Lifecycle
+- [x] **Engine Daemon Auto-Spawn & Cleanup (`apps/desktop/main.cjs`)**:
+  - Menambahkan `ensureEngineRunning()` yang otomatis memeriksa ketersediaan port `:4096`. Jika belum aktif, Electron otomatis memanggil binary `engine.exe` di folder resources.
+  - Menambahkan lifecycle cleanup (`before-quit`, `will-quit`, `exit`) via `taskkill` / `SIGKILL` untuk mencegah orphan engine process.
+- [x] **Unified Server Authentication Discovery (`apps/desktop/main.cjs`)**:
+  - Preload `additionalArguments` otomatis mendeteksi kredensial dari environment maupun `~/.arunaki/dev-server-password`.
+
+### 111.3 Bundle Preparation Pipeline
+- [x] **One-Click Pipeline Script (`scripts/prepare-bundle.cjs` & `npm run bundle:prepare`)**:
+  - Pipeline otomatis yang membangun web frontend Vite, menyinkronkan bundle ke `apps/desktop/web/`, mengompilasi engine ke `apps/desktop/resources/engine.exe`, dan memverifikasi integritas 5 artefak utama dalam 31.3 detik.
+- [x] **Git Hygiene (`.gitignore`)**:
+  - Mengabaikan binary besar `apps/desktop/resources/*.exe`, folder `apps/desktop/web/`, dan `dist-exe/` agar repository tetap bersih dan ringan.
+
+

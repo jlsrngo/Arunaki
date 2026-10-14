@@ -1,11 +1,15 @@
 {
   "name": "arunaki-desktop",
+  "productName": "Arunaki",
+  "description": "Desktop Computer Use Agent untuk Dokumen",
   "private": true,
   "version": "0.1.0",
   "type": "commonjs",
   "main": "main.cjs",
   "scripts": {
-    "dev": "npx electron ."
+    "dev": "npx electron .",
+    "start": "npx electron .",
+    "prepare-bundle": "node ../../scripts/prepare-bundle.cjs"
   },
   "dependencies": {
     "winax": "^3.6.9",
