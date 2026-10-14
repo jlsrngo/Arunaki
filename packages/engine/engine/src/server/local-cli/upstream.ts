@@ -460,11 +460,13 @@ const ANTIGRAVITY_MODEL_MAP: Record<string, string> = {
   "gemini-3.1-pro": "gemini-pro-agent",
   "gemini-3.1-pro-low": "gemini-pro-agent",
 }
-
 export function antigravityModelId(model: string): string {
   // Tolerate the "(medium)" style suffix some clients append, and the bare catalogue id.
   const bare = model.replace(/\((?:low|medium|high|tiered)\)$/i, "")
-  return ANTIGRAVITY_MODEL_MAP[model] ?? ANTIGRAVITY_MODEL_MAP[bare] ?? bare
+  if (ANTIGRAVITY_MODEL_MAP[model]) return ANTIGRAVITY_MODEL_MAP[model]
+  if (ANTIGRAVITY_MODEL_MAP[bare]) return ANTIGRAVITY_MODEL_MAP[bare]
+  if (bare.startsWith("gemini") || bare.startsWith("claude")) return bare
+  return "gemini-3.8-flash-medium"
 }
 
 /**

@@ -41,6 +41,24 @@ async function bridgeModelList(provider: string): Promise<string[]> {
   return models
 }
 
+function toGroqTextContent(content: any): string {
+  if (typeof content === "string") return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part
+        if (part?.type === "text" && typeof part.text === "string") return part.text
+        if (part?.type === "image_url") return "[Image attached: see document]"
+        if (part?.type === "image") return "[Image attached]"
+        if (part && typeof part.text === "string") return part.text
+        return ""
+      })
+      .filter(Boolean)
+      .join("\n")
+  }
+  if (content && typeof content.text === "string") return content.text
+  return typeof content === "object" ? JSON.stringify(content) : String(content ?? "")
+}
 
 class LocalCliBridge {
   private server: http.Server | null = null
@@ -472,7 +490,23 @@ class LocalCliBridge {
       return
     }
 
-    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) ” 9Router opencode.js lane.
+    // Check if request carries image / multimodal parts
+    const hasImage = (payload.messages ?? []).some((m: any) =>
+      Array.isArray(m.content) &&
+      m.content.some((p: any) => p?.type === "image_url" || p?.type === "image" || p?.type === "media" || p?.type === "file")
+    )
+
+    // Vision fallback: text-only OpenCode/Groq cannot process images; route directly to Antigravity
+    if (hasImage) {
+      const auth = await getAntigravityAuth()
+      if (auth?.accessToken) {
+        console.info("[LocalCliBridge] Request contains image parts; routing to Antigravity vision lane.")
+        const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
+        if (handled || res.writableEnded) return
+      }
+    }
+
+    // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) — 9Router opencode.js lane.
     //    Hosted on purpose: routing through the local `opencode serve` daemon made Arunaki
     //    write every turn as an opencode session (leaking into the CLI session list) and
     //    forced a flattened single-prompt message, which loses tool calling entirely.
@@ -488,7 +522,7 @@ class LocalCliBridge {
       rawModel === "opencode" ||
       rawModel === "big-pickle"
 
-    if (isOpenCodeNative) {
+    if (isOpenCodeNative && !hasImage) {
       const handled = await streamDirectOpenCodeCompletion(payload, res, getOpenCodeAccountToken())
       if (handled) return
       // Upstream refused (403 FreeTierError, offline): fall through to the next lane
@@ -519,8 +553,11 @@ class LocalCliBridge {
       }
 
       for (const msg of payload.messages ?? []) {
-        if (msg.role === "system") continue
-        messages.push(msg)
+        if (msg.role === "system" || msg.role === "developer") continue
+        messages.push({
+          ...msg,
+          content: toGroqTextContent(msg.content) || "...",
+        })
       }
 
       const groqPayload: any = {
@@ -547,7 +584,21 @@ class LocalCliBridge {
 
         if (!groqRes.ok) {
           const errText = await groqRes.text().catch(() => "")
-          console.error("[LocalCliBridge] Groq API error:", groqRes.status, errText)
+          console.warn("[LocalCliBridge] Groq API error, attempting fallback to Antigravity/Kiro:", groqRes.status, errText)
+          
+          const auth = await getAntigravityAuth()
+          if (auth?.accessToken) {
+            console.info("[LocalCliBridge] Falling back from Groq to Antigravity.")
+            const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
+            if (handled || res.writableEnded) return
+          }
+          const kiroCred = readKiroCredential()
+          if (kiroCred?.accessToken) {
+            console.info("[LocalCliBridge] Falling back from Groq to Kiro.")
+            await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+            return
+          }
+
           if (!res.headersSent) {
             res.writeHead(groqRes.status, { "Content-Type": "application/json" })
             res.end(errText || JSON.stringify({ error: { message: `Groq error: ${groqRes.status}` } }))
@@ -585,7 +636,19 @@ class LocalCliBridge {
           return
         }
       } catch (err: any) {
-        console.error("[LocalCliBridge] OpenCode Groq error:", err?.message)
+        console.warn("[LocalCliBridge] OpenCode Groq error, attempting fallback:", err?.message)
+        const auth = await getAntigravityAuth()
+        if (auth?.accessToken) {
+          console.info("[LocalCliBridge] Falling back from failed Groq request to Antigravity.")
+          const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
+          if (handled || res.writableEnded) return
+        }
+        const kiroCred = readKiroCredential()
+        if (kiroCred?.accessToken) {
+          console.info("[LocalCliBridge] Falling back from failed Groq request to Kiro.")
+          await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+          return
+        }
         if (!res.headersSent) {
           res.writeHead(500, { "Content-Type": "application/json" })
           res.end(JSON.stringify({ error: { message: `OpenCode Groq connection failed: ${err?.message}` } }))
@@ -596,7 +659,21 @@ class LocalCliBridge {
       }
     }
 
-    // 3. Fallback: prompt for provider
+    // 4. Fallback to Antigravity or Kiro if Groq key not available
+    const auth = await getAntigravityAuth()
+    if (auth?.accessToken) {
+      console.info("[LocalCliBridge] OpenCode fallback to Antigravity.")
+      const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
+      if (handled || res.writableEnded) return
+    }
+    const kiroCred = readKiroCredential()
+    if (kiroCred?.accessToken) {
+      console.info("[LocalCliBridge] OpenCode fallback to Kiro.")
+      await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+      return
+    }
+
+    // 5. Fallback: prompt for provider
     res.writeHead(401, { "Content-Type": "application/json" })
     res.end(
       JSON.stringify({
