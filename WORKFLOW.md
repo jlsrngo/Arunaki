@@ -4138,9 +4138,35 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **`providerModelUtils.ts` & `providerModelUtils.test.ts`**: Ekstraksi fungsi pendeteksi model gratis `isFreeModel` dan pengklasifikasi rumpun model `getModelFamily` dari `ProviderForm.tsx`.
 - [x] **`ProviderForm.tsx` Refactoring**: Merampingkan form provider dengan mengimpor utilitas model.
 
-### 119.3 Verification & Testing
-- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 11.96s).
-- [x] **Vitest Test Suite**: 44/44 passed across 9 test suites.
+---
+
+## Phase 120: Settings Messaging Tab Clean Decomposition & Complete Menu Audit ✅ DONE
+
+**Goal:** Mendekomposisi modal panduan interaktif Telegram dari `SettingsMessagingTab.tsx` ke `TelegramSetupGuideModal.tsx` dan memverifikasi seluruh 4 menu utama serta seluruh sub-menu/tab di aplikasi Arunaki telah 100% clean code, modular, dan zero regression.
+
+### 120.1 Telegram Guide Modal Extraction
+- [x] **`TelegramSetupGuideModal.tsx`**: Ekstraksi wizard modal interaktif 4-langkah (@BotFather, token HTTP, ID whitelist, remote execution test) ke dalam single-responsibility modal component.
+- [x] **Deep Linking Support**: Mendukung `initialStep` prop (langkah 1 untuk panduan token bot, langkah 3 untuk panduan ID pengguna Telegram).
+- [x] **`SettingsMessagingTab.tsx` Refactoring**: Merampingkan dari 787 baris ke ~540 baris dengan mendelegasikan modal wizard.
+
+### 120.2 Complete Menu Audit Verification
+- [x] **Workstation Menu (`/`)**: Decomposed into modular hooks (`useWorkstationSession`, `useWorkstationFiles`, `useWorkstationLayout`) & atomic chat popups (`ChatAttachmentChips`, `ChatModelPickerDropdown`, `ChatReasoningEffortDropdown`, `ChatSlashCommandsPopup`, `ChatMentionsPopup`, `useChatInputClipboard`).
+- [x] **Knowledge Menu (`/knowledge`)**: Decomposed into `collision.ts` (anti-collision algorithm) & `useKnowledgeGraph.ts`.
+- [x] **History Menu (`/history`)**: Decomposed into `useHistorySessions.ts`, `HistoryFilterBar.tsx`, `EmptySessionModal.tsx`, `DeleteSessionModal.tsx`, `CleanupSessionsModal.tsx`.
+- [x] **Settings Menu (`/settings`)**:
+  - Model Providers: Decomposed with `ProviderCard.tsx`, `ProviderForm.tsx`, `providerModelUtils.ts`.
+  - Connection CLI: Decomposed with `types.ts`, `modelDescribe.ts`, `MultiProviderAuthModal.tsx`.
+  - Office Automation: Clean modular automation tab (`SettingsAutomationTab.tsx`).
+  - Messaging Apps: Decomposed with `TelegramSetupGuideModal.tsx`.
+  - Account & License: Clean modular account tab (`SettingsAccountTab.tsx`).
+- [x] **Top Menu Bar & Shell Layout**: Decomposed with `useAppCommands.ts`, `useGlobalShortcuts.ts`, `MenuItem.tsx`, `MenuSeparator.tsx`, `FileMenu.tsx`, `EditMenu.tsx`, `ViewMenu.tsx`, `HelpMenu.tsx`, `AppHeader.tsx`, `AppFooter.tsx`, `TreeNodeActionMenu.tsx`.
+
+### 120.3 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 10.68s).
+- [x] **Vitest Test Suite**: 44/44 passed across 9 test suites (`npx vitest run`).
+- [x] **Strict Monochrome Rule**: Dipatuhi 100% (zero emerald/green telemetry badges).
+- [x] **React Rules of Hooks**: Dipatuhi 100% (zero conditional hooks).
+
 
 
 
