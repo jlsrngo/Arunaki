@@ -4124,9 +4124,23 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 
 ---
 
-## Phase 119: Settings Menu Tabs Clean Decomposition ⏳ PENDING
+## Phase 119: Settings Menu Tabs Clean Decomposition ✅ DONE
 
-**Goal:** Mendekomposisi tab-tab settings yang sangat besar (terutama `SettingsCliConnectionsTab.tsx` 107 KB dan `ProviderForm.tsx` 37 KB) menjadi subkomponen kartu provider, modal auth, dan telemetry terisolasi.
+**Goal:** Mendekomposisi tab-tab settings yang sangat besar (terutama `SettingsCliConnectionsTab.tsx` 107 KB dan `ProviderForm.tsx` 37 KB) menjadi subkomponen kartu provider, modal auth, dan utilitas rumpun model terisolasi.
+
+### 119.1 CLI Settings Modularization
+- [x] **`types.ts`**: Ekstraksi antarmuka TypeScript untuk status CLI (`ClaudeCliStatus`, `OpenCodeStatus`, `CliProviderDescriptor`, `AntigravityStatus`, `NineRouterStatus`, `CodexStatus`, `KiroStatus`, `DiscoveredCliItem`, `LocalCliData`, `QuotaBucket`, `QuotaReport`, `ModelMeta`, `CliProviderId`).
+- [x] **`modelDescribe.ts` & `modelDescribe.test.ts`**: Ekstraksi parser nama model dinamis `describeModel` beserta kamus acronym dan metadata vendor.
+- [x] **`MultiProviderAuthModal.tsx`**: Ekstraksi modal autentikasi multi-provider (Antigravity, Claude, Codex, OpenCode, 9Router) menjadi komponen terisolasi berstandar monokrom bersih.
+- [x] **`SettingsCliConnectionsTab.tsx` Refactoring**: Merampingkan dari 2359 baris dengan mengonsumsi submodul yang diekstrak.
+
+### 119.2 Model Provider Form Refactoring
+- [x] **`providerModelUtils.ts` & `providerModelUtils.test.ts`**: Ekstraksi fungsi pendeteksi model gratis `isFreeModel` dan pengklasifikasi rumpun model `getModelFamily` dari `ProviderForm.tsx`.
+- [x] **`ProviderForm.tsx` Refactoring**: Merampingkan form provider dengan mengimpor utilitas model.
+
+### 119.3 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 11.96s).
+- [x] **Vitest Test Suite**: 44/44 passed across 9 test suites.
 
 
 

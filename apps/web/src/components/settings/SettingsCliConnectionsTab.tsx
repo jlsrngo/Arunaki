@@ -12,7 +12,6 @@ import {
   LogIn,
   LogOut,
   AlertTriangle,
-  Scale,
   Sparkles,
   Gauge,
 } from "lucide-react";
@@ -20,225 +19,44 @@ import { API_BASE, BRIDGE_URL, apiFetch, bridgeFetch, directoryQuery } from "../
 import { useI18n } from "../../lib/i18n";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import type { Provider } from "./ModelProviderSettings";
 
-interface ClaudeCliStatus {
-  installed: boolean;
-  version?: string;
-  loggedIn: boolean;
-  authMethod?: string;
-  apiProvider?: string;
-  email?: string;
-  error?: string;
-}
+import type {
+  ClaudeCliStatus,
+  OpenCodeStatus,
+  CliProviderDescriptor,
+  AntigravityStatus,
+  NineRouterStatus,
+  CodexStatus,
+  KiroStatus,
+  DiscoveredCliItem,
+  LocalCliData,
+  QuotaBucket,
+  QuotaReport,
+  ModelMeta,
+  CliProviderId,
+  SettingsCliConnectionsTabProps,
+} from "./cli/types";
+import { describeModel } from "./cli/modelDescribe";
+import { MultiProviderAuthModal } from "./cli/MultiProviderAuthModal";
 
-interface OpenCodeStatus {
-  installed: boolean;
-  version?: string;
-  serverRunning?: boolean;
-  serverPort?: number;
-  authenticatedProviders: string[];
-  hasGroq: boolean;
-  has9Router: boolean;
-  error?: string;
-}
-
-interface CliProviderDescriptor {
-  id: string;
-  name: string;
-  vendor: string;
-  docsUrl?: string;
-  installUrl?: string;
-  installSizeMb?: number;
-  loginCommand?: string;
-  credentialPath?: string;
-  credentialTarget?: string;
-  quota: "antigravity" | "claude" | "codex" | "kiro" | "none";
-  models: string[];
-  requiresCli: boolean;
-  loginMode: "terminal" | "browser" | "none";
-  supportsAutoConfigure: boolean;
-  supportsBrowserLogin: boolean;
-  /** Subscription the vendor requires before it issues a token. */
-  entitlement?: { notice: string; noticeId: string; url: string };
-note?: { text: string; textId: string };
-}
-
-interface AntigravityStatus {
-  detected: boolean;
-  cliInstalled?: boolean;
-  agyInstalled?: boolean;
-  agySignedIn?: boolean;
-  agyVersion?: string;
-  geminiCliInstalled?: boolean;
-  geminiVersion?: string;
-  path?: string;
-  environment: string;
-  loggedIn?: boolean;
-  accountEmail?: string;
-}
-
-interface NineRouterStatus {
-  installed?: boolean;
-  version?: string;
-  running: boolean;
-  url: string;
-  models: string[];
-}
-
-interface CodexStatus {
-  installed: boolean;
-  version?: string;
-  isCloudOnly: boolean;
-  message?: string;
-  signedIn: boolean;
-  /** "free" here means every request will be refused, despite the token being valid. */
-  plan: string | null;
-  accountEmail: string | null;
-  expiresAt: number | null;
-}
-
-export interface DiscoveredCliItem {
-  provider: string;
-  displayName: string;
-  type: string;
-  sourcePath: string;
-  accountEmail?: string;
-  accountId?: string;
-  expiresAt?: number;
-  lastRefreshAt?: number;
-  hasToken: boolean;
-}
-
-interface KiroStatus {
-  /** Kiro installs nothing: a browser device flow is the only sign-in, so installed is always true. */
-  installed: boolean;
-  signedIn: boolean;
-  requiresCli: boolean;
-  accountEmail: string | null;
-  region: string;
-  hasRefreshToken: boolean;
-  expiresAt: number | null;
-}
-
-interface LocalCliData {
-  claude: ClaudeCliStatus;
-  opencode: OpenCodeStatus;
-  antigravity: AntigravityStatus;
-  nineRouter: NineRouterStatus;
-  codex?: CodexStatus;
-  kiro?: KiroStatus;
-  bridgePort: number;
-  bridgeRunning: boolean;
-  discovered?: DiscoveredCliItem[];
-  /** Provider catalog from the engine registry. Drives every card below. */
-  registry?: CliProviderDescriptor[];
-}
-
-
-interface SettingsCliConnectionsTabProps {
-  providers: Provider[];
-  onRefresh: () => void;
-}
-
-
-/**
- * A provider id. The engine registry is the source of truth, so this is deliberately not a union
- * of literals.
- *
- * It used to be one, and it silently fell behind: kiro was added to the registry and got a card,
- * but not to this type, so TypeScript rejected `id === "kiro"` and sent the fix to the wrong place.
- * No call site depends on the members - they only pass an id along - so the union bought nothing
- * and cost a bug.
- */
-type CliProviderId = string;
-
-interface QuotaBucket {
-  id: string;
-  label: string;
-  window: string;
-  /** 0..1 fraction remaining */
-  remaining: number;
-  exhausted?: boolean;
-  /** Epoch millis, or undefined when the vendor did not report a reset time. */
-  resetAt?: number;
-}
-
-interface QuotaReport {
-  provider: string;
-  ok: boolean;
-  reason?: string;
-  buckets: QuotaBucket[];
-}
-
-interface ModelMeta {
-  label: string;
-  badge?: string;
-  speed?: string;
-}
-
-/**
- * Model ids are self-describing, so the dropdown derives what it can from the id instead of
- * carrying a lookup table. "opencode/space-bunny-free" needs no entry to read as
- * "Space Bunny Free", and a model Google ships tomorrow renders without anyone editing this
- * file. The table below is only for editorial copy that cannot be inferred.
- */
-const MODEL_METADATA: Record<string, ModelMeta> = {
-  "opencode/big-pickle": { label: "Big Pickle", badge: "Zen Built-in", speed: "Reasoning" },
-  "groq/openai/gpt-oss-120b": { label: "GPT-OSS 120B", badge: "Groq LPU", speed: "Ultra Fast" },
-  "9router/ComboMaut": { label: "ComboMaut", badge: "Smart Combo", speed: "Auto Fallback" },
-  "o3-mini": { label: "o3-mini", badge: "Reasoning", speed: "Fast" },
-  "o1": { label: "o1", badge: "High Intelligence" },
-  "claude-3-7-sonnet": { label: "Claude 3.7 Sonnet", badge: "Hybrid Reasoning", speed: "Fast" },
-  "claude-3-5-sonnet": { label: "Claude 3.5 Sonnet", badge: "Capable", speed: "Fast" },
-  "claude-3-5-haiku": { label: "Claude 3.5 Haiku", badge: "Compact", speed: "Fast" },
-  "deepseek-r1": { label: "DeepSeek R1", badge: "Reasoning", speed: "Smart" },
+export type {
+  ClaudeCliStatus,
+  OpenCodeStatus,
+  CliProviderDescriptor,
+  AntigravityStatus,
+  NineRouterStatus,
+  CodexStatus,
+  KiroStatus,
+  DiscoveredCliItem,
+  LocalCliData,
+  QuotaBucket,
+  QuotaReport,
+  ModelMeta,
+  CliProviderId,
+  SettingsCliConnectionsTabProps,
 };
+export { describeModel };
 
-/** Typography only: initialisms that capitalisation cannot be derived from a lowercase id. */
-const ACRONYMS: Record<string, string> = { gpt: "GPT", oss: "OSS", llm: "LLM", ai: "AI", tts: "TTS" };
-
-const VENDOR_BADGES: [RegExp, string][] = [
-  [/^groq\//, "Groq LPU"],
-  [/^(9router|oc|kr|vx|cx)\//, "9Router"],
-  [/^opencode\//, "Zen Built-in"],
-];
-
-const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);
-
-/** Turn a raw model id into something readable, falling back to the id when it cannot. */
-export function describeModel(id: string | undefined): ModelMeta {
-  // A provider can legitimately have no models yet (registry entry with an empty list, or a
-  // live fetch that returned nothing). Never let that read as a crash.
-  if (!id) return { label: "No models available" };
-  const override = MODEL_METADATA[id];
-  if (override) return override;
-
-  // Drop the provider prefix and any internal effort tier; both are noise in a label.
-  const leaf = id.includes("/") ? id.slice(id.lastIndexOf("/") + 1) : id;
-  const bare = leaf.replace(/-(?:extra-low|low|medium|high|tiered|agent)$/i, "");
-
-  // Ids spell versions with dashes (claude-sonnet-4-6) because that is what vendors ship;
-  // a human reads them as 4.6. Rejoin a bare number that follows a version number.
-  const parts = bare.split(/[-_]+/).filter(Boolean);
-  const words: string[] = [];
-  for (const part of parts) {
-    const lower = part.toLowerCase();
-    // Parameter counts carry a unit suffix: 20b and 70b mean 20B and 70B.
-    const sized = lower.match(/^(\d+)([bk])$/);
-    const word = ACRONYMS[lower] ?? (sized ? `${sized[1]}${sized[2].toUpperCase()}` : capitalize(part));
-    const prev = words[words.length - 1];
-    if (prev && /\d$/.test(prev) && /^\d+$/.test(part)) words[words.length - 1] = `${prev}.${part}`;
-    else words.push(word);
-  }
-
-  const vendor = VENDOR_BADGES.find(([re]) => re.test(id));
-  const tier = leaf.match(/-(extra-low|low|medium|high|tiered|agent)$/i)?.[1];
-  return {
-    label: words.join(" ") || id,
-    badge: tier ? tier.split("-").map(capitalize).join(" ") : vendor?.[1],
-  };
-}
 
 export function SettingsCliConnectionsTab({
   providers,
@@ -2046,313 +1864,21 @@ const isGeminiActive =
       </div>
 
       {/* ── Multi-Provider Auth Modal (Bilingual & Clean Monochrome) ── */}
-      {(() => {
-        const currentTarget = activeAuthModalTarget || (showAntigravityLoginModal ? "antigravity" : null);
-        if (!currentTarget) return null;
-
-        const closeModal = () => {
+      <MultiProviderAuthModal
+        target={activeAuthModalTarget || (showAntigravityLoginModal ? "antigravity" : null)}
+        data={data}
+        isEn={isEn}
+        isSigningInCli={isSigningInCli}
+        onClose={() => {
           setActiveAuthModalTarget(null);
           setShowAntigravityLoginModal(false);
-        };
-
-        const config = (() => {
-          switch (currentTarget) {
-            case "claude":
-              return {
-                title: isEn ? "Anthropic Claude Authentication" : "Autentikasi Anthropic Claude",
-                subtitle: isEn
-                  ? "Choose an authentication method to connect your Claude Pro / Team account."
-                  : "Pilih metode autentikasi akun Claude Pro / Team ke workstation Arunaki.",
-                badgeLetter: "C",
-                accountActiveText: data.claude?.email
-                  ? (isEn ? `Active account: ${data.claude.email}` : `Akun aktif: ${data.claude.email}`)
-                  : undefined,
-                isLoggedIn: Boolean(data.claude?.loggedIn),
-                cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
-                cliBadge: "Claude Code",
-                cliDesc: isEn
-                  ? "Runs 'claude auth login --claudeai' in terminal for local machine authentication."
-                  : "Menjalankan perintah 'claude auth login --claudeai' di terminal untuk otentikasi lokal.",
-                cliTradeoffTitle: isEn ? "CLI Considerations:" : "Pertimbangan (Terminal CLI):",
-                cliTradeoffText: isEn
-                  ? "Opens a console terminal window for initial login. Tokens are stored locally on PC (~/.claude.json) with zero per-token cost."
-                  : "Membuka jendela konsol terminal untuk inisialisasi login awal. Token disimpan lokal di PC (~/.claude.json) dan bebas biaya per-token.",
-                cliButton: isEn ? "Launch Claude Terminal" : "Buka Terminal Claude",
-                onCliAction: () => {
-                  handleLaunchClaudeTerminal();
-                  closeModal();
-                },
-              };
-            case "codex":
-              return {
-                title: isEn ? "OpenAI Codex Authentication" : "Autentikasi OpenAI Codex",
-                subtitle: isEn
-                  ? "Choose an authentication method for your OpenAI / ChatGPT Plus account."
-                  : "Pilih metode autentikasi akun OpenAI / ChatGPT Plus ke workstation Arunaki.",
-                badgeLetter: "O",
-                accountActiveText: undefined,
-                isLoggedIn: Boolean(data.codex?.installed),
-                cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
-                cliBadge: "@openai/codex",
-                cliDesc: isEn
-                  ? "Uses global '@openai/codex' CLI package via local console on your PC."
-                  : "Menggunakan paket CLI global '@openai/codex' melalui konsol lokal di PC Anda.",
-                cliTradeoffTitle: isEn ? "CLI Considerations:" : "Pertimbangan (Terminal CLI):",
-                cliTradeoffText: isEn
-                  ? "Requires global npm '@openai/codex' installation. Runs interactive console sessions locally on your machine."
-                  : "Memerlukan instalasi global npm '@openai/codex'. Menjalankan interaksi konsol langsung di PC Anda.",
-                cliButton: isEn ? "Launch Codex Terminal" : "Buka Terminal Codex",
-                onCliAction: () => {
-                  handleLaunchCodexTerminal();
-                  closeModal();
-                },
-              };
-            case "opencode":
-              return {
-                title: isEn ? "OpenCode Agent Authentication" : "Autentikasi OpenCode Agent",
-                subtitle: isEn
-                  ? "Choose an authentication method to connect OpenCode models to Arunaki."
-                  : "Pilih metode autentikasi untuk menghubungkan model OpenCode ke Arunaki.",
-                badgeLetter: "OC",
-                accountActiveText: data.opencode?.authenticatedProviders?.length
-                  ? (isEn
-                      ? `Connected providers: ${data.opencode.authenticatedProviders.join(", ")}`
-                      : `Penyedia terhubung: ${data.opencode.authenticatedProviders.join(", ")}`)
-                  : undefined,
-                isLoggedIn: Boolean(data.opencode?.serverRunning || data.opencode?.authenticatedProviders?.length),
-                webLabel: isEn ? "Sign in via Web (Groq Hub)" : "Masuk via Web (Groq Hub)",
-                webBadge: "Cloud Free API",
-                webDesc: isEn
-                  ? "Connect free cloud provider keys (Groq / 9Router) directly via web without a terminal."
-                  : "Menghubungkan kunci penyedia cloud gratis (Groq / 9Router) langsung via web tanpa terminal.",
-                webWarningTitle: isEn ? "Notice (Cloud API):" : "Peringatan (Cloud API):",
-                webWarningText: isEn
-                  ? "Uses external cloud inference (Groq Llama 3.3 / Qwen). Requires a stable internet connection to cloud endpoints."
-                  : "Menggunakan cloud inference eksternal (Groq Llama 3.3 / Qwen). Memerlukan koneksi internet stabil ke endpoint cloud.",
-                webButton: isEn ? "Open Groq Console (Web)" : "Buka Konsol Groq (Web)",
-                onWebAction: () => {
-                  window.open("https://console.groq.com/keys", "_blank");
-                  closeModal();
-                },
-                cliLabel: isEn ? "Sign in via CLI (Terminal)" : "Masuk via CLI (Terminal)",
-                cliBadge: "OpenCode CLI",
-                cliDesc: isEn
-                  ? "Runs local OpenCode daemon server on port 4097 with interactive sessions."
-                  : "Menjalankan server daemon OpenCode lokal di port 4097 dengan sesi interaktif.",
-                cliTradeoffTitle: isEn ? "CLI Considerations:" : "Pertimbangan (Terminal CLI):",
-                cliTradeoffText: isEn
-                  ? "Runs a local background process on port 4097. Requires an active terminal runtime on your PC."
-                  : "Menjalankan proses latar belakang lokal di port 4097. Membutuhkan runtime terminal aktif di PC.",
-                cliButton: isEn ? "Launch OpenCode Terminal" : "Buka Terminal OpenCode",
-                onCliAction: () => {
-                  handleLaunchOpenCodeTerminal();
-                  closeModal();
-                },
-              };
-            case "nineRouter":
-              return {
-                title: isEn ? "9Router Gateway Integration" : "Integrasi 9Router Gateway",
-                subtitle: isEn
-                  ? "Connect your local multi-account 9Router gateway to Arunaki."
-                  : "Hubungkan gateway multi-akun 9Router lokal ke Arunaki.",
-                badgeLetter: "9R",
-                accountActiveText: data.nineRouter?.running
-                  ? (isEn ? "9Router gateway is running on port 20128" : "Gateway 9Router sedang berjalan di port 20128")
-                  : undefined,
-                isLoggedIn: Boolean(data.nineRouter?.running),
-                webLabel: isEn ? "9Router Web Dashboard" : "Dashboard Web 9Router",
-                webBadge: "Web Dashboard",
-                webDesc: isEn
-                  ? "Open local 9Router dashboard in browser to visually sign in to Google, Claude, OpenAI, and Grok."
-                  : "Buka dashboard lokal 9Router di peramban web untuk login email Google, Claude, OpenAI, dan Grok secara visual.",
-                webWarningTitle: isEn ? "Notice (Dashboard):" : "Peringatan (Dashboard):",
-                webWarningText: isEn
-                  ? "Opens local 9Router portal on port 20128. Make sure 9Router service is running before opening."
-                  : "Membuka portal lokal 9Router di port 20128. Pastikan layanan 9Router sudah berjalan sebelum membuka tautan.",
-                webButton: isEn ? "Open 9Router Dashboard (Web)" : "Buka Dashboard 9Router (Web)",
-                onWebAction: () => {
-                  window.open("http://localhost:20128", "_blank");
-                  closeModal();
-                },
-                cliLabel: isEn ? "Run via Terminal" : "Jalankan via Terminal",
-                cliBadge: "npm i -g 9router && 9router",
-                cliDesc: isEn
-                  ? "Start local 9Router gateway proxy via console terminal window."
-                  : "Mulai gateway proxy lokal 9Router melalui jendela konsol terminal.",
-                cliTradeoffTitle: isEn ? "CLI Setup & Command:" : "Petunjuk Instalasi & Perintah:",
-                cliTradeoffText: isEn
-                  ? "Install globally via 'npm i -g 9router' and launch with '9router'. Exposes an OpenAI-compatible API at http://localhost:20128/v1 for unified CLI, Pro, and free models (ComboMaut, oc/*, kr/*, vx/*)."
-                  : "Pasang secara global via 'npm i -g 9router' dan jalankan dengan '9router'. Menyediakan API kompatibel OpenAI di http://localhost:20128/v1 untuk semua akun CLI, Pro, dan model gratis (ComboMaut, oc/*, kr/*, vx/*).",
-                cliButton: isEn ? "Start 9Router in Terminal" : "Mulai 9Router di Terminal",
-                onCliAction: () => {
-                  handleLaunch9Router();
-                  closeModal();
-                },
-              };
-            case "antigravity":
-            default:
-              return {
-                title: isEn ? "Google Antigravity Authentication" : "Autentikasi Google Antigravity",
-                subtitle: isEn
-                  ? "Choose an authentication method to connect Gemini models to Arunaki."
-                  : "Pilih metode autentikasi untuk menghubungkan model Gemini ke Arunaki.",
-                badgeLetter: "A",
-                accountActiveText: data.antigravity?.accountEmail
-                  ? `${isEn ? "Current active account: " : "Akun aktif saat ini: "}${data.antigravity.accountEmail}`
-                  : undefined,
-                isLoggedIn: Boolean(data.antigravity?.loggedIn),
-                webLabel: isEn ? "Sign in with Antigravity CLI" : "Masuk dengan Antigravity CLI",
-                webBadge: "Terminal agy",
-                webDesc: isEn
-                  ? "Opens a terminal running the Antigravity CLI. Sign in with your Google AI Pro account there ” agy only authenticates interactively."
-                  : "Membuka terminal menjalankan Antigravity CLI. Masuk dengan akun Google AI Pro Anda di sana ” agy hanya bisa autentikasi secara interaktif.",
-                webWarningTitle: isEn ? "Notice (CLI sign-in):" : "Peringatan (Login CLI):",
-                webWarningText: isEn
-                  ? "Antigravity authenticates interactively: a terminal opens running agy, and you complete the Google sign-in there. Direct browser OAuth is refused by Google for this client."
-                  : "Antigravity melakukan autentikasi secara interaktif: terminal terbuka menjalankan agy, dan Anda menyelesaikan login Google di sana. OAuth browser langsung ditolak Google untuk client ini.",
-                webButton: isEn ? "Sign in with Antigravity (Terminal)" : "Masuk dengan Antigravity (Terminal)",
-                onWebAction: handleAntigravityCliLogin,
-                cliLabel: isEn ? "Sign in via CLI" : "Masuk via CLI",
-                cliBadge: "Terminal agy",
-                cliDesc: isEn
-                  ? "Uses locally installed Antigravity CLI synced on your computer."
-                  : "Menggunakan aplikasi Antigravity CLI lokal yang sudah terpasang dan tersinkronisasi di komputer.",
-                cliTradeoffTitle: isEn ? "CLI Considerations:" : "Pertimbangan (Terminal CLI):",
-                cliTradeoffText: isEn
-                  ? "Opens a physical terminal window (wt/cmd) for initial login. Provides minimal latency (~17ms) and immediately reads active PC session."
-                  : "Membuka jendela konsol terminal fisik (wt/cmd) untuk inisialisasi login awal. Memberikan latensi paling minimal (~17ms) & langsung membaca sesi akun aktif PC.",
-                cliButton: isEn ? "Launch Terminal CLI" : "Buka Terminal CLI",
-                onCliAction: handleAntigravityCliLogin,
-              };
-          }
-        })();
-
-        return (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-left">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                title={isEn ? "Close" : "Tutup"}
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white font-bold text-sm">
-                  {config.badgeLetter}
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-white">
-                    {config.title}
-                  </h3>
-                  <p className="text-xs text-zinc-400">
-                    {config.subtitle}
-                  </p>
-                </div>
-              </div>
-
-              {config.accountActiveText && (
-                <div className="my-3 px-3.5 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
-                    <span className="text-zinc-300">
-                      {config.accountActiveText}
-                    </span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                    {isEn ? "Connected" : "Terhubung"}
-                  </span>
-                </div>
-              )}
-
-{/* Terminal sign-in is the only supported route for these vendors, so the
-                  modal shows one option instead of the old browser/terminal pair. */}
-              <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-                          <Terminal className="w-4 h-4" />
-                        </div>
-                        <span className="font-semibold text-sm text-white">{config.cliLabel}</span>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
-                        {config.cliBadge}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
-                      {config.cliDesc}
-                    </p>
-
-                    {/* Kotak Pertimbangan (Monochrome) */}
-                    <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
-                      <div className="flex items-start gap-1.5 font-medium text-white mb-1">
-                        <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
-                        <span>{config.cliTradeoffTitle}</span>
-                      </div>
-                      <p className="text-[10.5px] text-zinc-400 leading-normal">
-                        {config.cliTradeoffText}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={config.onCliAction}
-                    disabled={isSigningInCli}
-                    className="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 hover:text-white border border-zinc-700 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
-                  >
-                    {isSigningInCli ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-300" />
-                        <span>{isEn ? "Opening Terminal..." : "Membuka Terminal..."}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Terminal className="w-3.5 h-3.5" />
-                        <span>{config.cliButton}</span>
-                      </>
-                    )}
-                  </button>
-              </div>
-
-              {/* 9Router Gateway Hub Link (Optional centralized login) */}
-              {currentTarget !== "nineRouter" && (
-                <div className="mt-3.5 p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
-                    <span className="text-zinc-300">
-                      {isEn
-                        ? "Manage multi-accounts centrally like in 9Router (Google, Claude, Codex, Grok)?"
-                        : "Kelola multi-akun terpusat seperti di 9Router (Google, Claude, Codex, Grok)?"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.open("http://localhost:20128", "_blank")}
-                    className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] rounded-lg cursor-pointer shrink-0 font-medium"
-                  >
-                    {isEn ? "Open 9Router" : "Buka 9Router"}
-                  </button>
-                </div>
-              )}
-
-              <div className="mt-4 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
-                <span>{isEn ? "Arunaki Workstation Integration" : "Integrasi Workstation Arunaki"}</span>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  {isEn ? "Close" : "Tutup"}
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+        }}
+        onLaunchClaudeTerminal={handleLaunchClaudeTerminal}
+        onLaunchCodexTerminal={handleLaunchCodexTerminal}
+        onLaunchOpenCodeTerminal={handleLaunchOpenCodeTerminal}
+        onLaunch9Router={handleLaunch9Router}
+        onAntigravityCliLogin={handleAntigravityCliLogin}
+      />
     </div>
   );
 }
