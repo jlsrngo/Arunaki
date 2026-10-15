@@ -4103,9 +4103,24 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 
 ---
 
-## Phase 118: History Menu Clean Decomposition ⏳ PENDING
+## Phase 118: History Menu Clean Decomposition ✅ DONE
 
-**Goal:** Mendekomposisi `HistoryPage.tsx` (24.3 KB / ~600 baris) dengan mengekstrak hooks query sesi, filter pencarian & date range, drawer detail transkrip sesi, dan pagination.
+**Goal:** Mendekomposisi `HistoryPage.tsx` (24.3 KB / 548 baris) dengan mengekstrak custom hook `useHistorySessions.ts`, filter bar `HistoryFilterBar.tsx`, serta dialog-dialog modal ke subfolder `components/history/modals/`.
+
+### 118.1 History Hook & Filter Bar Extraction
+- [x] **`useHistorySessions.ts`**: Ekstraksi fetching sesi, concurrent chunking query pesan, filter pencarian & tab, pengelompokan tanggal, dan aksi buka/hapus sesi.
+- [x] **`HistoryFilterBar.tsx`**: Ekstraksi bilah header, input search, tab filter count (All, Active, Empty), dan tombol batch cleanup.
+
+### 118.2 History Modals Modularization
+- [x] **`EmptySessionModal.tsx`**: Ekstraksi modal peringatan sesi kosong.
+- [x] **`DeleteSessionModal.tsx`**: Ekstraksi modal konfirmasi penghapusan sesi.
+- [x] **`CleanupSessionsModal.tsx`**: Ekstraksi modal konfirmasi batch cleanup sesi kosong.
+- [x] **`HistoryPage.tsx` Refactoring**: Merampingkan dari 548 baris menjadi orchestrator murni 125 baris.
+- [x] **`historyUtils.test.ts`**: Test suite baru untuk pengelompokan sesi berbasis tanggal (Today, Yesterday, A long time ago).
+
+### 118.3 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 22.45s).
+- [x] **Vitest Test Suite**: 39/39 passed across 7 test suites.
 
 ---
 
