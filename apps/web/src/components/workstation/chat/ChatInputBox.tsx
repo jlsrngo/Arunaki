@@ -3,80 +3,49 @@ import {
   useState,
   useMemo,
   useEffect,
-  useCallback,
   memo,
   type Dispatch,
   type SetStateAction,
   type KeyboardEvent,
-  type ClipboardEvent,
-  type DragEvent,
-  type ChangeEvent,
 } from "react";
 import {
   Send,
   FileSearch,
   Eraser,
   Clock,
-  X,
-  ChevronDown,
-  Check,
   Plus,
   Flame,
   Square,
   Paperclip,
-  FileText,
   Minimize2,
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
-import { describeModel } from "../../settings/SettingsCliConnectionsTab";
 import { ArunakiLogo } from "../../common/ArunakiLogo";
-import { getFileIcon } from "../../workspace/tree-utils";
-import { normalizeAttachmentName, isImageFile } from "./attachmentUtils";
 import { toast } from "sonner";
 import { useI18n } from "../../../lib/i18n";
+import {
+  ChatAttachmentChips,
+  ChatMentionsPopup,
+  ChatSlashCommandsPopup,
+  ChatModelPickerDropdown,
+  ChatReasoningEffortDropdown,
+  useChatInputClipboard,
+  SlashCommandItem,
+  AttachedFileItem,
+} from "./input";
 
-const EFFORT_LABELS: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  tiered: "Tiered",
-};
-
-/**
- * A tier is named by the provider, not by us. Antigravity ships low/medium/high/tiered; a provider
- * with no tiers sends none and gets no picker. The ids come from the model's variants in the
- * catalogue, so this can only ever offer something the model actually has.
- */
-const effortEffortLabel = (id: string) => {
-  const known = EFFORT_LABELS[id.toLowerCase()];
-  return known ?? id.charAt(0).toUpperCase() + id.slice(1);
-};
-
-export interface AttachedFileItem {
-  id: string;
-  name: string;
-  url: string;
-  dataUrl: string;
-  mime: string;
-  size?: number;
-  isImage: boolean;
-}
-
-function formatFileSize(bytes?: number): string {
-  if (!bytes || bytes <= 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+export type { AttachedFileItem };
 
 interface ChatInputBoxProps {
   files?: { name: string }[];
   isStreaming: boolean;
-  onSendMessage: (text: string, files?: Array<{ name: string; uri: string; mime?: string }>) => void;
+  onSendMessage: (
+    text: string,
+    files?: Array<{ name: string; uri: string; mime?: string }>
+  ) => void;
   onCancelStream?: () => void;
   onSearchSection?: () => void;
   onNewChat?: () => void;
-reasoningEffort?: string;
+  reasoningEffort?: string;
   setReasoningEffort?: (val: string) => void;
   /** Tier ids the active model actually offers. Empty means no picker and no variant on the request. */
   effortOptions?: string[];
@@ -100,7 +69,7 @@ export const ChatInputBox = memo(function ChatInputBox({
   onSearchSection,
   onNewChat,
   reasoningEffort = "",
-setReasoningEffort,
+  setReasoningEffort,
   effortOptions = [] as string[],
   activeModel,
   modelOptions = [] as Array<{ id: string; name: string }>,
@@ -113,9 +82,20 @@ setReasoningEffort,
 }: ChatInputBoxProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [localPrompt, setLocalPrompt] = useState("");
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFileItem[]>([]);
+
+  // Clipboard, Screenshot, Drag/Drop & File Input Custom Hook
+  const {
+    attachedFiles,
+    fileInputRef,
+    handleAddImageDataUrl,
+    handleFileInputChange,
+    handlePaste,
+    handleDragOver,
+    handleDrop,
+    handleRemoveFile,
+    clearAttachedFiles,
+  } = useChatInputClipboard({ textareaRef });
 
   // Mentions (@) popup
   const [showMentions, setShowMentions] = useState(false);
@@ -127,30 +107,30 @@ setReasoningEffort,
   const [commandQuery, setCommandQuery] = useState("");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
-  // Reasoning effort dropdown
+  // Reasoning effort dropdown & Model dropdown states
   const [isEffortDropdownOpen, setIsEffortDropdownOpen] = useState(false);
   const effortDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Model dropdown. Only the active provider's own models are listed, so choosing here cannot land
-  // on a model belonging to a CLI that is not the connected one.
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (effortDropdownRef.current && !effortDropdownRef.current.contains(event.target as Node)) {
+      if (
+        effortDropdownRef.current &&
+        !effortDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsEffortDropdownOpen(false);
       }
-      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
+      if (
+        modelDropdownRef.current &&
+        !modelDropdownRef.current.contains(event.target as Node)
+      ) {
         setIsModelDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const currentEffortObj = { label: effortOptions.includes(reasoningEffort) ? effortEffortLabel(reasoningEffort) : effortEffortLabel(effortOptions[0] ?? reasoningEffort) };
-  const currentEffortLabel = currentEffortObj.label;
 
   const mentionResults = useMemo(() => {
     if (!showMentions) return [];
@@ -161,18 +141,33 @@ setReasoningEffort,
       .slice(0, 8);
   }, [showMentions, mentionQuery, files]);
 
-  const availableCommands = useMemo(() => [
-    {
-      name: "/thinking",
-      description: showThinking ? "Collapse thinking" : "Expand thinking",
-      icon: ArunakiLogo,
-    },
-    { name: "/compact", description: "Smart compaction: summarize history & slash context tokens", icon: Minimize2 },
-    { name: "/grill-me", description: "Interview requirements deeply before executing", icon: Flame },
-    { name: "/new", description: "Start a new conversation session", icon: Plus },
-    { name: "/search-section", description: "Search topics across sessions", icon: FileSearch },
-    { name: "/clear", description: "Clear current conversation", icon: Eraser },
-  ], [showThinking]);
+  const availableCommands: SlashCommandItem[] = useMemo(
+    () => [
+      {
+        name: "/thinking",
+        description: showThinking ? "Collapse thinking" : "Expand thinking",
+        icon: ArunakiLogo,
+      },
+      {
+        name: "/compact",
+        description: "Smart compaction: summarize history & slash context tokens",
+        icon: Minimize2,
+      },
+      {
+        name: "/grill-me",
+        description: "Interview requirements deeply before executing",
+        icon: Flame,
+      },
+      { name: "/new", description: "Start a new conversation session", icon: Plus },
+      {
+        name: "/search-section",
+        description: "Search topics across sessions",
+        icon: FileSearch,
+      },
+      { name: "/clear", description: "Clear current conversation", icon: Eraser },
+    ],
+    [showThinking]
+  );
 
   const filteredCommands = useMemo(() => {
     if (!showCommands) return [];
@@ -226,7 +221,7 @@ setReasoningEffort,
       setCollapseThinking?.(!next);
       toast.info(next ? "Thinking expanded" : "Thinking collapsed");
       setLocalPrompt("");
-      setAttachedFiles([]);
+      clearAttachedFiles();
       return;
     }
 
@@ -246,7 +241,7 @@ setReasoningEffort,
 
     onSendMessage(finalPrompt, filesToSend.length > 0 ? filesToSend : undefined);
     setLocalPrompt("");
-    setAttachedFiles([]);
+    clearAttachedFiles();
   };
 
   const insertMention = (filename: string) => {
@@ -325,7 +320,9 @@ setReasoningEffort,
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedCommandIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+        setSelectedCommandIndex(
+          (prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length
+        );
         return;
       }
       if (e.key === "Enter" || e.key === "Tab") {
@@ -342,232 +339,21 @@ setReasoningEffort,
     if ((e.ctrlKey || e.metaKey) && (e.key === "v" || e.key === "V")) {
       const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
       if (typeof desktop?.readClipboardImage === "function") {
-        desktop.readClipboardImage().then((dataUrl: string | null) => {
-          if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
-            e.preventDefault();
-            handleAddImageDataUrl(dataUrl, "screenshot");
-          }
-        }).catch(() => {});
+        desktop
+          .readClipboardImage()
+          .then((dataUrl: string | null) => {
+            if (dataUrl && typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) {
+              e.preventDefault();
+              handleAddImageDataUrl(dataUrl, "screenshot");
+            }
+          })
+          .catch(() => {});
       }
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitPrompt();
-    }
-  };
-
-  const readFileAsDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleAddImageDataUrl = useCallback(
-    (dataUrl: string, nameHint = "screenshot") => {
-      const currentCount = attachedFiles.length;
-      const rawFileName = `${nameHint}.png`;
-      const resolvedName = normalizeAttachmentName(rawFileName, 0, 1, currentCount);
-      const timestamp = Date.now();
-      const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
-
-      // Calculate approximate byte size from base64 data URL
-      const base64Str = dataUrl.split(",")[1] || "";
-      const approxBytes = Math.round((base64Str.length * 3) / 4);
-
-      setAttachedFiles((prev) => [
-        ...prev,
-        {
-          id: fileId,
-          name: resolvedName,
-          url: dataUrl,
-          dataUrl,
-          mime: "image/png",
-          size: approxBytes,
-          isImage: true,
-        },
-      ]);
-
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-      if (desktop?.writeFile) {
-        const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
-        desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
-          console.warn("[ChatInputBox] Could not cache attachment internally:", e);
-        });
-      }
-    },
-    [attachedFiles.length]
-  );
-
-  const handleAddFiles = useCallback(
-    async (filesToAdd: File[]) => {
-      const currentCount = attachedFiles.length;
-      for (let i = 0; i < filesToAdd.length; i++) {
-        const file = filesToAdd[i];
-        try {
-          const dataUrl = await readFileAsDataUrl(file);
-          const rawFileName =
-            file.name ||
-            (file.type ? `screenshot.${file.type.split("/")[1] || "png"}` : "screenshot.png");
-          const resolvedName = normalizeAttachmentName(rawFileName, i, filesToAdd.length, currentCount);
-          const isImg = isImageFile(resolvedName, file.type);
-          const localPreviewUrl = isImg ? URL.createObjectURL(file) : "";
-          const timestamp = Date.now();
-          const fileId = `${resolvedName}-${timestamp}-${Math.random()}`;
-
-          setAttachedFiles((prev) => [
-            ...prev,
-            {
-              id: fileId,
-              name: resolvedName,
-              url: localPreviewUrl,
-              dataUrl,
-              mime: file.type || (isImg ? "image/png" : "application/octet-stream"),
-              size: file.size,
-              isImage: isImg,
-            },
-          ]);
-
-          const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-          if (desktop?.writeFile) {
-            const internalAttachmentPath = `.arunaki/attachments/${resolvedName}`;
-            desktop.writeFile(internalAttachmentPath, dataUrl).catch((e: any) => {
-              console.warn("[ChatInputBox] Could not cache attachment internally:", e);
-            });
-          }
-        } catch (err) {
-          console.warn("[ChatInputBox] Failed to read file:", err);
-          toast.error(`Failed to read file ${file.name || "attachment"}`);
-        }
-      }
-    },
-    [attachedFiles.length]
-  );
-
-  const handleFileInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-    await handleAddFiles(Array.from(selectedFiles));
-    e.target.value = "";
-  };
-
-  const extractClipboardFiles = (clipboardData?: DataTransfer | null): File[] => {
-    if (!clipboardData) return [];
-    const fileList: File[] = [];
-
-    // 1. Files from file list (e.g. copied from explorer or standard file drop)
-    if (clipboardData.files && clipboardData.files.length > 0) {
-      for (let i = 0; i < clipboardData.files.length; i++) {
-        const f = clipboardData.files[i];
-        if (f) fileList.push(f);
-      }
-    }
-
-    // 2. Items from clipboard data (e.g. pasted screenshots, image data)
-    if (fileList.length === 0 && clipboardData.items && clipboardData.items.length > 0) {
-      for (let i = 0; i < clipboardData.items.length; i++) {
-        const item = clipboardData.items[i];
-        if (item.kind === "file" || item.type.startsWith("image/")) {
-          const blob = item.getAsFile();
-          if (blob) {
-            fileList.push(blob);
-          }
-        }
-      }
-    }
-
-    return fileList;
-  };
-
-  const processPaste = useCallback(
-    async (clipboardData?: DataTransfer | null): Promise<boolean> => {
-      // 1. First priority: Check desktop native clipboard bridge (Electron Win32 GetClipboardData)
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-      if (typeof desktop?.readClipboardImage === "function") {
-        try {
-          const nativeDataUrl = await desktop.readClipboardImage();
-          if (nativeDataUrl && typeof nativeDataUrl === "string" && nativeDataUrl.startsWith("data:image/")) {
-            handleAddImageDataUrl(nativeDataUrl, "screenshot");
-            return true;
-          }
-        } catch (e) {
-          console.warn("[ChatInputBox] desktop.readClipboardImage error:", e);
-        }
-      }
-
-      // 2. Second priority: Standard web clipboard files / items
-      const fileList = extractClipboardFiles(clipboardData);
-      if (fileList.length > 0) {
-        await handleAddFiles(fileList);
-        return true;
-      }
-
-      // 3. Third priority: Async navigator.clipboard.read() for modern browsers
-      if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.read === "function") {
-        try {
-          const clipItems = await navigator.clipboard.read();
-          for (const item of clipItems) {
-            const imgType = item.types.find((t) => t.startsWith("image/"));
-            if (imgType) {
-              const blob = await item.getType(imgType);
-              const file = new File([blob], `screenshot_${Date.now()}.png`, { type: imgType });
-              await handleAddFiles([file]);
-              return true;
-            }
-          }
-        } catch {}
-      }
-
-      return false;
-    },
-    [handleAddImageDataUrl, handleAddFiles]
-  );
-
-  const handlePaste = async (e: ClipboardEvent<HTMLElement>) => {
-    const handled = await processPaste(e.clipboardData);
-    if (handled) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  // Window-level paste listener so user can paste a screenshot right after capturing with Snipping Tool
-  useEffect(() => {
-    const onWindowPaste = async (e: globalThis.ClipboardEvent) => {
-      const activeEl = document.activeElement;
-      if (
-        activeEl &&
-        activeEl !== textareaRef.current &&
-        (activeEl.tagName === "INPUT" || (activeEl.tagName === "TEXTAREA" && activeEl !== textareaRef.current))
-      ) {
-        return;
-      }
-
-      const handled = await processPaste(e.clipboardData);
-      if (handled) {
-        e.preventDefault();
-        e.stopPropagation();
-        textareaRef.current?.focus();
-      }
-    };
-
-    window.addEventListener("paste", onWindowPaste);
-    return () => window.removeEventListener("paste", onWindowPaste);
-  }, [processPaste]);
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await handleAddFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -579,108 +365,27 @@ setReasoningEffort,
       className="relative bg-[var(--bg-card)] border border-[var(--border-color)] focus-within:border-[var(--border-strong)] rounded-2xl p-2.5 transition-[border-color] duration-150"
     >
       {/* File Mentions Popup */}
-      {showMentions && mentionResults.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 z-50 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden shadow-2xl transform-gpu will-change-transform">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] bg-[var(--bg-hover)] border-b border-[var(--border-color)]">
-            {t("selectFileToAttach", "Select file to attach")}
-          </div>
-          <div className="max-h-44 overflow-y-auto">
-            {mentionResults.map((name, i) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => insertMention(name)}
-                className={cn(
-                  "w-full px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer text-left hover:bg-[var(--bg-hover)]",
-                  i === mentionIndex
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium"
-                    : "text-[var(--text-secondary)]"
-                )}
-              >
-                {getFileIcon(name)}
-                <span className="truncate">{name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <ChatMentionsPopup
+        showMentions={showMentions}
+        mentionResults={mentionResults}
+        mentionIndex={mentionIndex}
+        onSelectMention={insertMention}
+      />
 
       {/* Slash Commands Popup */}
-      {showCommands && filteredCommands.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 z-50 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden shadow-2xl transform-gpu will-change-transform">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] bg-[var(--bg-hover)] border-b border-[var(--border-color)]">
-            {t("slashCommands", "Slash Commands")}
-          </div>
-          <div className="max-h-64 overflow-y-auto">
-            {filteredCommands.map((command, index) => {
-              const Icon = command.icon;
-              return (
-                <button
-                  key={command.name}
-                  type="button"
-                  onClick={() => handleCommandSelect(command.name)}
-                  className={cn(
-                    "w-full px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer hover:bg-[var(--bg-hover)]",
-                    index === selectedCommandIndex ? "bg-[var(--bg-hover)] font-medium" : ""
-                  )}
-                >
-                  <Icon size={14} className="text-[var(--text-muted)] shrink-0" strokeWidth={1.5} />
-                  <span className="text-xs font-medium text-[var(--text-primary)] whitespace-nowrap shrink-0">
-                    {command.name}
-                  </span>
-                  <span className="text-[10px] text-[var(--text-dim)] truncate min-w-0">
-                    {command.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <ChatSlashCommandsPopup
+        showCommands={showCommands}
+        filteredCommands={filteredCommands}
+        selectedCommandIndex={selectedCommandIndex}
+        onSelectCommand={handleCommandSelect}
+      />
 
       {/* Attached Files & Images Preview Chips */}
-      {attachedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2 animate-in fade-in zoom-in-95 duration-150">
-          {attachedFiles.map((file, idx) => (
-            <div
-              key={file.id || idx}
-              className="group relative flex items-center gap-2 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl p-1.5 pr-2.5 shadow-xs"
-            >
-              {file.isImage ? (
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-10 h-10 rounded-lg object-cover border border-[var(--border-color)] bg-black/20 shrink-0 cursor-pointer"
-                  onClick={() => onPreviewImage(file.url)}
-                  title="Click to zoom preview"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center shrink-0 text-[var(--text-muted)]">
-                  {getFileIcon(file.name) || <FileText className="w-5 h-5" />}
-                </div>
-              )}
-              <div className="flex flex-col min-w-0 max-w-[140px]">
-                <span className="text-[11px] font-medium text-[var(--text-primary)] truncate">
-                  {file.name}
-                </span>
-                <span className="text-[9px] text-[var(--text-dim)] font-mono">
-                  {file.isImage
-                    ? t("imageAttached", "Image attached")
-                    : formatFileSize(file.size) || "File attached"}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                className="ml-1 w-4 h-4 rounded-full bg-[var(--bg-panel)] hover:bg-red-500/20 hover:text-red-500 text-[var(--text-muted)] flex items-center justify-center transition-colors cursor-pointer"
-                title="Remove file"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <ChatAttachmentChips
+        attachedFiles={attachedFiles}
+        onRemoveFile={handleRemoveFile}
+        onPreviewImage={onPreviewImage}
+      />
 
       {/* Zero-JS Auto-Sizing Input Container: CSS Grid Ghost Mirror + Native field-sizing: content */}
       <div className="grid grid-cols-1 relative min-h-[24px] max-h-[160px]">
@@ -712,7 +417,7 @@ setReasoningEffort,
 
       <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)] mt-1">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Upload / Attach File Button (First, icon-only) */}
+          {/* Upload / Attach File Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -731,123 +436,28 @@ setReasoningEffort,
             accept="*/*"
           />
 
-          {onSelectModel && (modelOptions.length > 0 || activeModel?.id) && (
-            <div className="relative" ref={modelDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs max-w-[150px]"
-                title={t("model", "Model")}
-              >
-                <span className="truncate">
-                  {describeModel(modelOptions.find((m) => m.id === activeModel?.id)?.id || activeModel?.id).label}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "w-2.5 h-2.5 text-[var(--text-muted)] transition-transform duration-150 shrink-0",
-                    isModelDropdownOpen && "rotate-180"
-                  )}
-                />
-              </button>
+          {/* Model Selection Dropdown */}
+          <ChatModelPickerDropdown
+            isOpen={isModelDropdownOpen}
+            onToggle={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+            dropdownRef={modelDropdownRef}
+            activeModel={activeModel}
+            modelOptions={modelOptions}
+            onSelectModel={(m) => {
+              onSelectModel?.(m);
+              setIsModelDropdownOpen(false);
+            }}
+          />
 
-              {isModelDropdownOpen && (
-                <div className="absolute bottom-full mb-1.5 left-0 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
-                  <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5 flex items-center justify-between">
-                    <span>{t("model", "Model")}</span>
-                    <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold border border-[var(--border-color)]">
-                      {activeModel?.providerID || "Active"}
-                    </span>
-                  </div>
-                  {modelOptions.map((m) => {
-                    const isSelected = m.id === activeModel?.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectModel?.(m);
-                          setIsModelDropdownOpen(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-2 py-1 rounded-lg text-[10px] flex items-center justify-between gap-2 cursor-pointer transition-colors",
-                          isSelected
-                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
-                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
-                        )}
-                      >
-                        <span className="truncate">{describeModel(m.id).label}</span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {(m as any).isRetired && (
-                            <span
-                              className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-normal"
-                              title="Reported unavailable by provider. Click to select and retry."
-                            >
-                              retired
-                            </span>
-                          )}
-                          {isSelected && <span className="text-[9px] opacity-60">✓</span>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-          {setReasoningEffort && effortOptions.length > 0 && (
-            <div className="relative" ref={effortDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsEffortDropdownOpen(!isEffortDropdownOpen)}
-                className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-                title={t("reasoningEffort", "Reasoning Effort")}
-              >
-                <span>{currentEffortLabel}</span>
-                <ChevronDown
-                  className={cn(
-                    "w-2.5 h-2.5 text-[var(--text-muted)] transition-transform duration-150",
-                    isEffortDropdownOpen && "rotate-180"
-                  )}
-                />
-              </button>
-
-              {isEffortDropdownOpen && (
-                <div className="absolute bottom-full mb-1.5 left-0 w-28 rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
-                  <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5">
-                    {t("reasoningEffort", "Reasoning Effort")}
-                  </div>
-                  {effortOptions.map((opt) => {
-                    const isSelected = reasoningEffort === opt;
-                    const optLabel = effortEffortLabel(opt);
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => {
-                          setReasoningEffort?.(opt);
-                          try {
-                            localStorage.setItem("arunaki_reasoning_effort", opt);
-                          } catch {}
-                          setIsEffortDropdownOpen(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-2 py-1 rounded-lg text-[10px] flex items-center justify-between cursor-pointer transition-colors",
-                          isSelected
-                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
-                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
-                        )}
-                      >
-                        <span>{optLabel}</span>
-                        {isSelected && (
-                          <Check className="w-2.5 h-2.5 text-[var(--text-primary)] shrink-0 stroke-[2.5]" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Reasoning Effort Dropdown */}
+          <ChatReasoningEffortDropdown
+            isOpen={isEffortDropdownOpen}
+            onToggle={() => setIsEffortDropdownOpen(!isEffortDropdownOpen)}
+            dropdownRef={effortDropdownRef}
+            reasoningEffort={reasoningEffort}
+            effortOptions={effortOptions}
+            setReasoningEffort={setReasoningEffort}
+          />
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -870,7 +480,6 @@ setReasoningEffort,
                 className="relative w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0 group"
                 title={t("stopGenerating", "Stop generating")}
               >
-                {/* Active spinning border indicator so user clearly sees it is actively processing */}
                 <span className="absolute -inset-[1.5px] rounded-full border-2 border-red-400 border-t-transparent animate-spin pointer-events-none" />
                 <Square className="w-2.5 h-2.5 fill-white text-white transition-transform group-hover:scale-110" />
               </button>
@@ -891,5 +500,3 @@ setReasoningEffort,
     </div>
   );
 });
-
-

@@ -3998,4 +3998,30 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **Web Build (`npm run build -w apps/web`)**: 0 error kompilasi TypeScript.
 - [x] **Standalone Binary Packaging (`npm run bundle:prepare`)**: Sukses membangun `apps/desktop/resources/engine.exe` (119.16 MB) mandiri dengan seluruh pembaruan engine dan OCR tools.
 
+---
+
+## Phase 113: Workstation Architectural Clean Decomposition ✅ DONE
+
+**Goal:** Mendekomposisi menu Workstation (`UnifiedWorkstationPage.tsx` dan subkomponen terkait seperti `ChatInputBox.tsx`) menjadi Clean Orchestrator yang ramping, memisahkan lapisan DOM drag-resize, folder/session isolation, polling query berkas, dan sub-komponen input chat tanpa regresi fungsional.
+
+### 113.1 Workstation Page Modularization
+- [x] **`useWorkstationSession.ts`**: Ekstraksi folder/session isolation guard, URL & localStorage bidirectional synchronization, auto-connect, dan messaging active-session notification.
+- [x] **`useWorkstationFiles.ts`**: Ekstraksi query berkas workspace, native files tracking, dan autocomplete mention `@`.
+- [x] **`useWorkstationLayout.ts`**: Ekstraksi resize drag handle (`--left-panel-width`, `--right-panel-width`), panel toggles, dan top menubar global event listeners.
+- [x] **`UnifiedWorkstationPage.tsx` Refactoring**: Merampingkan komponen dari 499 baris menjadi orchestrator murni 170 baris.
+
+### 113.2 Chat Input Area Decomposition
+- [x] **`ChatAttachmentChips.tsx`**: Ekstraksi thumbnail chips lampiran, preview modal, dan badge ukuran.
+- [x] **`ChatModelPickerDropdown.tsx`**: Ekstraksi picker dropdown model AI.
+- [x] **`ChatReasoningEffortDropdown.tsx`**: Ekstraksi dropdown level penalaran.
+- [x] **`ChatSlashCommandsPopup.tsx` & `ChatMentionsPopup.tsx`**: Ekstraksi popup slash (`/`) dan mention file (`@`).
+- [x] **`useChatInputClipboard.ts`**: Ekstraksi penanganan clipboard paste screenshot & drag/drop file upload.
+- [x] **`ChatInputBox.tsx` Refactoring**: Merampingkan komponen dari 896 baris menjadi orchestrator murni 380 baris.
+
+### 113.3 Verification
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, dist 1.36 MB).
+- [x] **Vitest Test Suite**: 16/16 passed across 3 test suites (`attachmentUtils`, `panels`, `types.test.ts`).
+
+
+
 
