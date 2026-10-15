@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Undo2,
   Redo2,
@@ -16,9 +15,12 @@ import { useI18n } from "../../../lib/i18n";
 import { BaseMenuProps } from "./types";
 import { getEffectiveShortcut } from "./shortcutsConfig";
 import { menuAutoFocus, menuKeyDown, menuTriggerProps } from "./menuA11y";
+import { MenuItem } from "./items/MenuItem";
+import { MenuSeparator } from "./items/MenuSeparator";
+import { AppCommands } from "./hooks/useAppCommands";
 
 interface EditMenuProps extends BaseMenuProps {
-  onOpenShortcuts?: () => void;
+  commands: AppCommands;
 }
 
 export const EditMenu = memo(function EditMenu({
@@ -26,54 +28,9 @@ export const EditMenu = memo(function EditMenu({
   onToggle,
   onMouseEnter,
   onClose,
-  onOpenShortcuts,
+  commands,
 }: EditMenuProps) {
-  const navigate = useNavigate();
   const { t } = useI18n();
-
-  const handleUndo = () => {
-    document.execCommand("undo");
-    onClose();
-  };
-
-  const handleRedo = () => {
-    document.execCommand("redo");
-    onClose();
-  };
-
-  const handleCut = () => {
-    document.execCommand("cut");
-    onClose();
-  };
-
-  const handleCopy = () => {
-    document.execCommand("copy");
-    onClose();
-  };
-
-  const handlePaste = async () => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText();
-        document.execCommand("insertText", false, text);
-      } else {
-        document.execCommand("paste");
-      }
-    } catch {
-      document.execCommand("paste");
-    }
-    onClose();
-  };
-
-  const handleSelectAll = () => {
-    document.execCommand("selectAll");
-    onClose();
-  };
-
-  const handleFind = () => {
-    window.dispatchEvent(new CustomEvent("arunaki-search-session"));
-    onClose();
-  };
 
   return (
     <div className="relative">
@@ -96,155 +53,103 @@ export const EditMenu = memo(function EditMenu({
           aria-label={t("edit", "Edit")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleUndo}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Undo2 className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("undo", "Undo")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("undo") || "Ctrl+Z"}
-            </span>
-          </button>
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+        >
+          <MenuItem
+            icon={Undo2}
+            label={t("undo", "Undo")}
+            shortcut={getEffectiveShortcut("undo") || "Ctrl+Z"}
+            onClick={() => {
+              commands.undo();
+              onClose();
+            }}
+          />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleRedo}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Redo2 className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("redo", "Redo")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("redo") || "Ctrl+Y"}
-            </span>
-          </button>
+          <MenuItem
+            icon={Redo2}
+            label={t("redo", "Redo")}
+            shortcut={getEffectiveShortcut("redo") || "Ctrl+Y"}
+            onClick={() => {
+              commands.redo();
+              onClose();
+            }}
+          />
 
-          <div className="h-px my-1.5 bg-[var(--border-color)]" />
+          <MenuSeparator />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleCut}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Scissors className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("cut", "Cut")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("cut") || "Ctrl+X"}
-            </span>
-          </button>
+          <MenuItem
+            icon={Scissors}
+            label={t("cut", "Cut")}
+            shortcut={getEffectiveShortcut("cut") || "Ctrl+X"}
+            onClick={() => {
+              commands.cut();
+              onClose();
+            }}
+          />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleCopy}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Copy className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("copy", "Copy")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("copy") || "Ctrl+C"}
-            </span>
-          </button>
+          <MenuItem
+            icon={Copy}
+            label={t("copy", "Copy")}
+            shortcut={getEffectiveShortcut("copy") || "Ctrl+C"}
+            onClick={() => {
+              commands.copy();
+              onClose();
+            }}
+          />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handlePaste}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Clipboard className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("paste", "Paste")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("paste") || "Ctrl+V"}
-            </span>
-          </button>
+          <MenuItem
+            icon={Clipboard}
+            label={t("paste", "Paste")}
+            shortcut={getEffectiveShortcut("paste") || "Ctrl+V"}
+            onClick={async () => {
+              await commands.paste();
+              onClose();
+            }}
+          />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleSelectAll}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <CheckSquare className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("selectAll", "Select All")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("select-all") || "Ctrl+A"}
-            </span>
-          </button>
+          <MenuItem
+            icon={CheckSquare}
+            label={t("selectAll", "Select All")}
+            shortcut={getEffectiveShortcut("select-all") || "Ctrl+A"}
+            onClick={() => {
+              commands.selectAll();
+              onClose();
+            }}
+          />
 
-          <div className="h-px my-1.5 bg-[var(--border-color)]" />
+          <MenuSeparator />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleFind}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Search className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("findInSession", "Find in Session...")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("find-session") || "Ctrl+F"}
-            </span>
-          </button>
+          <MenuItem
+            icon={Search}
+            label={t("findInSession", "Find in Session...")}
+            shortcut={getEffectiveShortcut("find-session") || "Ctrl+F"}
+            onClick={() => {
+              commands.findSession();
+              onClose();
+            }}
+          />
 
-          <div className="h-px my-1.5 bg-[var(--border-color)]" />
+          <MenuSeparator />
 
-          {onOpenShortcuts && (
-            <button
-              type="button"
-            role="menuitem"
-              onClick={() => {
-                onClose();
-                onOpenShortcuts();
-              }}
-              className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-            >
-              <div className="flex items-center gap-2.5">
-                <Keyboard className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-                <span>{t("keyboardShortcuts", "Keyboard Shortcuts")}</span>
-              </div>
-              <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-                {getEffectiveShortcut("shortcuts") || "Ctrl+/"}
-              </span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            role="menuitem"
+          <MenuItem
+            icon={Keyboard}
+            label={t("keyboardShortcuts", "Keyboard Shortcuts")}
+            shortcut={getEffectiveShortcut("shortcuts") || "Ctrl+/"}
             onClick={() => {
               onClose();
-              navigate("/settings");
+              commands.openShortcuts?.();
             }}
-            className="w-full px-3.5 py-2 text-[13px] flex items-center justify-between gap-3 whitespace-nowrap transition-colors cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-          >
-            <div className="flex items-center gap-2.5">
-              <Settings className="w-4 h-4 text-[var(--text-muted)]" strokeWidth={1.75} />
-              <span>{t("preferencesSettings", "Preferences / Settings")}</span>
-            </div>
-            <span className="shrink-0 pl-2 text-[11px] text-[var(--text-muted)] font-mono">
-              {getEffectiveShortcut("settings") || "Ctrl+,"}
-            </span>
-          </button>
+          />
+
+          <MenuItem
+            icon={Settings}
+            label={t("preferencesSettings", "Preferences & Settings...")}
+            shortcut={getEffectiveShortcut("settings") || "Ctrl+,"}
+            onClick={() => {
+              onClose();
+              commands.openSettings();
+            }}
+          />
         </div>
       )}
     </div>

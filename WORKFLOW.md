@@ -4022,6 +4022,34 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, dist 1.36 MB).
 - [x] **Vitest Test Suite**: 16/16 passed across 3 test suites (`attachmentUtils`, `panels`, `types.test.ts`).
 
+---
+
+## Phase 114: Top Menu Bar & Dropdowns Clean Decomposition ✅ DONE
+
+**Goal:** Mendekomposisi `TopMenuBar.tsx` dan dropdown menu (`FileMenu`, `EditMenu`, `ViewMenu`, `HelpMenu`) menjadi arsitektur modular yang ramping, mengekstrak command bus `useAppCommands`, global keyboard shortcut listener `useGlobalShortcuts`, komponen atomik `MenuItem`/`MenuSeparator`, serta sub-menu `ThemeSubmenu` dan `LanguageSubmenu`.
+
+### 114.1 Centralized Commands & Shortcuts Hooks
+- [x] **`useAppCommands.ts`**: Pusat komando tunggal untuk seluruh aksi menu & shortcut (Undo, Redo, Cut, Copy, Paste, Select All, Save, New Session, Search, Toggle Explorer/Chat/WordWrap, Fullscreen, Reset Zoom, Backup, Exit).
+- [x] **`useGlobalShortcuts.ts`**: Listener keyboard global terpusat yang memetakan tombol ke `useAppCommands`.
+
+### 114.2 Atomic Menu Components & Submenus
+- [x] **`MenuItem.tsx` & `MenuSeparator.tsx`**: Komponen atomik menu item dengan dukungan ikon, shortcut badge, checkmark aktif, dan a11y.
+- [x] **`ThemeSubmenu.tsx`**: Submenu khusus pilihan tema (Light / Dark / System Theme).
+- [x] **`LanguageSubmenu.tsx`**: Submenu khusus pilihan bahasa (EN / ID).
+
+### 114.3 Menu Dropdowns Refactoring
+- [x] **`FileMenu.tsx`**: Ramping menjadi 125 baris deklaratif.
+- [x] **`EditMenu.tsx`**: Ramping menjadi 130 baris deklaratif.
+- [x] **`ViewMenu.tsx`**: Ramping menjadi 125 baris deklaratif.
+- [x] **`HelpMenu.tsx`**: Ramping menjadi 110 baris deklaratif.
+- [x] **`TopMenuBar.tsx`**: Ramping menjadi 130 baris orchestrator murni.
+
+### 114.4 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 errors, dist 1.34 MB).
+- [x] **Vitest Test Suite**: 27/27 passed across 4 test suites (`shortcutsConfig`, `types.test.ts`, `attachmentUtils`, `panels`).
+
+
+
 
 
 
