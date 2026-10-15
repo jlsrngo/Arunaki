@@ -310,7 +310,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                         <span
                           className={cn(
                             "w-1.5 h-1.5 rounded-full shrink-0",
-                            nodeData?.syncStatus === "failed" ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+                            nodeData?.syncStatus === "failed" ? "bg-amber-500" : "bg-white animate-pulse"
                           )}
                         />
                         <span className="font-medium text-[var(--text-primary)]">

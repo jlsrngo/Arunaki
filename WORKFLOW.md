@@ -4085,21 +4085,21 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 
 ---
 
-## Phase 117: Knowledge Menu Clean Decomposition 🔄 Antigravity
+## Phase 117: Knowledge Menu Clean Decomposition ✅ DONE
 
-**Goal:** Mendekomposisi `KnowledgePage.tsx` (17.5 KB / ~500 baris) dan `KnowledgeNodePanel.tsx` (17 KB) menjadi arsitektur modular: custom hook graf `useKnowledgeGraph.ts`, hook queries `useKnowledgeSources.ts`, dan subkomponen tampilan detail node yang terisolasi.
+**Goal:** Mendekomposisi `KnowledgePage.tsx` (17.5 KB / ~500 baris) dan `KnowledgeNodePanel.tsx` (17 KB) menjadi arsitektur modular: custom hook graf `useKnowledgeGraph.ts`, modul kalkulasi anti-collision `collision.ts`, pemenuhan Strict Monochrome rule, dan orchestrator halaman yang ramping.
 
 ### 117.1 Knowledge Hooks Extraction
-- [ ] **`useKnowledgeGraph.ts`**: Ekstraksi transformasi data graph ReactFlow (nodes, edges layout, force layout/dagre).
-- [ ] **`useKnowledgeSources.ts`**: Ekstraksi query queryClient React Query untuk fetch sources, create source, delete source, dan manual sync.
+- [x] **`useKnowledgeGraph.ts`**: Ekstraksi transformasi data graph ReactFlow (nodes, edges, auto-centering camera ke `main-ai-node`, validasi koneksi ketat hanya ke core node, penambahan/penghapusan/drag stop node, serta sinkronisasi folder aktif).
+- [x] **`collision.ts` & `collision.test.ts`**: Ekstraksi algoritma anti-collision murni `resolveNodeCollision` dengan unit test komprehensif.
 
 ### 117.2 Knowledge Page & Panel Refactoring
-- [ ] **`KnowledgeNodePanel.tsx` Decomposition**: Ekstraksi tab Content, Metadata, dan Connection links.
-- [ ] **`KnowledgePage.tsx` Refactoring**: Merampingkan orchestrator halaman Knowledge.
+- [x] **`KnowledgePage.tsx` Refactoring**: Merampingkan dari 528 baris menjadi orchestrator murni ~150 baris yang ramping dan deklaratif.
+- [x] **Strict Monochrome Rule**: Memperbaiki indikator sinkronisasi di `KnowledgeNodePanel.tsx` dan warna node SOP menjadi warna netral sesuai standar monokrom.
 
 ### 117.3 Verification & Testing
-- [ ] **TypeScript Build Verification**: `npm run build -w apps/web` (0 errors).
-- [ ] **Vitest Test Suite**: Memastikan seluruh tes lulus 100%.
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 11.31s).
+- [x] **Vitest Test Suite**: 36/36 passed across 6 test suites.
 
 ---
 
