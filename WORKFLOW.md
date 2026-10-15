@@ -4048,6 +4048,32 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 errors, dist 1.34 MB).
 - [x] **Vitest Test Suite**: 27/27 passed across 4 test suites (`shortcutsConfig`, `types.test.ts`, `attachmentUtils`, `panels`).
 
+---
+
+## Phase 115: Shell Header, Footer & Active Folder Clean Decomposition ✅ DONE
+
+**Goal:** Mendekomposisi `AppLayout.tsx` menjadi Clean Shell Orchestrator ramping, memisahkan header shell (`AppHeader.tsx`), bilah navigasi kapsul & status footer (`AppFooter.tsx`), hook sinkronisasi jaringan (`useAppNetworkStatus.ts`), dan hook isolasi folder aktif & knowledge auto-sync (`useActiveFolderSync.ts`).
+
+### 115.1 Shell Hooks Extraction
+- [x] **`useAppNetworkStatus.ts`**: Ekstraksi state online/offline dan event toast notification.
+- [x] **`useActiveFolderSync.ts`**: Ekstraksi folder state, dialog folder picker IPC, reset folder, dan knowledge background auto-sync.
+
+### 115.2 Header & Footer Modularization
+- [x] **`AppHeader.tsx`**: Header ramping dengan logo, TopMenuBar, quick theme switch, dan avatar button.
+- [x] **`AppFooter.tsx`**: Footer bilah kapsul navigasi Workstation / Knowledge / History / Settings, folder badge, dan network pill.
+- [x] **`AppLayout.tsx` Refactoring**: Merampingkan dari 334 baris menjadi orchestrator shell murni 65 baris.
+
+### 115.3 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 compilation errors, built in 10.16s).
+- [x] **Vitest Test Suite**: 27/27 passed across 4 test suites.
+
+---
+
+## Phase 116: File Tree Explorer & Action Menus Clean Decomposition ⏳ PENDING
+
+**Goal:** Mendekomposisi `TreeNodeItem.tsx` (391 baris) dengan mengekstrak menu aksi berkas/direktori ke `TreeNodeActionMenu.tsx` dan input inline rename, mengeliminasi duplikasi dropdown action di pohon berkas.
+
+
 
 
 
