@@ -303,9 +303,24 @@ export async function getAntigravityAuth(force = false): Promise<typeof antigrav
 
   const client = loadGoogleOAuthClient()
   if (!client) {
+    // No OAuth client → cannot refresh with Google directly. Try agy as a fallback:
+    // running `agy models` makes it renew the shared Credential Manager token, which
+    // we can then read back. Without this, the expired token was returned silently and
+    // every downstream request failed with 401.
+    console.info(
+      "[Antigravity] No OAuth client configured — attempting refresh via agy CLI.",
+    )
+    const renewed = await refreshAntigravityCredentialViaAgy()
+    if (renewed) {
+      const after = readAntigravityCredentialManager()
+      if (after?.accessToken) {
+        const usable = !after.expiresAt || after.expiresAt - Date.now() > 60_000
+        if (usable) return (antigravityAuth = after)
+      }
+    }
     console.warn(
-      "[Antigravity] Stored token expired and no OAuth client configured — set GOOGLE_OAUTH_CLIENT_ID/" +
-        "GOOGLE_OAUTH_CLIENT_SECRET or ~/.arunaki/oauth-clients.json, then re-run.",
+      "[Antigravity] agy refresh also failed. Set GOOGLE_OAUTH_CLIENT_ID/" +
+        "GOOGLE_OAUTH_CLIENT_SECRET or re-login via Settings > Connection CLI.",
     )
     return (antigravityAuth = creds.access_token ? { accessToken: creds.access_token, expiresAt } : null)
   }

@@ -17,8 +17,9 @@ const REFRESH_TIMEOUT_MS = 15_000
 
 // Lead per provider ” from 9Router registry
 const REFRESH_LEAD_MS: Record<string, number> = {
-  codex: 600_000,     // 10 minutes (access token ~1 hour)
-  claude: 14_400_000, // 4 hours
+  codex: 600_000,         // 10 minutes (access token ~1 hour)
+  claude: 14_400_000,     // 4 hours
+  antigravity: 600_000,   // 10 minutes (Google access token ~1 hour)
   kiro: 60_000,
   cursor: 60_000,
 }

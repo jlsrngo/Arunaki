@@ -504,6 +504,22 @@ class LocalCliBridge {
         const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
         if (handled || res.writableEnded) return
       }
+      // Kiro (Bedrock) does not support image content blocks — do not fall through to
+      // text-only lanes that will forward the images and get 400 IMAGE_FORMAT_UNSUPPORTED.
+      if (!res.headersSent) {
+        res.writeHead(503, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            error: {
+              message:
+                "This request contains images, but no vision-capable provider is available. " +
+                "Antigravity (Gemini) is the only vision lane for OpenCode models — sign in from Settings > Connection CLI.",
+              type: "no_vision_provider",
+            },
+          }),
+        )
+      }
+      return
     }
 
     // 2. OpenCode Zen hosted (big-pickle, muse-spark, ...) — 9Router opencode.js lane.
@@ -592,16 +608,30 @@ class LocalCliBridge {
             const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
             if (handled || res.writableEnded) return
           }
-          const kiroCred = readKiroCredential()
-          if (kiroCred?.accessToken) {
-            console.info("[LocalCliBridge] Falling back from Groq to Kiro.")
-            await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
-            return
+          // Kiro does not support images — skip if the request carries any.
+          if (!hasImage) {
+            const kiroCred = readKiroCredential()
+            if (kiroCred?.accessToken) {
+              console.info("[LocalCliBridge] Falling back from Groq to Kiro.")
+              await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+              return
+            }
           }
 
+          // All providers exhausted — return a clear error instead of silently retrying.
+          console.warn("[LocalCliBridge] All fallback providers exhausted for this request.")
           if (!res.headersSent) {
-            res.writeHead(groqRes.status, { "Content-Type": "application/json" })
-            res.end(errText || JSON.stringify({ error: { message: `Groq error: ${groqRes.status}` } }))
+            res.writeHead(503, { "Content-Type": "application/json" })
+            res.end(
+              JSON.stringify({
+                error: {
+                  message:
+                    `All providers exhausted. Groq: ${groqRes.status} (${errText.slice(0, 100)}). ` +
+                    "Antigravity and Kiro were unavailable or unsupported. Check Settings > Connection CLI.",
+                  type: "all_providers_exhausted",
+                },
+              }),
+            )
           } else {
             res.end()
           }
@@ -643,15 +673,28 @@ class LocalCliBridge {
           const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
           if (handled || res.writableEnded) return
         }
-        const kiroCred = readKiroCredential()
-        if (kiroCred?.accessToken) {
-          console.info("[LocalCliBridge] Falling back from failed Groq request to Kiro.")
-          await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
-          return
+        // Kiro does not support images — skip if the request carries any.
+        if (!hasImage) {
+          const kiroCred = readKiroCredential()
+          if (kiroCred?.accessToken) {
+            console.info("[LocalCliBridge] Falling back from failed Groq request to Kiro.")
+            await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+            return
+          }
         }
+        console.warn("[LocalCliBridge] All fallback providers exhausted (network error path).")
         if (!res.headersSent) {
-          res.writeHead(500, { "Content-Type": "application/json" })
-          res.end(JSON.stringify({ error: { message: `OpenCode Groq connection failed: ${err?.message}` } }))
+          res.writeHead(503, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: {
+                message:
+                  `All providers exhausted. Groq: ${err?.message}. ` +
+                  "Antigravity and Kiro were unavailable or unsupported. Check Settings > Connection CLI.",
+                type: "all_providers_exhausted",
+              },
+            }),
+          )
         } else {
           res.end()
         }
@@ -666,11 +709,14 @@ class LocalCliBridge {
       const handled = await streamDirectAntigravityCompletion({ ...payload, model: "gemini-3.8-flash" }, res, auth)
       if (handled || res.writableEnded) return
     }
-    const kiroCred = readKiroCredential()
-    if (kiroCred?.accessToken) {
-      console.info("[LocalCliBridge] OpenCode fallback to Kiro.")
-      await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
-      return
+    // Kiro does not support images — skip if the request carries any.
+    if (!hasImage) {
+      const kiroCred = readKiroCredential()
+      if (kiroCred?.accessToken) {
+        console.info("[LocalCliBridge] OpenCode fallback to Kiro.")
+        await streamKiroCompletion({ ...payload, model: "auto" }, res, kiroCred)
+        return
+      }
     }
 
     // 5. Fallback: prompt for provider
