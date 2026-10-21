@@ -5,22 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { apiFetch, API_BASE } from '../../lib/api';
 import { subscribeKnowledgeSync } from '../../lib/knowledgeSync';
-
-/**
- * country-state-city ships 148,038 city names in a 7.69 MB JSON. It was imported at module scope and
- * flattened into ALL_CITIES on load, so the whole thing was parsed on every app start for a
- * suggestion list on one field that is otherwise free text - the value gets saved as typed and is
- * never validated against the list.
- *
- * Loaded on demand instead. The panel is opened rarely, and only someone opening it pays for it.
- */
-let citiesPromise: Promise<string[]> | null = null;
-function loadCities(): Promise<string[]> {
-  citiesPromise ??= import('country-state-city')
-    .then((m) => Array.from(new Set(m.City.getAllCities().map((c) => c.name))))
-    .catch(() => []); // a missing city list must not break saving the node
-  return citiesPromise;
-}
+import { filterLocalLocations, searchRemoteLocations } from './locations';
 
 export interface KnowledgeDoc {
   id: string;
@@ -123,31 +108,44 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
     return unsubscribe;
   }, [nodeId]);
 
-  const [allCities, setAllCities] = useState<string[]>([]);
+  const [remoteCities, setRemoteCities] = useState<string[]>([]);
 
   useEffect(() => {
-    let live = true;
-    loadCities().then((list) => {
-      if (live) setAllCities(list);
-    });
+    const clean = city.trim();
+    if (clean.length < 2) {
+      setRemoteCities([]);
+      return;
+    }
+
+    const localMatches = filterLocalLocations(clean, 7);
+    if (localMatches.length >= 7) {
+      setRemoteCities([]);
+      return;
+    }
+
+    const abortCtrl = new AbortController();
+    const timer = setTimeout(() => {
+      searchRemoteLocations(clean, 7, abortCtrl.signal)
+        .then((results) => {
+          if (!abortCtrl.signal.aborted) {
+            setRemoteCities(results);
+          }
+        })
+        .catch(() => {});
+    }, 250);
+
     return () => {
-      live = false;
+      clearTimeout(timer);
+      abortCtrl.abort();
     };
-  }, []);
+  }, [city]);
 
   const filteredCities = useMemo(() => {
-    if (!city || city.length < 2 || allCities.length === 0) return [];
-
-    const results = [];
-    const query = city.toLowerCase();
-    for (let i = 0; i < allCities.length; i++) {
-      if (allCities[i].toLowerCase().includes(query)) {
-        results.push(allCities[i]);
-        if (results.length >= 7) break;
-      }
-    }
-    return results;
-  }, [city, allCities]);
+    if (!city || city.trim().length < 2) return [];
+    const localMatches = filterLocalLocations(city, 7);
+    if (remoteCities.length > 0) return remoteCities;
+    return localMatches;
+  }, [city, remoteCities]);
 
   if (!nodeId || nodeId === 'main-ai-node') return null;
 

@@ -342,7 +342,7 @@ function createWindow() {
       height: 35,
     },
     webPreferences: {
-      backgroundThrottling: false,
+      backgroundThrottling: true,
       spellcheck: false,
       contextIsolation: true,
       nodeIntegration: false,
@@ -737,34 +737,38 @@ app.whenReady().then(async () => {
         return [];
       }
 
-      const nodes = [];
-      for (const entry of entries) {
-        if (entry.name.startsWith('.') || IGNORED.has(entry.name)) continue;
-        const fullPath = path.join(dir, entry.name);
-
-        if (entry.isDirectory()) {
-          const children = await buildTree(fullPath, depth + 1);
-          nodes.push({
-            name: entry.name,
-            path: fullPath,
-            type: 'directory',
-            children,
-          });
-        } else if (entry.isFile()) {
-          try {
-            const stat = await fs.stat(fullPath);
-            nodes.push({
+      const visibleEntries = entries.filter(
+        (entry) => !entry.name.startsWith('.') && !IGNORED.has(entry.name)
+      );
+      const resolvedNodes = await Promise.all(
+        visibleEntries.map(async (entry) => {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const children = await buildTree(fullPath, depth + 1);
+            return {
               name: entry.name,
               path: fullPath,
-              type: 'file',
-              size: stat.size,
-              ext: path.extname(entry.name).toLowerCase().replace('.', ''),
-            });
-          } catch {
-            // skip unreadable files silently
+              type: 'directory',
+              children,
+            };
+          } else if (entry.isFile()) {
+            try {
+              const stat = await fs.stat(fullPath);
+              return {
+                name: entry.name,
+                path: fullPath,
+                type: 'file',
+                size: stat.size,
+                ext: path.extname(entry.name).toLowerCase().replace('.', ''),
+              };
+            } catch {
+              return null;
+            }
           }
-        }
-      }
+          return null;
+        })
+      );
+      const nodes = resolvedNodes.filter(Boolean);
 
       // Sort: directories first, then files, alphabetical
       nodes.sort((a, b) => {

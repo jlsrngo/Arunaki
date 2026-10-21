@@ -1,13 +1,21 @@
+import { lazy, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { UnifiedWorkstationPage } from "../../pages/UnifiedWorkstationPage";
-import { KnowledgePage } from "../../pages/KnowledgePage";
-import { HistoryPage } from "../../pages/HistoryPage";
-import { SettingsPage } from "../../pages/SettingsPage";
 import { AppHeader } from "./AppHeader";
 import { AppFooter } from "./AppFooter";
 import { useAppNetworkStatus } from "./hooks/useAppNetworkStatus";
 import { useActiveFolderSync } from "./hooks/useActiveFolderSync";
+
+const KnowledgePage = lazy(() =>
+  import("../../pages/KnowledgePage").then((m) => ({ default: m.KnowledgePage }))
+);
+const HistoryPage = lazy(() =>
+  import("../../pages/HistoryPage").then((m) => ({ default: m.HistoryPage }))
+);
+const SettingsPage = lazy(() =>
+  import("../../pages/SettingsPage").then((m) => ({ default: m.SettingsPage }))
+);
 
 export function AppLayout() {
   const location = useLocation();
@@ -41,21 +49,23 @@ export function AppLayout() {
           <UnifiedWorkstationPage />
         </div>
 
-        {location.pathname === "/knowledge" && (
-          <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-            <KnowledgePage />
-          </div>
-        )}
-        {location.pathname === "/history" && (
-          <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-            <HistoryPage />
-          </div>
-        )}
-        {location.pathname === "/settings" && (
-          <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
-            <SettingsPage />
-          </div>
-        )}
+        <Suspense fallback={<div className="w-full h-full flex-1 bg-[var(--bg-app)]" />}>
+          {location.pathname === "/knowledge" && (
+            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
+              <KnowledgePage />
+            </div>
+          )}
+          {location.pathname === "/history" && (
+            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
+              <HistoryPage />
+            </div>
+          )}
+          {location.pathname === "/settings" && (
+            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
+              <SettingsPage />
+            </div>
+          )}
+        </Suspense>
       </main>
 
       {/* 3. Footer Bar */}

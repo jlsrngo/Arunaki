@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { memo, lazy, Suspense, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { CenterTab } from "./tabs/types";
 import { DiffLine, computeLineDiff } from "./tabs/diffUtils";
 import { CenterTabHeader } from "./tabs/CenterTabHeader";
@@ -6,7 +6,10 @@ import { CenterBreadcrumbs } from "./tabs/CenterBreadcrumbs";
 import { CenterEditorView } from "./tabs/CenterEditorView";
 import { CenterEmptyState } from "./tabs/CenterEmptyState";
 import { CenterStatusBar } from "./tabs/CenterStatusBar";
-import { SpreadsheetViewer } from "./canvas/SpreadsheetViewer";
+
+const SpreadsheetViewer = lazy(() =>
+  import("./canvas/SpreadsheetViewer").then((m) => ({ default: m.SpreadsheetViewer }))
+);
 
 export type { CenterTab };
 
@@ -280,11 +283,19 @@ function WorkstationCenterPanelComponent({
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
         {activeTab ? (
           isSpreadsheet ? (
-            <SpreadsheetViewer
-              content={currentContent}
-              filePath={activeTab.path}
-              title={activeTab.title}
-            />
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
+                  Loading spreadsheet viewer...
+                </div>
+              }
+            >
+              <SpreadsheetViewer
+                content={currentContent}
+                filePath={activeTab.path}
+                title={activeTab.title}
+              />
+            </Suspense>
           ) : (
             <CenterEditorView
               currentContent={currentContent}

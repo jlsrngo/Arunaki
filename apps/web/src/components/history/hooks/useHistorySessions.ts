@@ -56,7 +56,7 @@ export function useHistorySessions() {
             chunk.map(async (sess) => {
               try {
                 const res = await engineFetch(
-                  `/api/session/${sess.id}/message?limit=200&order=desc`
+                  `/api/session/${sess.id}/message?limit=10&order=desc`
                 );
                 if (res.ok) {
                   const json = await res.json();

@@ -3,14 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { AppLayout } from "./components/layout/AppLayout";
-import { UnifiedWorkstationPage } from "./pages/UnifiedWorkstationPage";
-import { HistoryPage } from "./pages/HistoryPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { KnowledgePage } from "./pages/KnowledgePage";
 import { useTheme, getSystemTheme } from "./lib/theme";
 import { DEFAULT_MODELS } from "./components/settings/constants";
 import { API_BASE, apiFetch, directoryQuery } from "./lib/api";
-import { triggerKnowledgeSync } from "./lib/knowledgeSync";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,10 +96,10 @@ if (typeof window !== "undefined") {
   if (!localStorage.getItem("arunaki_active_model")) {
     localStorage.setItem("arunaki_active_model", (DEFAULT_MODELS.kenari || [])[0] || "nemotron-3-super-120b-a12b:free");
   }
-  // Fire-and-forget: refresh catalog from API (non-blocking)
-  refreshModelCatalog();
-  // Fire-and-forget: auto-sync external knowledge sources on app launch (non-blocking)
-  triggerKnowledgeSync();
+  // Defer catalog refresh until after initial UI hydration so launch stays fast and responsive
+  setTimeout(() => {
+    refreshModelCatalog();
+  }, 3000);
 }
 
 export default function App() {
@@ -127,11 +122,11 @@ export default function App() {
         <RouterComponent>
           <Routes>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<UnifiedWorkstationPage />} />
+              <Route path="/" element={null} />
               <Route path="/workspace" element={<Navigate to="/" replace />} />
-              <Route path="/knowledge" element={<KnowledgePage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/knowledge" element={null} />
+              <Route path="/history" element={null} />
+              <Route path="/settings" element={null} />
             </Route>
           </Routes>
         </RouterComponent>
@@ -139,4 +134,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-

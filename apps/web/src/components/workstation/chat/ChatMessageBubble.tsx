@@ -327,6 +327,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   reasoning={group.text}
                   showThinking={showThinking}
                   isStreaming={isStreaming && group.isLast}
+                  liveElapsedSec={liveElapsedSec}
                 />
               );
             }
@@ -337,6 +338,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   steps={group.steps}
                   showThinking={false}
                   isStreaming={isStreaming && group.isLast && group.isRunning}
+                  liveElapsedSec={liveElapsedSec}
                 />
               );
             }

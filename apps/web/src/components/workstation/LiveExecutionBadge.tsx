@@ -170,7 +170,7 @@ export function getActiveActionText(
 }
 
 /**
- * Dynamic active indicator with cycling animated dots (. -> .. -> ...).
+ * Dynamic active indicator with CSS-driven pulse ellipsis (zero React interval re-renders).
  * Ensures the UI is alive, transparent, and never passive.
  */
 export function LiveActionIndicator({
@@ -182,16 +182,6 @@ export function LiveActionIndicator({
   elapsedSec?: number;
   className?: string;
 }) {
-  const [dotCount, setDotCount] = useState(1);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDotCount((prev) => (prev % 3) + 1);
-    }, 400);
-    return () => clearInterval(timer);
-  }, []);
-
-  const dots = ".".repeat(dotCount);
   const displayAction = action || "Thinking";
 
   return (
@@ -199,7 +189,7 @@ export function LiveActionIndicator({
       <ArunakiLogo size={12} className="animate-pulse text-[#e59344] shrink-0" />
       <span className="text-[var(--text-primary)] font-medium">
         {displayAction}
-        <span className="inline-block w-4 text-left font-mono text-[#e59344]">{dots}</span>
+        <span className="inline-block w-4 text-left font-mono text-[#e59344] animate-pulse">...</span>
       </span>
       {typeof elapsedSec === "number" && elapsedSec > 0 && (
         <span className="text-[10px] text-[var(--text-dim)] font-mono">({elapsedSec}s)</span>
@@ -217,7 +207,7 @@ function renderStepIcon(step: StepItem) {
   }
   const t = (step.toolName || step.label || "").toLowerCase();
   if (t.includes("excel") || t.includes("csv") || t.includes("xlsx") || t.includes("xls")) {
-    return <FileSpreadsheet size={12} className="text-emerald-400 shrink-0 mt-0.5" />;
+    return <FileSpreadsheet size={12} className="text-white shrink-0 mt-0.5" />;
   }
   if (t.includes("word") || t.includes("docx") || t.includes("doc")) {
     return <FileText size={12} className="text-blue-400 shrink-0 mt-0.5" />;
@@ -267,6 +257,7 @@ export function MessageThoughtBadge({
   reasoning,
   showThinking = true,
   isStreaming = false,
+  liveElapsedSec,
 }: {
   steps?: StepItem[];
   thoughtSec?: number;
@@ -274,20 +265,23 @@ export function MessageThoughtBadge({
   reasoning?: string;
   showThinking?: boolean;
   isStreaming?: boolean;
+  liveElapsedSec?: number;
 }) {
   const [toolCardExpanded, setToolCardExpanded] = useState<boolean | null>(null);
   const [thoughtExpanded, setThoughtExpanded] = useState<boolean | null>(null);
-  const [liveSec, setLiveSec] = useState(0);
+  const [internalLiveSec, setInternalLiveSec] = useState(0);
 
   useEffect(() => {
-    if (!isStreaming) return;
-    setLiveSec(0);
+    if (!isStreaming || typeof liveElapsedSec === "number") return;
+    setInternalLiveSec(0);
     const start = Date.now();
     const interval = setInterval(() => {
-      setLiveSec(Math.max(1, Math.floor((Date.now() - start) / 1000)));
+      setInternalLiveSec(Math.max(1, Math.floor((Date.now() - start) / 1000)));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isStreaming]);
+  }, [isStreaming, liveElapsedSec]);
+
+  const liveSec = typeof liveElapsedSec === "number" ? liveElapsedSec : internalLiveSec;
 
   const toolSteps = steps.filter((s) => s.iconType === "tool" || s.toolName);
   const hasToolExecution = toolSteps.length > 0;
@@ -343,7 +337,7 @@ export function MessageThoughtBadge({
               ) : failedToolCount > 0 && completedToolCount === 0 ? (
                 <X size={12} className="text-rose-400 shrink-0" />
               ) : (
-                <Check size={12} className="text-emerald-400 shrink-0" />
+                <Check size={12} className="text-white shrink-0" />
               )}
               <span className="font-semibold text-white truncate">
                 {hasRunningTool
@@ -378,7 +372,7 @@ export function MessageThoughtBadge({
                     ) : isFailed ? (
                       <X size={11} className="text-rose-400 shrink-0" />
                     ) : (
-                      <Check size={11} className="text-emerald-400 shrink-0" />
+                      <Check size={11} className="text-white shrink-0" />
                     )}
                     {renderStepIcon(step)}
                     <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-300/80 line-through" : isRunning ? "text-white font-medium" : "text-[var(--text-muted)]")}>

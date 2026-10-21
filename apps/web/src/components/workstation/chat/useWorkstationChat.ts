@@ -502,7 +502,7 @@ export function useWorkstationChat({
       }
     },
     enabled: !!activeChatId,
-    refetchInterval: isStreaming ? false : 2500,
+    refetchOnWindowFocus: true,
   });
 
   // Track external message updates (e.g. from Telegram gateway or external prompts)

@@ -4174,3 +4174,25 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 
 
 
+---
+
+## Phase 121: Application Performance & Bundle Size Optimization ✅ DONE
+
+**Goal:** Mengoptimalkan ukuran bundle, pemakaian memori/CPU, serta responsivitas aplikasi dengan menghapus `country-state-city` (8.7 MB) dan menggantinya dengan Hybrid Location Autocomplete (~6 KB + Open-Meteo Geocoding fallback), menerapkan code-splitting halaman (`React.lazy`), menghentikan polling buta 2.5 detik saat idle, mengoptimalkan N+1 query di History, mem-paralelkan `fs:getFolderTree`, dan menggabungkan timer streaming.
+
+### 121.1 Lightweight Hybrid Location Autocomplete (Replacing `country-state-city`)
+- [x] **`locations.ts` & `locations.test.ts`**: Daftar lokal instan 38 Provinsi + Kota/Kabupaten Indonesia + Kota Utama Dunia (~4 KB) dengan fallback pencarian on-demand ke Open-Meteo Geocoding API.
+- [x] **`KnowledgeNodePanel.tsx` & `apps/web/package.json`**: Menghapus dependency `country-state-city` (hemat 8.7 MB bundle chunk).
+
+### 121.2 Route Code-Splitting & Vendor Chunking
+- [x] **`AppLayout.tsx`, `WorkstationCenterPanel.tsx`, `App.tsx` & `vite.config.ts`**: Lazy loading untuk `KnowledgePage`, `HistoryPage`, `SettingsPage`, `SpreadsheetViewer` dan pemisahan chunk `vendor-xlsx`, `vendor-xyflow`, `vendor-markdown`.
+
+### 121.3 Runtime Polling, History N+1, Folder Tree & Timer Optimization
+- [x] **`useWorkstationChat.ts`**: Menghentikan polling `refetchInterval: 2500` tanpa henti saat idle karena event SSE (`subscribeEvents`) sudah aktif real-time.
+- [x] **`useHistorySessions.ts`**: Mengurangi beban query pesan per sesi dari `limit=200` menjadi `limit=10` agar menu History ringan.
+- [x] **`apps/desktop/main.cjs`**: Paralelisasi `fs.stat` dengan `Promise.all` pada `fs:getFolderTree` dan mengaktifkan kembali Chromium background throttling saat aplikasi di-minimize.
+- [x] **`ChatMessageBubble.tsx` & `LiveExecutionBadge.tsx`**: Menggabungkan timer durasi streaming dan mengganti interval 400ms titik animasi dengan CSS animation.
+
+### 121.4 Verification & Testing
+- [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 errors, built in 9.76s, chunk 8.7 MB hilang 100%, main entry bundle turun dari 1.35 MB ke 505 KB / 148 KB gzip).
+- [x] **Vitest Test Suite**: 47/47 passed across 10 test suites (`npx vitest run`).
