@@ -454,26 +454,36 @@ function createWindow() {
   });
 
   const winCreatedMs = Date.now();
+  let htmlLoadedMs = 0;
   console.log(`[⏱️ +${formatElapsed()}] [main] BrowserWindow dibuat, mulai memuat UI...`);
 
   win.webContents.once('dom-ready', () => {
-    console.log(`[⏱️ +${formatElapsed()}] [main] Renderer DOM siap (dom-ready, durasi render awal: ${formatElapsed(winCreatedMs)})`);
+    console.log(`[⏱️ +${formatElapsed()}] [main] Renderer DOM siap (dom-ready, durasi dari pembuatan jendela: ${formatElapsed(winCreatedMs)})`);
   });
 
   win.webContents.on('did-finish-load', () => {
     loadRetries = 0;
     loadRetryTimer = null;
     const currentUrl = win.webContents.getURL() || '';
-    if (!hasLoggedInitialLaunch && !currentUrl.startsWith('data:')) {
+    if (!currentUrl.startsWith('data:')) {
+      htmlLoadedMs = Date.now();
+      console.log(`[⏱️ +${formatElapsed()}] [main] Dokumen HTML selesai dimuat (did-finish-load), mengeksekusi bundel React...`);
+    }
+  });
+
+  win.webContents.on('console-message', (_event, _level, message) => {
+    if (!hasLoggedInitialLaunch && typeof message === 'string' && message.includes('[ARUNAKI_UI_PAINTED]')) {
       hasLoggedInitialLaunch = true;
       const totalElapsed = formatElapsed(LAUNCH_START_MS);
       const renderElapsed = formatElapsed(winCreatedMs);
+      const reactMountElapsed = formatElapsed(htmlLoadedMs || winCreatedMs);
       const modeLabel = WEB_URL ? `Dev Server (${WEB_URL})` : 'Production Bundle (Local Disk)';
       console.log(`\n================================================================`);
-      console.log(`[⏱️ LAUNCH SELESAI] Aplikasi Arunaki sudah tampil & siap digunakan!`);
-      console.log(`  • Total Waktu Launch : ${totalElapsed}`);
-      console.log(`  • Waktu Muat Jendela : ${renderElapsed}`);
-      console.log(`  • Mode UI            : ${modeLabel}`);
+      console.log(`[⏱️ UI TAMPIL SEMPURNA] Tampilan React Arunaki sudah dirender di layar!`);
+      console.log(`  • Total Waktu Sampai Tampil : ${totalElapsed}`);
+      console.log(`  • Waktu Jendela -> Tampil   : ${renderElapsed}`);
+      console.log(`  • Waktu Eksekusi JS/React   : ${reactMountElapsed}`);
+      console.log(`  • Mode UI                   : ${modeLabel}`);
       console.log(`================================================================\n`);
     }
   });

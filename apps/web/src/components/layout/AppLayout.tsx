@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { UnifiedWorkstationPage } from "../../pages/UnifiedWorkstationPage";
@@ -25,6 +25,15 @@ export function AppLayout() {
     handleOpenFolder,
     handleCloseFolder,
   } = useActiveFolderSync();
+
+  useEffect(() => {
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        console.info("[ARUNAKI_UI_PAINTED]");
+      });
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, []);
 
   const isWorkstationRoute =
     location.pathname === "/" || location.pathname.startsWith("/workspace");

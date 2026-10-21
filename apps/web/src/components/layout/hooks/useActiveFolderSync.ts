@@ -23,11 +23,13 @@ export function useActiveFolderSync() {
     };
   }, []);
 
-  // Workspace Switch — auto-sync knowledge sources on folder change
+  // Workspace Switch — auto-sync knowledge sources on folder change (deferred slightly so initial UI paint is never blocked)
   useEffect(() => {
-    if (activeFolder) {
+    if (!activeFolder) return;
+    const timer = setTimeout(() => {
       triggerKnowledgeSync(activeFolder);
-    }
+    }, 2500);
+    return () => clearTimeout(timer);
   }, [activeFolder]);
 
   // Periodic Background Interval & Window Focus sync

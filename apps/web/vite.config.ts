@@ -52,6 +52,14 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
+    warmup: {
+      clientFiles: [
+        './src/main.tsx',
+        './src/App.tsx',
+        './src/components/layout/AppLayout.tsx',
+        './src/pages/UnifiedWorkstationPage.tsx',
+      ],
+    },
     watch: {
       ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
     },

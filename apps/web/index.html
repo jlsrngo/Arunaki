@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="id" class="dark" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,11 +10,85 @@
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
+    />
     <title>Arunaki</title>
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('arunaki_theme') || 'dark';
+          var effective =
+            stored === 'system'
+              ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+              : stored;
+          var root = document.documentElement;
+          root.setAttribute('data-theme', effective);
+          root.classList.remove('light', 'dark');
+          root.classList.add(effective === 'light' ? 'light' : 'dark');
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #0A0A0A;
+        color: #F4F4F5;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      html.light, html.light body {
+        background-color: #FFFFFF;
+        color: #111827;
+      }
+      .arunaki-boot-shell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
+        gap: 14px;
+        user-select: none;
+      }
+      .arunaki-boot-spinner {
+        width: 22px;
+        height: 22px;
+        border: 2px solid rgba(255, 255, 255, 0.14);
+        border-top-color: #FFFFFF;
+        border-radius: 9999px;
+        animation: arunaki-spin 0.75s linear infinite;
+      }
+      html.light .arunaki-boot-spinner {
+        border-color: rgba(17, 24, 39, 0.14);
+        border-top-color: #111827;
+      }
+      .arunaki-boot-label {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        opacity: 0.65;
+      }
+      @keyframes arunaki-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
-  <body class="bg-white text-gray-900 font-sans antialiased">
-    <div id="root"></div>
+  <body class="font-sans antialiased">
+    <div id="root">
+      <div class="arunaki-boot-shell">
+        <div class="arunaki-boot-spinner"></div>
+        <div class="arunaki-boot-label">Memuat Arunaki Workstation...</div>
+      </div>
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
