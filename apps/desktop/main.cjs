@@ -477,7 +477,9 @@ function createWindow() {
       const totalElapsed = formatElapsed(LAUNCH_START_MS);
       const renderElapsed = formatElapsed(winCreatedMs);
       const reactMountElapsed = formatElapsed(htmlLoadedMs || winCreatedMs);
-      const modeLabel = WEB_URL ? `Dev Server (${WEB_URL})` : 'Production Bundle (Local Disk)';
+      const modeLabel = WEB_URL
+        ? `Dev Server (${WEB_URL})`
+        : 'Electron IPC + Local Bundle (Tanpa HTTP Server :5173)';
       console.log(`\n================================================================`);
       console.log(`[⏱️ UI TAMPIL SEMPURNA] Tampilan React Arunaki sudah dirender di layar!`);
       console.log(`  • Total Waktu Sampai Tampil : ${totalElapsed}`);
