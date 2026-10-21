@@ -38,10 +38,18 @@ export function engineUrl() {
 // before any page script, so the desktop credentials are already there when this module evaluates.
 export const API_BASE = isDesktopBundle() ? `${engineUrl()}/api` : "/api";
 
+/** Normalize Windows backslashes to forward slashes so SQLite directory queries always match. */
+export function normalizeDirectoryPath(dir?: string | null): string | undefined {
+  if (!dir) return undefined;
+  const trimmed = dir.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
 /** The active project folder, used to route the request to the right instance. */
 export function activeDirectory(): string | undefined {
   if (typeof localStorage === "undefined") return undefined;
-  return localStorage.getItem("arunaki_active_folder") || undefined;
+  return normalizeDirectoryPath(localStorage.getItem("arunaki_active_folder"));
 }
 
 /**

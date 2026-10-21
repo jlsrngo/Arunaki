@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { engineFetch } from "../../../lib/engine";
 import { WorkspaceFile } from "../chat/types";
@@ -8,7 +8,7 @@ interface UseWorkstationFilesOptions {
 }
 
 export function useWorkstationFiles({ activeFolder }: UseWorkstationFilesOptions) {
-  const { data: workspaceFiles = [], refetch: refetchFiles } = useQuery<WorkspaceFile[]>({
+  const { data: workspaceFiles = [], refetch: queryRefetchFiles } = useQuery<WorkspaceFile[]>({
     queryKey: ["folder-files", activeFolder],
     queryFn: async () => {
       if (!activeFolder) return [];
@@ -32,6 +32,11 @@ export function useWorkstationFiles({ activeFolder }: UseWorkstationFilesOptions
     },
     enabled: !!activeFolder,
   });
+
+  const refetchFiles = useCallback(() => {
+    window.dispatchEvent(new Event("arunaki-refresh-explorer"));
+    return queryRefetchFiles();
+  }, [queryRefetchFiles]);
 
   const [nativeFileNames, setNativeFileNames] = useState<string[]>([]);
 

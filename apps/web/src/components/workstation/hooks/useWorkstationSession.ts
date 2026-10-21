@@ -256,15 +256,21 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
   }, [openFolderParam, activeFolder, openFolder]);
 
   const handleCloseFolderAction = useCallback(() => {
+    localStorage.removeItem("arunaki_active_folder");
+    localStorage.removeItem("arunaki_active_chat_id");
     setActiveFolder("");
+    setActiveChatId("");
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete("folder");
+        next.delete("chatId");
         return next;
       },
       { replace: true }
     );
+    window.dispatchEvent(new Event("arunaki-folder-change"));
+    window.dispatchEvent(new Event("arunaki-session-change"));
     toast.info("Folder closed. Agent is now in sandbox mode.");
   }, [setSearchParams]);
 

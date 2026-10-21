@@ -471,7 +471,8 @@ function createWindow() {
     }
   });
 
-  win.webContents.on('console-message', (_event, _level, message) => {
+  win.webContents.on('console-message', (event) => {
+    const message = event?.message;
     if (!hasLoggedInitialLaunch && typeof message === 'string' && message.includes('[ARUNAKI_UI_PAINTED]')) {
       hasLoggedInitialLaunch = true;
       const totalElapsed = formatElapsed(LAUNCH_START_MS);

@@ -3,7 +3,7 @@
 // Engine API adapter. Base URL, credentials and directory resolution all live in lib/api.ts -
 // this file used to carry its own copy of the first two, and the copy without credentials is how 19
 // call sites would have broken when the engine started requiring a password.
-import { authHeader, engineUrl, isDesktopBundle, apiFetch } from "./api";
+import { authHeader, engineUrl, isDesktopBundle, apiFetch, normalizeDirectoryPath } from "./api";
 
 function base(): string {
   // file:// means no Vite proxy in front, so paths have to be absolute.
@@ -46,19 +46,20 @@ export async function createSession(opts?: {
     }
   }
 
+  const cleanDir = normalizeDirectoryPath(opts?.directory);
   const params = new URLSearchParams();
-  if (opts?.directory) {
-    params.set("directory", opts.directory);
-    params.set("location[directory]", opts.directory);
+  if (cleanDir) {
+    params.set("directory", cleanDir);
+    params.set("location[directory]", cleanDir);
   }
   const queryString = params.toString() ? `?${params.toString()}` : "";
   const requestHeaders = {
-    ...(opts?.directory && { "x-arunaki-directory": opts.directory }),
+    ...(cleanDir && { "x-arunaki-directory": cleanDir }),
   };
   const requestBody = JSON.stringify({
     ...(opts?.agent && { agent: opts.agent }),
     ...(modelPayload && { model: modelPayload }),
-    ...(opts?.directory && { location: { directory: opts.directory } }),
+    ...(cleanDir && { location: { directory: cleanDir } }),
   });
 
   let lastError: unknown = null;
@@ -92,13 +93,14 @@ export async function createSession(opts?: {
 }
 
 export async function listSessions(opts?: { project?: string; limit?: number; directory?: string }) {
+  const cleanDir = normalizeDirectoryPath(opts?.directory);
   const params = new URLSearchParams();
   if (opts?.project) params.set("project", opts.project);
   if (opts?.limit) params.set("limit", String(opts.limit));
-  if (opts?.directory) params.set("directory", opts.directory);
+  if (cleanDir) params.set("directory", cleanDir);
   const res = await engineFetch(`/api/session?${params}`, {
     headers: {
-      ...(opts?.directory && { "x-arunaki-directory": opts.directory }),
+      ...(cleanDir && { "x-arunaki-directory": cleanDir }),
     },
   });
   if (!res.ok) throw new Error(`listSessions failed: ${res.status}`);

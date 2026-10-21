@@ -84,7 +84,11 @@ export function useHistorySessions() {
                       m &&
                       m.type !== "system" &&
                       m.type !== "compaction" &&
-                      m.type !== "model-switched"
+                      m.type !== "model-switched" &&
+                      m.type !== "plan" &&
+                      m.agent !== "compaction" &&
+                      m.summary !== true &&
+                      m.info?.summary !== true
                   );
                   const count =
                     chatMsgs.length > 0 ? chatMsgs.length : rawMsgs.length;
@@ -184,6 +188,8 @@ export function useHistorySessions() {
         toast.success(
           `Resuming conversation (${session.messageCount} messages)`
         );
+      } else if (session.isLoadingStats) {
+        toast.success("Resuming conversation");
       } else {
         toast.info("Resuming blank session");
       }

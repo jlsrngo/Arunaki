@@ -71,6 +71,16 @@ export function useNativeFileTree({
   }, [activeWorkspace?.rootPath, loadNativeTree]);
 
   useEffect(() => {
+    const onExternalRefresh = () => {
+      if (activeWorkspace?.rootPath) {
+        void loadNativeTree(activeWorkspace.rootPath, true);
+      }
+    };
+    window.addEventListener("arunaki-refresh-explorer", onExternalRefresh);
+    return () => window.removeEventListener("arunaki-refresh-explorer", onExternalRefresh);
+  }, [activeWorkspace?.rootPath, loadNativeTree]);
+
+  useEffect(() => {
     onNativeFilesChange?.(flattenFileNames(nativeTree));
   }, [nativeTree, onNativeFilesChange]);
 
