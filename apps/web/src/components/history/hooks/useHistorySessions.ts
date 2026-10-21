@@ -55,13 +55,29 @@ export function useHistorySessions() {
           const updates = await Promise.all(
             chunk.map(async (sess) => {
               try {
-                const res = await engineFetch(
-                  `/api/session/${sess.id}/message?limit=200&order=desc`
-                );
-                if (res.ok) {
-                  const json = await res.json();
-                  const rawMsgs = json.data || [];
+                const rawMsgs: any[] = [];
+                let nextCursor: string | undefined = undefined;
 
+                do {
+                  const params = new URLSearchParams();
+                  if (nextCursor) {
+                    params.set("cursor", nextCursor);
+                    params.set("limit", "200");
+                  } else {
+                    params.set("order", "desc");
+                    params.set("limit", "200");
+                  }
+                  const res = await engineFetch(
+                    `/api/session/${sess.id}/message?${params}`
+                  );
+                  if (!res.ok) break;
+                  const json = await res.json();
+                  const pageData = json.data || [];
+                  rawMsgs.push(...pageData);
+                  nextCursor = pageData.length >= 200 ? json.cursor?.next : undefined;
+                } while (nextCursor && rawMsgs.length < 2000);
+
+                if (rawMsgs.length > 0) {
                   // Count real conversational messages (user & assistant turns)
                   const chatMsgs = rawMsgs.filter(
                     (m: any) =>
