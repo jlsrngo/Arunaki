@@ -5,6 +5,20 @@ const os = require('node:os');
 const fs = require('node:fs/promises');
 const fsSync = require('node:fs');
 
+const ELECTRON_START_MS = Date.now();
+const LAUNCH_START_MS = Number(process.env.ARUNAKI_LAUNCH_START_MS) || ELECTRON_START_MS;
+let hasLoggedInitialLaunch = false;
+
+function formatElapsed(fromMs = LAUNCH_START_MS) {
+  const elapsedMs = Date.now() - fromMs;
+  const totalSec = (elapsedMs / 1000).toFixed(2);
+  const mins = Math.floor(elapsedMs / 60000);
+  const remSec = ((elapsedMs % 60000) / 1000).toFixed(2);
+  return mins > 0
+    ? `${totalSec}s (${mins}m ${remSec}s)`
+    : `${totalSec}s (${(elapsedMs / 60000).toFixed(2)} menit)`;
+}
+
 // Single instance lock to prevent multi-process cache collisions and network service crashes
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -15,24 +29,26 @@ if (!gotTheLock) {
 // Windows requires explicit AppUserModelId for desktop notifications in Action Center and taskbar icon
 if (process.platform === 'win32') {
   app.setAppUserModelId('Arunaki');
-  try {
-    const icoPath = path.join(__dirname, 'resources', 'icon.ico');
-    if (fsSync.existsSync(icoPath) && typeof shell?.writeShortcutLink === 'function') {
-      const shortcutDir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
-      const shortcutFile = path.join(shortcutDir, 'Arunaki.lnk');
-      const op = fsSync.existsSync(shortcutFile) ? 'replace' : 'create';
-      shell.writeShortcutLink(shortcutFile, op, {
-        target: process.execPath,
-        args: `"${path.join(__dirname, 'main.cjs')}"`,
-        appUserModelId: 'Arunaki',
-        icon: icoPath,
-        iconIndex: 0,
-        description: 'Arunaki - Desktop Document Agent',
-      });
+  setImmediate(() => {
+    try {
+      const icoPath = path.join(__dirname, 'resources', 'icon.ico');
+      if (fsSync.existsSync(icoPath) && typeof shell?.writeShortcutLink === 'function') {
+        const shortcutDir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+        const shortcutFile = path.join(shortcutDir, 'Arunaki.lnk');
+        const op = fsSync.existsSync(shortcutFile) ? 'replace' : 'create';
+        shell.writeShortcutLink(shortcutFile, op, {
+          target: process.execPath,
+          args: `"${path.join(__dirname, 'main.cjs')}"`,
+          appUserModelId: 'Arunaki',
+          icon: icoPath,
+          iconIndex: 0,
+          description: 'Arunaki - Desktop Document Agent',
+        });
+      }
+    } catch (err) {
+      // Non-fatal if shortcut cannot be written
     }
-  } catch (err) {
-    // Non-fatal if shortcut cannot be written
-  }
+  });
 }
 
 // Gracefully handle Chromium network service or GPU helper process restarts without terminating Electron
@@ -437,7 +453,30 @@ function createWindow() {
     }, delay);
   });
 
-  win.webContents.on('did-finish-load', () => { loadRetries = 0; loadRetryTimer = null; });
+  const winCreatedMs = Date.now();
+  console.log(`[⏱️ +${formatElapsed()}] [main] BrowserWindow dibuat, mulai memuat UI...`);
+
+  win.webContents.once('dom-ready', () => {
+    console.log(`[⏱️ +${formatElapsed()}] [main] Renderer DOM siap (dom-ready, durasi render awal: ${formatElapsed(winCreatedMs)})`);
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    loadRetries = 0;
+    loadRetryTimer = null;
+    const currentUrl = win.webContents.getURL() || '';
+    if (!hasLoggedInitialLaunch && !currentUrl.startsWith('data:')) {
+      hasLoggedInitialLaunch = true;
+      const totalElapsed = formatElapsed(LAUNCH_START_MS);
+      const renderElapsed = formatElapsed(winCreatedMs);
+      const modeLabel = WEB_URL ? `Dev Server (${WEB_URL})` : 'Production Bundle (Local Disk)';
+      console.log(`\n================================================================`);
+      console.log(`[⏱️ LAUNCH SELESAI] Aplikasi Arunaki sudah tampil & siap digunakan!`);
+      console.log(`  • Total Waktu Launch : ${totalElapsed}`);
+      console.log(`  • Waktu Muat Jendela : ${renderElapsed}`);
+      console.log(`  • Mode UI            : ${modeLabel}`);
+      console.log(`================================================================\n`);
+    }
+  });
 
   // Production: no dev server was ever going to answer, so go straight to the bundle instead of
   // showing a waiting screen for a server nobody started.
@@ -445,6 +484,12 @@ function createWindow() {
     if (!loadBundle(win)) {
       void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent('<html><body style="margin:0;display:grid;place-items:center;background:#F4EFE6;color:#1A191B;font:16px system-ui"><div>Bundle belum dibangun. Jalankan npm run build lalu buka ulang.</div></body></html>')}`);
     }
+    return;
+  }
+
+  // If launcher already verified WEB_URL is listening, load immediately without an extra HTTP probe
+  if (process.env.ARUNAKI_ENGINE_VERIFIED === '1') {
+    void win.loadURL(WEB_URL);
     return;
   }
 
@@ -472,8 +517,15 @@ function createWindow() {
 
 
 app.whenReady().then(async () => {
-  // Ensure engine daemon is responsive or spawn bundled engine binary
-  await ensureEngineRunning();
+  console.log(`[⏱️ +${formatElapsed()}] [main] Electron app.whenReady() tercapai`);
+  // Ensure engine daemon is responsive or spawn bundled engine binary.
+  // When launched via dev-app.cjs or start-prod.cjs (ARUNAKI_ENGINE_VERIFIED=1),
+  // the launcher already verified :4096/api/health, so don't block window creation.
+  if (process.env.ARUNAKI_ENGINE_VERIFIED === '1') {
+    void ensureEngineRunning();
+  } else {
+    await ensureEngineRunning();
+  }
 
   ipcMain.handle('app:ping', () => 'desktop');
 

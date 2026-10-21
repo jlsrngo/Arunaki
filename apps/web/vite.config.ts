@@ -19,6 +19,23 @@ const git = (cmd: string) => {
 export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'lucide-react',
+      'sonner',
+      'clsx',
+      'tailwind-merge',
+      'react-markdown',
+      'remark-gfm',
+      '@xyflow/react',
+      'xlsx',
+    ],
+  },
   // Injected so the About dialog reports the code it actually shipped with. It used to
   // display three hand-typed literals that had been sitting there since 2026-09-26.
   define: {

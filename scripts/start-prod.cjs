@@ -18,6 +18,17 @@ const http = require('node:http');
 const path = require('node:path');
 const fs = require('node:fs');
 
+const LAUNCH_START_MS = Date.now();
+function formatElapsed(fromMs = LAUNCH_START_MS) {
+  const elapsedMs = Date.now() - fromMs;
+  const totalSec = (elapsedMs / 1000).toFixed(2);
+  const mins = Math.floor(elapsedMs / 60000);
+  const remSec = ((elapsedMs % 60000) / 1000).toFixed(2);
+  return mins > 0
+    ? `${totalSec}s (${mins}m ${remSec}s)`
+    : `${totalSec}s (${(elapsedMs / 60000).toFixed(2)} menit)`;
+}
+
 const rootDir = path.join(__dirname, '..');
 const serverAuth = require('./server-auth.cjs');
 
@@ -120,22 +131,30 @@ function waitForEngine(timeoutMs) {
     };
     const retry = () => {
       if (Date.now() - started >= timeoutMs) return resolve(false);
-      setTimeout(tick, 1000);
+      setTimeout(tick, 400);
     };
     tick();
   });
 }
 
 async function main() {
+  console.log(`\n================================================================`);
+  console.log(`[⏱️ 0.00s] [start] Memulai perhitungan waktu launch Arunaki (Production)...`);
+  console.log(`================================================================`);
+
   const distIndex = path.join(rootDir, 'apps', 'web', 'dist', 'index.html');
   if (!fs.existsSync(distIndex)) {
     console.error('[start] apps/web/dist/index.html not found. Run: npm run build');
     process.exit(1);
   }
 
+  const cleanStartMs = Date.now();
   cleanStaleEngineProcesses(rootDir);
   freePort(ENGINE_PORT);
-  console.log(`[start] Arunaki engine on :${ENGINE_PORT} (auth required)`);
+  console.log(`[⏱️ +${formatElapsed()}] [start] Pembersihan proses & port selesai (durasi tahap: ${formatElapsed(cleanStartMs)})`);
+
+  const engineStartMs = Date.now();
+  console.log(`[⏱️ +${formatElapsed()}] [start] Menjalankan Arunaki Engine pada :${ENGINE_PORT}...`);
   const engine = spawn(
     'bun',
     ['run', '--conditions=browser', path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts'), 'serve', '--port', String(ENGINE_PORT)],
@@ -156,20 +175,27 @@ async function main() {
   process.on('SIGINT', () => { stop(); process.exit(0); });
   process.on('SIGTERM', () => { stop(); process.exit(0); });
 
-  console.log('[start] Waiting for engine...');
+  console.log(`[⏱️ +${formatElapsed()}] [start] Menunggu Engine siap...`);
   if (!(await waitForEngine(90000))) {
-    console.error('[start] Engine did not come up.');
+    console.error(`[⏱️ +${formatElapsed()}] [start] Engine did not come up.`);
     stop();
     process.exit(1);
   }
+  console.log(`[⏱️ +${formatElapsed()}] [start] ✅ Engine (:4096) siap! (durasi tahap: ${formatElapsed(engineStartMs)})`);
 
   // No ARUNAKI_WEB_URL: main.cjs waits for it, fails, and falls through to loadFile() on the bundle.
-  console.log('[start] Launching Electron on the built bundle.');
+  console.log(`[⏱️ +${formatElapsed()}] [start] Menjalankan Electron Desktop (Production Bundle)...`);
   const electronBin = path.join(rootDir, 'node_modules', 'electron', 'dist', 'electron.exe');
   const exe = fs.existsSync(electronBin) ? electronBin : 'electron';
   const app = spawn(exe, ['.'], {
     cwd: path.join(rootDir, 'apps', 'desktop'),
-    env: { ...process.env, ...auth.engineEnv, ARUNAKI_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}` },
+    env: {
+      ...process.env,
+      ...auth.engineEnv,
+      ARUNAKI_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}`,
+      ARUNAKI_LAUNCH_START_MS: String(LAUNCH_START_MS),
+      ARUNAKI_ENGINE_VERIFIED: '1',
+    },
     stdio: 'inherit',
     windowsHide: false,
   });
