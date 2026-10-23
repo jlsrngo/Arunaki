@@ -459,8 +459,10 @@ pub async fn execute_print_receipt(args: &Value) -> Value {
             req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
         }
         if let Ok(res) = req.json(&payload).send().await {
-            if let Ok(json_val) = res.json::<Value>().await {
-                return json_val;
+            if res.status().is_success() {
+                if let Ok(json_val) = res.json::<Value>().await {
+                    return json_val;
+                }
             }
         }
     }
@@ -496,8 +498,10 @@ pub async fn execute_open_drawer(args: &Value) -> Value {
             req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
         }
         if let Ok(res) = req.json(&payload).send().await {
-            if let Ok(json_val) = res.json::<Value>().await {
-                return json_val;
+            if res.status().is_success() {
+                if let Ok(json_val) = res.json::<Value>().await {
+                    return json_val;
+                }
             }
         }
     }

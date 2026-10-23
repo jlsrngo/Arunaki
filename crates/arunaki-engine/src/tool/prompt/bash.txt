@@ -1,0 +1,7 @@
+Executes shell commands strictly for Level-2 fallback document manipulation, data processing, or calculations when native tools (excel_com, word_com, etc.) cannot fulfill the task.
+
+CRITICAL RULES & PRIORITY:
+1. NATIVE TOOLS FIRST: Always attempt native tools first (excel_com, word_com, read_excel_map). They run instantly with zero dependencies and 100% formula fidelity.
+2. ISOLATED SCRATCH LOCATION: All fallback scripts must be written to and executed from `.arunaki/scratch/` (e.g. `.arunaki/scratch/update_report.py`). Never clutter the root project folder with temporary scripts.
+3. BENIGN DOCUMENT SCOPE: Strictly limited to workspace document processing (e.g. python with openpyxl, pandas, python-docx). System tampering, external network access, and destructive commands outside workspace are forbidden.
+4. SAFE SYNTAX: Write multiline scripts to `.arunaki/scratch/script.py` using the `write` tool first, then execute with `python .arunaki/scratch/script.py`.

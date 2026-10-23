@@ -1,6 +1,7 @@
 //! Document Tools module — mirrors `packages/engine/engine/src/tool/`.
 //! All tool execution is strictly isolated to the active workspace folder.
 
+pub mod bash;
 pub mod doc_com;
 pub mod doc_read;
 pub mod edit;
@@ -35,6 +36,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
         todo::todo_tool_definition(),
         websearch::websearch_tool_definition(),
         question::question_tool_definition(),
+        bash::bash_tool_definition(),
     ];
     defs.extend(doc_read::doc_read_tool_definitions());
     defs.extend(doc_com::doc_com_tool_definitions());
@@ -110,6 +112,9 @@ pub async fn execute_tool_call(
         }
         "arunakizen_open_drawer" | "pos_open_drawer" => {
             pos::execute_open_drawer(arguments).await
+        }
+        "bash" | "shell" | "terminal" => {
+            bash::execute_bash(session_id, workspace_dir, arguments).await
         }
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }
