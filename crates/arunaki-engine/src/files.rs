@@ -15,8 +15,14 @@ pub fn router() -> Router {
     Router::new()
         .route("/file", get(handle_list))
         .route("/api/file", get(handle_list))
-        .route("/file/content", get(handle_content))
-        .route("/api/file/content", get(handle_content))
+        .route(
+            "/file/content",
+            get(handle_content).post(handle_write_content),
+        )
+        .route(
+            "/api/file/content",
+            get(handle_content).post(handle_write_content),
+        )
         .route("/file/status", get(handle_status))
         .route("/api/file/status", get(handle_status))
         .route("/find", get(handle_find_text))
@@ -199,9 +205,16 @@ async fn handle_content(
             "jpg" | "jpeg" => "image/jpeg",
             _ => "application/octet-stream",
         };
-        return Json(json!({
+        let payload = json!({
             "type": "binary",
             "content": b64,
+            "encoding": "base64",
+            "mimeType": mime
+        });
+        return Json(json!({
+            "data": payload,
+            "type": "binary",
+            "content": payload["content"],
             "encoding": "base64",
             "mimeType": mime
         }))
@@ -209,9 +222,71 @@ async fn handle_content(
     }
 
     let text = String::from_utf8_lossy(&bytes).to_string();
-    Json(json!({
+    let payload = json!({
         "type": "text",
         "content": text
+    });
+    Json(json!({
+        "data": payload,
+        "type": "text",
+        "content": text
+    }))
+    .into_response()
+}
+
+async fn handle_write_content(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    let base_dir = resolve_base_dir(&q, &headers);
+    let req_path = q
+        .get("path")
+        .map(|s| s.as_str())
+        .or_else(|| body.get("path").and_then(|v| v.as_str()));
+    let Some(req_path) = req_path else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "path is required" })),
+        )
+            .into_response();
+    };
+
+    let p = Path::new(req_path);
+    let target = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        base_dir.join(req_path)
+    };
+
+    if !contains_path(&base_dir, &target) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Access denied: path outside project folder" })),
+        )
+            .into_response();
+    }
+
+    let content = body
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if let Some(parent) = target.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    if let Err(e) = std::fs::write(&target, content) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e.to_string() })),
+        )
+            .into_response();
+    }
+
+    Json(json!({
+        "success": true,
+        "data": { "success": true }
     }))
     .into_response()
 }

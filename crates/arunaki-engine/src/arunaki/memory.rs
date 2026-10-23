@@ -1,0 +1,249 @@
+#![allow(dead_code, unused_imports)]
+//! Arunaki Living Workspace Memory — Cartographer + Rules Sentinel.
+//! Mirrors `packages/engine/engine/src/arunaki/memory.ts`.
+//!
+//! 1. Cartographer:
+//!    Scans active folder and synthesizes `.arunaki/ARUNAKI.md` containing
+//!    Domain Profile, Workspace Catalog, and Operating Invariants.
+//! 2. Sentinel:
+//!    Autonomous background learner that captures user corrections and rules
+//!    into `.arunaki/user-corrections.jsonl` and updates `## User Preferences & Learned Corrections`
+//!    in `.arunaki/ARUNAKI.md`.
+
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+
+use crate::files::collect_files_recursive;
+use crate::paths::{arunaki_dot_dir, now_iso};
+
+pub const ARUNAKI_MD_NAME: &str = "ARUNAKI.md";
+pub const CORRECTIONS_FILE_NAME: &str = "user-corrections.jsonl";
+
+/// Checks if a turn text looks like a rule, instruction, or correction.
+pub fn might_be_correction(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    // Ignore pure greetings
+    let lower = trimmed.to_lowercase();
+    if lower == "halo" || lower == "hi" || lower == "hello" || lower == "p" || lower == "tes" || lower == "test" {
+        return false;
+    }
+    // Substantive length or contains rule keywords
+    trimmed.len() >= 10
+        || lower.contains("jangan")
+        || lower.contains("harus")
+        || lower.contains("selalu")
+        || lower.contains("aturan")
+        || lower.contains("ingat")
+        || lower.contains("format")
+        || lower.contains("rule")
+        || lower.contains("remember")
+        || lower.contains("always")
+        || lower.contains("never")
+}
+
+/// Infers domain dynamically based on scanned file extensions.
+pub fn infer_domain(extensions: &[&str]) -> String {
+    let mut types = Vec::new();
+    let has_sheet = extensions.iter().any(|&e| e == ".xlsx" || e == ".xls" || e == ".csv");
+    let has_doc = extensions.iter().any(|&e| e == ".docx" || e == ".doc" || e == ".pdf");
+    let has_note = extensions.iter().any(|&e| e == ".txt" || e == ".md");
+
+    if has_sheet {
+        types.push("Spreadsheets & Tabular Data");
+    }
+    if has_doc {
+        types.push("Documents & Reports");
+    }
+    if has_note && !has_sheet && !has_doc {
+        types.push("Text Notes & Markdown");
+    }
+
+    if types.is_empty() {
+        "General Document Workspace".to_string()
+    } else {
+        types.join(" | ")
+    }
+}
+
+/// Derives universal syntax invariants based on file types.
+pub fn derive_syntax_invariants(extensions: &[&str]) -> Vec<String> {
+    let mut inv = Vec::new();
+    let has_sheet = extensions.iter().any(|&e| e == ".xlsx" || e == ".xls" || e == ".csv");
+    let has_doc = extensions.iter().any(|&e| e == ".docx" || e == ".doc" || e == ".pdf" || e == ".txt");
+
+    if has_sheet {
+        inv.push("- Tabular & Spreadsheet Files: Preserve existing sheet structures, column headers, and calculation formulas (SUM, TOTAL, math formulas) without altering unedited cells or formatting.".to_string());
+        inv.push("- Workbook Integrity: When editing spreadsheets, save valid structures and verify all calculated values.".to_string());
+    }
+    if has_doc {
+        inv.push("- Document Files: Maintain the existing heading hierarchy, layout structure, and tone established in existing notes and reports.".to_string());
+    }
+    if has_sheet && has_doc {
+        inv.push("- Cross-Document Consistency: Ensure referenced data, dates, and metrics match across spreadsheets and summary reports.".to_string());
+    }
+    inv.push("- Active Folder Isolation: Only inspect and operate on files within the currently opened active folder.".to_string());
+    inv.push("- Continuous Learning: Operating rules are automatically maintained by the Sentinel based on user instructions and corrections.".to_string());
+
+    inv
+}
+
+/// Reads the active workspace living memory from `.arunaki/ARUNAKI.md`.
+/// If it doesn't exist yet, automatically synthesizes it on the fly.
+pub fn get_living_memory_for_workspace(workspace_dir: &str) -> String {
+    let ws_path = Path::new(workspace_dir);
+    let arunaki_md = ws_path.join(".arunaki").join(ARUNAKI_MD_NAME);
+
+    if arunaki_md.exists() {
+        if let Ok(content) = std::fs::read_to_string(&arunaki_md) {
+            if !content.trim().is_empty() {
+                return content;
+            }
+        }
+    }
+
+    // Auto-synthesize on first run
+    synthesize_living_memory(workspace_dir)
+}
+
+/// Scans active folder and synthesizes `.arunaki/ARUNAKI.md`.
+pub fn synthesize_living_memory(workspace_dir: &str) -> String {
+    let ws_path = Path::new(workspace_dir);
+    let folder_name = ws_path
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Active Folder".to_string());
+
+    let mut all_files = Vec::new();
+    collect_files_recursive(ws_path, ws_path, &mut all_files, 200);
+
+    let mut extensions = HashSet::new();
+    let mut clean_files = Vec::new();
+
+    for f in &all_files {
+        let p_str = f.to_string_lossy().to_string();
+        if p_str.starts_with(".arunaki") || p_str.starts_with(".git") || p_str.starts_with("node_modules") {
+            continue;
+        }
+        if let Some(ext) = f.extension().and_then(|s| s.to_str()) {
+            extensions.insert(format!(".{}", ext.to_lowercase()));
+        }
+        clean_files.push(p_str);
+    }
+
+    let ext_slices: Vec<&str> = extensions.iter().map(|s| s.as_str()).collect();
+    let domain = infer_domain(&ext_slices);
+    let invariants = derive_syntax_invariants(&ext_slices);
+
+    let file_catalog = if clean_files.is_empty() {
+        "_No document files detected in the active folder yet._".to_string()
+    } else {
+        clean_files
+            .iter()
+            .take(40)
+            .map(|f| format!("- {}", f))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let arunaki_dir = ws_path.join(".arunaki");
+    let _ = std::fs::create_dir_all(&arunaki_dir);
+    let arunaki_md = arunaki_dir.join(ARUNAKI_MD_NAME);
+
+    let existing_doc = std::fs::read_to_string(&arunaki_md).unwrap_or_default();
+    let existing_corrections = extract_existing_corrections(&existing_doc);
+    let learned_section = if existing_corrections.is_empty() {
+        "_No learned preferences yet._".to_string()
+    } else {
+        existing_corrections.join("\n")
+    };
+
+    let doc = format!(
+        "# LOCAL WORKSPACE OPERATING RULES ({})\n\n\
+        <!-- AUTO-GENERATED BY ARUNAKI CARTOGRAPHER & SENTINEL. DO NOT DELETE. -->\n\
+        <!-- These living rules govern how Arunaki operates inside this folder. -->\n\n\
+        ## Domain Profile\n{}\n\n\
+        ## Workspace Catalog\n{}\n\n\
+        ## Operating Invariants\n{}\n\n\
+        ## User Preferences & Learned Corrections\n### Learned by the Sentinel\n{}\n\n\
+        ---\n\
+        _Generated automatically. Arunaki self-corrects and learns from user feedback._\n",
+        folder_name, domain, file_catalog, invariants.join("\n"), learned_section
+    );
+
+    let _ = std::fs::write(&arunaki_md, &doc);
+    doc
+}
+
+fn extract_existing_corrections(doc: &str) -> Vec<String> {
+    if doc.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let mut in_section = false;
+
+    for line in doc.lines() {
+        if line.starts_with("## User Preferences") {
+            in_section = true;
+            continue;
+        }
+        if in_section {
+            if line.starts_with("## ") || line.starts_with("---") {
+                break;
+            }
+            let trimmed = line.trim();
+            if trimmed.starts_with("- ") && !trimmed.contains("No learned preferences yet") {
+                out.push(trimmed.to_string());
+            }
+        }
+    }
+    out
+}
+
+/// Sentinel: records user correction into `.arunaki/user-corrections.jsonl`
+/// and updates `.arunaki/ARUNAKI.md`.
+pub fn record_learned_correction(workspace_dir: &str, correction_text: &str) {
+    let ws_path = Path::new(workspace_dir);
+    let arunaki_dir = ws_path.join(".arunaki");
+    let _ = std::fs::create_dir_all(&arunaki_dir);
+
+    let corrections_path = arunaki_dir.join(CORRECTIONS_FILE_NAME);
+    let entry = serde_json::json!({
+        "time": now_iso(),
+        "rule": correction_text
+    });
+
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&corrections_path)
+    {
+        use std::io::Write;
+        let line = format!("{}\n", entry);
+        let _ = f.write_all(line.as_bytes());
+    }
+
+    // Append to ARUNAKI.md
+    let arunaki_md = arunaki_dir.join(ARUNAKI_MD_NAME);
+    if let Ok(existing) = std::fs::read_to_string(&arunaki_md) {
+        let rule_line = format!("- {}", correction_text);
+        if !existing.contains(&rule_line) {
+            let updated = if existing.contains("### Learned by the Sentinel\n_No learned preferences yet._") {
+                existing.replace(
+                    "### Learned by the Sentinel\n_No learned preferences yet._",
+                    &format!("### Learned by the Sentinel\n{}", rule_line),
+                )
+            } else if existing.contains("### Learned by the Sentinel") {
+                existing.replace(
+                    "### Learned by the Sentinel\n",
+                    &format!("### Learned by the Sentinel\n{}\n", rule_line),
+                )
+            } else {
+                existing
+            };
+            let _ = std::fs::write(&arunaki_md, updated);
+        }
+    }
+}

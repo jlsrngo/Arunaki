@@ -1,0 +1,99 @@
+//! Document Tools module — mirrors `packages/engine/engine/src/tool/`.
+//! All tool execution is strictly isolated to the active workspace folder.
+
+pub mod doc_com;
+pub mod doc_read;
+pub mod edit;
+pub mod glob;
+pub mod grep;
+pub mod question;
+pub mod read;
+pub mod todo;
+pub mod websearch;
+pub mod write;
+
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+
+use crate::paths::contains_path;
+
+pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> bool {
+    // In Arunaki desktop document agent, tools are ALWAYS attached
+    // so any concise user instruction (e.g. "rekap ke excel", "pengeluaran bensin 100rb")
+    // can autonomously discover, read, calculate, and modify workspace documents.
+    true
+}
+
+pub fn build_tool_definitions() -> Vec<Value> {
+    let mut defs = vec![
+        read::read_tool_definition(),
+        write::write_tool_definition(),
+        edit::edit_tool_definition(),
+        glob::glob_tool_definition(),
+        grep::grep_tool_definition(),
+        todo::todo_tool_definition(),
+        websearch::websearch_tool_definition(),
+        question::question_tool_definition(),
+    ];
+    defs.extend(doc_read::doc_read_tool_definitions());
+    defs.extend(doc_com::doc_com_tool_definitions());
+    defs
+}
+
+pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
+    let base = Path::new(workspace_dir);
+    let candidate = Path::new(raw_file);
+    let resolved = if candidate.is_absolute() {
+        candidate.to_path_buf()
+    } else {
+        base.join(raw_file)
+    };
+    if !contains_path(base, &resolved) {
+        return Err(format!(
+            "Project Folder Isolation Error: '{}' is outside the active project folder '{}'",
+            raw_file, workspace_dir
+        ));
+    }
+    Ok(resolved)
+}
+
+pub async fn execute_tool_call(
+    session_id: &str,
+    assistant_msg_id: &str,
+    call_id: &str,
+    name: &str,
+    arguments: &Value,
+    workspace_dir: &str,
+) -> Value {
+    match name {
+        "read" | "read_file" => read::execute_read(workspace_dir, arguments),
+        "write" | "write_file" | "create_file" => {
+            write::execute_write(session_id, workspace_dir, arguments)
+        }
+        "edit" | "edit_file" | "apply_patch" => {
+            edit::execute_edit(session_id, workspace_dir, arguments)
+        }
+        "glob" | "list_files" | "list_directory" => glob::execute_glob(workspace_dir, arguments),
+        "grep" | "search" | "search_files" => grep::execute_grep(workspace_dir, arguments),
+        "todowrite" | "todo" => todo::execute_todowrite(session_id, workspace_dir, arguments),
+        "websearch" => websearch::execute_websearch(arguments).await,
+        "question" => {
+            question::execute_question(
+                session_id,
+                assistant_msg_id,
+                call_id,
+                workspace_dir,
+                arguments,
+            )
+            .await
+        }
+        "excel_read" => doc_read::execute_excel_read(workspace_dir, arguments),
+        "word_read" => doc_read::execute_word_read(workspace_dir, arguments),
+        "ppt_read" => doc_read::execute_ppt_read(workspace_dir, arguments),
+        "pdf_read" => doc_read::execute_pdf_read(workspace_dir, arguments),
+        "excel_com" | "word_com" | "ppt_com" => {
+            doc_com::execute_doc_com(name, workspace_dir, arguments).await
+        }
+        _ => json!({ "error": format!("Unknown tool: {}", name) }),
+    }
+}

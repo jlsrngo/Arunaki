@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+﻿use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -167,5 +167,15 @@ mod tests {
         let outside = std::env::temp_dir().join("other_folder").join("secret.txt");
         assert!(contains_path(&base, &inside));
         assert!(!contains_path(&base, &outside));
+    }
+}
+
+pub fn log_engine(category: &str, message: &str) {
+    let line = format!("[{}] [{}] {}\n", now_iso(), category, message);
+    print!("{}", line);
+    let log_file = arunaki_dot_dir().join("engine.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
+        use std::io::Write;
+        let _ = f.write_all(line.as_bytes());
     }
 }

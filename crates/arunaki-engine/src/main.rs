@@ -1,17 +1,21 @@
+pub mod arunaki;
 mod bridge;
 mod cred_store;
 mod desktop;
 mod files;
-mod memory;
+mod knowledge;
 mod messaging;
 mod paths;
-mod providers;
-mod sessions;
+mod permission;
+mod provider;
+mod question;
+mod session;
+mod tool;
 
 use crate::bridge::{start_bridge_server, LOCAL_CLI_BRIDGE_PORT};
 use crate::cred_store::{harvest_all, register_local_cli_to_config};
 use crate::paths::{arunaki_dot_dir, gen_id, now_ms};
-use crate::sessions::get_event_sender;
+use crate::session::get_event_sender;
 use axum::{
     body::Body,
     extract::Request,
@@ -200,11 +204,13 @@ async fn run_axum_server(listener: tokio::net::TcpListener, _actual_port: u16) {
         .route("/global/event", get(handle_sse_events))
         .route("/event", get(handle_sse_events))
         .merge(desktop::router())
-        .merge(memory::router())
+        .merge(knowledge::router())
         .merge(files::router())
-        .merge(providers::router())
+        .merge(provider::router())
         .merge(messaging::router())
-        .merge(sessions::router())
+        .merge(session::router())
+        .merge(question::router())
+        .merge(permission::router())
         .fallback(handle_fallback)
         .layer(middleware::from_fn(cors_and_auth_middleware));
 

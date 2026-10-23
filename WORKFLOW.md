@@ -4371,3 +4371,27 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 
 
 
+
+---
+
+## Phase 129: Full Frontend Endpoint Parity & Engine Migration Audit ✅ DONE
+
+**Goal:** Menelusuri seluruh pemanggilan endpoint HTTP dari frontend (`apps/web`, `apiFetch`, `engineFetch`, EventSource SSE, IPC calls) ke legacy TypeScript engine dan memastikannya 100% terpetakan serta berfungsi di engine native Rust (`crates/arunaki-engine/src`).
+
+### 129.1 Comprehensive Frontend Endpoint Audit
+- [x] Memindai seluruh codebase frontend (`apps/web/src/**/*.ts`, `*.tsx`) menggunakan AST/regex scraper untuk menginventarisasi semua endpoint yang dipanggil.
+- [x] Memvalidasi router Axum Rust terhadap seluruh endpoint frontend.
+- [x] Mengidentifikasi dan menutup celah (gap) rute:
+  - **Interrupt Handler**: Menambahkan rute `/api/session/:id/interrupt` & `/session/:id/interrupt` pada `crates/arunaki-engine/src/session/mod.rs` (dipanggil oleh `useWorkstationChat.ts` saat abort).
+  - **File Content Payload Envelope**: Memperbarui `crates/arunaki-engine/src/files.rs` agar mengembalikan `{ data: { type, content, ... }, type, content }` sesuai ekspektasi `useTabs.ts` untuk mencegah tab kosong saat membuka dokumen. Ditambahkan `POST /file/content` untuk save file.
+  - **Web OAuth Endpoints**: Menambahkan modul `crates/arunaki-engine/src/provider/oauth.rs` yang menangani `/api/oauth/:provider/start`, `/api/oauth/:provider/result`, dan `/api/oauth/:provider/callback` untuk Google & GitHub sign-in di Settings Account tab.
+  - **Knowledge Graph Route Aliasing**: Menambahkan route non-`/api` untuk `/knowledge`, `/knowledge/edges`, `/knowledge/:id/position`, `/knowledge/:id/toggle` untuk kompatibilitas ganda.
+  - **Session Permissions**: Menambahkan route plural `/api/session/:id/permissions/:permissionID` ke router permissions.
+
+### 129.2 Verification & Smoke Testing
+- [x] `cargo check -p arunaki-engine`: ✅ 0 errors, 0 warnings.
+- [x] `cargo build --release -p arunaki-engine`: ✅ Build sukses (target/release/arunaki-engine.exe).
+- [x] `npm run build -w apps/web`: ✅ 0 TypeScript errors (2284 modules transformed).
+- [x] `cargo test --workspace`: ✅ 6/6 unit tests passed.
+- [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text (free)`, `Kiro chat`).
+- [x] End-to-end endpoint verification via `scratch/test_endpoints.js`: ✅ Seluruh 12 endpoint inti merespons dengan status dan JSON schema yang tepat.
