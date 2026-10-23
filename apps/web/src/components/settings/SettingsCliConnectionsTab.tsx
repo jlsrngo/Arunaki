@@ -57,6 +57,135 @@ export type {
 };
 export { describeModel };
 
+export const FALLBACK_CLI_REGISTRY: CliProviderDescriptor[] = [
+  {
+    id: "claude",
+    name: "Claude",
+    vendor: "Anthropic",
+    docsUrl: "https://claude.ai",
+    loginCommand: "claude auth login",
+    credentialPath: "~/.claude/.credentials.json",
+    quota: "claude",
+    models: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
+    requiresCli: false,
+    loginMode: "terminal",
+    supportsAutoConfigure: true,
+    supportsBrowserLogin: true,
+    entitlement: {
+      notice: "Requires a Claude Max or Pro subscription",
+      noticeId: "Perlu langganan Claude Max atau Pro",
+      url: "https://claude.ai",
+    },
+  },
+  {
+    id: "codex",
+    name: "Codex",
+    vendor: "OpenAI",
+    docsUrl: "https://chatgpt.com",
+    loginCommand: "codex login",
+    credentialPath: "~/.codex/auth.json",
+    quota: "codex",
+    models: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-6-luna", "gpt-reserve"],
+    requiresCli: false,
+    loginMode: "terminal",
+    supportsAutoConfigure: false,
+    supportsBrowserLogin: true,
+    entitlement: {
+      notice:
+        'Works on a free ChatGPT account, but only some models answer. A free login is refused by every other Codex model with "not supported when using Codex with a ChatGPT account".',
+      noticeId: "Gratis berfungsi, tapi hanya sebagian model",
+      url: "https://chatgpt.com/codex",
+    },
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    vendor: "opencode",
+    docsUrl: "https://opencode.ai",
+    installUrl: "https://opencode.ai",
+    loginCommand: "opencode auth login",
+    credentialPath: "~/.local/share/opencode/auth.json",
+    quota: "none",
+    models: [
+      "groq/openai/gpt-oss-120b",
+      "groq/qwen/qwen3.8-27b",
+      "groq/openai/gpt-oss-20b",
+      "opencode/big-pickle",
+      "9router/ComboMaut",
+      "opencode/nemotron-3.5-lightning-free",
+    ],
+    requiresCli: true,
+    loginMode: "terminal",
+    supportsAutoConfigure: false,
+    supportsBrowserLogin: false,
+    note: {
+      text: "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
+      textId: "Permintaan native lewat OpenCode Zen bisa sampai semenit saat model baru dipakai. Lambat, bukan macet.",
+    },
+  },
+  {
+    id: "antigravity",
+    name: "Google Antigravity CLI",
+    vendor: "Google DeepMind",
+    docsUrl: "https://antigravity.google.com",
+    installUrl: "https://antigravity.google.com",
+    installSizeMb: 181,
+    loginCommand: "agy",
+    credentialPath: "~/.gemini/oauth_creds.json",
+    credentialTarget: "gemini:antigravity",
+    quota: "antigravity",
+    models: [
+      "gemini-3.8-flash-medium",
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash-high",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "claude-sonnet-4-6",
+    ],
+    requiresCli: true,
+    loginMode: "terminal",
+    supportsAutoConfigure: false,
+    supportsBrowserLogin: false,
+  },
+  {
+    id: "kiro",
+    name: "Kiro",
+    vendor: "AWS",
+    docsUrl: "https://kiro.dev",
+    quota: "kiro",
+    models: [
+      "kiro/auto",
+      "kiro/claude-sonnet-4.5",
+      "kiro/claude-haiku-4.5",
+      "kiro/deepseek-3.2",
+      "kiro/qwen3-coder-next",
+    ],
+    requiresCli: false,
+    loginMode: "browser",
+    supportsAutoConfigure: false,
+    supportsBrowserLogin: true,
+  },
+  {
+    id: "nineRouter",
+    name: "9Router",
+    vendor: "9Router",
+    docsUrl: "https://9router.com",
+    quota: "none",
+    models: [
+      "9router/ComboMaut",
+      "oc/big-pickle",
+      "oc/claude-sonnet-4.5",
+      "kr/claude-sonnet-4.5",
+      "vx/gemini-2.5-pro",
+      "deepseek-r1",
+      "cx/gpt-5.6-terra",
+    ],
+    requiresCli: true,
+    loginMode: "terminal",
+    supportsAutoConfigure: false,
+    supportsBrowserLogin: false,
+  },
+];
 
 export function SettingsCliConnectionsTab({
   providers,
@@ -69,6 +198,9 @@ export function SettingsCliConnectionsTab({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === "object" && parsed.antigravity) {
+          if (!parsed.registry || !parsed.registry.length) {
+            parsed.registry = FALLBACK_CLI_REGISTRY;
+          }
           return parsed;
         }
       }
@@ -108,6 +240,7 @@ export function SettingsCliConnectionsTab({
       },
       bridgePort: 20188,
       bridgeRunning: true,
+      registry: FALLBACK_CLI_REGISTRY,
     };
   });
 
@@ -137,7 +270,7 @@ export function SettingsCliConnectionsTab({
     if (catalogued?.length) return catalogued;
     const live = liveModels[id];
     if (live?.length) return live;
-    return data.registry?.find((d) => d.id === id)?.models ?? [];
+    return (data.registry?.find((d) => d.id === id) ?? FALLBACK_CLI_REGISTRY.find((d) => d.id === id))?.models ?? [];
   };
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
@@ -171,6 +304,7 @@ export function SettingsCliConnectionsTab({
               nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
               codex: { ...prev.codex, ...json.data.codex },
               discovered: json.data.discovered ?? prev.discovered,
+              registry: json.data.registry ?? prev.registry,
             };
             try {
               localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
@@ -271,7 +405,7 @@ export function SettingsCliConnectionsTab({
    */
   const cardState: Record<string, { installed: boolean; signedIn: boolean; email?: string; active: boolean; version?: string }> =
     Object.fromEntries(
-      (data.registry ?? []).map((d) => {
+      (data.registry && data.registry.length > 0 ? data.registry : FALLBACK_CLI_REGISTRY).map((d) => {
         const facts = SIGNALS[d.id]?.(data) ?? { installed: false, signedIn: false };
         const token = data.discovered?.find((x) => x.provider === d.id);
         return [
@@ -467,7 +601,7 @@ export function SettingsCliConnectionsTab({
     const ping = pingResults[id];
     const busy = connectingTarget === id;
     const dot = state.signedIn
-      ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+      ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]"
       : state.installed
       ? "bg-amber-400"
       : loading
@@ -597,10 +731,10 @@ export function SettingsCliConnectionsTab({
           </span>
           {ping && !testingPingTarget && (
             <span
-              className={ping.success ? "text-emerald-400" : "text-amber-400"}
+              className={ping.success ? "text-white font-medium" : "text-amber-400"}
               title={ping.success ? undefined : isEn ? "Last check failed" : "Pemeriksaan terakhir gagal"}
             >
-              {ping.success ? `${ping.timeMs}ms` : isEn ? "failed" : "gagal"}
+              {ping.timeMs}ms
             </span>
           )}
         </button>
@@ -665,7 +799,7 @@ export function SettingsCliConnectionsTab({
                   <span
                     className={cn(
                       "inline-flex items-center gap-1",
-                      codexPlan === "free" ? "text-amber-400/90" : "text-emerald-400/90",
+                      codexPlan === "free" ? "text-amber-400/90" : "text-zinc-300 font-medium",
                     )}
                     title={
                       codexPlan === "free"
@@ -1829,7 +1963,7 @@ const isGeminiActive =
 
       {/* Every card below comes from the engine registry. */}
       <div className="space-y-2 w-full">
-        {(data.registry ?? []).map((descriptor) => renderProviderCard(descriptor))}
+        {(data.registry && data.registry.length > 0 ? data.registry : FALLBACK_CLI_REGISTRY).map((descriptor) => renderProviderCard(descriptor))}
 
         {(data.discovered ?? []).some((x) => x.hasToken) && (
           <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-center flex-wrap gap-3">

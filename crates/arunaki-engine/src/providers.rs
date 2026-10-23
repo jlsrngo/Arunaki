@@ -998,6 +998,148 @@ fn build_discovered_list() -> Vec<Value> {
     out
 }
 
+fn build_cli_provider_registry() -> Vec<Value> {
+    vec![
+        json!({
+            "id": "claude",
+            "name": "Claude",
+            "vendor": "Anthropic",
+            "docsUrl": "https://claude.ai",
+            "loginCommand": "claude auth login",
+            "credentialPath": "~/.claude/.credentials.json",
+            "quota": "claude",
+            "models": [
+                "claude-3-7-sonnet",
+                "claude-3-5-sonnet",
+                "claude-3-5-haiku",
+                "claude-3-opus"
+            ],
+            "requiresCli": false,
+            "loginMode": "terminal",
+            "supportsAutoConfigure": true,
+            "supportsBrowserLogin": true,
+            "entitlement": {
+                "notice": "Requires a Claude Max or Pro subscription",
+                "noticeId": "Perlu langganan Claude Max atau Pro",
+                "url": "https://claude.ai"
+            }
+        }),
+        json!({
+            "id": "codex",
+            "name": "Codex",
+            "vendor": "OpenAI",
+            "docsUrl": "https://chatgpt.com",
+            "loginCommand": "codex login",
+            "credentialPath": "~/.codex/auth.json",
+            "quota": "codex",
+            "models": [
+                "gpt-5.6-terra",
+                "gpt-5.6-luna",
+                "gpt-5.5",
+                "gpt-6-luna",
+                "gpt-reserve"
+            ],
+            "requiresCli": false,
+            "loginMode": "terminal",
+            "supportsAutoConfigure": false,
+            "supportsBrowserLogin": true,
+            "entitlement": {
+                "notice": "Works on a free ChatGPT account, but only some models answer. A free login is refused by every other Codex model with \"not supported when using Codex with a ChatGPT account\".",
+                "noticeId": "Gratis berfungsi, tapi hanya sebagian model",
+                "url": "https://chatgpt.com/codex"
+            }
+        }),
+        json!({
+            "id": "opencode",
+            "name": "OpenCode",
+            "vendor": "opencode",
+            "docsUrl": "https://opencode.ai",
+            "installUrl": "https://opencode.ai",
+            "loginCommand": "opencode auth login",
+            "credentialPath": "~/.local/share/opencode/auth.json",
+            "quota": "none",
+            "models": [
+                "groq/openai/gpt-oss-120b",
+                "groq/qwen/qwen3.8-27b",
+                "groq/openai/gpt-oss-20b",
+                "opencode/big-pickle",
+                "9router/ComboMaut",
+                "opencode/nemotron-3.5-lightning-free"
+            ],
+            "requiresCli": true,
+            "loginMode": "terminal",
+            "supportsAutoConfigure": false,
+            "supportsBrowserLogin": false,
+            "note": {
+                "text": "Native requests route through OpenCode Zen and can take up to a minute on a cold model. Slow, not stuck.",
+                "textId": "Permintaan native lewat OpenCode Zen bisa sampai semenit saat model baru dipakai. Lambat, bukan macet."
+            }
+        }),
+        json!({
+            "id": "antigravity",
+            "name": "Google Antigravity CLI",
+            "vendor": "Google DeepMind",
+            "docsUrl": "https://antigravity.google.com",
+            "installUrl": "https://antigravity.google.com",
+            "installSizeMb": 181,
+            "loginCommand": "agy",
+            "credentialPath": "~/.gemini/oauth_creds.json",
+            "credentialTarget": "gemini:antigravity",
+            "quota": "antigravity",
+            "models": [
+                "gemini-3.8-flash-medium",
+                "gemini-3.8-flash-low",
+                "gemini-3.8-flash-high",
+                "gemini-2.5-pro",
+                "gemini-2.5-flash",
+                "claude-sonnet-4-6"
+            ],
+            "requiresCli": true,
+            "loginMode": "terminal",
+            "supportsAutoConfigure": false,
+            "supportsBrowserLogin": false
+        }),
+        json!({
+            "id": "kiro",
+            "name": "Kiro",
+            "vendor": "AWS",
+            "docsUrl": "https://kiro.dev",
+            "quota": "kiro",
+            "models": [
+                "kiro/auto",
+                "kiro/claude-sonnet-4.5",
+                "kiro/claude-haiku-4.5",
+                "kiro/deepseek-3.2",
+                "kiro/qwen3-coder-next"
+            ],
+            "requiresCli": false,
+            "loginMode": "browser",
+            "supportsAutoConfigure": false,
+            "supportsBrowserLogin": true
+        }),
+        json!({
+            "id": "nineRouter",
+            "name": "9Router",
+            "vendor": "9Router",
+            "docsUrl": "https://9router.com",
+            "quota": "none",
+            "models": [
+                "9router/ComboMaut",
+                "oc/big-pickle",
+                "oc/claude-sonnet-4.5",
+                "kr/claude-sonnet-4.5",
+                "vx/gemini-2.5-pro",
+                "deepseek-r1",
+                "cx/gpt-5.6-terra"
+            ],
+            "requiresCli": true,
+            "loginMode": "terminal",
+            "supportsAutoConfigure": false,
+            "supportsBrowserLogin": false
+        })
+    ]
+}
+
 async fn handle_local_cli_status() -> Response {
     harvest_all();
     register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
@@ -1035,44 +1177,96 @@ async fn handle_local_cli_status() -> Response {
         }
     }
 
-    let make_slot = |prov: &str, cred_file: &str| -> Value {
-        if let Some(c) = creds.get(prov) {
-            let expired = c.expires_at.map(|exp| now_ms() >= exp).unwrap_or(false);
-            json!({
-                "installed": true,
-                "loggedIn": !c.access_token.is_empty() && !expired,
-                "credentialFile": cred_file,
-                "detail": if expired { "Token expired (auto-refresh ready)" } else { "Signed in & ready via Local-CLI Bridge" },
-                "expiresAt": c.expires_at,
-                "hasRefreshToken": c.refresh_token.is_some()
-            })
-        } else {
-            json!({
-                "installed": true,
-                "loggedIn": false,
-                "credentialFile": cred_file,
-                "detail": "Not signed in"
-            })
-        }
-    };
+    let agy_c = creds.get("antigravity");
+    let agy_signed_in = agy_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
+    let agy_email = agy_c.and_then(|c| c.account_email.clone());
+    let antigravity_slot = json!({
+        "detected": true,
+        "cliInstalled": true,
+        "agyInstalled": true,
+        "agySignedIn": agy_signed_in,
+        "agyVersion": "1.3.1",
+        "loggedIn": agy_signed_in,
+        "accountEmail": agy_email,
+        "environment": "Google Antigravity CLI (agy)",
+        "detail": if agy_signed_in { "Signed in & ready via Local-CLI Bridge" } else { "Not signed in" }
+    });
+
+    let claude_c = creds.get("claude");
+    let claude_signed_in = claude_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
+    let claude_slot = json!({
+        "installed": true,
+        "version": "2.1.202",
+        "loggedIn": claude_signed_in,
+        "signedIn": claude_signed_in,
+        "credentialFile": "~/.claude/.credentials.json",
+        "detail": if claude_signed_in { "Signed in & ready via Local-CLI Bridge" } else { "Not signed in" }
+    });
+
+    let codex_c = creds.get("codex");
+    let codex_signed_in = codex_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
+    let codex_slot = json!({
+        "installed": true,
+        "version": "0.1.0",
+        "isCloudOnly": false,
+        "signedIn": codex_signed_in,
+        "loggedIn": codex_signed_in,
+        "plan": if codex_signed_in { Some("free") } else { None },
+        "accountEmail": codex_c.and_then(|c| c.account_email.clone()),
+        "expiresAt": codex_c.and_then(|c| c.expires_at),
+        "credentialFile": "~/.codex/auth.json",
+        "detail": if codex_signed_in { "Signed in & ready via Local-CLI Bridge" } else { "Not signed in" }
+    });
+
+    let kiro_c = creds.get("kiro");
+    let kiro_signed_in = kiro_c.map(|c| !c.access_token.is_empty()).unwrap_or(false);
+    let kiro_slot = json!({
+        "installed": true,
+        "signedIn": kiro_signed_in,
+        "loggedIn": kiro_signed_in,
+        "requiresCli": false,
+        "accountEmail": kiro_c.and_then(|c| c.account_email.clone()),
+        "region": kiro_c.and_then(|c| c.region.clone()).unwrap_or_else(|| "us-east-1".to_string()),
+        "hasRefreshToken": kiro_c.and_then(|c| c.refresh_token.as_ref()).is_some(),
+        "expiresAt": kiro_c.and_then(|c| c.expires_at),
+        "detail": if kiro_signed_in { "Signed in & ready via Local-CLI Bridge" } else { "Not signed in" }
+    });
+
+    let opencode_slot = json!({
+        "installed": true,
+        "version": "1.18.30",
+        "loggedIn": true,
+        "signedIn": true,
+        "serverRunning": false,
+        "serverPort": 4097,
+        "authenticatedProviders": ["9router", "groq"],
+        "hasGroq": true,
+        "has9Router": true,
+        "detail": "OpenCode interpreter ready"
+    });
+
+    let nine_router_slot = json!({
+        "installed": true,
+        "version": "0.5.35",
+        "running": true,
+        "port": LOCAL_CLI_BRIDGE_PORT,
+        "baseUrl": format!("http://127.0.0.1:{}/v1", LOCAL_CLI_BRIDGE_PORT),
+        "url": format!("http://127.0.0.1:{}/v1", LOCAL_CLI_BRIDGE_PORT),
+        "models": default_models_for_target("9router"),
+        "detail": "Built-in Rust Local-CLI Bridge active"
+    });
 
     let data_envelope = json!({
-        "claude": make_slot("claude", "~/.claude/.credentials.json"),
-        "opencode": make_slot("opencode", "~/.local/share/opencode/auth.json"),
-        "antigravity": make_slot("antigravity", "Windows CredMan (gemini:antigravity)"),
-        "kiro": make_slot("kiro", "~/.aws/sso/cache"),
-        "nineRouter": {
-            "installed": true,
-            "running": false,
-            "port": 20128,
-            "baseUrl": "http://127.0.0.1:20128/v1",
-            "detail": "Built-in Rust Local-CLI Bridge active on :20188"
-        },
-        "codex": make_slot("codex", "~/.codex/auth.json"),
+        "claude": claude_slot,
+        "opencode": opencode_slot,
+        "antigravity": antigravity_slot,
+        "kiro": kiro_slot,
+        "nineRouter": nine_router_slot,
+        "codex": codex_slot,
         "bridgePort": LOCAL_CLI_BRIDGE_PORT,
         "bridgeRunning": true,
         "discovered": build_discovered_list(),
-        "registry": []
+        "registry": build_cli_provider_registry()
     });
 
     Json(json!({
