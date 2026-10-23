@@ -147,6 +147,20 @@ pub async fn handle_prompt(
     let mid_c = model_id.clone();
     let ptxt_c = prompt_text.clone();
 
+    let p_preview: String = if prompt_text.chars().count() > 60 {
+        format!("{}...", prompt_text.chars().take(60).collect::<String>())
+    } else {
+        prompt_text.clone()
+    };
+    crate::paths::log_engine(
+        "chat",
+        &format!("📥 User prompt [{}]: \"{}\"", session_id, p_preview),
+    );
+    crate::paths::log_engine(
+        "chat",
+        &format!("🎯 Routing request to Model: '{}' (Provider: '{}')", model_id, provider_id),
+    );
+
     tokio::spawn(async move {
         run_agent_turn(&sid_c, &ws_c, &pid_c, &mid_c, &history, &ptxt_c).await;
     });
@@ -282,6 +296,11 @@ pub async fn run_agent_turn(
     let mut final_text = String::new();
 
     for _step in 0..6 {
+        let step_start = now_ms();
+        crate::paths::log_engine(
+            "ai",
+            &format!("⏳ Calling AI model '{}' (step {})...", model_id, _step + 1),
+        );
         let mut req_body = json!({
             "model": model_id,
             "messages": chat_messages,
@@ -324,6 +343,18 @@ pub async fn run_agent_turn(
             .cloned()
             .unwrap_or_default();
 
+        let step_dur = now_ms().saturating_sub(step_start);
+        crate::paths::log_engine(
+            "ai",
+            &format!(
+                "✨ AI Model '{}' replied in {}ms | text: {} chars | tools: {}",
+                model_id,
+                step_dur,
+                msg_text.len(),
+                tool_calls.len()
+            ),
+        );
+
         if tool_calls.is_empty() {
             final_text = msg_text;
             break;
@@ -363,6 +394,10 @@ pub async fn run_agent_turn(
                 }),
             );
 
+            crate::paths::log_engine(
+                "tool",
+                &format!("🔧 Executing tool '{}' with input: {}", fn_name, args_str),
+            );
             let tool_out = execute_tool_call(
                 session_id,
                 &assistant_msg_id,
@@ -375,6 +410,11 @@ pub async fn run_agent_turn(
             let tool_out_str =
                 serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
             let tool_end = now_ms();
+            let tool_dur = tool_end.saturating_sub(tool_start);
+            crate::paths::log_engine(
+                "tool",
+                &format!("✅ Tool '{}' completed in {}ms", fn_name, tool_dur),
+            );
 
             emit_event(
                 workspace_dir,
@@ -452,6 +492,14 @@ pub async fn run_agent_turn(
     }));
 
     let completed_ms = now_ms();
+    let total_elapsed = completed_ms.saturating_sub(started_ms);
+    crate::paths::log_engine(
+        "chat",
+        &format!(
+            "🏁 Turn completed for session '{}' in {}ms (model: '{}')",
+            session_id, total_elapsed, model_id
+        ),
+    );
     let assistant_msg = json!({
         "id": assistant_msg_id,
         "type": "assistant",

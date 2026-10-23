@@ -83,9 +83,21 @@ fn main() {
             run_axum_server(listener, actual_port).await;
         });
     } else {
-        // Standalone Desktop GUI Mode (double-clicked in Explorer with no terminal needed!)
-        if std::env::var("ARUNAKI_SHOW_CONSOLE").as_deref() != Ok("1") {
+        // Standalone Desktop GUI Mode
+        if std::env::var("ARUNAKI_HIDE_CONSOLE").as_deref() == Ok("1") {
             desktop::hide_console_window();
+        } else {
+            println!("================================================================");
+            println!("          ARUNAKI - Desktop Document AI Agent (v{})           ", ENGINE_VERSION);
+            println!("================================================================");
+            println!(" [Engine]  Axum Engine running on http://{}:{}", hostname, port);
+            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20188/v1");
+            println!(" [UI Mode] Native Windows WebView2 Desktop Active");
+            println!("----------------------------------------------------------------");
+            println!(" Live AI Activity & Telemetry Logs:");
+            println!("================================================================");
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
         }
 
         let (ready_tx, ready_rx) = std::sync::mpsc::channel::<String>();

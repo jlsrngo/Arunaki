@@ -150,11 +150,11 @@ async fn handle_chat_completions(req: Request) -> Response {
         .and_then(|v| v.as_str())
         .unwrap_or("gpt-5.4")
         .to_string();
-    crate::paths::log_engine("bridge", &format!("Request model={} stream={}", model, body.get("stream").and_then(|v| v.as_bool()).unwrap_or(false)));
     let is_stream = body
         .get("stream")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    crate::paths::log_engine("bridge", &format!("⚡ Incoming AI Request -> Model: '{}' (stream: {})", model, is_stream));
 
     if model.starts_with("kiro/") {
         return handle_kiro_request(body, &model, is_stream).await;

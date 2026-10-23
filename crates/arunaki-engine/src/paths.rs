@@ -1,4 +1,4 @@
-﻿use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -171,11 +171,12 @@ mod tests {
 }
 
 pub fn log_engine(category: &str, message: &str) {
-    let line = format!("[{}] [{}] {}\n", now_iso(), category, message);
-    print!("{}", line);
+    use std::io::Write;
+    let line = format!("[{}] [{}] {}", now_iso(), category, message);
+    println!("{}", line);
+    let _ = std::io::stdout().flush();
     let log_file = arunaki_dot_dir().join("engine.log");
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
-        use std::io::Write;
-        let _ = f.write_all(line.as_bytes());
+        let _ = writeln!(f, "{}", line);
     }
 }
