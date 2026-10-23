@@ -72,6 +72,7 @@ arunaki.json
 # Desktop native deliverables
 dist-exe/
 dist-package/
+dist-portable/
 
 # Rust build artifacts
 target/

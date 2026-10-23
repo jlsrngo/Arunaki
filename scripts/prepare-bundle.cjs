@@ -85,7 +85,16 @@ async function main() {
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('====================================================');
   if (allOk) {
-    console.log(`✨ NATIVE BUNDLE READY IN ${elapsed}s (0 Electron / Pure Native)`);
+    const portableDir = path.join(rootDir, 'dist-portable');
+    fs.mkdirSync(portableDir, { recursive: true });
+    fs.copyFileSync(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+    if (fs.existsSync(docsExePath)) {
+      fs.copyFileSync(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
+    }
+    const portableWebDir = path.join(portableDir, 'web');
+    fs.cpSync(webDistDir, portableWebDir, { recursive: true });
+    log('Portable', `Assembled standalone portable bundle in: ${portableDir}`);
+    console.log(`✨ NATIVE PORTABLE BUNDLE READY IN ${elapsed}s (0 Electron / Pure Native)`);
   } else {
     console.error('❌ BUNDLE VERIFICATION FAILED: Missing required files.');
     process.exit(1);
