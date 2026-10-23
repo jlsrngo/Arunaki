@@ -27,17 +27,21 @@ impl Default for PosConfig {
     fn default() -> Self {
         Self {
             host_url: "http://127.0.0.1:5000".to_string(),
-            api_key: "arunaki_sec_2026".to_string(),
-            username: "Candana".to_string(),
+            api_key: String::new(),
+            username: String::new(),
             password: None,
         }
     }
 }
 
+pub fn is_pos_configured(cfg: &PosConfig) -> bool {
+    !cfg.host_url.trim().is_empty() && !cfg.api_key.trim().is_empty() && !cfg.username.trim().is_empty()
+}
+
 pub fn load_pos_config() -> PosConfig {
     let mut cfg = PosConfig::default();
 
-    // 1. Try reading user pos-config.json
+    // Strictly read ONLY from official user configuration saved in ~/.arunaki/pos-config.json
     let p = arunaki_dot_dir().join("pos-config.json");
     if let Ok(raw) = std::fs::read_to_string(&p) {
         if let Ok(val) = serde_json::from_str::<Value>(&raw) {
@@ -58,30 +62,6 @@ pub fn load_pos_config() -> PosConfig {
             }
             if let Some(pw) = val.get("password").and_then(|v| v.as_str()) {
                 cfg.password = Some(pw.to_string());
-            }
-        }
-    }
-
-    // 2. Fallback auto-discovery from ArunakiZen's dynamic pos-runtime.json
-    let runtime_candidates = [
-        std::path::PathBuf::from("E:/JS/Arunaki-POS/pos-runtime.json"),
-        std::path::PathBuf::from("../Arunaki-POS/pos-runtime.json"),
-        std::path::PathBuf::from("pos-runtime.json"),
-    ];
-    for rp in &runtime_candidates {
-        if let Ok(raw) = std::fs::read_to_string(rp) {
-            if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-                if let Some(u) = val.get("url").and_then(|v| v.as_str()) {
-                    if !u.trim().is_empty() {
-                        cfg.host_url = u.trim_end_matches('/').to_string();
-                    }
-                }
-                if let Some(k) = val.get("apiKey").and_then(|v| v.as_str()) {
-                    if !k.trim().is_empty() {
-                        cfg.api_key = k.trim().to_string();
-                    }
-                }
-                break;
             }
         }
     }
@@ -217,6 +197,11 @@ pub fn pos_tool_definitions() -> Vec<Value> {
 
 pub async fn execute_search_product(args: &Value) -> Value {
     let cfg = load_pos_config();
+    if !is_pos_configured(&cfg) {
+        return json!({
+            "error": "ArunakiZen POS connection is not configured or paired. Please configure Host URL, API Key, and Operator credentials in Settings > Connection Apps before using cashier tools."
+        });
+    }
     let query = args
         .get("query")
         .or_else(|| args.get("q"))
@@ -265,6 +250,11 @@ pub async fn execute_search_product(args: &Value) -> Value {
 
 pub async fn execute_create_sale_order(args: &Value) -> Value {
     let cfg = load_pos_config();
+    if !is_pos_configured(&cfg) {
+        return json!({
+            "error": "ArunakiZen POS connection is not configured or paired. Please configure Host URL, API Key, and Operator credentials in Settings > Connection Apps before using cashier tools."
+        });
+    }
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
@@ -377,6 +367,11 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
 
 pub async fn execute_get_shift_summary(args: &Value) -> Value {
     let cfg = load_pos_config();
+    if !is_pos_configured(&cfg) {
+        return json!({
+            "error": "ArunakiZen POS connection is not configured or paired. Please configure Host URL, API Key, and Operator credentials in Settings > Connection Apps before using cashier tools."
+        });
+    }
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
@@ -388,16 +383,11 @@ pub async fn execute_get_shift_summary(args: &Value) -> Value {
     let op = args
         .get("operator")
         .and_then(|v| v.as_str())
-        .unwrap_or(if !cfg.username.is_empty() { &cfg.username } else { "Candana" });
+        .unwrap_or(&cfg.username);
 
     let endpoints = [
         format!("{}/api/shift/status?operator={}", cfg.host_url, op),
         format!("{}/shift/status?operator={}", cfg.host_url, op),
-        format!("{}/api/shift/status?operator=Candana", cfg.host_url),
-        format!("{}/api/shift/status?operator=admin", cfg.host_url),
-        format!("{}/api/shift/status", cfg.host_url),
-        format!("{}/shift/status", cfg.host_url),
-        format!("{}/api/kas/shift", cfg.host_url),
     ];
 
     for ep in &endpoints {
@@ -421,6 +411,11 @@ pub async fn execute_get_shift_summary(args: &Value) -> Value {
 
 pub async fn execute_print_receipt(args: &Value) -> Value {
     let cfg = load_pos_config();
+    if !is_pos_configured(&cfg) {
+        return json!({
+            "error": "ArunakiZen POS connection is not configured or paired. Please configure Host URL, API Key, and Operator credentials in Settings > Connection Apps before using cashier tools."
+        });
+    }
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(8))
         .build()
@@ -478,6 +473,11 @@ pub async fn execute_print_receipt(args: &Value) -> Value {
 
 pub async fn execute_open_drawer(args: &Value) -> Value {
     let cfg = load_pos_config();
+    if !is_pos_configured(&cfg) {
+        return json!({
+            "error": "ArunakiZen POS connection is not configured or paired. Please configure Host URL, API Key, and Operator credentials in Settings > Connection Apps before using cashier tools."
+        });
+    }
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
