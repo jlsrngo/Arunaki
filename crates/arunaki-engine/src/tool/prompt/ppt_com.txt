@@ -1,0 +1,14 @@
+Automates Windows Microsoft PowerPoint via COM to create slides, update text frames, and manipulate shapes.
+
+Usage:
+- Parameters:
+  * `file`: Relative path to .pptx presentation.
+  * `action`: "open", "add_slide", "set_text".
+  * `slideNumber`: 1-indexed target slide number.
+  * `shapeIndex` or `shapeName`: Target shape or placeholder.
+  * `title`: Slide title.
+  * `text`: Body or shape content.
+
+CRITICAL RULES:
+- Respect slide layout themes, typography, and contrast.
+- All operations are strictly bound to the active workspace project folder.

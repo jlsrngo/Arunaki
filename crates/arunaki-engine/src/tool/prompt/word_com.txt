@@ -1,0 +1,16 @@
+Automates Windows Microsoft Word via COM for desktop document editing, styling, and formatting.
+
+Usage:
+- Parameters:
+  * `file`: Relative path to the .docx document.
+  * `action`: "open", "append", "replace", "format".
+  * `text`: Text content to append or insert.
+  * `paragraphIndex`: 0-indexed paragraph number for targeted replacement or styling.
+  * `findText` & `replaceText`: Precise substring replacement across the document.
+  * Formatting: `bold`, `fontSize`, `alignment` ("left", "center", "right").
+
+CRITICAL RULES:
+- Preserve document typography and heading hierarchy.
+- Do not erase headers, footers, or unreferenced document sections.
+- When replacing text or updating placeholders, ensure neighboring styling and alignment remain intact.
+- All operations are strictly bound to the active workspace project folder.

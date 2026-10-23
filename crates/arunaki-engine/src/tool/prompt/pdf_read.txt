@@ -1,0 +1,8 @@
+Extracts plain text, page structures, and tabular layout from PDF documents.
+
+Usage:
+- Parameters:
+  * `file`: Relative path to PDF file within the active project folder.
+  * `max_pages`: Optional limit on pages to parse (default: 30).
+- Reads selectable text layer and page dimensions.
+- Use this tool to analyze incoming invoices, contracts, financial statements, or reports before summarizing or entering data into spreadsheets or word documents.

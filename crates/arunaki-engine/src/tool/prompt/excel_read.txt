@@ -1,0 +1,8 @@
+Reads structured content, sheets, cell tables, and metadata from an Excel workbook (.xlsx or .xls).
+
+Usage:
+- Provide the relative path `file` to the spreadsheet within the active project folder.
+- Inspect the returned JSON structure: it lists all available worksheets, headers, dimensions, and row/column cell data.
+- Always use `excel_read` BEFORE attempting to modify a workbook with `excel_com` so you understand sheet names, column layouts, and existing formulas.
+- Never guess column positions or sheet names; read the workbook first.
+- Detect whether tables contain existing calculation formulas (SUM, AVERAGE, TOTAL) so you can preserve them during updates.

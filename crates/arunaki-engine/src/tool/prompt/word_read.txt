@@ -1,0 +1,7 @@
+Reads structured document hierarchy, paragraphs, headings, tables, and text runs from a Microsoft Word document (.docx).
+
+Usage:
+- Provide the relative path `file` within the active project folder.
+- Inspect paragraphs, heading levels (Heading 1, 2, 3), bullet points, and embedded table contents.
+- Always read the Word document before modifying it to preserve document style, font hierarchy, and structural flow.
+- Use the extracted paragraph indices when referencing sections for subsequent edits with `word_com`.

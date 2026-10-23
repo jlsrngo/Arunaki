@@ -11,7 +11,7 @@ pub fn doc_com_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "excel_com",
-                "description": "Windows Excel automation via COM. Format cells, insert formulas, adjust column widths, colors, and calculate summaries.",
+                "description": include_str!("prompt/excel_com.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -35,7 +35,7 @@ pub fn doc_com_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "word_com",
-                "description": "Windows Word automation via COM. Append paragraphs, replace text, format styles, headings, or tables.",
+                "description": include_str!("prompt/word_com.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -57,7 +57,7 @@ pub fn doc_com_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "ppt_com",
-                "description": "Windows PowerPoint automation via COM. Add slides, update shape texts, titles, and layouts.",
+                "description": include_str!("prompt/ppt_com.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {

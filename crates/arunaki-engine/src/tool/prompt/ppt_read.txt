@@ -1,0 +1,6 @@
+Reads presentation slides, titles, shapes, text frames, and speaker notes from a PowerPoint presentation (.pptx).
+
+Usage:
+- Provide the relative path `file` within the active project folder.
+- Returns slide count, slide titles, shapes list, and text contents per slide.
+- Inspect the presentation structure before adding or editing slides so you align with the existing slide theme and layout patterns.

@@ -1,0 +1,17 @@
+Automates Windows Microsoft Excel via COM for high-fidelity spreadsheet manipulation.
+
+Usage:
+- Operates directly on the native desktop Excel instance within the active project folder.
+- Parameters:
+  * `file`: Relative path to the target .xlsx/.xls workbook.
+  * `action`: One of "open", "write", "format", "summary".
+  * `sheet`: Target sheet name (e.g. "Sheet1" or "Laporan Harian").
+  * `cell`: Target cell coordinates (e.g. "A1", "C15", "D20").
+  * `value`: Text, number, or formula to write (e.g. "=SUM(D2:D19)").
+  * Formatting flags: `bold`, `italic`, `fontSize`, `bgColor` (RGB integer), `alignment` ("left", "center", "right").
+
+CRITICAL RULES & FORMULA INTEGRITY:
+- NEVER overwrite calculated cells or formula totals (SUM, TOTAL, AVERAGE) with raw hardcoded numbers unless explicitly requested. Always preserve or update formulas dynamically.
+- When appending a new transaction/row, place it above the summary row, expand existing formulas to include the new row, or use the `summary` action to recalculate totals.
+- Maintain existing number formats, borders, font families, and column alignments.
+- All operations are strictly bound to the active workspace project folder.

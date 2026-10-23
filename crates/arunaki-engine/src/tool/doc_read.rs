@@ -11,7 +11,7 @@ pub fn doc_read_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "excel_read",
-                "description": "Read sheet names, tables, and data cells from an Excel workbook (.xlsx / .xls).",
+                "description": include_str!("prompt/excel_read.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -25,7 +25,7 @@ pub fn doc_read_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "word_read",
-                "description": "Read paragraphs, headings, and tables from a Word document (.docx).",
+                "description": include_str!("prompt/word_read.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -39,7 +39,7 @@ pub fn doc_read_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "ppt_read",
-                "description": "Read slide titles, shapes, notes, and text from a PowerPoint presentation (.pptx).",
+                "description": include_str!("prompt/ppt_read.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -53,7 +53,7 @@ pub fn doc_read_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "pdf_read",
-                "description": "Extract plain text and structured pages from a PDF document.",
+                "description": include_str!("prompt/pdf_read.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
