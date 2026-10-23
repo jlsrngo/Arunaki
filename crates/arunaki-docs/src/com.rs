@@ -16,16 +16,24 @@ pub fn run_powershell_script(prefix: &str, script: &str) -> Result<String, Strin
     tmp_path.push(format!("arunaki-{}-{}-{}.ps1", prefix, std::process::id(), nanos));
     fs::write(&tmp_path, script).map_err(|e| e.to_string())?;
 
-    let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            tmp_path.to_string_lossy().as_ref(),
-        ])
-        .output();
+    #[cfg(windows)]
+    use std::os::windows::process::CommandExt;
+    #[cfg(windows)]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    let mut cmd = Command::new("powershell");
+    cmd.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        tmp_path.to_string_lossy().as_ref(),
+    ]);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd.output();
 
     let _ = fs::remove_file(&tmp_path);
 

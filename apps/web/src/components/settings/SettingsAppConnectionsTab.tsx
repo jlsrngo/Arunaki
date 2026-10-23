@@ -62,6 +62,22 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         if (parsed.username) setUsername(parsed.username);
         if (parsed.password) setPassword(parsed.password);
         if (parsed.status) setStatus(parsed.status);
+      } else {
+        // Query backend engine pos-config if available
+        apiFetch(`${API_BASE}/desktop/pos-config`)
+          .then(async (res) => {
+            if (res.ok) {
+              const json = await res.json();
+              if (json?.data) {
+                if (json.data.hostUrl) setHostUrl(json.data.hostUrl);
+                if (json.data.apiKey) setApiKey(json.data.apiKey);
+                if (json.data.username) setUsername(json.data.username);
+                if (json.data.password) setPassword(json.data.password);
+                if (json.data.status) setStatus(json.data.status);
+              }
+            }
+          })
+          .catch(() => {});
       }
     } catch (e) {
       console.warn("Failed to read POS config from localStorage:", e);
@@ -186,16 +202,19 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       setStatus(newStatus);
 
       // Persist verified config
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          hostUrl: cleanHost,
-          apiKey: cleanKey,
-          username: cleanUser,
-          password: password,
-          status: newStatus,
-        })
-      );
+      const verifiedPayload = {
+        hostUrl: cleanHost,
+        apiKey: cleanKey,
+        username: cleanUser,
+        password: password,
+        status: newStatus,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(verifiedPayload));
+      apiFetch(`${API_BASE}/desktop/pos-config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(verifiedPayload),
+      }).catch(() => {});
 
       toast.success(
         `${t("posHandshakeSuccess", "Successfully connected to ArunakiZen as operator")} '${newStatus.operator?.nama}' (${newStatus.store})`
@@ -216,16 +235,20 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       const cleanKey = apiKey.trim();
       const cleanUser = username.trim();
 
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          hostUrl: cleanHost,
-          apiKey: cleanKey,
-          username: cleanUser,
-          password: password,
-          status: status,
-        })
-      );
+      const configPayload = {
+        hostUrl: cleanHost,
+        apiKey: cleanKey,
+        username: cleanUser,
+        password: password,
+        status: status,
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(configPayload));
+      apiFetch(`${API_BASE}/desktop/pos-config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(configPayload),
+      }).catch(() => {});
 
       toast.success(t("posConfigSavedSuccess", "ArunakiZen POS configuration saved successfully."));
     } catch (err: any) {

@@ -6,6 +6,7 @@ pub mod doc_read;
 pub mod edit;
 pub mod glob;
 pub mod grep;
+pub mod pos;
 pub mod question;
 pub mod read;
 pub mod todo;
@@ -37,6 +38,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     ];
     defs.extend(doc_read::doc_read_tool_definitions());
     defs.extend(doc_com::doc_com_tool_definitions());
+    defs.extend(pos::pos_tool_definitions());
     defs
 }
 
@@ -93,6 +95,15 @@ pub async fn execute_tool_call(
         "pdf_read" => doc_read::execute_pdf_read(workspace_dir, arguments),
         "excel_com" | "word_com" | "ppt_com" => {
             doc_com::execute_doc_com(name, workspace_dir, arguments).await
+        }
+        "arunakizen_search_product" | "pos_search_product" => {
+            pos::execute_search_product(arguments).await
+        }
+        "arunakizen_create_sale_order" | "pos_create_order" => {
+            pos::execute_create_sale_order(arguments).await
+        }
+        "arunakizen_get_shift_summary" | "pos_shift_summary" => {
+            pos::execute_get_shift_summary(arguments).await
         }
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }

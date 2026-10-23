@@ -615,11 +615,18 @@ pub async fn refresh_credential_source(
                     return Some(fresh);
                 }
             }
-            // Spawn `agy models` to let Antigravity CLI refresh Windows CredMan
+            // Spawn `agy models` to let Antigravity CLI refresh Windows CredMan silently
             let _ = tokio::task::spawn_blocking(|| {
-                std::process::Command::new("cmd")
-                    .args(["/c", "agy", "models"])
-                    .output()
+                #[cfg(windows)]
+                use std::os::windows::process::CommandExt;
+                #[cfg(windows)]
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+                let mut cmd = std::process::Command::new("cmd");
+                cmd.args(["/c", "agy", "models"]);
+                #[cfg(windows)]
+                cmd.creation_flags(CREATE_NO_WINDOW);
+                cmd.output()
             })
             .await;
             if let Some(fresh) = harvest_antigravity() {

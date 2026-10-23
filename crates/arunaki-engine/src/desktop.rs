@@ -50,6 +50,8 @@ pub fn router() -> Router {
         .route("/api/desktop/read-binary", post(handle_read_binary))
         .route("/api/desktop/read-clipboard-image", post(handle_read_clipboard_image))
         .route("/api/desktop/engine-info", get(handle_engine_info))
+        .route("/api/desktop/pos-config", get(handle_get_pos_config).post(handle_save_pos_config))
+        .route("/api/pos/status", get(handle_pos_status))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -618,6 +620,44 @@ async fn handle_engine_info() -> Response {
         "url": "http://127.0.0.1:4096",
         "bridgePort": LOCAL_CLI_BRIDGE_PORT,
         "runtime": "rust"
+    }))
+    .into_response()
+}
+
+async fn handle_get_pos_config() -> Response {
+    let p = arunaki_dot_dir().join("pos-config.json");
+    if let Ok(raw) = std::fs::read_to_string(&p) {
+        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+            return Json(json!({ "data": val })).into_response();
+        }
+    }
+    Json(json!({ "data": null })).into_response()
+}
+
+async fn handle_save_pos_config(Json(body): Json<Value>) -> Response {
+    let p = arunaki_dot_dir().join("pos-config.json");
+    match std::fs::write(&p, serde_json::to_string_pretty(&body).unwrap_or_default()) {
+        Ok(_) => Json(json!({ "success": true })).into_response(),
+        Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_pos_status() -> Response {
+    let p = arunaki_dot_dir().join("pos-config.json");
+    let mut url = "http://127.0.0.1:5000".to_string();
+    if let Ok(raw) = std::fs::read_to_string(&p) {
+        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+            if let Some(u) = val.get("hostUrl").or_else(|| val.get("host_url")).and_then(|v| v.as_str()) {
+                if !u.is_empty() {
+                    url = u.to_string();
+                }
+            }
+        }
+    }
+    Json(json!({
+        "data": {
+            "url": url
+        }
     }))
     .into_response()
 }

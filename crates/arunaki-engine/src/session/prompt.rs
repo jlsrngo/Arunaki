@@ -1,4 +1,4 @@
-﻿use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
+use crate::bridge::LOCAL_CLI_BRIDGE_PORT;
 use crate::files::urlencoding_decode;
 use crate::knowledge::get_active_knowledge_for_workspace;
 use crate::paths::{gen_id, normalize_workspace_path, now_ms};
@@ -295,7 +295,7 @@ pub async fn run_agent_turn(
     let mut content_parts: Vec<Value> = Vec::new();
     let mut final_text = String::new();
 
-    for _step in 0..6 {
+    for _step in 0..15 {
         let step_start = now_ms();
         crate::paths::log_engine(
             "ai",
@@ -449,6 +449,41 @@ pub async fn run_agent_turn(
                 "name": fn_name,
                 "content": tool_out_str
             }));
+        }
+    }
+
+    // Ensure the user always receives a final response text (never leave an empty bubble after tool executions)
+    if final_text.trim().is_empty() {
+        chat_messages.push(json!({
+            "role": "user",
+            "content": "Semua perintah dan tool dokumen di atas telah selesai dieksekusi. Berikan kesimpulan dan jawaban final singkat kepada pengguna."
+        }));
+
+        let req_body = json!({
+            "model": model_id,
+            "messages": chat_messages,
+            "stream": false
+        });
+
+        if let Ok(resp) = client
+            .post(format!("{}/chat/completions", base_url))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .json(&req_body)
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                if let Ok(data) = resp.json::<Value>().await {
+                    if let Some(txt) = data.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+                        final_text = txt.trim().to_string();
+                    }
+                }
+            }
+        }
+
+        if final_text.trim().is_empty() {
+            final_text = "Sudah selesai diproses dan diupdate ke file dokumen.".to_string();
         }
     }
 
