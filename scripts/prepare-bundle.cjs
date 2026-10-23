@@ -75,15 +75,40 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 3: Compile AI Engine into Standalone Executable
-  log('Step 3/4', 'Compiling AI engine into standalone native binary (Bun)...');
+  // Step 3: Compile AI Engine into Standalone Executable (Rust Default, Bun Fallback)
+  const useBunFallback = process.env.ARUNAKI_USE_BUN_ENGINE === '1';
+  log('Step 3/4', useBunFallback
+    ? 'Compiling AI engine into standalone binary (Bun fallback)...'
+    : 'Compiling AI engine into standalone native Rust binary (arunaki-engine)...');
   try {
     fs.mkdirSync(desktopResourcesDir, { recursive: true });
-    const engineEntry = path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts');
-    execSync(`bun build --compile "${engineEntry}" --outfile "${engineExePath}"`, {
-      cwd: rootDir,
-      stdio: 'inherit',
-    });
+    if (useBunFallback) {
+      const engineEntry = path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts');
+      execSync(`bun build --compile "${engineEntry}" --outfile "${engineExePath}"`, {
+        cwd: rootDir,
+        stdio: 'inherit',
+      });
+    } else {
+      const cargoBinDir = path.join(require('node:os').homedir(), '.cargo', 'bin');
+      const envWithCargo = {
+        ...process.env,
+        PATH: `${process.env.PATH || ''}${path.delimiter}${cargoBinDir}`,
+      };
+      execSync('cargo build --release -p arunaki-engine -p arunaki-docs', {
+        cwd: rootDir,
+        env: envWithCargo,
+        stdio: 'inherit',
+      });
+      const builtEngine = path.join(rootDir, 'target', 'release', 'arunaki-engine.exe');
+      const builtDocs = path.join(rootDir, 'target', 'release', 'arunaki-docs.exe');
+      if (!fs.existsSync(builtEngine)) {
+        throw new Error('target/release/arunaki-engine.exe was not produced by cargo build');
+      }
+      fs.copyFileSync(builtEngine, engineExePath);
+      if (fs.existsSync(builtDocs)) {
+        fs.copyFileSync(builtDocs, path.join(desktopResourcesDir, 'arunaki-docs.exe'));
+      }
+    }
     if (!fs.existsSync(engineExePath)) {
       throw new Error('engine.exe was not created');
     }

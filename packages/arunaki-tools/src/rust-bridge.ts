@@ -3,7 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { fileURLToPath } from "url"
 
-export type RustDocCommand = "excel" | "word" | "ppt"
+export type RustDocCommand = "excel" | "word" | "ppt" | "pdf"
 
 /**
  * Checks whether the Rust document tools feature flag is enabled.
@@ -48,13 +48,13 @@ export function findRustDocsBinary(): string | null {
  * Returns the parsed JSON object on success, or `null` if disabled, missing binary, or on any error
  * so that the caller seamlessly falls back to the TypeScript implementation.
  */
-export function tryRunRustDocMap<T>(cmd: RustDocCommand, filePath: string): T | null {
+export function tryRunRustDocMap<T>(cmd: RustDocCommand, filePath: string, extraArgs: string[] = []): T | null {
   if (!isRustToolsEnabled()) {
     return null
   }
 
-  // Only route .xlsx to Rust excel parser (.xls/.csv stay on SheetJS fallback)
-  if (cmd === "excel" && !filePath.toLowerCase().endsWith(".xlsx")) {
+  // Only route .xlsx/.csv to Rust excel parser (.xls stays on SheetJS fallback)
+  if (cmd === "excel" && !filePath.toLowerCase().endsWith(".xlsx") && !filePath.toLowerCase().endsWith(".csv")) {
     return null
   }
 
@@ -64,7 +64,7 @@ export function tryRunRustDocMap<T>(cmd: RustDocCommand, filePath: string): T | 
   }
 
   try {
-    const stdout = execFileSync(bin, [cmd, filePath], {
+    const stdout = execFileSync(bin, [cmd, filePath, ...extraArgs], {
       encoding: "utf8",
       timeout: 15000,
       maxBuffer: 32 * 1024 * 1024,

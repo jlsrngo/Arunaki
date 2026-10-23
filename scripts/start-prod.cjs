@@ -154,12 +154,31 @@ async function main() {
   console.log(`[⏱️ +${formatElapsed()}] [start] Pembersihan proses & port selesai (durasi tahap: ${formatElapsed(cleanStartMs)})`);
 
   const engineStartMs = Date.now();
-  console.log(`[⏱️ +${formatElapsed()}] [start] Menjalankan Arunaki Engine pada :${ENGINE_PORT}...`);
-  const engine = spawn(
-    'bun',
-    ['run', '--conditions=browser', path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts'), 'serve', '--port', String(ENGINE_PORT)],
-    { cwd: rootDir, env: { ...process.env, ...auth.engineEnv }, stdio: 'inherit', windowsHide: true },
-  );
+  const useBunFallback = process.env.ARUNAKI_USE_BUN_ENGINE === '1';
+  const exeExt = process.platform === 'win32' ? '.exe' : '';
+  const rustCandidates = [
+    path.join(rootDir, 'apps', 'desktop', 'resources', `engine${exeExt}`),
+    path.join(rootDir, 'target', 'release', `arunaki-engine${exeExt}`),
+    path.join(rootDir, 'target', 'debug', `arunaki-engine${exeExt}`),
+  ];
+  const rustBin = !useBunFallback ? rustCandidates.find((p) => fs.existsSync(p)) : null;
+
+  let engine;
+  if (rustBin) {
+    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Native Rust Arunaki Engine (${path.basename(rustBin)}) pada :${ENGINE_PORT}...`);
+    engine = spawn(
+      rustBin,
+      ['serve', '--port', String(ENGINE_PORT)],
+      { cwd: rootDir, env: { ...process.env, ...auth.engineEnv, ARUNAKI_ENGINE_PORT: String(ENGINE_PORT) }, stdio: 'inherit', windowsHide: true },
+    );
+  } else {
+    console.log(`[?? +${formatElapsed()}] [start] Menjalankan Arunaki Engine (Bun fallback) pada :${ENGINE_PORT}...`);
+    engine = spawn(
+      'bun',
+      ['run', '--conditions=browser', path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts'), 'serve', '--port', String(ENGINE_PORT)],
+      { cwd: rootDir, env: { ...process.env, ...auth.engineEnv }, stdio: 'inherit', windowsHide: true },
+    );
+  }
 
   const stop = () => {
     if (engine && engine.pid && !engine.killed) {

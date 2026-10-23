@@ -164,7 +164,10 @@ function findEngineBinary() {
     // 2. Bundled inside desktop app directory (apps/desktop/resources/engine.exe)
     path.join(__dirname, 'resources', 'engine.exe'),
     path.join(__dirname, 'resources', 'engine', 'engine.exe'),
-    // 3. Monorepo root directory
+    // 3. Native Rust workspace target directory (target/release/arunaki-engine.exe)
+    path.join(__dirname, '..', '..', 'target', 'release', 'arunaki-engine.exe'),
+    path.join(__dirname, '..', '..', 'target', 'debug', 'arunaki-engine.exe'),
+    // 4. Monorepo root directory
     path.join(__dirname, '..', '..', 'engine.exe'),
   ];
   for (const p of candidatePaths) {

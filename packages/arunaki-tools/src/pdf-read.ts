@@ -5,6 +5,7 @@ import * as path from "path"
 import { PDFParse } from "pdf-parse"
 import { PdfMap } from "./docmap"
 import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
+import { tryRunRustDocMap } from "./rust-bridge"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -16,6 +17,12 @@ export const Parameters = Schema.Struct({
 })
 
 export async function buildPdfMap(filePath: string, maxPages?: number): Promise<typeof PdfMap.Type> {
+  const rustResult = tryRunRustDocMap<typeof PdfMap.Type>(
+    "pdf",
+    filePath,
+    maxPages && maxPages > 0 ? [String(maxPages)] : [],
+  )
+  if (rustResult && !rustResult.isScanned) return rustResult
   const buf = await fs.promises.readFile(filePath)
   const parser = new PDFParse({ data: buf })
   let textResult: any = null

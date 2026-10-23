@@ -4217,3 +4217,42 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] Integrasi ke `word-read.ts`, `ppt-read.ts`, dan `excel-read.ts`.
 - [x] Unit & parity test (`packages/arunaki-tools/test/rust-bridge.test.ts` — 4/4 passed).
 
+---
+
+## Phase 123: Rust PDF Extraction & Native Office COM Automation (`crates/arunaki-docs`) ✅ DONE
+
+**Goal:** Memperluas `crates/arunaki-docs` menjadi library (`lib.rs`) dan CLI (`main.rs`) yang mendukung ekstraksi teks PDF (`pdf_read`) serta automasi Office COM (`excel_com`, `word_com`, `ppt_com`) secara native di Rust dengan fallback otomatis.
+
+### 123.1 Library & CLI Dual Target (`crates/arunaki-docs`)
+- [x] Ekstrak fungsi murni `build_excel_map`, `build_word_map`, `build_ppt_map`, `build_pdf_map`, serta `run_excel_com`, `run_word_com`, `run_ppt_com` ke `crates/arunaki-docs/src/lib.rs` agar dapat dipanggil langsung secara in-memory oleh `arunaki-engine` maupun melalui CLI `arunaki-docs.exe`.
+- [x] Integrasi `pdf_read` dan Office COM ke `packages/arunaki-tools/src/rust-bridge.ts` dan `packages/arunaki-tools/src/pdf-read.ts` dengan automatic fallback.
+- [x] Unit test Rust (`cargo test -p arunaki-docs` — 5/5 passed) dan Bun test (`packages/arunaki-tools/test/rust-bridge.test.ts` — 4/4 passed).
+
+---
+
+## Phase 124: Standalone Native Rust Engine & Local-CLI Bridge (`crates/arunaki-engine`) ✅ DONE
+
+**Goal:** Membangun `crates/arunaki-engine` (`arunaki-engine.exe` / `engine.exe`) menggunakan Tokio + Axum + Reqwest yang mengimplementasikan seluruh HTTP API `:4096`, SSE Event Bus (`/api/event`), dan Local-CLI Bridge `:20188` secara mandiri tanpa memerlukan Node.js atau Bun runtime.
+
+### 124.1 Core Engine Modules (`crates/arunaki-engine`)
+- [x] `paths.rs` — Project Folder Isolation (`contains_path` lexical + canonical path verification, Windows `\\?\` prefix stripping) dengan unit test.
+- [x] `cred_store.rs` — Native Windows Credential Manager (`CredReadW` via `advapi32`), flat JSON credential store (`~/.arunaki/local-cli-credentials.json`), auto-harvester (`codex`, `claude`, `opencode`, `kiro`, `antigravity`), dan OIDC/OAuth token auto-refresh (`ensure_fresh_credential`).
+- [x] `bridge.rs` — Native Local-CLI Bridge pada `127.0.0.1:20188` (`/health`, `/v1/models`, `/v1/chat/completions`) dengan dukungan penuh Kiro Binary EventStream, OpenCode Zen SSE & fingerprint, Google Antigravity Cloud Code `v1internal`, OpenAI Codex Responses API, dan Claude Messages API.
+- [x] `sessions.rs` — Session lifecycle (`/api/session`, `/api/session/:id/prompt`, `/api/session/:id/message`), SSE Event Bus (`/api/event`, `/global/event`), dan agentic tool loop terisolasi ke folder proyek aktif (`glob`, `read`, `write`, `excel_read`, `word_read`, `ppt_read`, `pdf_read`, `excel_com`, `word_com`, `ppt_com`).
+- [x] `files.rs`, `knowledge.rs`, `providers.rs`, `messaging.rs`, `main.rs` — Endpoint file workspace terisolasi, Knowledge Graph CRUD + auto-ingest, provider & model registry, messaging config, dan server HTTP `:4096` dengan menulis `~/.arunaki/engine-info.json`.
+
+---
+
+## Phase 125: Zero-Node.js Packaging, Launcher Integration & Live Smoke Verification ✅ DONE
+
+**Goal:** Mengintegrasikan binary Rust `engine.exe` ke `scripts/prepare-bundle.cjs`, `scripts/start-prod.cjs`, dan `apps/desktop/main.cjs` (dengan tetap menjaga fallback ke TS bila diperlukan via `ARUNAKI_USE_BUN_ENGINE=1`), serta memverifikasi dengan `cargo test`, `npm run build -w apps/web`, dan live smoke test `npm run test:smoke`.
+
+### 125.1 Build, Packaging & Launcher Wiring
+- [x] `scripts/prepare-bundle.cjs` — Kompilasi default menggunakan `cargo build --release -p arunaki-engine -p arunaki-docs` dan menyalin `target/release/arunaki-engine.exe` ke `apps/desktop/resources/engine.exe` (ukuran **5.89 MB**, turun ~94% dari bundle runtime 98 MB sebelumnya, murni tanpa Node.js/Bun).
+- [x] `scripts/start-prod.cjs` & `apps/desktop/main.cjs` — Menjalankan binary native Rust `engine.exe` / `arunaki-engine.exe` secara default dengan opsi fallback `ARUNAKI_USE_BUN_ENGINE=1`.
+- [x] **Verification & Live Smoke Test**:
+  - `cargo test`: ✅ 6/6 unit tests passed (`arunaki-docs` + `arunaki-engine`).
+  - `npm run test:smoke`: ✅ **8/8 provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text (free)`, `Kiro chat`) langsung di atas native Rust `engine.exe`.
+  - `npm run build -w apps/web`: ✅ 0 TypeScript compilation errors.
+
+
