@@ -202,18 +202,27 @@ async function main() {
   }
   console.log(`[⏱️ +${formatElapsed()}] [start] ✅ Engine (:4096) siap! (durasi tahap: ${formatElapsed(engineStartMs)})`);
 
-  // No ARUNAKI_WEB_URL: main.cjs waits for it, fails, and falls through to loadFile() on the bundle.
-  console.log(`[⏱️ +${formatElapsed()}] [start] Menjalankan Electron Desktop (Production Bundle)...`);
-  const electronBin = path.join(rootDir, 'node_modules', 'electron', 'dist', 'electron.exe');
-  const exe = fs.existsSync(electronBin) ? electronBin : 'electron';
-  const app = spawn(exe, ['.'], {
-    cwd: path.join(rootDir, 'apps', 'desktop'),
+  console.log('[start] Menjalankan Native Rust Desktop (WebView2)...');
+  const exeExt = process.platform === 'win32' ? '.exe' : '';
+  const rustDesktopCandidates = [
+    path.join(rootDir, 'target', 'release', 'arunaki' + exeExt),
+    path.join(rootDir, 'target', 'release', 'arunaki-engine' + exeExt),
+    path.join(rootDir, 'target', 'debug', 'arunaki' + exeExt),
+  ];
+  const desktopBin = rustDesktopCandidates.find((p) => fs.existsSync(p));
+  if (!desktopBin) {
+    console.error('[start] Binary native desktop tidak ditemukan. Silakan jalankan: cargo build --release -p arunaki-engine');
+    stop();
+    process.exit(1);
+  }
+
+  const app = spawn(desktopBin, [], {
+    cwd: rootDir,
     env: {
       ...process.env,
       ...auth.engineEnv,
-      ARUNAKI_ENGINE_URL: `http://127.0.0.1:${ENGINE_PORT}`,
+      ARUNAKI_ENGINE_PORT: String(ENGINE_PORT),
       ARUNAKI_LAUNCH_START_MS: String(LAUNCH_START_MS),
-      ARUNAKI_ENGINE_VERIFIED: '1',
     },
     stdio: 'inherit',
     windowsHide: false,

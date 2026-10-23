@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "npm run dev:web & npm run dev:desktop",
     "dev:app": "node scripts/dev-app.cjs",
-    "start": "node scripts/start-prod.cjs",
+    "start": "cargo run --release -p arunaki-engine --bin arunaki",
     "dev:web": "npm run dev -w apps/web",
-    "dev:desktop": "npm run dev -w apps/desktop",
+    "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki",
     "build": "npm run build -w apps/web",
     "typecheck": "tsc -b apps/web/tsconfig.json",
     "test:unit": "cargo test --workspace",
@@ -21,13 +21,11 @@
   },
   "workspaces": {
     "packages": [
-      "apps/web",
-      "apps/desktop"
+      "apps/web"
     ]
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
-    "electron": "^43.2.0",
     "turbo": "2.10.2"
   },
   "dependencies": {
