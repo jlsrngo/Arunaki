@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Cpu, User, Sliders, MessageSquare, Terminal } from "lucide-react";
+import { Cpu, User, Sliders, MessageSquare, Terminal, Store } from "lucide-react";
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { ModelProviderSettings, Provider } from "../components/settings/ModelProviderSettings";
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
+import { SettingsAppConnectionsTab } from "../components/settings/SettingsAppConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
 import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
@@ -16,6 +17,7 @@ export function SettingsPage() {
   const tabs = [
     { id: "models", label: t("modelRouting", "Model Providers"), icon: Cpu },
     { id: "cli", label: t("cliConnections", "Connection CLI"), icon: Terminal },
+    { id: "apps", label: t("appConnections", "Connection Apps"), icon: Store },
     { id: "integrations", label: t("desktopAutomation", "Office Automation"), icon: Sliders },
     { id: "messaging", label: t("messagingApps", "Messaging Apps"), icon: MessageSquare },
     { id: "account", label: t("accountLicense", "Account & License"), icon: User },
@@ -168,6 +170,8 @@ export function SettingsPage() {
               onUpdateProviders={setProviders}
             />
           )}
+
+          {activeTab === "apps" && <SettingsAppConnectionsTab />}
 
           {activeTab === "cli" && (
             <SettingsCliConnectionsTab

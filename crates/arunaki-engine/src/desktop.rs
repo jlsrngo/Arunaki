@@ -858,13 +858,23 @@ pub fn launch_desktop_window(url: &str) {
     let event_loop = EventLoopBuilder::<DesktopAction>::with_user_event().build();
     let proxy = event_loop.create_proxy();
 
-    let window = WindowBuilder::new()
+    #[cfg(target_os = "windows")]
+    use tao::platform::windows::WindowBuilderExtWindows;
+
+    let mut builder = WindowBuilder::new()
         .with_title("Arunaki")
         .with_inner_size(LogicalSize::new(1360.0, 860.0))
         .with_min_inner_size(LogicalSize::new(960.0, 640.0))
         .with_theme(Some(Theme::Dark))
         .with_decorations(false)
-        .with_resizable(true)
+        .with_resizable(true);
+
+    #[cfg(target_os = "windows")]
+    {
+        builder = builder.with_undecorated_shadow(true);
+    }
+
+    let window = builder
         .build(&event_loop)
         .expect("Failed to create Arunaki desktop window");
 

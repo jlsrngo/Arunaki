@@ -1,0 +1,498 @@
+import { useState, useEffect, useCallback, memo } from "react";
+import {
+  Store,
+  Wifi,
+  Key,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  RefreshCw,
+  Search,
+  ShoppingCart,
+  Clock,
+  Sparkles,
+  ShieldCheck,
+  Building2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "../../lib/utils";
+import { useI18n } from "../../lib/i18n";
+import { API_BASE, apiFetch } from "../../lib/api";
+
+interface PosConnectionStatus {
+  connected: boolean;
+  store?: string;
+  operator?: {
+    nama: string;
+    kode: string;
+    level: string;
+  };
+  permissions?: Record<string, string>;
+  message?: string;
+}
+
+const STORAGE_KEY = "arunaki_pos_config";
+
+export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab() {
+  const { t } = useI18n();
+
+  // All React Hooks declared unconditionally at top level
+  const [hostUrl, setHostUrl] = useState("http://127.0.0.1:5000");
+  const [apiKey, setApiKey] = useState("");
+  const [username, setUsername] = useState("CANDANA");
+  const [password, setPassword] = useState("");
+
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [status, setStatus] = useState<PosConnectionStatus>({
+    connected: false,
+  });
+
+  const [autoDetecting, setAutoDetecting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load saved config on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.hostUrl) setHostUrl(parsed.hostUrl);
+        if (parsed.apiKey) setApiKey(parsed.apiKey);
+        if (parsed.username) setUsername(parsed.username);
+        if (parsed.password) setPassword(parsed.password);
+        if (parsed.status) setStatus(parsed.status);
+      }
+    } catch (e) {
+      console.warn("Failed to read POS config from localStorage:", e);
+    }
+  }, []);
+
+  // Auto Detect POS Port
+  const handleAutoDetect = useCallback(async () => {
+    setAutoDetecting(true);
+    let detectedUrl: string | null = null;
+
+    try {
+      // 1. Try querying backend engine endpoint if available
+      try {
+        const res = await apiFetch(`${API_BASE}/pos/status`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data?.url) {
+            detectedUrl = json.data.url;
+          }
+        }
+      } catch {}
+
+      // 2. Direct probe hunting ports 5000 - 5010
+      if (!detectedUrl) {
+        const ports = [5000, 5001, 5002, 5003, 5004, 5005];
+        for (const port of ports) {
+          const candidate = `http://127.0.0.1:${port}`;
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 600);
+            const res = await fetch(`${candidate}/api/health`, {
+              signal: controller.signal,
+            }).catch(() => null);
+            clearTimeout(timeoutId);
+            if (res && (res.ok || res.status === 401)) {
+              detectedUrl = candidate;
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      if (detectedUrl) {
+        setHostUrl(detectedUrl);
+        toast.success(`ArunakiZen POS terdeteksi di: ${detectedUrl}`);
+      } else {
+        toast.info("Port aktif tidak ditemukan otomatis. Menggunakan default http://127.0.0.1:5000");
+      }
+    } finally {
+      setAutoDetecting(false);
+    }
+  }, []);
+
+  // Handshake connection test
+  const handleTestConnection = useCallback(async () => {
+    const cleanHost = hostUrl.trim().replace(/\/+$/, "");
+    const cleanKey = apiKey.trim();
+    const cleanUser = username.trim();
+
+    if (!cleanHost || !cleanKey || !cleanUser || !password) {
+      toast.error(t("posFillRequired", "Harap isi Host URL, API Key, Username, dan Password kasir!"));
+      return;
+    }
+
+    setTesting(true);
+    try {
+      // Handshake endpoint in ArunakiZen is /api/external/auth/handshake (or /external/auth/handshake)
+      let res: Response | null = null;
+      let data: any = null;
+
+      try {
+        res = await fetch(`${cleanHost}/api/external/auth/handshake`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${cleanKey}`,
+          },
+          body: JSON.stringify({
+            username: cleanUser,
+            password: password,
+            api_key: cleanKey,
+          }),
+        });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (e) {
+        // Fallback without /api prefix
+        try {
+          res = await fetch(`${cleanHost}/external/auth/handshake`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${cleanKey}`,
+            },
+            body: JSON.stringify({
+              username: cleanUser,
+              password: password,
+              api_key: cleanKey,
+            }),
+          });
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch {}
+      }
+
+      if (!res || !res.ok || !data?.success) {
+        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : "Koneksi gagal atau server POS belum aktif");
+        throw new Error(errorMsg);
+      }
+
+      const newStatus: PosConnectionStatus = {
+        connected: true,
+        store: data.store || "CUSTOM KEKINIAN",
+        operator: data.operator || { nama: cleanUser, kode: "KS", level: "KS" },
+        permissions: data.permissions || {},
+        message: data.message,
+      };
+
+      setStatus(newStatus);
+
+      // Persist verified config
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          hostUrl: cleanHost,
+          apiKey: cleanKey,
+          username: cleanUser,
+          password: password,
+          status: newStatus,
+        })
+      );
+
+      toast.success(
+        `${t("posHandshakeSuccess", "Sukses terhubung ke ArunakiZen sebagai operator")} '${newStatus.operator?.nama}' (${newStatus.store})`
+      );
+    } catch (err: any) {
+      setStatus({ connected: false });
+      toast.error(`${t("posHandshakeFailed", "Gagal melakukan handshake koneksi")}: ${err.message}`);
+    } finally {
+      setTesting(false);
+    }
+  }, [hostUrl, apiKey, username, password, t]);
+
+  // Save Settings
+  const handleSaveConfig = useCallback(() => {
+    setSaving(true);
+    try {
+      const cleanHost = hostUrl.trim().replace(/\/+$/, "");
+      const cleanKey = apiKey.trim();
+      const cleanUser = username.trim();
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          hostUrl: cleanHost,
+          apiKey: cleanKey,
+          username: cleanUser,
+          password: password,
+          status: status,
+        })
+      );
+
+      toast.success(t("posConfigSavedSuccess", "Konfigurasi koneksi ArunakiZen POS berhasil disimpan."));
+    } catch (err: any) {
+      toast.error(`Gagal menyimpan: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [hostUrl, apiKey, username, password, status, t]);
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner & Tab Description */}
+      <div className="flex items-start justify-between pb-4 border-b border-[var(--border-color)]">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <Store className="w-4 h-4 text-[var(--text-primary)]" />
+            <span>{t("arunakiZenTitle", "Engine Kasir ArunakiZen POS")}</span>
+          </h2>
+          <p className="text-xs text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
+            {t("arunakiZenDesc", "Engine kasir dan POS toko offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.")}
+          </p>
+        </div>
+
+        {/* Connection Status Badge (Strict Monochrome Rule: White/Muted, NO Emerald) */}
+        <div
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border select-none shrink-0 transition-all",
+            status.connected
+              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)]"
+          )}
+        >
+          {status.connected ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span>{t("posStatusConnected", "TERHUBUNG")}</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
+              <span>{t("posStatusDisconnected", "BELUM TERHUBUNG")}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Main Connection Form Card */}
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+        {/* 1. Host URL Server POS */}
+        <div>
+          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+            {t("posHostUrlLabel", "Host URL Server POS")}
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={hostUrl}
+                onChange={(e) => setHostUrl(e.target.value)}
+                placeholder="http://127.0.0.1:5000"
+                className="w-full h-9 px-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAutoDetect}
+              disabled={autoDetecting}
+              className="h-9 px-3.5 bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-medium rounded-lg border border-[var(--border-color)] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", autoDetecting && "animate-spin")} />
+              <span>{autoDetecting ? t("posAutoDetecting", "Mendeteksi...") : t("posAutoDetect", "Deteksi Otomatis")}</span>
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            {t("posHostUrlHelp", "Port dinamis otomatis dipilih pada rentang 5000-5100")}
+          </p>
+        </div>
+
+        {/* 2. Integration API Key */}
+        <div>
+          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+            {t("posApiKeyLabel", "API Key Integrasi (Bearer Token)")}
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
+              <Key className="w-3.5 h-3.5" />
+            </div>
+            <input
+              type={showApiKey ? "text" : "password"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Ar-••••••••••••••••••••••••••••••••"
+              className="w-full h-9 pl-9 pr-10 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono tracking-wider focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+            >
+              {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1">
+            {t("posApiKeyHelp", "Diambil dari Pengaturan POS > Integrasi & API Key")}
+          </p>
+        </div>
+
+        {/* 3. Operator Kasir Credentials (Dual-Layer) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+              {t("posOperatorUserLabel", "Kode / Username Operator Kasir")}
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                placeholder="Contoh: CANDANA"
+                className="w-full h-9 pl-9 pr-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-semibold uppercase focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+              {t("posOperatorPassLabel", "Kata Sandi Operator Kasir")}
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Kata sandi kasir..."
+                className="w-full h-9 pl-9 pr-10 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+          {t("posOperatorHelp", "Seluruh transaksi penjualan dan pemotongan stok wajib terikat ke identitas operator kasir sah.")}
+        </p>
+
+        {/* 4. Live Connected Information Card (When Handshake is Verified) */}
+        {status.connected && (
+          <div className="p-3.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>{t("posConnectedStore", "Toko Terhubung")}:</span>
+              </span>
+              <strong className="text-white font-semibold">{status.store || "CUSTOM KEKINIAN"}</strong>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                <span>{t("posOperatorActive", "Operator Aktif")}:</span>
+              </span>
+              <span className="text-white font-medium">
+                {status.operator?.nama} ({status.operator?.kode}) — Level: {status.operator?.level}
+              </span>
+            </div>
+
+            {status.permissions && Object.keys(status.permissions).length > 0 && (
+              <div className="pt-1.5 border-t border-[var(--border-color)] flex items-center justify-between text-[11px]">
+                <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{t("posAccessPermissions", "Hak Akses Diberikan")}:</span>
+                </span>
+                <span className="text-white/80 font-mono text-[10px]">
+                  R43 Penjualan, Cek Stok, Terima Piutang
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 5. Action Buttons (Handshake & Save) */}
+        <div className="pt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleTestConnection}
+            disabled={testing}
+            className="flex-1 h-9 px-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Wifi className={cn("w-3.5 h-3.5", testing && "animate-pulse")} />
+            <span>{testing ? t("posTesting", "Menghubungkan...") : t("posTestHandshake", "Uji Koneksi (Handshake)")}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveConfig}
+            disabled={saving}
+            className="flex-1 h-9 px-4 rounded-lg bg-white text-black hover:bg-neutral-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Check className="w-3.5 h-3.5 text-black" />
+            <span>{saving ? t("posSaving", "Menyimpan...") : t("posSaveConfig", "Simpan Pengaturan")}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Supported Active Tools Section */}
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-3">
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <span>{t("posToolsTitle", "Tool AI POS yang Aktif")}</span>
+          </h3>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+            {t("posToolsDesc", "Tool berikut otomatis tersedia untuk model AI saat terhubung:")}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          {/* Tool 1 */}
+          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              <code className="text-[11px] font-bold text-white">arunakizen_search_product</code>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              {t("posToolSearch", "Cari katalog barang, scan barcode, sisa stok & harga")}
+            </p>
+          </div>
+
+          {/* Tool 2 */}
+          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              <code className="text-[11px] font-bold text-white">arunakizen_create_sale_order</code>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              {t("posToolOrder", "Buat faktur penjualan kasir ritel atomic (R43) & potong stok")}
+            </p>
+          </div>
+
+          {/* Tool 3 */}
+          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              <code className="text-[11px] font-bold text-white">arunakizen_get_shift_summary</code>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              {t("posToolShift", "Cek saldo kas laci, modal awal kasir & omset shift")}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
