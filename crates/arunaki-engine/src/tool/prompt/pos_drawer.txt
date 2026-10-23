@@ -1,0 +1,8 @@
+Send an ESC/POS drawer kick command (hex 1B 70 00 19 FA) to open the physical store cash register drawer.
+
+Capabilities:
+- Kicks open the store's hardware cash drawer instantly without requiring a receipt print job.
+- Dispatches hardware kick pulse to default or designated thermal POS receipt printer.
+
+When to use:
+- The user requests to open the cash drawer physically (e.g. "buka laci", "open cash drawer", "buka laci kasir").

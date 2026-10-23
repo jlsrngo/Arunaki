@@ -1,0 +1,20 @@
+Execute an atomic cashier retail sales transaction (official invoice R43) in ArunakiZen POS.
+
+Capabilities:
+- Deducts stock quantities directly from local store inventory.
+- Records cash drawer inflow or electronic payment receivables.
+- Generates official sequence-numbered invoices (e.g. R43-231026001).
+- Calculates total sale amount, discounts, and customer change.
+
+When to use:
+- The user provides an instruction to record a retail sale or cashier transaction (e.g. "jual 1 DTF tunai 50rb", "catat penjualan seragam M 2 pcs").
+
+Parameters:
+- `customer`: Customer/member ID. Use 'UMUM' for regular walk-in customers unless a specific member is mentioned.
+- `payment_method`: One of 'CASH', 'TRANSFER', 'QRIS', 'PIUTANG'. Default is 'CASH'.
+- `amount_paid`: Amount tendered by the buyer.
+- `items`: Array of items, each with `item_code` (unique SKU), `qty` (quantity), `price` (unit price), and optional `discount_percent`.
+- `notes`: Optional memo or order description.
+
+Guidelines:
+- If item prices were not specified in the user prompt, search for the product first via `arunakizen_search_product` to retrieve its official price before submitting the order.

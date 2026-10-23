@@ -95,7 +95,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_search_product",
-                "description": "Search for products in the ArunakiZen POS catalog by barcode, SKU item code, or product name.",
+                "description": include_str!("prompt/pos_search.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -117,7 +117,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_create_sale_order",
-                "description": "Execute a retail cashier sales order (R43 official invoice) in ArunakiZen POS. Automatically adjusts stock inventory, records cash drawer receipts, and returns the assigned receipt number.",
+                "description": include_str!("prompt/pos_order.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -163,7 +163,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_get_shift_summary",
-                "description": "Retrieve current cashier shift summary: opening cash float, total cash turnover, transaction count, and expected cash drawer balance.",
+                "description": include_str!("prompt/pos_shift.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {}
@@ -174,7 +174,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_print_receipt",
-                "description": "Print transaction receipt to POS thermal printer (58mm / 80mm paper) and optionally kick open the physical cash drawer.",
+                "description": include_str!("prompt/pos_receipt.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -200,7 +200,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_open_drawer",
-                "description": "Send ESC/POS kick pulse (1B 70 00 19 FA) to open physical cash drawer without printing a receipt.",
+                "description": include_str!("prompt/pos_drawer.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {

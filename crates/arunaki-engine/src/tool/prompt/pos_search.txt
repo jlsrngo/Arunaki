@@ -1,0 +1,13 @@
+Search for product catalog items in the local ArunakiZen POS retail system.
+
+Capabilities:
+- Searches across product names, unique SKU codes, categories, and scanned barcode numbers.
+- Returns unit selling prices, wholesale prices, current store stock levels, and unit of measurement (e.g. PCS, PACK).
+
+When to use:
+- The user asks for product stock, availability, or pricing (e.g. "cek stok baju", "cari barang DTF", "harga seragam").
+- Before creating a sales order if the exact SKU code or current unit price is needed.
+
+Guidelines:
+- If the search query is broad, return the top matching items.
+- Present product code, name, unit price, and available stock clearly to the user.

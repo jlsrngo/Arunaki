@@ -1,0 +1,10 @@
+Retrieve the active cashier shift summary and register drawer status from ArunakiZen POS.
+
+Capabilities:
+- Fetches initial opening cash float (`kas_awal`).
+- Computes real-time gross revenue, cash sales turnover, credit sales, and transaction count.
+- Calculates the expected cash amount that should be physically present in the cash drawer (`kas_seharusnya`).
+- Identifies current logged-in operator, shift number, and shift active/closed status.
+
+When to use:
+- The user asks for cashier daily recap, shift report, or cash drawer balance (e.g. "rekap kasir", "cek uang di laci", "omset shift ini", "laporan kasir").
