@@ -878,6 +878,48 @@ pub fn launch_desktop_window(url: &str) {
         .build(&event_loop)
         .expect("Failed to create Arunaki desktop window");
 
+    window.set_decorations(false);
+
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use tao::platform::windows::WindowExtWindows;
+        let hwnd = window.hwnd();
+        #[link(name = "user32")]
+        extern "system" {
+            fn GetWindowLongPtrW(hwnd: isize, n_index: i32) -> isize;
+            fn SetWindowLongPtrW(hwnd: isize, n_index: i32, new_long: isize) -> isize;
+            fn SetWindowPos(
+                hwnd: isize,
+                hwnd_insert_after: isize,
+                x: i32,
+                y: i32,
+                cx: i32,
+                cy: i32,
+                flags: u32,
+            ) -> i32;
+        }
+        const GWL_STYLE: i32 = -16;
+        const WS_CAPTION: isize = 0x00C00000;
+        const SWP_FRAMECHANGED: u32 = 0x0020;
+        const SWP_NOMOVE: u32 = 0x0002;
+        const SWP_NOSIZE: u32 = 0x0001;
+        const SWP_NOZORDER: u32 = 0x0004;
+
+        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        if style & WS_CAPTION != 0 {
+            SetWindowLongPtrW(hwnd, GWL_STYLE, style & !WS_CAPTION);
+            SetWindowPos(
+                hwnd,
+                0,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+            );
+        }
+    }
+
     let proxy_c = proxy.clone();
     let _webview = WebViewBuilder::new()
         .with_initialization_script(DESKTOP_INIT_SCRIPT)
