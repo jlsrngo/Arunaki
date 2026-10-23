@@ -22,11 +22,11 @@ mod tests {
         let xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
           <w:body>
-            <w:p><w:r><w:t>Daftar Ukuran Seragam</w:t></w:r></w:p>
+            <w:p><w:r><w:t>Uniform Size List</w:t></w:r></w:p>
             <w:tbl>
               <w:tr>
-                <w:tc><w:p><w:r><w:t>Ukuran</w:t></w:r></w:p></w:tc>
-                <w:tc><w:p><w:r><w:t>Jumlah</w:t></w:r></w:p></w:tc>
+                <w:tc><w:p><w:r><w:t>Size</w:t></w:r></w:p></w:tc>
+                <w:tc><w:p><w:r><w:t>Quantity</w:t></w:r></w:p></w:tc>
               </w:tr>
               <w:tr>
                 <w:tc><w:p><w:r><w:t>M</w:t></w:r></w:p></w:tc>
@@ -36,16 +36,16 @@ mod tests {
           </w:body>
         </w:document>"#;
 
-        let out = build_word_map_from_xml("laporan.docx", xml);
+        let out = build_word_map_from_xml("report.docx", xml);
         assert_eq!(
             out,
-            r#"{"format":"word","filePath":"laporan.docx","paragraphs":[{"index":1,"text":"Daftar Ukuran Seragam"}],"tables":[{"index":1,"rows":[["Ukuran","Jumlah"],["M","10"]]}]}"#
+            r#"{"format":"word","filePath":"report.docx","paragraphs":[{"index":1,"text":"Uniform Size List"}],"tables":[{"index":1,"rows":[["Size","Quantity"],["M","10"]]}]}"#
         );
     }
 
     #[test]
     fn csv_excel_map_extracts_cells_and_range() {
-        let csv = "Item,Qty\nBaju M,15\n";
+        let csv = "Item,Qty\nShirt M,15\n";
         let out = build_csv_excel_map("order.csv", csv);
         assert!(out.contains(r#""format":"excel""#));
         assert!(out.contains(r#""range":"A1:B2""#));
@@ -54,12 +54,12 @@ mod tests {
 
     #[test]
     fn pdf_map_extracts_selectable_text() {
-        let pdf = b"%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n2 0 obj << /Length 44 >>\nstream\nBT /F1 12 Tf 72 720 Td (Laporan Bulanan) Tj ET\nendstream\nendobj\n%%EOF";
+        let pdf = b"%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n2 0 obj << /Length 44 >>\nstream\nBT /F1 12 Tf 72 720 Td (Monthly Report) Tj ET\nendstream\nendobj\n%%EOF";
         let out = build_pdf_map_from_bytes("test.pdf", pdf, None).unwrap();
         assert!(out.contains(r#""format":"pdf""#));
         assert!(out.contains(r#""pageCount":1"#));
         assert!(out.contains(r#""isScanned":false"#));
-        assert!(out.contains("Laporan Bulanan"));
+        assert!(out.contains("Monthly Report"));
     }
 
     #[test]

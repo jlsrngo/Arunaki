@@ -88,6 +88,9 @@ async function main() {
     const portableDir = path.join(rootDir, 'dist-portable');
     fs.mkdirSync(portableDir, { recursive: true });
     fs.copyFileSync(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+    if (fs.existsSync(engineExePath)) {
+      fs.copyFileSync(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
+    }
     if (fs.existsSync(docsExePath)) {
       fs.copyFileSync(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
     }

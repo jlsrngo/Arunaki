@@ -105,6 +105,12 @@ pub async fn execute_tool_call(
         "arunakizen_get_shift_summary" | "pos_shift_summary" => {
             pos::execute_get_shift_summary(arguments).await
         }
+        "arunakizen_print_receipt" | "pos_print_receipt" => {
+            pos::execute_print_receipt(arguments).await
+        }
+        "arunakizen_open_drawer" | "pos_open_drawer" => {
+            pos::execute_open_drawer(arguments).await
+        }
         _ => json!({ "error": format!("Unknown tool: {}", name) }),
     }
 }

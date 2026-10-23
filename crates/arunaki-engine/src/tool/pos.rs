@@ -4,6 +4,8 @@
 //! - `arunakizen_search_product`: Catalog search by barcode, item code, or name
 //! - `arunakizen_create_sale_order`: Atomic cashier retail sales order (R43 invoice)
 //! - `arunakizen_get_shift_summary`: Cash register shift drawer turnover and cash balance
+//! - `arunakizen_print_receipt`: Thermal receipt printing and optional drawer kick
+//! - `arunakizen_open_drawer`: Standalone cash drawer kick pulse
 //!
 //! Conforms to `E:\JS\Arunaki-POS\doc\PANDUAN_KONEKSI_ARUNAKI_AGENT_KE_ARUNAKIZEN.md`.
 
@@ -74,73 +76,124 @@ pub fn load_pos_config() -> PosConfig {
 pub fn pos_tool_definitions() -> Vec<Value> {
     vec![
         json!({
-            "name": "arunakizen_search_product",
-            "description": "Mencari data produk barang di ArunakiZen berdasarkan barcode, kode barang, atau nama produk.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Kata kunci pencarian (nama barang, kode, atau scan barcode)"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Jumlah maksimal barang yang ditampilkan (default: 10)",
-                        "default": 10
-                    }
-                },
-                "required": ["query"]
-            }
-        }),
-        json!({
-            "name": "arunakizen_create_sale_order",
-            "description": "Mengeksekusi transaksi kasir penjualan ritel (faktur R43) di ArunakiZen. Otomatis memotong stok, mencatat kas masuk, dan menghasilkan nomor nota resmi.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pelanggan": {
-                        "type": "string",
-                        "description": "Kode pelanggan/member (gunakan 'UMUM' jika pembeli reguler/non-member)",
-                        "default": "UMUM"
-                    },
-                    "pembayaran": {
-                        "type": "string",
-                        "enum": ["CASH", "TRANSFER", "QRIS", "PIUTANG"],
-                        "description": "Metode pembayaran yang dipilih pembeli",
-                        "default": "CASH"
-                    },
-                    "jumlah_bayar": {
-                        "type": "number",
-                        "description": "Nominal uang yang diserahkan/dibayarkan pembeli"
-                    },
-                    "items": {
-                        "type": "array",
-                        "description": "Daftar barang yang dibeli",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "kode_barang": { "type": "string", "description": "Kode unik barang" },
-                                "qty": { "type": "number", "description": "Kuantitas barang" },
-                                "harga": { "type": "number", "description": "Harga satuan jual" },
-                                "diskon_persen": { "type": "number", "description": "Diskon item (%)", "default": 0 }
-                            },
-                            "required": ["kode_barang", "qty", "harga"]
+            "type": "function",
+            "function": {
+                "name": "arunakizen_search_product",
+                "description": "Search for products in the ArunakiZen POS catalog by barcode, SKU item code, or product name.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search keyword (product name, item code, or scanned barcode)."
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of items to return (default: 10).",
+                            "default": 10
                         }
                     },
-                    "catatan": {
-                        "type": "string",
-                        "description": "Catatan faktur tambahan (opsional)"
-                    }
-                },
-                "required": ["pembayaran", "jumlah_bayar", "items"]
+                    "required": ["query"]
+                }
             }
         }),
         json!({
-            "name": "arunakizen_get_shift_summary",
-            "description": "Mendapatkan ringkasan kasir shift berjalan: kas modal awal, total omset tunai, jumlah transaksi, dan saldo kas seharusnya di laci kasir.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
+            "type": "function",
+            "function": {
+                "name": "arunakizen_create_sale_order",
+                "description": "Execute a retail cashier sales order (R43 official invoice) in ArunakiZen POS. Automatically adjusts stock inventory, records cash drawer receipts, and returns the assigned receipt number.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer": {
+                            "type": "string",
+                            "description": "Customer or member code (use 'UMUM' for regular walk-in customers).",
+                            "default": "UMUM"
+                        },
+                        "payment_method": {
+                            "type": "string",
+                            "enum": ["CASH", "TRANSFER", "QRIS", "PIUTANG"],
+                            "description": "Payment method selected by the customer.",
+                            "default": "CASH"
+                        },
+                        "amount_paid": {
+                            "type": "number",
+                            "description": "Amount of cash/money tendered by the customer."
+                        },
+                        "items": {
+                            "type": "array",
+                            "description": "List of purchased items.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "item_code": { "type": "string", "description": "Unique SKU or barcode of the product." },
+                                    "qty": { "type": "number", "description": "Quantity purchased." },
+                                    "price": { "type": "number", "description": "Unit selling price." },
+                                    "discount_percent": { "type": "number", "description": "Item discount percentage (default: 0).", "default": 0 }
+                                },
+                                "required": ["item_code", "qty", "price"]
+                            }
+                        },
+                        "notes": {
+                            "type": "string",
+                            "description": "Optional additional invoice notes."
+                        }
+                    },
+                    "required": ["payment_method", "amount_paid", "items"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_get_shift_summary",
+                "description": "Retrieve current cashier shift summary: opening cash float, total cash turnover, transaction count, and expected cash drawer balance.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_print_receipt",
+                "description": "Print transaction receipt to POS thermal printer (58mm / 80mm paper) and optionally kick open the physical cash drawer.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "invoice": {
+                            "type": "string",
+                            "description": "Sales invoice number (e.g. 'R43-231026001')."
+                        },
+                        "open_drawer": {
+                            "type": "boolean",
+                            "description": "Kick open the physical cash drawer after printing receipt (default: true).",
+                            "default": true
+                        },
+                        "printer": {
+                            "type": "string",
+                            "description": "Target thermal printer name (empty to use the system default printer)."
+                        }
+                    },
+                    "required": ["invoice"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_open_drawer",
+                "description": "Send ESC/POS kick pulse (1B 70 00 19 FA) to open physical cash drawer without printing a receipt.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "printer": {
+                            "type": "string",
+                            "description": "Target thermal printer name (optional, defaults to system default printer)."
+                        }
+                    }
+                }
             }
         }),
     ]
@@ -150,11 +203,13 @@ pub async fn execute_search_product(args: &Value) -> Value {
     let cfg = load_pos_config();
     let query = args
         .get("query")
+        .or_else(|| args.get("q"))
+        .or_else(|| args.get("search"))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .trim();
     if query.is_empty() {
-        return json!({ "error": "Parameter 'query' wajib diisi" });
+        return json!({ "error": "Search parameter 'query' is required." });
     }
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10);
 
@@ -163,7 +218,7 @@ pub async fn execute_search_product(args: &Value) -> Value {
         .build()
     {
         Ok(c) => c,
-        Err(e) => return json!({ "error": format!("HTTP client init failed: {}", e) }),
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
     };
 
     let endpoints = [
@@ -187,7 +242,7 @@ pub async fn execute_search_product(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Gagal mencari produk di ArunakiZen ({}) — pastikan server kasir aktif", cfg.host_url),
+        "error": format!("Failed to search products in ArunakiZen ({}) — ensure POS server is running.", cfg.host_url),
         "query": query
     })
 }
@@ -199,22 +254,82 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         .build()
     {
         Ok(c) => c,
-        Err(e) => return json!({ "error": format!("HTTP client init failed: {}", e) }),
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
     };
 
-    let mut payload = args.clone();
-    if let Some(obj) = payload.as_object_mut() {
-        obj.insert(
-            "operator".to_string(),
-            json!({
-                "username": cfg.username,
-                "password": cfg.password.unwrap_or_default(),
-                "api_key": cfg.api_key
-            }),
-        );
+    // Normalize parameters for ArunakiZen backend
+    let customer = args
+        .get("customer")
+        .or_else(|| args.get("pelanggan"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("UMUM");
+
+    let payment_method = args
+        .get("payment_method")
+        .or_else(|| args.get("pembayaran"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("CASH");
+
+    let amount_paid = args
+        .get("amount_paid")
+        .or_else(|| args.get("jumlah_bayar"))
+        .or_else(|| args.get("bayar"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+
+    let notes = args
+        .get("notes")
+        .or_else(|| args.get("catatan"))
+        .or_else(|| args.get("keterangan"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let mut raw_items: Vec<Value> = Vec::new();
+    if let Some(items_arr) = args.get("items").and_then(|v| v.as_array()) {
+        for it in items_arr {
+            let code = it
+                .get("item_code")
+                .or_else(|| it.get("kode_barang"))
+                .or_else(|| it.get("kode"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let qty = it.get("qty").and_then(|v| v.as_f64()).unwrap_or(1.0);
+            let price = it
+                .get("price")
+                .or_else(|| it.get("harga"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let disc = it
+                .get("discount_percent")
+                .or_else(|| it.get("diskon_persen"))
+                .or_else(|| it.get("diskon"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+
+            raw_items.push(json!({
+                "kode": code,
+                "qty": qty,
+                "harga": price,
+                "diskon": disc
+            }));
+        }
     }
 
+    let payload = json!({
+        "pelanggan": customer,
+        "pembayaran": payment_method,
+        "bayar": amount_paid,
+        "keterangan": notes,
+        "items": raw_items,
+        "operator": {
+            "username": cfg.username,
+            "password": cfg.password.unwrap_or_default(),
+            "api_key": cfg.api_key
+        }
+    });
+
     let endpoints = [
+        format!("{}/api/sales", cfg.host_url),
         format!("{}/api/orders", cfg.host_url),
         format!("{}/orders", cfg.host_url),
         format!("{}/api/penjualan", cfg.host_url),
@@ -232,7 +347,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
                     return json_val;
                 }
                 return json!({
-                    "error": format!("ArunakiZen menolak faktur: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "error": format!("ArunakiZen POS rejected invoice: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
                     "details": json_val
                 });
             }
@@ -240,7 +355,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Gagal mengirim transaksi penjualan ke ArunakiZen ({})", cfg.host_url)
+        "error": format!("Failed to submit sales order to ArunakiZen POS ({})", cfg.host_url)
     })
 }
 
@@ -251,7 +366,7 @@ pub async fn execute_get_shift_summary(_args: &Value) -> Value {
         .build()
     {
         Ok(c) => c,
-        Err(e) => return json!({ "error": format!("HTTP client init failed: {}", e) }),
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
     };
 
     let endpoints = [
@@ -275,6 +390,99 @@ pub async fn execute_get_shift_summary(_args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Gagal mendapatkan ringkasan shift kasir dari ArunakiZen ({})", cfg.host_url)
+        "error": format!("Failed to retrieve cashier shift summary from ArunakiZen POS ({})", cfg.host_url)
+    })
+}
+
+pub async fn execute_print_receipt(args: &Value) -> Value {
+    let cfg = load_pos_config();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
+    };
+
+    let invoice = args
+        .get("invoice")
+        .or_else(|| args.get("faktur"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+    if invoice.is_empty() {
+        return json!({ "error": "Parameter 'invoice' (or 'faktur') is required to print receipt." });
+    }
+
+    let open_drawer = args
+        .get("open_drawer")
+        .or_else(|| args.get("buka_laci"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    let payload = json!({
+        "faktur": invoice,
+        "kode": invoice,
+        "print": true,
+        "drawer": open_drawer,
+        "printer": args.get("printer").and_then(|v| v.as_str())
+    });
+
+    let endpoints = [
+        format!("{}/api/printer/receipt", cfg.host_url),
+        format!("{}/printer/receipt", cfg.host_url),
+    ];
+
+    for ep in &endpoints {
+        let mut req = client.post(ep);
+        if !cfg.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res) = req.json(&payload).send().await {
+            if let Ok(json_val) = res.json::<Value>().await {
+                return json_val;
+            }
+        }
+    }
+
+    json!({
+        "error": format!("Failed to send print receipt command to ArunakiZen printer ({})", cfg.host_url),
+        "invoice": invoice
+    })
+}
+
+pub async fn execute_open_drawer(args: &Value) -> Value {
+    let cfg = load_pos_config();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
+    };
+
+    let payload = json!({
+        "printer": args.get("printer").and_then(|v| v.as_str())
+    });
+
+    let endpoints = [
+        format!("{}/api/printer/drawer", cfg.host_url),
+        format!("{}/printer/drawer", cfg.host_url),
+    ];
+
+    for ep in &endpoints {
+        let mut req = client.post(ep);
+        if !cfg.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res) = req.json(&payload).send().await {
+            if let Ok(json_val) = res.json::<Value>().await {
+                return json_val;
+            }
+        }
+    }
+
+    json!({
+        "error": format!("Failed to send cash drawer kick signal to ArunakiZen printer ({})", cfg.host_url)
     })
 }

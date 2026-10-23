@@ -5,7 +5,7 @@ Usage:
 - Parameters:
   * `file`: Relative path to the target .xlsx/.xls workbook.
   * `action`: One of "open", "write", "format", "summary".
-  * `sheet`: Target sheet name (e.g. "Sheet1" or "Laporan Harian").
+  * `sheet`: Target sheet name (e.g. "Sheet1" or "Daily Report").
   * `cell`: Target cell coordinates (e.g. "A1", "C15", "D20").
   * `value`: Text, number, or formula to write (e.g. "=SUM(D2:D19)").
   * Formatting flags: `bold`, `italic`, `fontSize`, `bgColor` (RGB integer), `alignment` ("left", "center", "right").

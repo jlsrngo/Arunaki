@@ -295,15 +295,22 @@ pub async fn run_agent_turn(
     let mut content_parts: Vec<Value> = Vec::new();
     let mut final_text = String::new();
 
-    for _step in 0..15 {
+    for _step in 0..25 {
         let step_start = now_ms();
         crate::paths::log_engine(
             "ai",
             &format!("⏳ Calling AI model '{}' (step {})...", model_id, _step + 1),
         );
+        let mut step_messages = chat_messages.clone();
+        if _step >= 6 {
+            step_messages.push(json!({
+                "role": "system",
+                "content": "Notice: Multiple tool operations have been performed. If all required document data has been gathered, do not re-read the same files. Conclude pending modifications immediately and provide the final answer and summary to the user."
+            }));
+        }
         let mut req_body = json!({
             "model": model_id,
-            "messages": chat_messages,
+            "messages": step_messages,
             "stream": false
         });
         if !tools_def.is_empty() {
@@ -456,7 +463,7 @@ pub async fn run_agent_turn(
     if final_text.trim().is_empty() {
         chat_messages.push(json!({
             "role": "user",
-            "content": "Semua perintah dan tool dokumen di atas telah selesai dieksekusi. Berikan kesimpulan dan jawaban final singkat kepada pengguna."
+            "content": "All requested document operations and tools have completed execution. Provide a clear, concise final summary and answer to the user."
         }));
 
         let req_body = json!({
@@ -483,7 +490,7 @@ pub async fn run_agent_turn(
         }
 
         if final_text.trim().is_empty() {
-            final_text = "Sudah selesai diproses dan diupdate ke file dokumen.".to_string();
+            final_text = "All requested document operations have been completed successfully.".to_string();
         }
     }
 
