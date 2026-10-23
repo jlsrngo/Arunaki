@@ -163,6 +163,8 @@ pub fn router() -> Router {
         .route("/api/session/:id/prompt", post(handle_prompt))
         .route("/session/:id/prompt", post(handle_prompt))
         .route("/session/:id/prompt_async", post(handle_prompt))
+        .route("/api/session/:id/model", post(handle_switch_model))
+        .route("/session/:id/model", post(handle_switch_model))
         .route("/api/session/:id/todo", get(handle_empty_list))
         .route("/session/:id/todo", get(handle_empty_list))
         .route("/api/session/:id/diff", get(handle_empty_list))
@@ -516,6 +518,33 @@ async fn handle_patch(AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -
     });
     if let Some(s) = updated {
         Json(json!({ "data": s })).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Session not found" })),
+        )
+            .into_response()
+    }
+}
+
+async fn handle_switch_model(
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    let model = body.get("model").cloned().unwrap_or_else(|| body.clone());
+    let updated = with_store(|store| {
+        if let Some(s) = store.sessions.get_mut(&id) {
+            s["model"] = model.clone();
+            s["time"]["updated"] = json!(now_ms());
+            let cloned = s.clone();
+            save_store(store);
+            Some(cloned)
+        } else {
+            None
+        }
+    });
+    if let Some(s) = updated {
+        Json(json!({ "data": s, "ok": true })).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,

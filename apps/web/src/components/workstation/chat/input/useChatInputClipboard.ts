@@ -177,8 +177,9 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
         return true;
       }
 
-      // 3. Third priority: Async navigator.clipboard.read() for modern browsers
+      // 3. Third priority: Async navigator.clipboard.read() ONLY if clipboardData was not provided by the event
       if (
+        !clipboardData &&
         typeof navigator !== "undefined" &&
         navigator.clipboard &&
         typeof navigator.clipboard.read === "function"

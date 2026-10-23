@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification, nativeImage, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, nativeTheme, Notification, nativeImage, clipboard, session } = require('electron');
 const http = require('node:http');
 const path = require('node:path');
 const os = require('node:os');
@@ -545,6 +545,20 @@ function createWindow() {
 
 
 app.whenReady().then(async () => {
+  // Auto-grant clipboard permissions to suppress intrusive Chromium permission prompts
+  if (session && session.defaultSession) {
+    session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+      if (permission === 'clipboard-read' || permission === 'clipboard-sanitized-write') {
+        return callback(true);
+      }
+      callback(false);
+    });
+    if (typeof session.defaultSession.setPermissionCheckHandler === 'function') {
+      session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+        return permission === 'clipboard-read' || permission === 'clipboard-sanitized-write';
+      });
+    }
+  }
   console.log(`[⏱️ +${formatElapsed()}] [main] Electron app.whenReady() tercapai`);
   // Ensure engine daemon is responsive or spawn bundled engine binary.
   // When launched via dev-app.cjs or start-prod.cjs (ARUNAKI_ENGINE_VERIFIED=1),

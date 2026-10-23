@@ -48,6 +48,7 @@ pub fn router() -> Router {
         .route("/api/desktop/parse-excel", post(handle_parse_excel))
         .route("/api/desktop/write-excel", post(handle_write_excel))
         .route("/api/desktop/read-binary", post(handle_read_binary))
+        .route("/api/desktop/read-clipboard-image", post(handle_read_clipboard_image))
         .route("/api/desktop/engine-info", get(handle_engine_info))
         .route("/api/desktop/quit", post(handle_quit))
 }
@@ -621,6 +622,42 @@ async fn handle_engine_info() -> Response {
     .into_response()
 }
 
+async fn handle_read_clipboard_image() -> Response {
+    let data_url = tokio::task::spawn_blocking(|| -> Option<String> {
+        #[cfg(windows)]
+        {
+            let ps_script = r#"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$img = [System.Windows.Forms.Clipboard]::GetImage()
+if ($img -ne $null) {
+    $ms = New-Object System.IO.MemoryStream
+    $img.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+    [Console]::Out.Write('data:image/png;base64,' + [Convert]::ToBase64String($ms.ToArray()))
+}
+"#;
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            if let Ok(out) = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-STA", "-Command", ps_script])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if s.starts_with("data:image/") {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    })
+    .await
+    .ok()
+    .flatten();
+
+    Json(json!({ "dataUrl": data_url })).into_response()
+}
+
 async fn handle_quit() -> Response {
     tokio::spawn(async {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -735,6 +772,10 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
     parseExcel: (filePath) => postJson('/api/desktop/parse-excel', { filePath }),
     writeExcel: (filePath, rows, sheetName) => postJson('/api/desktop/write-excel', { filePath, rows, sheetName }),
     readBinaryFile: (filePath) => postJson('/api/desktop/read-binary', { filePath }),
+    readClipboardImage: async () => {
+      const res = await postJson('/api/desktop/read-clipboard-image', {});
+      return res && res.dataUrl ? res.dataUrl : null;
+    },
     getEngineInfo: async () => {
       const r = await fetch(ORIGIN + '/api/desktop/engine-info');
       return await r.json();
