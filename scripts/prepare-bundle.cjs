@@ -56,6 +56,9 @@ async function main() {
       env: envWithCargo,
       stdio: 'inherit',
     });
+    if (fs.existsSync(engineExePath)) {
+      fs.copyFileSync(engineExePath, desktopExePath);
+    }
   } catch (err) {
     error('Step 2/3', `Failed to compile Rust binaries: ${err.message}`);
     process.exit(1);

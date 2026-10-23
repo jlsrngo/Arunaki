@@ -4395,3 +4395,29 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `cargo test --workspace`: ✅ 6/6 unit tests passed.
 - [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text (free)`, `Kiro chat`).
 - [x] End-to-end endpoint verification via `scratch/test_endpoints.js`: ✅ Seluruh 12 endpoint inti merespons dengan status dan JSON schema yang tepat.
+
+---
+
+## Phase 130: Frameless Window, Windows GUI Subsystem, CI Pipeline & Native Shell Polish ✅ DONE
+
+**Goal:** Menghilangkan window titlebar ganda (frameless Tao/Wry), mengonfigurasi Windows GUI Subsystem agar file `.exe` tidak membuka jendela terminal hitam saat di-double-click, memperbaiki GitHub Actions CI, dan memperbarui dokumentasi katalog tools.
+
+### 130.1 Frameless Window & Web Custom Titlebar Controls
+- [x] `crates/arunaki-engine/src/desktop.rs`: Mengonfigurasi `WindowBuilder` dengan `.with_decorations(false)` dan `.with_resizable(true)`.
+- [x] Menghubungkan IPC handler Wry dengan `EventLoopProxy<DesktopAction>` untuk aksi `Minimize`, `Maximize`, `Close`, dan `Drag`.
+- [x] `apps/web/src/components/layout/AppHeader.tsx`: Menambahkan tombol kontrol jendela frameless seamless (Minimize `—`, Maximize/Restore `□`, Close `✕`) dan event drag window.
+
+### 130.2 Windows GUI Subsystem (`windows_subsystem = "windows"`)
+- [x] `crates/arunaki-engine/src/main.rs`: Menambahkan `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` agar Windows tidak memunculkan console/terminal saat binary `.exe` di-klik dua kali dari File Explorer.
+- [x] Menambahkan Win32 API `AttachConsole(ATTACH_PARENT_PROCESS)` agar log terminal tetap muncul jika aplikasi dijalankan oleh developer secara sengaja lewat CLI/terminal.
+- [x] `scripts/prepare-bundle.cjs`: Otomatis menyalin `target/release/arunaki-engine.exe` ke `target/release/arunaki.exe`.
+- [x] `package.json`: Menyelaraskan target binary `--bin arunaki-engine` untuk `npm start` dan `npm run dev:desktop`.
+
+### 130.3 CI Workflow & Documentation Transparency
+- [x] `.github/workflows/ci.yml`: Memperbaiki workflow CI GitHub Actions dengan setup Rust stable toolchain, WebKitGTK dev packages, `cargo check`, `cargo test`, dan Vite web build.
+- [x] `README.md`: Memperbarui katalog tool secara jujur dan transparan (15 LLM Agent Tools dengan prompt di `crates/arunaki-engine/src/tool/prompt/` + 17 Desktop System IPC Operations).
+
+### 130.4 Verification & Quality Gate
+- [x] `cargo test --workspace`: ✅ 6/6 unit tests passed.
+- [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed**.
+- [x] `npm run bundle:prepare`: ✅ Native bundle ready in 22.4s (Web bundle + arunaki.exe 7.93 MB + arunaki-engine.exe 7.93 MB + arunaki-docs.exe 0.38 MB).

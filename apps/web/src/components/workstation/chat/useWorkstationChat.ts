@@ -464,7 +464,7 @@ export function useWorkstationChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const producedFilesRef = useRef<string[]>([]);
-  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetWatchdogRef = useRef<((timeoutMs?: number) => void) | null>(null);
   const currentTurnIdRef = useRef<string>("");
   const isLocalSendingRef = useRef(false);

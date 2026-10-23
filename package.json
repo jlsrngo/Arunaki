@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "npm run dev:web & npm run dev:desktop",
     "dev:app": "node scripts/dev-app.cjs",
-    "start": "cargo run --release -p arunaki-engine --bin arunaki",
+    "start": "cargo run --release -p arunaki-engine --bin arunaki-engine",
     "dev:web": "npm run dev -w apps/web",
-    "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki",
+    "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki-engine",
     "build": "npm run build -w apps/web",
     "typecheck": "tsc -b apps/web/tsconfig.json",
     "test:unit": "cargo test --workspace",

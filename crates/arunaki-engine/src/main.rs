@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 pub mod arunaki;
 mod bridge;
 mod cred_store;
@@ -33,7 +35,23 @@ use tokio_stream::wrappers::BroadcastStream;
 
 const ENGINE_VERSION: &str = "1.3.0-rust";
 
+#[cfg(windows)]
+fn attach_console_if_present() {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn AttachConsole(dw_process_id: u32) -> i32;
+    }
+    unsafe {
+        // ATTACH_PARENT_PROCESS = 0xFFFFFFFF
+        let _ = AttachConsole(0xFFFFFFFF);
+    }
+}
+
+#[cfg(not(windows))]
+fn attach_console_if_present() {}
+
 fn main() {
+    attach_console_if_present();
     let args: Vec<String> = std::env::args().collect();
     let mut port: u16 = std::env::var("PORT")
         .ok()
