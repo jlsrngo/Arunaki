@@ -1534,7 +1534,7 @@ export function useWorkstationChat({
 
         if (!diagnostic.hasConfiguredProvider) {
           toast.error("No AI Provider Configured", {
-            description: "Please configure an active AI provider in File â†’ Preferences â†’ Settings.",
+            description: "Please configure an active AI provider in File -> Preferences -> Settings.",
             duration: 8000,
           });
           setOptimisticMessages((prev) =>
@@ -1542,7 +1542,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `âš ï¸ **No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File â†’ Preferences â†’ Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
+                    content: `⚠️  **No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File -> Preferences -> Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
                   }
                 : m
             )
@@ -1558,7 +1558,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `âš ï¸ **Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File â†’ Preferences â†’ Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
+                    content: `⚠️  **Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File -> Preferences -> Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
                   }
                 : m
             )

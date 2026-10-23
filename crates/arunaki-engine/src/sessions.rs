@@ -52,15 +52,30 @@ pub fn get_event_sender() -> broadcast::Sender<Value> {
 
 pub fn emit_event(directory: &str, event_type: &str, properties: Value) {
     let tx = get_event_sender();
-    let payload = json!({
+    let id = gen_id("evt");
+    let now = now_ms();
+    let mut payload = json!({
+        "id": id,
+        "type": event_type,
+        "time": now,
         "directory": directory,
+        "properties": properties.clone(),
+        "data": properties.clone(),
         "payload": {
-            "id": gen_id("evt"),
+            "id": id,
             "type": event_type,
-            "time": now_ms(),
-            "properties": properties
+            "time": now,
+            "properties": properties.clone(),
+            "data": properties.clone(),
         }
     });
+    if let Some(obj) = properties.as_object() {
+        if let Some(map) = payload.as_object_mut() {
+            for (k, v) in obj {
+                map.insert(k.clone(), v.clone());
+            }
+        }
+    }
     let _ = tx.send(payload);
 }
 

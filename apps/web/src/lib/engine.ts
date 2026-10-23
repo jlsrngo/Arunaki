@@ -1,4 +1,4 @@
-// Engine API adapter â€” all requests go through Vite proxy /api â†’ engine :4096
+// Engine API adapter â€” all requests go through Vite proxy /api -> engine :4096
 
 // Engine API adapter. Base URL, credentials and directory resolution all live in lib/api.ts -
 // this file used to carry its own copy of the first two, and the copy without credentials is how 19
@@ -419,32 +419,34 @@ export function subscribeEvents(
   return controller;
 }
 
-// --- Event mapping: engine events â†’ old frontend format ---
+// --- Event mapping: engine events -> old frontend format ---
 
 const toolCallNameMap = new Map<string, string>();
 
 export function mapEngineEvent(
-  event: { type: string; data?: any; sessionID?: string; [key: string]: any },
+  event: { type?: string; data?: any; sessionID?: string; [key: string]: any },
   currentSessionID: string,
 ): { type: string; data?: any } | null {
-  const payload = event.data || event.properties || event;
-  const sessionID = payload.sessionID || event.sessionID;
+  const innerPayload = (event as any)?.payload;
+  const rawType = event.type || innerPayload?.type || "";
+  const payload = innerPayload?.properties || innerPayload?.data || event.data || event.properties || innerPayload || event;
+  const sessionID = payload?.sessionID || event.sessionID || innerPayload?.sessionID || (event as any)?.sessionID;
   if (sessionID && sessionID !== currentSessionID) return null;
 
   // Filter out internal compaction events from leaking into chat streams
   if (
     event.agent === "compaction" ||
-    payload.agent === "compaction" ||
-    payload.summary === true ||
-    payload.mode === "compaction" ||
+    payload?.agent === "compaction" ||
+    payload?.summary === true ||
+    payload?.mode === "compaction" ||
     (event as any)?.summary === true
   ) {
     return null;
   }
 
-  const normalizedType = event.type ? event.type.replace(/\.\d+$/, "") : "";
+  const normalizedType = rawType ? rawType.replace(/\.\d+$/, "") : "";
 
-  switch (normalizedType || event.type) {
+  switch (normalizedType || rawType) {
     case "session.next.prompt.admitted":
     case "session.next.prompted":
     case "session.prompted":
