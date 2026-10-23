@@ -748,10 +748,21 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
     isDesktop: true,
     platform: 'win32',
     runtime: 'rust-tauri-wry',
-    minimize: () => {},
-    maximize: () => {},
-    close: () => { postJson('/api/desktop/quit', {}); },
-    quit: () => postJson('/api/desktop/quit', {}),
+    minimize: () => {
+      try { if (window.ipc) window.ipc.postMessage('minimize'); } catch {}
+    },
+    maximize: () => {
+      try { if (window.ipc) window.ipc.postMessage('maximize'); } catch {}
+    },
+    close: () => {
+      try { if (window.ipc) window.ipc.postMessage('close'); else postJson('/api/desktop/quit', {}); } catch {}
+    },
+    quit: () => {
+      try { if (window.ipc) window.ipc.postMessage('close'); else postJson('/api/desktop/quit', {}); } catch {}
+    },
+    startDrag: () => {
+      try { if (window.ipc) window.ipc.postMessage('drag'); } catch {}
+    },
     isMaximized: async () => false,
     onMaximizedChange: () => () => {},
     // The UI reads `result.path` (same contract as the Electron preload), so answer { path }.
@@ -827,39 +838,85 @@ pub fn hide_console_window() {
 #[cfg(not(windows))]
 pub fn hide_console_window() {}
 
+#[derive(Debug, Clone, Copy)]
+pub enum DesktopAction {
+    Minimize,
+    Maximize,
+    Close,
+    Drag,
+}
+
 pub fn launch_desktop_window(url: &str) {
     use tao::{
         dpi::LogicalSize,
         event::{Event, WindowEvent},
-        event_loop::{ControlFlow, EventLoop},
+        event_loop::{ControlFlow, EventLoopBuilder},
         window::{Theme, WindowBuilder},
     };
     use wry::WebViewBuilder;
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoopBuilder::<DesktopAction>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
     let window = WindowBuilder::new()
         .with_title("Arunaki")
         .with_inner_size(LogicalSize::new(1360.0, 860.0))
         .with_min_inner_size(LogicalSize::new(960.0, 640.0))
         .with_theme(Some(Theme::Dark))
+        .with_decorations(false)
+        .with_resizable(true)
         .build(&event_loop)
         .expect("Failed to create Arunaki desktop window");
 
+    let proxy_c = proxy.clone();
     let _webview = WebViewBuilder::new()
         .with_initialization_script(DESKTOP_INIT_SCRIPT)
+        .with_ipc_handler(move |req| {
+            let msg = req.body().as_str();
+            match msg {
+                "minimize" => {
+                    let _ = proxy_c.send_event(DesktopAction::Minimize);
+                }
+                "maximize" => {
+                    let _ = proxy_c.send_event(DesktopAction::Maximize);
+                }
+                "close" => {
+                    let _ = proxy_c.send_event(DesktopAction::Close);
+                }
+                "drag" => {
+                    let _ = proxy_c.send_event(DesktopAction::Drag);
+                }
+                _ => {}
+            }
+        })
         .with_url(url)
         .build(&window)
         .expect("Failed to initialize WebView2 runtime");
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-        if let Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } = event
-        {
-            *control_flow = ControlFlow::Exit;
-            std::process::exit(0);
+        match event {
+            Event::UserEvent(DesktopAction::Minimize) => {
+                window.set_minimized(true);
+            }
+            Event::UserEvent(DesktopAction::Maximize) => {
+                window.set_maximized(!window.is_maximized());
+            }
+            Event::UserEvent(DesktopAction::Close) => {
+                *control_flow = ControlFlow::Exit;
+                std::process::exit(0);
+            }
+            Event::UserEvent(DesktopAction::Drag) => {
+                let _ = window.drag_window();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                *control_flow = ControlFlow::Exit;
+                std::process::exit(0);
+            }
+            _ => {}
         }
     });
 }

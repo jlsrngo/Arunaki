@@ -1,18 +1,18 @@
 <div align="center">
 
-  <img src="apps/desktop/resources/icon.png" alt="Arunaki Logo" width="120" height="120" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);" />
+  <img src="apps/web/public/arunakiLogo.svg" alt="Arunaki Logo" width="120" height="120" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);" />
 
   # arunaki
 
-  **The Desktop Document Agent Workstation & Automation Harness**
+  **The Pure Native Rust Desktop Document Agent Workstation & Automation Harness**
   
   *Native desktop computer-use for Microsoft Excel spreadsheets, Word contracts, PowerPoint decks, PDF pipelines, and financial ledgers — operating 100% locally and sandboxed to your active project folder.*
 
   <br />
 
-  [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-09090b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/jlsrngo/Arunaki)
-  [![Runtime](https://img.shields.io/badge/Runtime-Bun%201.3%20%7C%20Electron%2043-09090b?style=for-the-badge&logo=bun&logoColor=white)](https://github.com/jlsrngo/Arunaki)
-  [![Stack](https://img.shields.io/badge/Tech-TypeScript%20%7C%20React%20%7C%20Effect-09090b?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/jlsrngo/Arunaki)
+  [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-09090b?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/jlsrngo/Arunaki)
+  [![Runtime](https://img.shields.io/badge/Runtime-Pure%20Rust%20%7C%20WebView2-09090b?style=for-the-badge&logo=rust&logoColor=white)](https://github.com/jlsrngo/Arunaki)
+  [![Stack](https://img.shields.io/badge/Tech-Rust%20%7C%20React%20%7C%20Vite-09090b?style=for-the-badge&logo=react&logoColor=white)](https://github.com/jlsrngo/Arunaki)
   [![Telegram Remote](https://img.shields.io/badge/Remote%20Control-Telegram%20Bot-09090b?style=for-the-badge&logo=telegram&logoColor=26A5E4)](https://github.com/jlsrngo/Arunaki)
   [![License](https://img.shields.io/badge/License-Apache%202.0-09090b?style=for-the-badge&logo=apache&logoColor=white)](LICENSE)
   [![Security](https://img.shields.io/badge/Security-Folder%20Isolation%20Sandbox-e59344?style=for-the-badge&logoColor=black)](docs/BOUNDARIES.md)
@@ -23,7 +23,7 @@
   [🚀 Quick Start](#-getting-started-3-simple-steps) •
   [📊 Document Features](#-core-document-features) •
   [🏛️ Architecture](#-system-architecture) •
-  [🛠️ 50+ Tool Catalog](#-50-agent-tool-catalog) •
+  [🛠️ Native Tool Catalog](#-native-agent--desktop-tool-catalog) •
   [🔒 Security Boundaries](#-security--sandbox-boundaries) •
   [💻 Developer Guide](#-developer-guide)
 
@@ -37,14 +37,14 @@
 
 ```bash
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ ● ● ●  arunaki-agent // headless-com-worker                bun: 1.3.14 • electron: 43.2 │
+│ ● ● ●  arunaki // native-rust-engine                       rust: 1.80+ • webview2: edge│
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ > Workspace Root: C:\Users\Finance\Documents\Workspace                                  │
+│ > Workspace Root: D:\Company_Financials_2026                                           │
 │ > "Summarize today's expenses into financial_report.xlsx on sheet                       │
 │    'August 2026', calculate total net margin automatically."                           │
 │                                                                                        │
 │ [Security]      Checked path inside sandbox: ./workspace/report.xlsx (ACCESS GRANTED)  │
-│ [Snapshot]      Created immutable checkpoint: .arunaki/checkpoints/20260924_1340_report │
+│ [Snapshot]      Created immutable checkpoint: .arunaki/checkpoints/20261023_1630_report │
 │ [COM Bridge]    Attaching to native Microsoft Excel COM (headless)... Attached PID 9482 │
 │ [Execution]     Injected 34 rows into sheet "August 2026" (Range A24:E57)              │
 │ [Formula Guard] Preserved dynamic formulas: =SUM(D24:D57) and =IF(E58>0,"PROFIT",...) │
@@ -73,8 +73,9 @@ graph LR
 ### 1. Download Installer
 | Platform | Distribution Format | Packaging Status | System Requirements |
 | :--- | :--- | :--- | :--- |
-| **Windows** | `Arunaki-Setup.exe`<br>`Arunaki-Portable.exe` | ✅ Standalone Ready | Windows 10 / 11 (64-bit)<br>MS Office 2016+ *(optional, for native COM)* |
-| **macOS** | `Arunaki-Universal.dmg` | 🔄 In Development | macOS 12.0 (Monterey) or higher |
+| **Windows** | `arunaki.exe` *(~7.9 MB Standalone)* | ✅ Pure Native Ready | Windows 10 / 11 (64-bit)<br>MS Office 2016+ *(optional, for native COM)* |
+| **Linux** | `arunaki-linux-x86_64` | ✅ Supported | Ubuntu 22.04+ / Debian (WebKitGTK) |
+| **macOS** | `Arunaki.app` | 🔄 In Development | macOS 12.0 (Monterey) or higher |
 
 ### 2. Choose Your Workspace Folder
 Launch Arunaki and select your local working directory (e.g. `D:\Company_Financials_2026`).
@@ -91,7 +92,7 @@ Type your instructions naturally:
 ## 📊 Core Document Features
 
 ### 1. 📈 Microsoft Excel Automation (`.xlsx`, `.xlsm`, `.csv`)
-- **Native Windows COM Bridge (WinAX):** Controls Microsoft Excel headless in the background with 100% native formatting fidelity.
+- **Native Windows COM Bridge:** Controls Microsoft Excel headless in the background with 100% native formatting fidelity.
 - **Formula Guard:** Preserves and evaluates dynamic formulas (`=SUM()`, `=VLOOKUP()`, `=IF()`, `=INDEX(MATCH())`) without ever flattening them into static numbers.
 - **Multi-Sheet Management:** Clones monthly template sheets, formats cell ranges, applies branded border colors, and generates automatic subtotal blocks.
 - **Embedded Fast Viewer:** Native grid spreadsheet viewer embedded directly in the workstation UI without requiring external software.
@@ -105,34 +106,24 @@ Type your instructions naturally:
 - **Automated Slide Generation:** Constructs new slides complete with titles, structured bullet cards, and layout containers.
 - **Text Frame Updates:** Updates executive metric callouts and summary tables across existing slide decks.
 
-### 4. 🛡️ PDF Pipelines, Digital Stamps, & PII Redaction
-- **Page Manipulation (`pdf_manage_pages`):** Merges dozens of invoice documents or splits specific page ranges cleanly.
-- **Stamping & Signatures (`pdf_stamp_image`):** Applies digital stamps, transparent signatures, and e-Materai seals on precise millimeter coordinates.
-- **PII Privacy Redaction (`doc_redact_pii`):** Automatically detects and masks sensitive personal identifiers for regulatory compliance:
-  - NIK KTP (Indonesian National Identity Numbers)
-  - NPWP (Tax Identification Numbers)
-  - Bank Account & Credit Card Numbers
-  - Mobile Phone Numbers & Personal Emails
+### 4. 🛡️ PDF Pipelines, Digital Stamps, & Text Extraction
+- **Page Manipulation & Text Layer:** Extracts selectable text and structural layout across multi-page PDF documents.
+- **Invoice & Statement Analysis:** Automatically ingests PDF invoices and summarizes transactions directly into spreadsheet ledgers.
 
-### 5. ⚖️ Document Audit & Redline Comparison (`doc_compare_versions`)
-- Compares two contract drafts with visual redline diffing.
-- Generates a structured comparison table highlighting added, modified, and removed clauses alongside similarity percentages.
-
-### 6. 🔄 1-Click Checkpoints & Instant Rollback
+### 5. 🔄 1-Click Checkpoints & Instant Rollback
 - Automatically captures an immutable snapshot in `.arunaki/checkpoints/` before applying any file modifications.
 - Undo changes instantly with a single click if the result does not match user expectations.
 
-### 7. 📱 Remote Control via Telegram Bot (Mobile Document Gateway)
+### 6. 📱 Remote Control via Telegram Bot (Mobile Document Gateway)
 - **Zero-Friction Mobile Dispatch:** Forward unformatted receipts, voice notes, or WhatsApp text directly to your paired Arunaki Telegram Bot from anywhere.
 - **Bi-directional Live Streaming:** The desktop workstation processes document tasks locally and streams progress notifications, step checklists, and confirmation badges back to your Telegram chat.
 - **Secure Pair-Code Authentication:** Zero unauthorized access — only Telegram User IDs explicitly paired via the workstation settings panel can dispatch commands.
-- **On-the-Go File Delivery:** Receive finalized PDF reports, Excel recap sheets, and clause diff summaries straight to your Telegram chat.
 
 ---
 
 ## 🏛️ System Architecture
 
-Arunaki is built on a **Hybrid Client-Server Desktop Architecture**:
+Arunaki is built on a **High-Performance Pure Native Rust + Web Client Architecture** (0 Electron):
 
 ```mermaid
 graph TD
@@ -140,67 +131,97 @@ graph TD
         Telegram[Telegram Bot Mobile App]
     end
 
-    subgraph Desktop Shell [Electron Desktop Shell - apps/desktop]
+    subgraph Native Shell [Native Desktop Shell - arunaki.exe ~7.9MB]
         UI[React Workstation UI - apps/web]
-        Preload[Secure Context Bridge - preload.cjs]
-        Main[Main Process - main.cjs]
-        WinAX[Windows COM Office Bridge - winax]
+        WebView[Windows WebView2 Runtime - Wry / Tao]
+        WindowControls[Frameless Seamless Header Controls]
     end
 
-    subgraph Backend Engine [AI Engine Daemon - packages/engine]
-        Engine[Standalone engine.exe :4096]
-        TGService[Telegram Gateway Service]
+    subgraph Backend Engine [Native Rust AI Engine - crates/arunaki-engine :4096]
+        Axum[Axum High-Concurrency HTTP & SSE Server]
         Router[Universal LLM Provider Router]
-        CLIBridge[Local CLI Bridge :20188]
-        SQLite[(Local SQLite - Arunaki-local.db)]
+        CLIBridge[Embedded Local CLI Bridge :20188]
+        Memory[Living Workspace Memory - ARUNAKI.md]
+        Docs[Native Document Parser Sidecar - arunaki-docs]
     end
 
-    subgraph Sandbox [Sandboxed Active Project]
+    subgraph Sandbox [Sandboxed Active Project Folder]
         Folder[(Workspace Folder)]
         Checkpoint[.arunaki/checkpoints]
     end
 
-    Telegram <-->|Polling / Realtime Sync| TGService
-    TGService <--> Engine
-    UI -->|IPC Relay / SSE| Preload
-    Preload --> Main
-    Main --> WinAX
-    Main -->|HTTP / Local IPC| Engine
-    Engine --> Router
+    Telegram <-->|Long-polling / Realtime Sync| Axum
+    UI <-->|Localhost HTTP / EventStream| Axum
+    WebView --> WindowControls
+    Axum --> Router
     Router --> CLIBridge
-    Engine --> SQLite
-    WinAX --> Folder
-    Engine --> Folder
+    Axum --> Memory
+    Axum --> Docs
+    Docs --> Folder
     Folder --> Checkpoint
 ```
 
-1. **Desktop Shell (`apps/desktop`):**
-   - Built on Electron 43 with a borderless dark-mode titlebar overlay.
-   - Secure IPC relay: Renderer process never directly contacts localhost ports or handles credentials.
-   - Autonomous Engine Lifecycle: Electron automatically launches `engine.exe` on startup and cleanly terminates it on exit.
+1. **Native Desktop Shell (`arunaki.exe`):**
+   - Built on Rust (`tao` + `wry` Edge WebView2) with a modern frameless dark-mode header overlay.
+   - Memory consumption: **~60 MB – 80 MB** (down from ~500 MB in Electron — **>80% lighter**).
+   - Single standalone binary (~7.9 MB) with zero Node.js runtime overhead.
 2. **Workstation UI (`apps/web`):**
    - Built with React 18, Vite, and Tailwind CSS.
    - Features Monaco Editor, native spreadsheet viewer, developer telemetry metrics, and multi-tab document management.
-3. **Backend AI Engine (`packages/engine`):**
-   - Ultra-fast Effect-TS server powered by Bun.
-   - Comprehensive model routing (OpenAI, Anthropic Claude, Google Gemini, Antigravity, OpenCode, Kiro, Codex, Groq, and OpenRouter).
-   - Embedded Telegram Gateway Service (`TelegramService`) for secure mobile command dispatch.
+3. **Backend AI Engine (`crates/arunaki-engine`):**
+   - Pure native Rust server on `:4096`.
+   - Comprehensive model routing (AWS Kiro Claude, OpenCode Zen, Google Antigravity Gemini, OpenAI Codex, Claude).
+   - Embedded Telegram Gateway Worker for remote command dispatch.
 4. **Local CLI Bridge (`port 20188`):**
-   - Local daemon enabling token-pooling from existing installed CLI subscriptions without cloud API fees.
+   - Embedded local daemon enabling token-pooling from existing installed CLI subscriptions without cloud API fees.
 
 ---
 
-## 🛠️ 50+ Agent Tool Catalog
+## 🛠️ Native Agent & Desktop Tool Catalog
 
-| Category | Primary Tools | Operational Scope |
+Arunaki's capabilities are divided into **15 Core LLM Agent Tools** (callable by the AI during conversation) and **17 Desktop System IPC Operations** (used by the workstation shell):
+
+### 1. 🤖 15 Core LLM Document & Workspace Tools
+*All tools feature comprehensive instruction prompts embedded via `crates/arunaki-engine/src/tool/prompt/*.txt`.*
+
+| Tool Name | Dedicated Prompt | Purpose & Operational Scope |
 | :--- | :--- | :--- |
-| **Workspace Files** | `read_file`, `write_file`, `edit_file`, `list_directory`, `search_files`, `rename_file`, `delete_file` | Safe CRUD operations, surgical diff line patching, regex search, atomic file lifecycle. |
-| **Office Automation** | `desktop_excel_edit`, `desktop_word_edit`, `desktop_ppt_edit`, `desktop_open_file` | Native COM automation, formula retention, cell manipulation, template styling, PDF export. |
-| **PDF & Compliance** | `pdf_manage_pages`, `pdf_stamp_image`, `doc_redact_pii`, `convert_document` | Document merging, page extraction, watermark/signature stamping, PII masking. |
-| **Document Audit** | `doc_compare_versions`, `extract_structured_data`, `document_reader` | Redline differential tables, financial table extraction, clause similarity analysis. |
-| **Messaging & Remote** | `telegram_notify`, `telegram_send_document`, `remote_dispatch` | Telegram Bot mobile integration, remote task execution, mobile document delivery. |
-| **Data & Calculations** | `data_query`, `unit_converter`, `draft_communication`, `generate_export` | Local SQLite database queries, unit/currency conversions, message drafting, CSV/XLSX export. |
-| **Orchestration** | `todo_write`, `batch_execute`, `agent_spawn`, `ask_user` | Working memory task tracking, Programmatic Tool Calling (PTC), sub-agent delegation. |
+| `excel_read` | [`excel_read.txt`](crates/arunaki-engine/src/tool/prompt/excel_read.txt) | Extract sheet names, table coordinates, data cells, and calculation formulas from Excel workbooks. |
+| `excel_com` | [`excel_com.txt`](crates/arunaki-engine/src/tool/prompt/excel_com.txt) | Native Windows Excel COM automation: cell updates, formula integrity preservation (SUM/TOTAL), row expansion, styling. |
+| `word_read` | [`word_read.txt`](crates/arunaki-engine/src/tool/prompt/word_read.txt) | Parse structured paragraph hierarchies, heading levels (H1-H3), bullet runs, and embedded tables from Word documents. |
+| `word_com` | [`word_com.txt`](crates/arunaki-engine/src/tool/prompt/word_com.txt) | Native Windows Word COM automation: style formatting, text append, placeholder replacement without breaking typography. |
+| `ppt_read` | [`ppt_read.txt`](crates/arunaki-engine/src/tool/prompt/ppt_read.txt) | Inspect presentation slides, shapes, title frames, bullet layouts, and speaker notes. |
+| `ppt_com` | [`ppt_com.txt`](crates/arunaki-engine/src/tool/prompt/ppt_com.txt) | Native Windows PowerPoint COM automation: slide creation, shape text updates, layout containers. |
+| `pdf_read` | [`pdf_read.txt`](crates/arunaki-engine/src/tool/prompt/pdf_read.txt) | Extract selectable plain text and multi-page structured content from PDF documents. |
+| `read` / `read_file` | [`read.txt`](crates/arunaki-engine/src/tool/prompt/read.txt) | Read filesystem content with line numbers and offset pagination inside active workspace. |
+| `write` / `write_file` | [`write.txt`](crates/arunaki-engine/src/tool/prompt/write.txt) | Create new files strictly sandboxed to the active workspace folder. |
+| `edit` / `edit_file` | [`edit.txt`](crates/arunaki-engine/src/tool/prompt/edit.txt) | Precise search-and-replace string patching with surrounding context matching. |
+| `glob` / `list_files` | [`glob.txt`](crates/arunaki-engine/src/tool/prompt/glob.txt) | Discover filenames and paths across workspace using wildcard/glob patterns. |
+| `grep` / `search_files`| [`grep.txt`](crates/arunaki-engine/src/tool/prompt/grep.txt) | Regex search within files to locate relevant references and data. |
+| `todowrite` / `todo` | [`todowrite.txt`](crates/arunaki-engine/src/tool/prompt/todowrite.txt) | Working memory task tracking for multi-step agent plans. |
+| `websearch` | [`websearch.txt`](crates/arunaki-engine/src/tool/prompt/websearch.txt) | Real-time web search for market data, regulatory standards, or exchange rates. |
+| `question` | [`question.txt`](crates/arunaki-engine/src/tool/prompt/question.txt) | Request interactive user clarification before making ambiguous document edits. |
+
+### 2. 🖥️ 17 Desktop Shell & System Operations (`/api/desktop/*`)
+| Operation | HTTP Route | Description |
+| :--- | :--- | :--- |
+| `pick-folder` | `POST /api/desktop/pick-folder` | Spawns native Windows OS folder picker dialog to select active workspace. |
+| `folder-tree` | `POST /api/desktop/folder-tree` | Returns recursive JSON hierarchy of active workspace directory. |
+| `read-file` | `POST /api/desktop/read-file` | Reads file content with sandboxed folder isolation verification. |
+| `write-file` | `POST /api/desktop/write-file` | Writes document file atomically with sandbox verification. |
+| `create-folder` | `POST /api/desktop/create-folder` | Creates subfolders inside active workspace. |
+| `backup-folder` | `POST /api/desktop/backup-folder` | Generates immutable checkpoint snapshot before edits. |
+| `delete-path` | `POST /api/desktop/delete-path` | Moves unwanted files to backup or deletes cleanly. |
+| `rename-path` | `POST /api/desktop/rename-path` | Renames paths safely within active workspace. |
+| `open-path` | `POST /api/desktop/open-path` | Opens file in default operating system viewer. |
+| `open-excel` | `POST /api/desktop/open-excel` | Launches Microsoft Excel native application with target workbook. |
+| `open-word` | `POST /api/desktop/open-word` | Launches Microsoft Word native application with target document. |
+| `parse-excel` | `POST /api/desktop/parse-excel` | High-speed binary parser extracting sheets and tabular grids. |
+| `write-excel` | `POST /api/desktop/write-excel` | High-speed binary workbook generator. |
+| `read-binary` | `POST /api/desktop/read-binary` | Reads binary assets (images, PDF) for UI rendering. |
+| `read-clipboard-image` | `POST /api/desktop/read-clipboard-image` | Extracts images directly from Windows clipboard for chat input. |
+| `engine-info` | `GET /api/desktop/engine-info` | Returns backend engine health, version, and bridge status. |
+| `quit` | `POST /api/desktop/quit` | Gracefully closes all background threads and terminates application. |
 
 ---
 
@@ -209,15 +230,15 @@ graph TD
 - 🛡️ **Zero Operating System Access:** The agent cannot access `C:\Windows`, system registries, user documents outside the active folder, or source code of other applications.
 - 🚫 **Zero Arbitrary Shell Execution:** The agent is strictly prohibited from running arbitrary terminal commands (`cmd.exe`, `powershell`, `bash`, `rmdir /s`).
 - 📂 **Original File Protection:** Original documents are backed up to local checkpoints prior to any write or edit operation.
-- 👁️ **Full Execution Transparency:** Every action taken by the agent is displayed in real-time within collapsible execution telemetry cards.
+- 👁️ **Full Execution Transparency:** Every action taken by the agent is displayed in real-time within collapsible execution telemetry cards and visible console output.
 
 ---
 
 ## 💻 Developer Guide
 
 ### Environment Prerequisites
-- [Node.js](https://nodejs.org/) v20+ / npm v10+
-- [Bun](https://bun.sh/) v1.2+ (for engine execution and native compilation)
+- [Rust](https://rustup.rs/) 1.80+ (with `cargo`)
+- [Node.js](https://nodejs.org/) v20+ / npm v10+ or [Bun](https://bun.sh/)
 - Git
 
 ### Running in Development Mode
@@ -226,27 +247,17 @@ graph TD
 git clone https://github.com/jlsrngo/Arunaki.git
 cd Arunaki
 
-# 2. Install workspace dependencies
-npm install
+# 2. Build Web Frontend
+npm run build -w apps/web
 
-# 3. Start development environment (Vite UI + Electron Desktop Shell)
-npm run dev:app
+# 3. Start Native Desktop Application (Pure Rust + WebView2)
+npm start
 ```
+*Or simply run `target/release/arunaki.exe` directly from Windows Explorer!*
 
-### Standalone Bundle Preparation
+### Full Verification Gate
 ```bash
-# Run the 1-click preparation pipeline:
-# - Builds the React Vite frontend
-# - Syncs bundle into apps/desktop/web/
-# - Compiles the AI engine into engine.exe (Bun native binary)
-# - Verifies artifact integrity
-npm run bundle:prepare
-```
-
-### Code Quality & Verification
-```bash
-npm run typecheck    # Verify web TypeScript types (0 errors)
-npm run verify       # Full verification gate (build + typecheck + smoke tests)
+npm run verify       # Full verification: build web + cargo test + live smoke tests (8/8)
 ```
 
 ---

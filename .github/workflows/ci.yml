@@ -23,15 +23,19 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build Web
+      - name: Build Web Frontend
         working-directory: apps/web
-        run: |
-          bun run build 2>&1 | tee /tmp/web-build.log || true
-          if ! grep -q "built in" /tmp/web-build.log; then
-            grep -iE "error|failed|cannot|not found" /tmp/web-build.log | head -20 | sed 's/^/::error::/'
-            exit 1
-          fi
+        run: bun run build
 
-      - name: Syntax check desktop main.cjs
-        working-directory: apps/desktop
-        run: node --check main.cjs
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux GUI Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Cargo Check & Test Workspace
+        run: |
+          cargo check --workspace
+          cargo test --workspace
