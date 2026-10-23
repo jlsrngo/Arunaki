@@ -9,10 +9,6 @@ import {
   EyeOff,
   Check,
   RefreshCw,
-  Search,
-  ShoppingCart,
-  Clock,
-  Sparkles,
   ShieldCheck,
   Building2,
 } from "lucide-react";
@@ -41,7 +37,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
   // All React Hooks declared unconditionally at top level
   const [hostUrl, setHostUrl] = useState("http://127.0.0.1:5000");
   const [apiKey, setApiKey] = useState("");
-  const [username, setUsername] = useState("CANDANA");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -111,14 +107,14 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
       if (detectedUrl) {
         setHostUrl(detectedUrl);
-        toast.success(`ArunakiZen POS terdeteksi di: ${detectedUrl}`);
+        toast.success(`${t("posToastPortDetected", "ArunakiZen POS detected at:")} ${detectedUrl}`);
       } else {
-        toast.info("Port aktif tidak ditemukan otomatis. Menggunakan default http://127.0.0.1:5000");
+        toast.info(t("posToastPortNotFound", "No active POS port detected automatically. Using default http://127.0.0.1:5000"));
       }
     } finally {
       setAutoDetecting(false);
     }
-  }, []);
+  }, [t]);
 
   // Handshake connection test
   const handleTestConnection = useCallback(async () => {
@@ -127,7 +123,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
     const cleanUser = username.trim();
 
     if (!cleanHost || !cleanKey || !cleanUser || !password) {
-      toast.error(t("posFillRequired", "Harap isi Host URL, API Key, Username, dan Password kasir!"));
+      toast.error(t("posFillRequired", "Please fill in Host URL, API Key, Operator Username, and Password."));
       return;
     }
 
@@ -175,7 +171,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       }
 
       if (!res || !res.ok || !data?.success) {
-        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : "Koneksi gagal atau server POS belum aktif");
+        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : t("posConnectionFailed", "Connection failed or POS server not reachable"));
         throw new Error(errorMsg);
       }
 
@@ -202,11 +198,11 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       );
 
       toast.success(
-        `${t("posHandshakeSuccess", "Sukses terhubung ke ArunakiZen sebagai operator")} '${newStatus.operator?.nama}' (${newStatus.store})`
+        `${t("posHandshakeSuccess", "Successfully connected to ArunakiZen as operator")} '${newStatus.operator?.nama}' (${newStatus.store})`
       );
     } catch (err: any) {
       setStatus({ connected: false });
-      toast.error(`${t("posHandshakeFailed", "Gagal melakukan handshake koneksi")}: ${err.message}`);
+      toast.error(`${t("posHandshakeFailed", "Connection handshake failed")}: ${err.message}`);
     } finally {
       setTesting(false);
     }
@@ -231,9 +227,9 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         })
       );
 
-      toast.success(t("posConfigSavedSuccess", "Konfigurasi koneksi ArunakiZen POS berhasil disimpan."));
+      toast.success(t("posConfigSavedSuccess", "ArunakiZen POS configuration saved successfully."));
     } catch (err: any) {
-      toast.error(`Gagal menyimpan: ${err.message}`);
+      toast.error(`${t("posToastSaveFailed", "Failed to save configuration")}: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -265,12 +261,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           {status.connected ? (
             <>
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>{t("posStatusConnected", "TERHUBUNG")}</span>
+              <span>{t("posStatusConnected", "Connected")}</span>
             </>
           ) : (
             <>
               <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
-              <span>{t("posStatusDisconnected", "BELUM TERHUBUNG")}</span>
+              <span>{t("posStatusDisconnected", "Not connected")}</span>
             </>
           )}
         </div>
@@ -351,7 +347,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                placeholder="Contoh: CANDANA"
+                placeholder={t("posOperatorUserPlaceholder", "e.g. CASHIER01")}
                 className="w-full h-9 pl-9 pr-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-semibold uppercase focus:border-[var(--border-strong)] focus:outline-none transition-colors"
               />
             </div>
@@ -369,7 +365,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Kata sandi kasir..."
+                placeholder={t("posOperatorPassPlaceholder", "Cashier password...")}
                 className="w-full h-9 pl-9 pr-10 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none transition-colors"
               />
               <button
@@ -443,54 +439,6 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             <Check className="w-3.5 h-3.5 text-black" />
             <span>{saving ? t("posSaving", "Menyimpan...") : t("posSaveConfig", "Simpan Pengaturan")}</span>
           </button>
-        </div>
-      </div>
-
-      {/* Supported Active Tools Section */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-3">
-        <div>
-          <h3 className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-            <span>{t("posToolsTitle", "Tool AI POS yang Aktif")}</span>
-          </h3>
-          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-            {t("posToolsDesc", "Tool berikut otomatis tersedia untuk model AI saat terhubung:")}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-          {/* Tool 1 */}
-          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
-            <div className="flex items-center gap-2">
-              <Search className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <code className="text-[11px] font-bold text-white">arunakizen_search_product</code>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              {t("posToolSearch", "Cari katalog barang, scan barcode, sisa stok & harga")}
-            </p>
-          </div>
-
-          {/* Tool 2 */}
-          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <code className="text-[11px] font-bold text-white">arunakizen_create_sale_order</code>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              {t("posToolOrder", "Buat faktur penjualan kasir ritel atomic (R43) & potong stok")}
-            </p>
-          </div>
-
-          {/* Tool 3 */}
-          <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1">
-            <div className="flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <code className="text-[11px] font-bold text-white">arunakizen_get_shift_summary</code>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              {t("posToolShift", "Cek saldo kas laci, modal awal kasir & omset shift")}
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -912,24 +912,16 @@ pub fn launch_desktop_window(url: &str) {
 
         const GWL_STYLE: i32 = -16;
         const WS_CAPTION: isize = 0x00C00000;
+        const WS_THICKFRAME: isize = 0x00040000;
         const SWP_FRAMECHANGED: u32 = 0x0020;
         const SWP_NOMOVE: u32 = 0x0002;
         const SWP_NOSIZE: u32 = 0x0001;
         const SWP_NOZORDER: u32 = 0x0004;
 
-        let style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-        if style & WS_CAPTION != 0 {
-            SetWindowLongPtrW(hwnd, GWL_STYLE, style & !WS_CAPTION);
-            SetWindowPos(
-                hwnd,
-                0,
-                0,
-                0,
-                0,
-                0,
-                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
-            );
-        }
+        let mut style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+        style &= !WS_CAPTION;
+        style |= WS_THICKFRAME;
+        SetWindowLongPtrW(hwnd, GWL_STYLE, style);
 
         // 1. Immersive dark mode (attribute 20)
         let dark_mode: i32 = 1;
@@ -956,6 +948,17 @@ pub fn launch_desktop_window(url: &str) {
             34,
             &border_color as *const _ as *const _,
             std::mem::size_of::<u32>() as u32,
+        );
+
+        // 4. Force DWM frame recalculation so standard rounded corners apply immediately
+        SetWindowPos(
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
         );
     }
 
