@@ -5,6 +5,7 @@ import * as fs from "fs"
 import * as path from "path"
 import { ExcelMap } from "./docmap"
 import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
+import { tryRunRustDocMap } from "./rust-bridge"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -15,6 +16,9 @@ export const Parameters = Schema.Struct({
 type Metadata = Record<string, unknown>
 
 export function buildExcelMap(filePath: string): typeof ExcelMap.Type {
+  const rustResult = tryRunRustDocMap<typeof ExcelMap.Type>("excel", filePath)
+  if (rustResult) return rustResult
+
   const workbook = XLSX.readFile(filePath, {
     cellDates: false,
     cellNF: true,

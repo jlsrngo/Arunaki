@@ -75,3 +75,8 @@ apps/desktop/web/
 apps/desktop/dist-exe/
 apps/desktop/dist-package/
 
+# Rust build artifacts
+target/
+crates/**/target/
+
+

@@ -9,3 +9,5 @@ export { ImageOcrTool } from "./image-ocr-tool"
 export { buildImageOcrMap, terminateOcrWorker } from "./image-ocr"
 export * from "./doc-fallback"
 export * from "./docmap"
+
+export * from "./rust-bridge"

@@ -4196,3 +4196,24 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 ### 121.4 Verification & Testing
 - [x] **TypeScript Build Verification**: `npm run build -w apps/web` (0 errors, built in 9.76s, chunk 8.7 MB hilang 100%, main entry bundle turun dari 1.35 MB ke 505 KB / 148 KB gzip).
 - [x] **Vitest Test Suite**: 47/47 passed across 10 test suites (`npx vitest run`).
+
+
+---
+
+## Phase 122: Rust Backend Hybrid Migration Foundation (Phase 0 & Phase 1 Sidecar) ✅ DONE
+
+**Goal:** Membangun fondasi migrasi backend ke Rust secara hybrid dan zero-downtime (Strangler Fig + Sidecar) dengan feature flag default OFF (`ARUNAKI_RUST_TOOLS=1`) dan automatic fallback ke TypeScript, sehingga aplikasi tetap berjalan 100% normal setiap saat.
+
+### 122.1 Architecture Alignment & Cargo Workspace (Phase 0)
+- [x] Update `docs/ARCHITECTURE.md` dengan ADR-008 (Hybrid Rust Sidecar & Strangler Fig Migration Architecture) dan klarifikasi stack aktual (`packages/engine` + `crates/`).
+- [x] Inisialisasi Cargo workspace (`Cargo.toml` root + `.gitignore` untuk `target/`).
+
+### 122.2 Rust Document Sidecar Crate (`crates/arunaki-docs`) (Phase 1)
+- [x] `crates/arunaki-docs` — Native Rust binary & library untuk parsing dokumen berkecepatan tinggi (`word_read` `.docx` XML/ZIP, `ppt_read` `.pptx` slides/shapes, `excel_read` `.xlsx`/`.csv`).
+- [x] Unit test Rust (`cargo test`) memverifikasi schema JSON output identik dengan `DocMap` TypeScript (`ExcelMap`, `WordMap`, `PptMap`).
+
+### 122.3 Zero-Downtime Feature-Flagged Bridge & Fallback (`@arunaki/tools`)
+- [x] `packages/arunaki-tools/src/rust-bridge.ts` — Bridge ke binary `arunaki-docs` yang dikontrol `ARUNAKI_RUST_TOOLS=1` (default OFF) dengan automatic fallback ke parser TS jika binary belum di-build atau gagal.
+- [x] Integrasi ke `word-read.ts`, `ppt-read.ts`, dan `excel-read.ts`.
+- [x] Unit & parity test (`packages/arunaki-tools/test/rust-bridge.test.ts` — 4/4 passed).
+

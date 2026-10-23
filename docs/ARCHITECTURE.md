@@ -340,3 +340,18 @@ Arsitektur ini dianggap berhasil apabila:
 - AI Engine dapat diganti provider-nya (Section 8) tanpa mengubah kode di Workspace/Search/Storage Service.
 - Tidak ada kebocoran data antar Workspace, bahkan dalam skenario single-machine.
 - Setiap keputusan arsitektur besar tercatat sebagai ADR baru, bukan berubah diam-diam.
+
+
+---
+
+# 17. Rust Hybrid & Strangler Migration Architecture (ADR-008)
+
+- **ADR-008:** Migrasi bertahap backend ke Rust menggunakan pola **Hybrid Sidecar + Strangler Fig** dengan **Feature Flag Default OFF (`ARUNAKI_RUST_TOOLS=1`, `ARUNAKI_ENGINE=rust`)** dan **Automatic TypeScript Fallback** agar aplikasi tidak pernah mengalami downtime selama proses migrasi.
+
+## Realitas Stack Aktual vs Target Rust
+Saat ini, runtime backend Arunaki berjalan di atas `packages/engine` (Bun + Effect-TS + Drizzle SQLite + Vercel AI SDK) dan `packages/arunaki-tools` (document parsing & COM automation), diakses oleh `apps/desktop` (Electron IPC relay) dan `apps/web` (React + Vite).
+
+Tahapan migrasi ke `crates/` (Cargo workspace):
+1. **Phase 0 (Baseline & Contract)**: Cargo workspace di root (`crates/`), penyelarasan arsitektur, dan pelestarian kontrak JSON `DocMap` serta OpenAPI/SSE.
+2. **Phase 1 (Document Tools Sidecar — `crates/arunaki-docs`)**: Ekstraksi `excel_read`, `word_read`, dan `ppt_read` ke binary native Rust (`arunaki-docs`) yang menghasilkan output JSON `DocMap` identik. Dipanggil dari `@arunaki/tools` hanya bila `ARUNAKI_RUST_TOOLS=1` dan otomatis fallback ke implementasi TypeScript jika binary tidak tersedia atau gagal.
+3. **Phase 2–6 (Gateway & Core Engine)**: Reverse proxy `axum` di depan engine TS, migrasi bertahap rute non-LLM, storage SQLite, hingga loop LLM & MCP.

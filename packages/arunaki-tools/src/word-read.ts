@@ -5,6 +5,7 @@ import * as path from "path"
 import JSZip from "jszip"
 import { WordMap } from "./docmap"
 import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
+import { tryRunRustDocMap } from "./rust-bridge"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -23,6 +24,9 @@ function stripXml(xml: string): string {
 }
 
 export async function buildWordMap(filePath: string): Promise<typeof WordMap.Type> {
+  const rustResult = tryRunRustDocMap<typeof WordMap.Type>("word", filePath)
+  if (rustResult) return rustResult
+
   const buf = await fs.promises.readFile(filePath)
   const zip = await JSZip.loadAsync(buf)
   const docFile = zip.file("word/document.xml")

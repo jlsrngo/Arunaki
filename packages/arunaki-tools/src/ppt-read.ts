@@ -5,6 +5,7 @@ import * as path from "path"
 import JSZip from "jszip"
 import { PptMap } from "./docmap"
 import { recordNativeAttempt, recordNativeFailure } from "./doc-fallback"
+import { tryRunRustDocMap } from "./rust-bridge"
 
 export const Parameters = Schema.Struct({
   filePath: Schema.String.annotate({
@@ -15,6 +16,9 @@ export const Parameters = Schema.Struct({
 type Metadata = Record<string, unknown>
 
 export async function buildPptMap(filePath: string): Promise<typeof PptMap.Type> {
+  const rustResult = tryRunRustDocMap<typeof PptMap.Type>("ppt", filePath)
+  if (rustResult) return rustResult
+
   const buf = await fs.promises.readFile(filePath)
   const zip = await JSZip.loadAsync(buf)
 

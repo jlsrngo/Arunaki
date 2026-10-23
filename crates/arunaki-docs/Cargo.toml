@@ -1,0 +1,13 @@
+[package]
+name = "arunaki-docs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Arunaki native Rust document parser sidecar (Excel, Word, PowerPoint)"
+
+[[bin]]
+name = "arunaki-docs"
+path = "src/main.rs"
+
+[dependencies]
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
