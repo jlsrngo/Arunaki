@@ -15,6 +15,7 @@
     "typecheck": "tsc -b apps/web/tsconfig.json",
     "test:unit": "cargo test --workspace",
     "test:smoke": "bun run scripts/smoke-local-cli.ts",
+    "test:pos": "bun run scripts/test-pos-integration.ts",
     "test:knowledge": "bun run scripts/test-knowledge-e2e.ts",
     "bundle:prepare": "node scripts/prepare-bundle.cjs",
     "verify": "npm run build && npm run test:unit && npm run test:smoke"

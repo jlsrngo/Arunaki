@@ -27,50 +27,66 @@ impl Default for PosConfig {
     fn default() -> Self {
         Self {
             host_url: "http://127.0.0.1:5000".to_string(),
-            api_key: String::new(),
-            username: String::new(),
+            api_key: "arunaki_sec_2026".to_string(),
+            username: "Candana".to_string(),
             password: None,
         }
     }
 }
 
 pub fn load_pos_config() -> PosConfig {
+    let mut cfg = PosConfig::default();
+
+    // 1. Try reading user pos-config.json
     let p = arunaki_dot_dir().join("pos-config.json");
     if let Ok(raw) = std::fs::read_to_string(&p) {
         if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-            let host_url = val
-                .get("hostUrl")
-                .or_else(|| val.get("host_url"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("http://127.0.0.1:5000")
-                .trim_end_matches('/')
-                .to_string();
-            let api_key = val
-                .get("apiKey")
-                .or_else(|| val.get("api_key"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            let username = val
-                .get("username")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            let password = val
-                .get("password")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            return PosConfig {
-                host_url,
-                api_key,
-                username,
-                password,
-            };
+            if let Some(u) = val.get("hostUrl").or_else(|| val.get("host_url")).and_then(|v| v.as_str()) {
+                if !u.trim().is_empty() {
+                    cfg.host_url = u.trim_end_matches('/').to_string();
+                }
+            }
+            if let Some(k) = val.get("apiKey").or_else(|| val.get("api_key")).and_then(|v| v.as_str()) {
+                if !k.trim().is_empty() {
+                    cfg.api_key = k.trim().to_string();
+                }
+            }
+            if let Some(un) = val.get("username").and_then(|v| v.as_str()) {
+                if !un.trim().is_empty() {
+                    cfg.username = un.trim().to_string();
+                }
+            }
+            if let Some(pw) = val.get("password").and_then(|v| v.as_str()) {
+                cfg.password = Some(pw.to_string());
+            }
         }
     }
-    PosConfig::default()
+
+    // 2. Fallback auto-discovery from ArunakiZen's dynamic pos-runtime.json
+    let runtime_candidates = [
+        std::path::PathBuf::from("E:/JS/Arunaki-POS/pos-runtime.json"),
+        std::path::PathBuf::from("../Arunaki-POS/pos-runtime.json"),
+        std::path::PathBuf::from("pos-runtime.json"),
+    ];
+    for rp in &runtime_candidates {
+        if let Ok(raw) = std::fs::read_to_string(rp) {
+            if let Ok(val) = serde_json::from_str::<Value>(&raw) {
+                if let Some(u) = val.get("url").and_then(|v| v.as_str()) {
+                    if !u.trim().is_empty() {
+                        cfg.host_url = u.trim_end_matches('/').to_string();
+                    }
+                }
+                if let Some(k) = val.get("apiKey").and_then(|v| v.as_str()) {
+                    if !k.trim().is_empty() {
+                        cfg.api_key = k.trim().to_string();
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    cfg
 }
 
 pub fn pos_tool_definitions() -> Vec<Value> {
@@ -329,9 +345,9 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
     });
 
     let endpoints = [
-        format!("{}/api/sales", cfg.host_url),
         format!("{}/api/orders", cfg.host_url),
         format!("{}/orders", cfg.host_url),
+        format!("{}/api/sales", cfg.host_url),
         format!("{}/api/penjualan", cfg.host_url),
     ];
 
@@ -359,7 +375,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
     })
 }
 
-pub async fn execute_get_shift_summary(_args: &Value) -> Value {
+pub async fn execute_get_shift_summary(args: &Value) -> Value {
     let cfg = load_pos_config();
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
@@ -369,7 +385,16 @@ pub async fn execute_get_shift_summary(_args: &Value) -> Value {
         Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
     };
 
+    let op = args
+        .get("operator")
+        .and_then(|v| v.as_str())
+        .unwrap_or(if !cfg.username.is_empty() { &cfg.username } else { "Candana" });
+
     let endpoints = [
+        format!("{}/api/shift/status?operator={}", cfg.host_url, op),
+        format!("{}/shift/status?operator={}", cfg.host_url, op),
+        format!("{}/api/shift/status?operator=Candana", cfg.host_url),
+        format!("{}/api/shift/status?operator=admin", cfg.host_url),
         format!("{}/api/shift/status", cfg.host_url),
         format!("{}/shift/status", cfg.host_url),
         format!("{}/api/kas/shift", cfg.host_url),
