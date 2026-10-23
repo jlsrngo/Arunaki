@@ -60,8 +60,6 @@ export function activeDirectory(): string | undefined {
  * and this function returns empty headers. Only used as fallback for dev browser mode.
  */
 export function authHeader(): Record<string, string> {
-  // In Electron desktop, main process handles auth — renderer doesn't need credentials
-  if (isDesktop()) return {};
   const creds = desktopCredentials();
   const password = creds?.password ?? import.meta.env.VITE_ARUNAKI_SERVER_PASSWORD;
   if (!password) return {};

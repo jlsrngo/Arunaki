@@ -340,12 +340,38 @@ async fn cors_and_auth_middleware(req: Request, next: Next) -> Response {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("");
 
-            if provided != expected_hdr {
+            let mut authorized = provided == expected_hdr;
+            if !authorized {
+                if let Some(query) = req.uri().query() {
+                    for pair in query.split('&') {
+                        if let Some((k, v)) = pair.split_once('=') {
+                            if k == "auth_token" || k == "token" {
+                                if let Ok(decoded) = base64::engine::general_purpose::STANDARD
+                                    .decode(v)
+                                    .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(v))
+                                    .or_else(|_| base64::engine::general_purpose::STANDARD_NO_PAD.decode(v))
+                                {
+                                    if let Ok(s) = String::from_utf8(decoded) {
+                                        if s == format!("{}:{}", expected_user, expected_pass) {
+                                            authorized = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !authorized {
+                // Do NOT send WWW-Authenticate: Basic header to prevent Chromium from popping up
+                // an intrusive native modal "Sign in to access this site" dialog.
                 return Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
-                    .header(header::WWW_AUTHENTICATE, "Basic realm=\"Arunaki\"")
                     .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                    .body(Body::from("Unauthorized"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"error":"Unauthorized"}"#))
                     .unwrap();
             }
         }

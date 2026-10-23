@@ -241,6 +241,18 @@ app.on('before-quit', cleanupEngine);
 app.on('will-quit', cleanupEngine);
 process.on('exit', cleanupEngine);
 
+// Transparent HTTP Basic Auth handler for Electron:
+// Prevents Chromium from showing the intrusive native "Sign in to access this site" dialog
+// for internal requests against the local engine (http://127.0.0.1:4096).
+app.on('login', (event, _webContents, _request, authInfo, callback) => {
+  if (authInfo && authInfo.isProxy) return;
+  const creds = getEngineCredentials();
+  if (creds && creds.password) {
+    event.preventDefault();
+    callback(creds.user || 'arunaki', creds.password);
+  }
+});
+
 // Active SSE subscriptions keyed by a client-chosen channel name.
 // Each entry: { reader, aborted }
 const activeSseSubscriptions = new Map();
