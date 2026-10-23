@@ -871,7 +871,7 @@ pub fn launch_desktop_window(url: &str) {
 
     #[cfg(target_os = "windows")]
     {
-        builder = builder.with_undecorated_shadow(true);
+        builder = builder.with_undecorated_shadow(false);
     }
 
     let window = builder
@@ -884,6 +884,7 @@ pub fn launch_desktop_window(url: &str) {
     unsafe {
         use tao::platform::windows::WindowExtWindows;
         let hwnd = window.hwnd();
+
         #[link(name = "user32")]
         extern "system" {
             fn GetWindowLongPtrW(hwnd: isize, n_index: i32) -> isize;
@@ -898,6 +899,17 @@ pub fn launch_desktop_window(url: &str) {
                 flags: u32,
             ) -> i32;
         }
+
+        #[link(name = "dwmapi")]
+        extern "system" {
+            fn DwmSetWindowAttribute(
+                hwnd: isize,
+                dw_attribute: u32,
+                pv_attribute: *const std::ffi::c_void,
+                cb_attribute: u32,
+            ) -> i32;
+        }
+
         const GWL_STYLE: i32 = -16;
         const WS_CAPTION: isize = 0x00C00000;
         const SWP_FRAMECHANGED: u32 = 0x0020;
@@ -918,10 +930,43 @@ pub fn launch_desktop_window(url: &str) {
                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
             );
         }
+
+        // 1. Immersive dark mode (attribute 20)
+        let dark_mode: i32 = 1;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            20,
+            &dark_mode as *const _ as *const _,
+            std::mem::size_of::<i32>() as u32,
+        );
+
+        // 2. Windows 11 Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)
+        let round_preference: u32 = 2;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            33,
+            &round_preference as *const _ as *const _,
+            std::mem::size_of::<u32>() as u32,
+        );
+
+        // 3. Remove white border line (DWMWA_BORDER_COLOR = 34, DWMWA_COLOR_NONE = 0xFFFFFFFE)
+        let border_color: u32 = 0xFFFFFFFE;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            34,
+            &border_color as *const _ as *const _,
+            std::mem::size_of::<u32>() as u32,
+        );
     }
 
     let proxy_c = proxy.clone();
-    let _webview = WebViewBuilder::new()
+
+    // Shared WebView2 User Data Directory across all Arunaki executables
+    let data_dir = arunaki_dot_dir().join("webview2");
+    let _ = std::fs::create_dir_all(&data_dir);
+    let mut web_context = wry::WebContext::new(Some(data_dir));
+
+    let _webview = WebViewBuilder::new_with_web_context(&mut web_context)
         .with_initialization_script(DESKTOP_INIT_SCRIPT)
         .with_ipc_handler(move |req| {
             let msg = req.body().as_str();
