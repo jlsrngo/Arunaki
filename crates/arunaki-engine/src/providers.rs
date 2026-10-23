@@ -269,6 +269,9 @@ fn build_ui_providers_list() -> Vec<Value> {
     let mut out = Vec::new();
     if let Some(prov_map) = cfg.get("provider").and_then(|v| v.as_object()) {
         for (idx, (pid, pval)) in prov_map.iter().enumerate() {
+            if pid == "local-cli" {
+                continue;
+            }
             let pname = pval
                 .get("name")
                 .and_then(|v| v.as_str())

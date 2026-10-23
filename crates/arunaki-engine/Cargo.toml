@@ -9,10 +9,6 @@ description = "Standalone native Rust AI Engine, Local-CLI Bridge & Desktop WebV
 name = "arunaki-engine"
 path = "src/main.rs"
 
-[[bin]]
-name = "arunaki"
-path = "src/main.rs"
-
 [dependencies]
 arunaki-docs = { path = "../arunaki-docs" }
 axum = { version = "0.7", features = ["multipart"] }

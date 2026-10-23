@@ -707,9 +707,6 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
     return await r.json();
   };
 
-  let sseSource = null;
-  const sseListeners = new Set();
-
   window.arunakiDesktop = {
     isDesktop: true,
     platform: 'win32',
@@ -717,17 +714,19 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
     minimize: () => {},
     maximize: () => {},
     close: () => { postJson('/api/desktop/quit', {}); },
+    quit: () => postJson('/api/desktop/quit', {}),
     isMaximized: async () => false,
     onMaximizedChange: () => () => {},
+    // The UI reads `result.path` (same contract as the Electron preload), so answer { path }.
     pickFolder: async () => {
       const res = await postJson('/api/desktop/pick-folder', {});
-      return res && res.path ? res.path : null;
+      return { path: res && res.path ? res.path : null };
     },
     getFolderTree: (folderPath) => postJson('/api/desktop/folder-tree', { folderPath }),
     readFile: (filePath) => postJson('/api/desktop/read-file', { filePath }),
     writeFile: (filePath, content) => postJson('/api/desktop/write-file', { filePath, content }),
     createFolder: (folderPath) => postJson('/api/desktop/create-folder', { folderPath }),
-    backupFolder: (sourcePath) => postJson('/api/desktop/backup-folder', { sourcePath }),
+    backupFolder: (sourcePath) => postJson('/api/desktop/backup-folder', { sourcePath: sourcePath || localStorage.getItem('arunaki_active_folder') || '' }),
     deletePath: (targetPath) => postJson('/api/desktop/delete-path', { targetPath }),
     renamePath: (oldPath, newPath) => postJson('/api/desktop/rename-path', { oldPath, newPath }),
     openPath: (filePath) => postJson('/api/desktop/open-path', { filePath }),
@@ -740,68 +739,11 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
       const r = await fetch(ORIGIN + '/api/desktop/engine-info');
       return await r.json();
     },
-    engineFetch: async (opts) => {
-      const url = ORIGIN + (opts.path.startsWith('/') ? opts.path : '/' + opts.path);
-      const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-      if (opts.directory) {
-        headers['x-arunaki-directory'] = opts.directory;
-        headers['x-opencode-directory'] = opts.directory;
-      }
-      const res = await fetch(url, {
-        method: opts.method || 'GET',
-        headers,
-        body: opts.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : undefined
-      });
-      const text = await res.text();
-      let data = text;
-      try { data = JSON.parse(text); } catch (_) {}
-      return { ok: res.ok, status: res.status, data };
-    },
-    bridgeFetch: async (opts) => {
-      const url = 'http://127.0.0.1:20188' + (opts.path.startsWith('/') ? opts.path : '/' + opts.path);
-      const res = await fetch(url, {
-        method: opts.method || 'GET',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {}),
-        body: opts.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : undefined
-      });
-      const text = await res.text();
-      let data = text;
-      try { data = JSON.parse(text); } catch (_) {}
-      return { ok: res.ok, status: res.status, data };
-    },
-    startEngineSSE: async (channelOrDir, maybePath, maybeHeaders) => {
-      if (sseSource) {
-        try { sseSource.close(); } catch (_) {}
-      }
-      let sseUrl = ORIGIN + '/api/event';
-      if (typeof maybePath === 'string' && maybePath.startsWith('/')) {
-        sseUrl = ORIGIN + maybePath;
-      } else if (typeof channelOrDir === 'string' && !channelOrDir.startsWith('sse_') && channelOrDir.length > 0) {
-        sseUrl = ORIGIN + '/api/event?directory=' + encodeURIComponent(channelOrDir);
-      }
-      sseSource = new EventSource(sseUrl);
-      sseSource.onmessage = (ev) => {
-        try {
-          const parsed = JSON.parse(ev.data);
-          sseListeners.forEach((cb) => cb(parsed));
-        } catch (_) {}
-      };
-      return { ok: true };
-    },
-    stopEngineSSE: async () => {
-      if (sseSource) {
-        try { sseSource.close(); } catch (_) {}
-        sseSource = null;
-      }
-      return { ok: true };
-    },
-    onEngineSSE: (channelOrCb, maybeCb) => {
-      const cb = typeof maybeCb === 'function' ? maybeCb : channelOrCb;
-      if (typeof cb !== 'function') return () => {};
-      sseListeners.add(cb);
-      return () => sseListeners.delete(cb);
-    },
-    onEngineSseStatus: () => () => {}
+    // No engineFetch / bridgeFetch / SSE relay here on purpose: the page is served from the
+    // engine's own origin, so lib/api.ts talks to /api over plain same-origin HTTP. The old
+    // relay shims had the wrong signature (opts object vs (path, init)) and returned
+    // { data } instead of { body }, which made every API call throw and left History,
+    // Knowledge and Model Providers empty.
   };
 })();
 "#;

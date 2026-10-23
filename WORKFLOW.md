@@ -4284,5 +4284,39 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `npm run build -w apps/web`: ✅ 0 TypeScript errors.
   - `npm run test:smoke`: ✅ **8/8 live provider checks passed**.
 
+---
+
+## Phase 127: SQLite Database Migration, Knowledge Graph Parity & Desktop WebView2 IPC Alignment ✅ DONE
+
+**Goal:** Menghubungkan seluruh data percakapan lama dari SQLite `Arunaki-local.db` (322 sesi, 6.588 pesan) ke engine Rust, memperbaiki format Knowledge Graph (`.arunaki/knowledge.json` dengan seed `"Agent Core"` dan envelope `{ data: ... }`), serta menyelaraskan IPC WebView2 `pickFolder` dan fetch handler agar seluruh 4 halaman (Chat History, Knowledge Graph, Settings Model Providers, Workstation) langsung terisi data lengkap.
+
+### 127.1 Database Migration & Auto-Sync (`scripts/migrate-sqlite-to-json.cjs` & `sessions.rs`)
+- [x] **`scripts/migrate-sqlite-to-json.cjs`**: Mengekstrak seluruh 322 sesi dan 6.588 pesan dari SQLite `Arunaki-local.db` ke format JSON engine Rust `sessions-store.json`.
+- [x] **`crates/arunaki-engine/src/sessions.rs`**: Menambahkan auto-migration check saat `load_store()` jika `sessions-store.json` kosong tetapi `Arunaki-local.db` tersedia.
+
+### 127.2 Knowledge Graph API Parity (`knowledge.rs`)
+- [x] **`crates/arunaki-engine/src/knowledge.rs`**:
+  - Path storage: `{directory}/.arunaki/knowledge.json` (dengan fallback ke `~/.arunaki/scratch` jika belum ada folder aktif yang dipilih).
+  - Schema storage: `{ nodes: [...], edges: [...], nextId: N }`.
+  - Mengembalikan `{ data: nodes }` dan `{ data: edges }` yang selalu menyertakan node sentral `"main-ai-node"` (`Agent Core`) sehingga canvas tidak pernah kosong.
+  - Menyediakan endpoint lengkap: `GET/POST /api/knowledge`, `GET/POST /api/knowledge/edges`, `DELETE /api/knowledge/edges/:id`, `PATCH /api/knowledge/:id/position`, `PATCH /api/knowledge/:id/toggle`, `POST /api/knowledge/upload`, dan `POST /api/knowledge/sync`.
+
+### 127.3 Desktop WebView2 IPC Alignment (`desktop.rs`)
+- [x] **`crates/arunaki-engine/src/desktop.rs`**:
+  - Memperbaiki return value `window.arunakiDesktop.pickFolder()` agar mengembalikan `{ path: string | null }` sesuai ekspektasi frontend (`useActiveFolderSync.ts` & `ConnectFolderModal.tsx`).
+  - Menghapus shim `engineFetch`/`bridgeFetch` yang memiliki signature `(opts)` yang tidak cocok dengan `(path, init)`, sehingga `apps/web/src/lib/api.ts` dapat melakukan HTTP fetch langsung ke port engine (`/api/...`) tanpa throw TypeError.
+  - Memfilter provider internal `"local-cli"` dari `/api/providers` sehingga halaman Model Providers hanya menampilkan provider cloud (Kenari, Groq Cloud, dsb.).
+
+### 127.4 Verification & Live Smoke Test
+- [x] `cargo build -p arunaki-engine --release`: ✅ Berhasil dikompilasi (7.86 MB).
+- [x] `npm run build -w apps/web`: ✅ 0 TypeScript errors (Vite production build sukses).
+- [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text`, `Kiro chat`).
+- [x] Endpoint live verification:
+  - `GET /api/session`: 200 sesi aktif + preview + message count.
+  - `GET /api/knowledge`: 2 nodes (`Agent Core`, `Database Stok Cititex (GSheets)` / `Katalog`).
+  - `GET /api/knowledge/edges`: 1 edge.
+  - `GET /api/providers`: 8 providers terkonfigurasi.
+
+
 
 

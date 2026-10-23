@@ -72,7 +72,23 @@ fn load_store() -> SessionStoreData {
     let p = store_file_path();
     if let Ok(raw) = std::fs::read_to_string(&p) {
         if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
-            return parsed;
+            if !parsed.sessions.is_empty() {
+                return parsed;
+            }
+        }
+    }
+    // Auto-migrate from SQLite Arunaki-local.db if available
+    let db_path = arunaki_data_dir().join("Arunaki-local.db");
+    if db_path.exists() {
+        let _ = std::process::Command::new("bun")
+            .arg("scripts/migrate-sqlite-to-json.cjs")
+            .output();
+        if let Ok(raw) = std::fs::read_to_string(&p) {
+            if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
+                if !parsed.sessions.is_empty() {
+                    return parsed;
+                }
+            }
         }
     }
     SessionStoreData::default()
