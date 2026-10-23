@@ -175,7 +175,7 @@ async function main() {
     console.log(`[?? +${formatElapsed()}] [start] Menjalankan Arunaki Engine (Bun fallback) pada :${ENGINE_PORT}...`);
     engine = spawn(
       'bun',
-      ['run', '--conditions=browser', path.join(rootDir, 'packages', 'engine', 'engine', 'src', 'serve-only.ts'), 'serve', '--port', String(ENGINE_PORT)],
+      ['run', '--conditions=browser', path.join(rootDir, 'target', 'release', 'arunaki-engine.exe'), 'serve', '--port', String(ENGINE_PORT)],
       { cwd: rootDir, env: { ...process.env, ...auth.engineEnv }, stdio: 'inherit', windowsHide: true },
     );
   }

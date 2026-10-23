@@ -4317,6 +4317,57 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `GET /api/knowledge/edges`: 1 edge.
   - `GET /api/providers`: 8 providers terkonfigurasi.
 
+---
+
+## Phase 128: Modular Rust Codebase Refactoring & Legacy Dead Code Cleanup ✅ DONE
+
+**Goal:** Membersihkan seluruh kode lama (legacy TypeScript) yang sudah tidak digunakan (`packages/engine` sebanyak 1.885 file dan `packages/arunaki-tools` sebanyak 25 file), serta merefaktor struktur file Rust monolitik (`arunaki-docs`, `sessions.rs`, `providers.rs`, `knowledge.rs`) menjadi struktur modul folder yang bersih, terpisah sesuai fungsinya, dan modular menyerupai arsitektur TypeScript yang familiar bagi tim.
+
+### 128.1 Legacy Dead Code Cleanup
+- [x] Menghapus folder `packages/engine` (1.885 file) yang merupakan sisa fork OpenCode lama.
+- [x] Menghapus folder `packages/arunaki-tools` (25 file) yang telah 100% digantikan oleh crate native Rust `arunaki-docs`.
+- [x] Menghapus direktori kosong `packages/` dan memperbarui `package.json` (menghapus references `packages/engine/*` dan `packages/arunaki-tools` dari `workspaces`).
+- [x] Menyelaraskan script dev & bundle (`scripts/dev-app.cjs`, `scripts/start-prod.cjs`, `scripts/test-knowledge-e2e.ts`) agar langsung memanggil executable native Rust `arunaki-engine.exe`.
+
+### 128.2 Modularization of Document Tools (`crates/arunaki-docs`)
+- [x] Memecah file tunggal monolitik menjadi modul per fungsi:
+  - `crates/arunaki-docs/src/excel.rs`: Parsing & encoding cell reference (`A1`, `B12`), CSV extraction, parsing XLSX tabular structure.
+  - `crates/arunaki-docs/src/word.rs`: Word document structure extractor (`.docx` paragraph & table parsing).
+  - `crates/arunaki-docs/src/ppt.rs`: PowerPoint document structure extractor (`.pptx` slide & shape text extraction).
+  - `crates/arunaki-docs/src/pdf.rs`: PDF map extractor dengan font size profiling & selectable text stream parser.
+  - `crates/arunaki-docs/src/com.rs`: Windows Office COM automation script generator via PowerShell.
+  - `crates/arunaki-docs/src/util.rs`: XML/JSON escaping & text manipulation utilities.
+  - `crates/arunaki-docs/src/lib.rs`: Public API facade yang mengekspor seluruh modul di atas + unit test suite.
+
+### 128.3 Modularization of Sessions & Agent Turn Engine (`crates/arunaki-engine/src/sessions/`)
+- [x] Memecah `sessions.rs` monolitik (1.800+ baris) ke dalam folder modul `sessions/`:
+  - `sessions/storage.rs`: Data model, session store serialization, memory cache, question resolution, event broadcast bus.
+  - `sessions/tools.rs`: Tool definition registry, isolated workspace path boundary enforcement, tool call dispatch.
+  - `sessions/prompt.rs`: LLM turn runner, direct prompt handler, active model resolver, prompt abort listener.
+  - `sessions/mod.rs`: Axum Router declarations, session CRUD handler endpoints, and question response handlers.
+
+### 128.4 Modularization of Model Providers & Local-CLI Hub (`crates/arunaki-engine/src/providers/`)
+- [x] Memecah `providers.rs` monolitik (1.750+ baris) ke dalam folder modul `providers/`:
+  - `providers/config.rs`: Arunaki config read/write (`arunaki.json`), path/vcs/project endpoints.
+  - `providers/catalog.rs`: Model catalog builder, provider & model discovery endpoints, agent list.
+  - `providers/local_cli.rs`: Local-CLI bridges (Kiro, OpenCode, Antigravity, Codex), OAuth start/status handlers, live quota endpoints, token refresh & harvest.
+  - `providers/ui.rs`: UI provider CRUD (connect, test, status, fetch-models, upsert, delete).
+  - `providers/mod.rs`: Axum Router for `/api/providers`, `/api/model`, `/config`, and Local-CLI routes.
+
+### 128.5 Modularization of Knowledge Graph & Memory (`crates/arunaki-engine/src/memory/`)
+- [x] Memecah `knowledge.rs` monolitik ke dalam folder modul `memory/`:
+  - `memory/store.rs`: Storage loading/saving (`.arunaki/knowledge.json`), sandbox path resolution, seed node injection, active knowledge extractor.
+  - `memory/graph.rs`: CRUD endpoints for knowledge nodes & edges, position update, visibility toggling.
+  - `memory/sync.rs`: Document file upload parser (PDF/DOCX extraction), Google Sheets CSV URL sync.
+  - `memory/mod.rs`: Router declarations and facade re-exports (`get_active_knowledge_for_workspace`).
+
+### 128.6 Full Verification & Quality Gate
+- [x] `npm run build -w apps/web`: ✅ 0 TypeScript compilation errors, Vite build succeeded in 10.37s.
+- [x] `cargo test --workspace`: ✅ 6/6 unit tests passed in 0.53s.
+- [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text (free)`, `Kiro chat`).
+- [x] `npm run verify`: ✅ Full verification gate passed completely (build + test:unit + test:smoke).
+
+
 
 
 

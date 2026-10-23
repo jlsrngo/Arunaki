@@ -42,12 +42,11 @@ async function ensureEngineRunning(): Promise<{ proc?: any; startedByUs: boolean
   const auth = serverAuth.create()
 
   const repoDir = process.cwd()
+  const exeName = process.platform === "win32" ? "arunaki-engine.exe" : "arunaki-engine"
+  const engineBin = path.join(repoDir, "target", "release", exeName)
   const proc = spawn(
-    "bun",
+    engineBin,
     [
-      "run",
-      "--conditions=browser",
-      path.join(repoDir, "packages", "engine", "engine", "src", "serve-only.ts"),
       "serve",
       "--port",
       "4096",

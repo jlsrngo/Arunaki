@@ -2,7 +2,7 @@ mod bridge;
 mod cred_store;
 mod desktop;
 mod files;
-mod knowledge;
+mod memory;
 mod messaging;
 mod paths;
 mod providers;
@@ -200,7 +200,7 @@ async fn run_axum_server(listener: tokio::net::TcpListener, _actual_port: u16) {
         .route("/global/event", get(handle_sse_events))
         .route("/event", get(handle_sse_events))
         .merge(desktop::router())
-        .merge(knowledge::router())
+        .merge(memory::router())
         .merge(files::router())
         .merge(providers::router())
         .merge(messaging::router())

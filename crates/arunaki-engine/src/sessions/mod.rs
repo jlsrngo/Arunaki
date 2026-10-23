@@ -1,0 +1,421 @@
+pub mod prompt;
+pub mod storage;
+pub mod tools;
+
+pub use prompt::*;
+pub use storage::*;
+
+use crate::files::urlencoding_decode;
+use crate::paths::{gen_id, normalize_workspace_path, now_ms};
+use axum::{
+    extract::{Path as AxumPath, Query},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
+};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Mutex;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/session", get(handle_list).post(handle_create))
+        .route("/session", get(handle_list).post(handle_create))
+        .route("/api/session/active", get(handle_active))
+        .route("/session/status", get(handle_active))
+        .route(
+            "/api/session/:id",
+            get(handle_get).patch(handle_patch).delete(handle_delete),
+        )
+        .route(
+            "/session/:id",
+            get(handle_get).patch(handle_patch).delete(handle_delete),
+        )
+        .route("/api/session/:id/abort", post(handle_abort))
+        .route("/session/:id/abort", post(handle_abort))
+        .route(
+            "/api/session/:id/message",
+            get(handle_messages).post(handle_prompt_route),
+        )
+        .route(
+            "/session/:id/message",
+            get(handle_messages).post(handle_prompt_route),
+        )
+        .route("/api/session/:id/prompt", post(handle_prompt_route))
+        .route("/session/:id/prompt", post(handle_prompt_route))
+        .route("/session/:id/prompt_async", post(handle_prompt_route))
+        .route("/api/session/:id/model", post(handle_switch_model))
+        .route("/session/:id/model", post(handle_switch_model))
+        .route("/api/session/:id/todo", get(handle_empty_list))
+        .route("/session/:id/todo", get(handle_empty_list))
+        .route("/api/session/:id/diff", get(handle_empty_list))
+        .route("/session/:id/diff", get(handle_empty_list))
+        // Interactive question clarification routes
+        .route("/api/question", get(handle_question_list_all))
+        .route("/question", get(handle_question_list_all))
+        .route("/api/session/:id/question", get(handle_question_list_session))
+        .route("/session/:id/question", get(handle_question_list_session))
+        .route(
+            "/api/session/:id/question/:reqId/reply",
+            post(handle_question_reply_session),
+        )
+        .route(
+            "/session/:id/question/:reqId/reply",
+            post(handle_question_reply_session),
+        )
+        .route("/api/question/:reqId/reply", post(handle_question_reply_global))
+        .route("/question/:reqId/reply", post(handle_question_reply_global))
+        .route(
+            "/api/session/:id/question/:reqId/reject",
+            post(handle_question_reject_session),
+        )
+        .route(
+            "/session/:id/question/:reqId/reject",
+            post(handle_question_reject_session),
+        )
+        .route("/api/question/:reqId/reject", post(handle_question_reject_global))
+        .route("/question/:reqId/reject", post(handle_question_reject_global))
+}
+
+async fn handle_prompt_route(
+    axum_path: AxumPath<String>,
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    handle_prompt(axum_path, q, headers, body).await
+}
+
+fn resolve_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> String {
+    if let Some(d) = q.get("directory").or_else(|| q.get("workspacePath")) {
+        if !d.trim().is_empty() {
+            return normalize_workspace_path(&urlencoding_decode(d));
+        }
+    }
+    if let Some(h) = headers
+        .get("x-arunaki-directory")
+        .or_else(|| headers.get("x-opencode-directory"))
+        .and_then(|v| v.to_str().ok())
+    {
+        if !h.trim().is_empty() {
+            return normalize_workspace_path(&urlencoding_decode(h));
+        }
+    }
+    std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .to_string_lossy()
+        .to_string()
+}
+
+async fn handle_empty_list() -> Response {
+    Json(json!([])).into_response()
+}
+
+async fn handle_question_list_all() -> Response {
+    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut list = Vec::new();
+    if let Ok(guard) = m.lock() {
+        for q in guard.values() {
+            list.push(json!({
+                "id": q.id,
+                "sessionID": q.session_id,
+                "questions": q.questions,
+                "tool": q.tool
+            }));
+        }
+    }
+    Json(json!({ "data": list })).into_response()
+}
+
+async fn handle_question_list_session(AxumPath(sid): AxumPath<String>) -> Response {
+    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut list = Vec::new();
+    if let Ok(guard) = m.lock() {
+        for q in guard.values() {
+            if q.session_id == sid {
+                list.push(json!({
+                    "id": q.id,
+                    "sessionID": q.session_id,
+                    "questions": q.questions,
+                    "tool": q.tool
+                }));
+            }
+        }
+    }
+    Json(json!({ "data": list })).into_response()
+}
+
+async fn handle_question_reply_session(
+    AxumPath((_sid, req_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Response {
+    resolve_question_reply(&req_id, Some(&body))
+}
+
+async fn handle_question_reply_global(
+    AxumPath(req_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    resolve_question_reply(&req_id, Some(&body))
+}
+
+async fn handle_question_reject_session(
+    AxumPath((_sid, req_id)): AxumPath<(String, String)>,
+) -> Response {
+    resolve_question_reply(&req_id, None)
+}
+
+async fn handle_question_reject_global(AxumPath(req_id): AxumPath<String>) -> Response {
+    resolve_question_reply(&req_id, None)
+}
+
+async fn handle_list(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    let filter_dir = q
+        .get("directory")
+        .map(|d| normalize_workspace_path(&urlencoding_decode(d)).to_lowercase())
+        .or_else(|| {
+            headers
+                .get("x-arunaki-directory")
+                .or_else(|| headers.get("x-opencode-directory"))
+                .and_then(|v| v.to_str().ok())
+                .filter(|s| !s.trim().is_empty())
+                .map(|d| normalize_workspace_path(&urlencoding_decode(d)).to_lowercase())
+        });
+
+    let limit = q
+        .get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(200)
+        .clamp(1, 500);
+
+    let list = with_store(|store| {
+        let mut items: Vec<Value> = store
+            .sessions
+            .values()
+            .filter(|s| {
+                if let Some(ref fd) = filter_dir {
+                    let s_dir = s
+                        .pointer("/location/directory")
+                        .or_else(|| s.get("directory"))
+                        .and_then(|v| v.as_str())
+                        .map(|d| normalize_workspace_path(d).to_lowercase())
+                        .unwrap_or_default();
+                    s_dir == *fd
+                } else {
+                    true
+                }
+            })
+            .map(|s| {
+                let mut obj = s.clone();
+                let sid = obj.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                let msgs = store.messages.get(sid);
+                let msg_count = msgs.map(|m| m.len()).unwrap_or(0);
+                let preview = msgs
+                    .and_then(|m| m.last())
+                    .and_then(|last| {
+                        last.get("text")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .or_else(|| {
+                                last.get("content")
+                                    .and_then(|v| v.as_array())
+                                    .and_then(|arr| {
+                                        arr.iter().find_map(|p| {
+                                            p.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                        })
+                                    })
+                            })
+                    })
+                    .unwrap_or_default();
+                let short_preview: String = preview.chars().take(95).collect();
+                obj["messageCount"] = json!(msg_count);
+                obj["lastMessagePreview"] = Value::String(short_preview);
+                obj
+            })
+            .collect();
+        items.sort_by(|a, b| {
+            let ta = a
+                .pointer("/time/updated")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let tb = b
+                .pointer("/time/updated")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            tb.cmp(&ta)
+        });
+        if items.len() > limit {
+            items.truncate(limit);
+        }
+        items
+    });
+
+    Json(json!({ "data": list, "cursor": {} })).into_response()
+}
+
+async fn handle_create(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    body_bytes: axum::body::Bytes,
+) -> Response {
+    let body: Value = serde_json::from_slice(&body_bytes).unwrap_or_else(|_| json!({}));
+    let dir = body
+        .pointer("/location/directory")
+        .or_else(|| body.get("directory"))
+        .and_then(|v| v.as_str())
+        .map(normalize_workspace_path)
+        .unwrap_or_else(|| resolve_dir(&q, &headers));
+
+    let id = gen_id("ses");
+    let now = now_ms();
+    let model = body
+        .get("model")
+        .filter(|v| v.is_object())
+        .cloned()
+        .unwrap_or_else(default_model_ref);
+    let agent = body
+        .get("agent")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
+    let title = body
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("New Session");
+
+    let session = json!({
+        "id": id,
+        "projectID": "proj_default",
+        "agent": agent,
+        "model": model,
+        "cost": 0,
+        "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": { "read": 0, "write": 0 }
+        },
+        "time": {
+            "created": now,
+            "updated": now
+        },
+        "title": title,
+        "directory": dir,
+        "location": {
+            "directory": dir
+        }
+    });
+
+    with_store(|store| {
+        store.sessions.insert(id.clone(), session.clone());
+        store.messages.entry(id.clone()).or_default();
+        save_store(store);
+    });
+
+    emit_event(&dir, "session.created", json!({ "session": session }));
+    Json(json!({ "data": session })).into_response()
+}
+
+async fn handle_active() -> Response {
+    let m = ACTIVE_RUNS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut data = serde_json::Map::new();
+    if let Ok(guard) = m.lock() {
+        for (sid, &running) in guard.iter() {
+            if running {
+                data.insert(sid.clone(), json!({ "type": "running" }));
+            }
+        }
+    }
+    Json(json!({ "data": data })).into_response()
+}
+
+async fn handle_get(AxumPath(id): AxumPath<String>) -> Response {
+    let found = with_store(|store| store.sessions.get(&id).cloned());
+    if let Some(s) = found {
+        Json(json!({ "data": s })).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("Session not found: {}", id) })),
+        )
+            .into_response()
+    }
+}
+
+async fn handle_patch(AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Response {
+    let updated = with_store(|store| {
+        if let Some(s) = store.sessions.get_mut(&id) {
+            if let Some(t) = body.get("title").and_then(|v| v.as_str()) {
+                s["title"] = Value::String(t.to_string());
+            }
+            s["time"]["updated"] = json!(now_ms());
+            let cloned = s.clone();
+            save_store(store);
+            Some(cloned)
+        } else {
+            None
+        }
+    });
+    if let Some(s) = updated {
+        Json(json!({ "data": s })).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Session not found" })),
+        )
+            .into_response()
+    }
+}
+
+async fn handle_delete(AxumPath(id): AxumPath<String>) -> Response {
+    with_store(|store| {
+        store.sessions.remove(&id);
+        store.messages.remove(&id);
+        save_store(store);
+    });
+    Json(json!({ "data": { "ok": true } })).into_response()
+}
+
+async fn handle_messages(
+    AxumPath(id): AxumPath<String>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Response {
+    let mut msgs = with_store(|store| store.messages.get(&id).cloned().unwrap_or_default());
+    let total = msgs.len();
+    let order = q.get("order").map(|s| s.as_str()).unwrap_or("desc");
+    if order == "desc" {
+        msgs.reverse();
+    }
+    let offset = q
+        .get("cursor")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let limit = q
+        .get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(200)
+        .clamp(1, 500);
+
+    let slice: Vec<Value> = if offset < msgs.len() {
+        let end = (offset + limit).min(msgs.len());
+        msgs[offset..end].to_vec()
+    } else {
+        Vec::new()
+    };
+    let next_cursor = if offset + slice.len() < total {
+        Some((offset + slice.len()).to_string())
+    } else {
+        None
+    };
+
+    Json(json!({
+        "data": slice,
+        "total": total,
+        "cursor": { "next": next_cursor }
+    }))
+    .into_response()
+}
