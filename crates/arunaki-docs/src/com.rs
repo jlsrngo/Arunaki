@@ -64,54 +64,123 @@ pub struct ExcelComParams {
 
 pub fn build_excel_com_script(p: &ExcelComParams) -> String {
     let mut actions = vec![
+        "$ErrorActionPreference = 'Stop'".to_string(),
         "$excel = $null".to_string(),
+        "$excelWasOpen = $false".to_string(),
         "try {".to_string(),
         "  $excel = [System.Runtime.InteropServices.Marshal]::GetActiveObject('Excel.Application')".to_string(),
+        "  $excelWasOpen = $true".to_string(),
         "} catch {".to_string(),
-        "  $excel = New-Object -ComObject Excel.Application".to_string(),
+        "  try {".to_string(),
+        "    $excel = New-Object -ComObject Excel.Application".to_string(),
+        "    $excelWasOpen = $false".to_string(),
+        "  } catch {".to_string(),
+        "    Write-Output \"ERROR: Microsoft Excel COM automation is not available\"".to_string(),
+        "    exit".to_string(),
+        "  }".to_string(),
         "}".to_string(),
-        "$excel.Visible = $false".to_string(),
         "$excel.DisplayAlerts = $false".to_string(),
     ];
 
-    if let Some(fp) = &p.file_path {
-        actions.push(format!("$wb = $excel.Workbooks.Open('{}')", ps_escape(fp)));
+    if p.action == "open" {
+        actions.push("$excel.Visible = $true".to_string());
     } else {
-        actions.push("$wb = $excel.ActiveWorkbook".to_string());
+        actions.push("if (-not $excelWasOpen) { $excel.Visible = $false }".to_string());
     }
 
-    if let Some(sn) = &p.sheet_name {
-        actions.push(format!("$ws = $wb.Sheets.Item('{}')", ps_escape(sn)));
-        actions.push("$ws.Activate()".to_string());
+    actions.push("$wb = $null".to_string());
+    actions.push("$wbWasAlreadyOpen = $false".to_string());
+
+    if let Some(fp) = &p.file_path {
+        let escaped_fp = ps_escape(fp);
+        actions.push(format!("$targetPath = [System.IO.Path]::GetFullPath('{}')", escaped_fp));
+        actions.push("try {".to_string());
+        actions.push("  foreach ($w in $excel.Workbooks) {".to_string());
+        actions.push("    if ($w.FullName -ieq $targetPath) {".to_string());
+        actions.push("      $wb = $w".to_string());
+        actions.push("      $wbWasAlreadyOpen = $true".to_string());
+        actions.push("      break".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("  if (-not $wb) {".to_string());
+        actions.push("    if (Test-Path $targetPath) {".to_string());
+        actions.push("      $wb = $excel.Workbooks.Open($targetPath)".to_string());
+        actions.push("    } else {".to_string());
+        actions.push("      $wb = $excel.Workbooks.Add()".to_string());
+        actions.push("      $wb.SaveAs($targetPath)".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to open workbook: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
     } else {
-        actions.push("$ws = $wb.ActiveSheet".to_string());
+        actions.push("try {".to_string());
+        actions.push("  $wb = $excel.ActiveWorkbook".to_string());
+        actions.push("  if (-not $wb) {".to_string());
+        actions.push("    Write-Output \"ERROR: No active workbook found\"".to_string());
+        actions.push("    exit".to_string());
+        actions.push("  }".to_string());
+        actions.push("  $wbWasAlreadyOpen = $true".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to access active workbook: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
+    }
+
+    actions.push("$ws = $null".to_string());
+    if let Some(sn) = &p.sheet_name {
+        let escaped_sn = ps_escape(sn);
+        actions.push("try {".to_string());
+        actions.push(format!("  $ws = $wb.Sheets.Item('{}')", escaped_sn));
+        actions.push("  $ws.Activate()".to_string());
+        actions.push("} catch {".to_string());
+        actions.push(format!("  Write-Output \"ERROR: Worksheet '{}' not found\"", escaped_sn));
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
+    } else {
+        actions.push("try {".to_string());
+        actions.push("  $ws = $wb.ActiveSheet".to_string());
+        actions.push("  if (-not $ws) {".to_string());
+        actions.push("    $ws = $wb.Sheets.Item(1)".to_string());
+        actions.push("    $ws.Activate()".to_string());
+        actions.push("  }".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: No sheet found in workbook\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
     }
 
     let cell = p.cell.as_deref().unwrap_or("A1");
     match p.action.as_str() {
-        "write_cell" => {
+        "open" => {
+            actions.push("$excel.Visible = $true".to_string());
+            actions.push("$excel.DisplayAlerts = $true".to_string());
+            actions.push("try { $wb.Activate(); $ws.Activate() } catch {}".to_string());
+            actions.push("Write-Output \"OK:open\"".to_string());
+        }
+        "write" | "write_cell" => {
             let val = p.value.as_deref().unwrap_or("");
-            actions.push(format!("$ws.Range('{}').Value2 = '{}'", ps_escape(cell), ps_escape(val)));
-            actions.push(format!("Write-Output \"OK:write_cell:{}\"", cell));
-        }
-        "write_range" => {
-            for (r, v) in &p.cells {
-                actions.push(format!("$ws.Range('{}').Value2 = '{}'", ps_escape(r), ps_escape(v)));
+            if val.starts_with('=') {
+                actions.push(format!("$ws.Range('{}').Formula = '{}'", ps_escape(cell), ps_escape(val)));
+            } else {
+                actions.push(format!("$ws.Range('{}').Value2 = '{}'", ps_escape(cell), ps_escape(val)));
             }
-            actions.push(format!("Write-Output \"OK:write_range:{} cells\"", p.cells.len()));
-        }
-        "format_cell" => {
             if p.bold == Some(true) {
                 actions.push(format!("$ws.Range('{}').Font.Bold = $true", ps_escape(cell)));
+            } else if p.bold == Some(false) {
+                actions.push(format!("$ws.Range('{}').Font.Bold = $false", ps_escape(cell)));
             }
             if p.italic == Some(true) {
                 actions.push(format!("$ws.Range('{}').Font.Italic = $true", ps_escape(cell)));
+            } else if p.italic == Some(false) {
+                actions.push(format!("$ws.Range('{}').Font.Italic = $false", ps_escape(cell)));
             }
             if let Some(fs) = p.font_size {
                 actions.push(format!("$ws.Range('{}').Font.Size = {}", ps_escape(cell), fs));
             }
             if let Some(bg) = p.bg_color {
-                actions.push(format!("$ws.Range('{}').Interior.ColorIndex = {}", ps_escape(cell), bg));
+                actions.push(format!("$ws.Range('{}').Interior.Color = {}", ps_escape(cell), bg));
             }
             if let Some(align) = &p.alignment {
                 let code = match align.as_str() {
@@ -121,7 +190,67 @@ pub fn build_excel_com_script(p: &ExcelComParams) -> String {
                 };
                 actions.push(format!("$ws.Range('{}').HorizontalAlignment = {}", ps_escape(cell), code));
             }
-            actions.push(format!("Write-Output \"OK:format:{}\"", cell));
+            actions.push("try { $ws.Calculate() } catch {}".to_string());
+            actions.push(format!("Write-Output \"OK:{}:{}\"", p.action, cell));
+        }
+        "write_range" => {
+            for (r, v) in &p.cells {
+                if v.starts_with('=') {
+                    actions.push(format!("$ws.Range('{}').Formula = '{}'", ps_escape(r), ps_escape(v)));
+                } else {
+                    actions.push(format!("$ws.Range('{}').Value2 = '{}'", ps_escape(r), ps_escape(v)));
+                }
+            }
+            actions.push("try { $ws.Calculate() } catch {}".to_string());
+            actions.push(format!("Write-Output \"OK:write_range:{} cells\"", p.cells.len()));
+        }
+        "format" | "format_cell" => {
+            if let Some(val) = p.value.as_deref() {
+                if !val.is_empty() {
+                    if val.starts_with('=') {
+                        actions.push(format!("$ws.Range('{}').Formula = '{}'", ps_escape(cell), ps_escape(val)));
+                    } else {
+                        actions.push(format!("$ws.Range('{}').Value2 = '{}'", ps_escape(cell), ps_escape(val)));
+                    }
+                }
+            }
+            if p.bold == Some(true) {
+                actions.push(format!("$ws.Range('{}').Font.Bold = $true", ps_escape(cell)));
+            } else if p.bold == Some(false) {
+                actions.push(format!("$ws.Range('{}').Font.Bold = $false", ps_escape(cell)));
+            }
+            if p.italic == Some(true) {
+                actions.push(format!("$ws.Range('{}').Font.Italic = $true", ps_escape(cell)));
+            } else if p.italic == Some(false) {
+                actions.push(format!("$ws.Range('{}').Font.Italic = $false", ps_escape(cell)));
+            }
+            if let Some(fs) = p.font_size {
+                actions.push(format!("$ws.Range('{}').Font.Size = {}", ps_escape(cell), fs));
+            }
+            if let Some(bg) = p.bg_color {
+                actions.push(format!("$ws.Range('{}').Interior.Color = {}", ps_escape(cell), bg));
+            }
+            if let Some(align) = &p.alignment {
+                let code = match align.as_str() {
+                    "center" => -4108,
+                    "right" => -4152,
+                    _ => -4131,
+                };
+                actions.push(format!("$ws.Range('{}').HorizontalAlignment = {}", ps_escape(cell), code));
+            }
+            actions.push(format!("Write-Output \"OK:{}:{}\"", p.action, cell));
+        }
+        "summary" | "calculate" | "recalculate" => {
+            actions.push("try { $excel.CalculateFull() } catch { $excel.Calculate() }".to_string());
+            if p.cell.is_some() {
+                actions.push(format!(
+                    "$cVal = $ws.Range('{}').Text; Write-Output \"OK:summary:{}=$cVal\"",
+                    ps_escape(cell),
+                    cell
+                ));
+            } else {
+                actions.push("Write-Output \"OK:summary:calculated\"".to_string());
+            }
         }
         "clone_sheet" => {
             let src = p.source_sheet.as_deref().unwrap_or("Sheet1");
@@ -146,14 +275,24 @@ pub fn build_excel_com_script(p: &ExcelComParams) -> String {
         }
     }
 
-    actions.extend([
-        "$wb.Save()".to_string(),
-        "$wb.Close()".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($wb) | Out-Null".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null".to_string(),
-        "[System.GC]::Collect()".to_string(),
-        "[System.GC]::WaitForPendingFinalizers()".to_string(),
-    ]);
+    if p.action == "open" {
+        actions.extend([
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ws) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($wb) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null } catch {}".to_string(),
+        ]);
+    } else {
+        actions.extend([
+            "try { $wb.Save() } catch {}".to_string(),
+            "if (-not $wbWasAlreadyOpen) { try { $wb.Close($false) } catch {} }".to_string(),
+            "if (-not $excelWasOpen) { try { $excel.Quit() } catch {} }".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ws) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($wb) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null } catch {}".to_string(),
+            "[System.GC]::Collect()".to_string(),
+            "[System.GC]::WaitForPendingFinalizers()".to_string(),
+        ]);
+    }
 
     actions.join("\n")
 }
@@ -172,27 +311,81 @@ pub struct WordComParams {
 
 pub fn build_word_com_script(p: &WordComParams) -> String {
     let mut actions = vec![
+        "$ErrorActionPreference = 'Stop'".to_string(),
         "$word = $null".to_string(),
+        "$wordWasOpen = $false".to_string(),
         "try {".to_string(),
         "  $word = [System.Runtime.InteropServices.Marshal]::GetActiveObject('Word.Application')".to_string(),
+        "  $wordWasOpen = $true".to_string(),
         "} catch {".to_string(),
-        "  $word = New-Object -ComObject Word.Application".to_string(),
+        "  try {".to_string(),
+        "    $word = New-Object -ComObject Word.Application".to_string(),
+        "    $wordWasOpen = $false".to_string(),
+        "  } catch {".to_string(),
+        "    Write-Output \"ERROR: Microsoft Word COM automation is not available\"".to_string(),
+        "    exit".to_string(),
+        "  }".to_string(),
         "}".to_string(),
-        "$word.Visible = $false".to_string(),
         "$word.DisplayAlerts = 0".to_string(),
     ];
 
-    if let Some(fp) = &p.file_path {
-        actions.push(format!("$doc = $word.Documents.Open('{}')", ps_escape(fp)));
+    if p.action == "open" {
+        actions.push("$word.Visible = $true".to_string());
     } else {
-        actions.push("$doc = $word.ActiveDocument".to_string());
+        actions.push("if (-not $wordWasOpen) { $word.Visible = $false }".to_string());
+    }
+
+    actions.push("$doc = $null".to_string());
+    actions.push("$docWasAlreadyOpen = $false".to_string());
+
+    if let Some(fp) = &p.file_path {
+        let escaped_fp = ps_escape(fp);
+        actions.push(format!("$targetPath = [System.IO.Path]::GetFullPath('{}')", escaped_fp));
+        actions.push("try {".to_string());
+        actions.push("  foreach ($d in $word.Documents) {".to_string());
+        actions.push("    if ($d.FullName -ieq $targetPath) {".to_string());
+        actions.push("      $doc = $d".to_string());
+        actions.push("      $docWasAlreadyOpen = $true".to_string());
+        actions.push("      break".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("  if (-not $doc) {".to_string());
+        actions.push("    if (Test-Path $targetPath) {".to_string());
+        actions.push("      $doc = $word.Documents.Open($targetPath)".to_string());
+        actions.push("    } else {".to_string());
+        actions.push("      $doc = $word.Documents.Add()".to_string());
+        actions.push("      $doc.SaveAs2($targetPath)".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to open document: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
+    } else {
+        actions.push("try {".to_string());
+        actions.push("  $doc = $word.ActiveDocument".to_string());
+        actions.push("  if (-not $doc) {".to_string());
+        actions.push("    Write-Output \"ERROR: No active document found\"".to_string());
+        actions.push("    exit".to_string());
+        actions.push("  }".to_string());
+        actions.push("  $docWasAlreadyOpen = $true".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to get active document: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
     }
 
     match p.action.as_str() {
-        "write_text" => {
+        "open" => {
+            actions.push("$word.Visible = $true".to_string());
+            actions.push("$word.DisplayAlerts = -1".to_string());
+            actions.push("try { $doc.Activate() } catch {}".to_string());
+            actions.push("Write-Output \"OK:open\"".to_string());
+        }
+        "append" | "write" | "write_text" => {
             let txt = p.text.as_deref().unwrap_or("");
             actions.push(format!("$doc.Content.InsertAfter('{}')", ps_escape(txt)));
-            actions.push("Write-Output \"OK:write_text\"".to_string());
+            actions.push(format!("Write-Output \"OK:{}\"", p.action));
         }
         "write_at_paragraph" => {
             let idx = p.paragraph_index.unwrap_or(1);
@@ -201,17 +394,22 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
             actions.push(format!("$target.Range.InsertAfter('{}')", ps_escape(txt)));
             actions.push(format!("Write-Output \"OK:write_at_paragraph:{}\"", idx));
         }
-        "find_replace" => {
+        "replace" | "find_replace" => {
             let f = p.find_text.as_deref().unwrap_or("");
             let r = p.replace_text.as_deref().unwrap_or("");
-            actions.push(format!("$doc.Content.Find.Text = '{}'", ps_escape(f)));
-            actions.push(format!("$doc.Content.Find.Replacement.Text = '{}'", ps_escape(r)));
-            actions.push("$doc.Content.Find.Execute()".to_string());
-            actions.push("Write-Output \"OK:find_replace\"".to_string());
+            actions.push(format!("$find = $doc.Content.Find"));
+            actions.push(format!("$find.Text = '{}'", ps_escape(f)));
+            actions.push(format!("$find.Replacement.Text = '{}'", ps_escape(r)));
+            actions.push("$find.Forward = $true".to_string());
+            actions.push("$find.Wrap = 1".to_string());
+            actions.push("$find.Execute([System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, 2)".to_string());
+            actions.push(format!("Write-Output \"OK:{}\"", p.action));
         }
         "format" => {
             if p.bold == Some(true) {
                 actions.push("$doc.Content.Font.Bold = $true".to_string());
+            } else if p.bold == Some(false) {
+                actions.push("$doc.Content.Font.Bold = $false".to_string());
             }
             if let Some(fs) = p.font_size {
                 actions.push(format!("$doc.Content.Font.Size = {}", fs));
@@ -231,14 +429,22 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
         }
     }
 
-    actions.extend([
-        "$doc.Save()".to_string(),
-        "$doc.Close()".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($doc) | Out-Null".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null".to_string(),
-        "[System.GC]::Collect()".to_string(),
-        "[System.GC]::WaitForPendingFinalizers()".to_string(),
-    ]);
+    if p.action == "open" {
+        actions.extend([
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($doc) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}".to_string(),
+        ]);
+    } else {
+        actions.extend([
+            "try { $doc.Save() } catch {}".to_string(),
+            "if (-not $docWasAlreadyOpen) { try { $doc.Close(0) } catch {} }".to_string(),
+            "if (-not $wordWasOpen) { try { $word.Quit() } catch {} }".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($doc) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}".to_string(),
+            "[System.GC]::Collect()".to_string(),
+            "[System.GC]::WaitForPendingFinalizers()".to_string(),
+        ]);
+    }
 
     actions.join("\n")
 }
@@ -256,22 +462,73 @@ pub struct PptComParams {
 
 pub fn build_ppt_com_script(p: &PptComParams) -> String {
     let mut actions = vec![
+        "$ErrorActionPreference = 'Stop'".to_string(),
         "$ppt = $null".to_string(),
+        "$pptWasOpen = $false".to_string(),
         "try {".to_string(),
         "  $ppt = [System.Runtime.InteropServices.Marshal]::GetActiveObject('PowerPoint.Application')".to_string(),
+        "  $pptWasOpen = $true".to_string(),
         "} catch {".to_string(),
-        "  $ppt = New-Object -ComObject PowerPoint.Application".to_string(),
+        "  try {".to_string(),
+        "    $ppt = New-Object -ComObject PowerPoint.Application".to_string(),
+        "    $pptWasOpen = $false".to_string(),
+        "  } catch {".to_string(),
+        "    Write-Output \"ERROR: Microsoft PowerPoint COM automation is not available\"".to_string(),
+        "    exit".to_string(),
+        "  }".to_string(),
         "}".to_string(),
-        "$ppt.Visible = [Microsoft.Office.Interop.PowerPoint.MsoTriState]::msoTrue".to_string(),
     ];
 
+    if p.action == "open" {
+        actions.push("$ppt.Visible = [Microsoft.Office.Interop.PowerPoint.MsoTriState]::msoTrue".to_string());
+    }
+
+    actions.push("$pres = $null".to_string());
+    actions.push("$presWasAlreadyOpen = $false".to_string());
+
     if let Some(fp) = &p.file_path {
-        actions.push(format!("$pres = $ppt.Presentations.Open('{}')", ps_escape(fp)));
+        let escaped_fp = ps_escape(fp);
+        actions.push(format!("$targetPath = [System.IO.Path]::GetFullPath('{}')", escaped_fp));
+        actions.push("try {".to_string());
+        actions.push("  foreach ($pr in $ppt.Presentations) {".to_string());
+        actions.push("    if ($pr.FullName -ieq $targetPath) {".to_string());
+        actions.push("      $pres = $pr".to_string());
+        actions.push("      $presWasAlreadyOpen = $true".to_string());
+        actions.push("      break".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("  if (-not $pres) {".to_string());
+        actions.push("    if (Test-Path $targetPath) {".to_string());
+        actions.push("      $pres = $ppt.Presentations.Open($targetPath)".to_string());
+        actions.push("    } else {".to_string());
+        actions.push("      $pres = $ppt.Presentations.Add([Microsoft.Office.Interop.PowerPoint.MsoTriState]::msoTrue)".to_string());
+        actions.push("      $pres.SaveAs($targetPath)".to_string());
+        actions.push("    }".to_string());
+        actions.push("  }".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to open presentation: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
     } else {
-        actions.push("$pres = $ppt.ActivePresentation".to_string());
+        actions.push("try {".to_string());
+        actions.push("  $pres = $ppt.ActivePresentation".to_string());
+        actions.push("  if (-not $pres) {".to_string());
+        actions.push("    Write-Output \"ERROR: No active presentation found\"".to_string());
+        actions.push("    exit".to_string());
+        actions.push("}".to_string());
+        actions.push("  $presWasAlreadyOpen = $true".to_string());
+        actions.push("} catch {".to_string());
+        actions.push("  Write-Output \"ERROR: Failed to access active presentation: $($_.Exception.Message)\"".to_string());
+        actions.push("  exit".to_string());
+        actions.push("}".to_string());
     }
 
     match p.action.as_str() {
+        "open" => {
+            actions.push("$ppt.Visible = [Microsoft.Office.Interop.PowerPoint.MsoTriState]::msoTrue".to_string());
+            actions.push("try { $pres.Windows.Item(1).Activate() } catch {}".to_string());
+            actions.push("Write-Output \"OK:open\"".to_string());
+        }
         "add_slide" => {
             let layout = p.layout.unwrap_or(1);
             actions.push(format!("$layout = $pres.SlideMaster.CustomLayouts.Item({})", layout));
@@ -284,7 +541,7 @@ pub fn build_ppt_com_script(p: &PptComParams) -> String {
             }
             actions.push("Write-Output \"OK:add_slide:$($pres.Slides.Count)\"".to_string());
         }
-        "set_shape_text" => {
+        "set_text" | "set_shape_text" => {
             let slide_num = p.slide_number.unwrap_or(1);
             let txt = p.text.as_deref().unwrap_or("");
             actions.push(format!("$slide = $pres.Slides.Item({})", slide_num));
@@ -292,7 +549,7 @@ pub fn build_ppt_com_script(p: &PptComParams) -> String {
                 actions.push("foreach ($shape In $slide.Shapes) {".to_string());
                 actions.push(format!("  if ($shape.Name -eq '{}') {{", ps_escape(sn)));
                 actions.push(format!("    $shape.TextFrame.TextRange.Text = '{}'", ps_escape(txt)));
-                actions.push(format!("    Write-Output \"OK:set_shape_text:{}\"", sn));
+                actions.push(format!("    Write-Output \"OK:{}:{}\"", p.action, sn));
                 actions.push("  }".to_string());
                 actions.push("}".to_string());
             } else {
@@ -300,7 +557,7 @@ pub fn build_ppt_com_script(p: &PptComParams) -> String {
                 actions.push(format!("$idx = {}", idx));
                 actions.push("$shape = $slide.Shapes.Item($idx)".to_string());
                 actions.push(format!("$shape.TextFrame.TextRange.Text = '{}'", ps_escape(txt)));
-                actions.push("Write-Output \"OK:set_shape_text:shape$($idx)\"".to_string());
+                actions.push(format!("Write-Output \"OK:{}:shape$($idx)\"", p.action));
             }
         }
         other => {
@@ -308,14 +565,22 @@ pub fn build_ppt_com_script(p: &PptComParams) -> String {
         }
     }
 
-    actions.extend([
-        "$pres.Save()".to_string(),
-        "$pres.Close()".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($pres) | Out-Null".to_string(),
-        "[System.Runtime.InteropServices.Marshal]::ReleaseComObject($ppt) | Out-Null".to_string(),
-        "[System.GC]::Collect()".to_string(),
-        "[System.GC]::WaitForPendingFinalizers()".to_string(),
-    ]);
+    if p.action == "open" {
+        actions.extend([
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($pres) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ppt) | Out-Null } catch {}".to_string(),
+        ]);
+    } else {
+        actions.extend([
+            "try { $pres.Save() } catch {}".to_string(),
+            "if (-not $presWasAlreadyOpen) { try { $pres.Close() } catch {} }".to_string(),
+            "if (-not $pptWasOpen) { try { $ppt.Quit() } catch {} }".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($pres) | Out-Null } catch {}".to_string(),
+            "try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($ppt) | Out-Null } catch {}".to_string(),
+            "[System.GC]::Collect()".to_string(),
+            "[System.GC]::WaitForPendingFinalizers()".to_string(),
+        ]);
+    }
 
     actions.join("\n")
 }

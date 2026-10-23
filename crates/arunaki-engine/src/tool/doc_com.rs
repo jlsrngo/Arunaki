@@ -188,7 +188,13 @@ pub async fn execute_doc_com(
             .unwrap_or_else(|e| Err(e.to_string()));
 
             match res {
-                Ok(out) => json!({ "ok": true, "output": out }),
+                Ok(out) => {
+                    if out.starts_with("ERROR:") {
+                        json!({ "error": out })
+                    } else {
+                        json!({ "ok": true, "output": out })
+                    }
+                }
                 Err(e) => json!({ "error": e }),
             }
         }
