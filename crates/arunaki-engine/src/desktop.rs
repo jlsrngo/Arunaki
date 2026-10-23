@@ -780,6 +780,22 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
       const r = await fetch(ORIGIN + '/api/desktop/engine-info');
       return await r.json();
     },
+    ping: () => Promise.resolve('desktop'),
+    resetZoom: () => {},
+    setTheme: (_theme) => Promise.resolve(),
+    notify: (payload) => {
+      try {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(payload.title || 'Arunaki', { body: payload.body || '' });
+        }
+      } catch {}
+    },
+    getSystemInfo: () => ({
+      runtime: 'rust-webview2',
+      electron: 'unavailable (pure-rust)',
+      node: 'unavailable (pure-rust)',
+      os: 'Windows_NT x64'
+    }),
     // No engineFetch / bridgeFetch / SSE relay here on purpose: the page is served from the
     // engine's own origin, so lib/api.ts talks to /api over plain same-origin HTTP. The old
     // relay shims had the wrong signature (opts object vs (path, init)) and returned
