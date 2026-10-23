@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, oneshot};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SessionStoreData {
@@ -27,8 +27,18 @@ pub struct SessionStoreData {
     pub messages: HashMap<String, Vec<Value>>,
 }
 
+pub struct PendingQuestion {
+    pub id: String,
+    pub session_id: String,
+    pub directory: String,
+    pub questions: Vec<Value>,
+    pub tool: Value,
+    pub reply_tx: Option<oneshot::Sender<Option<Vec<Vec<String>>>>>,
+}
+
 static SESSION_STORE: OnceLock<Mutex<SessionStoreData>> = OnceLock::new();
 static ACTIVE_RUNS: OnceLock<Mutex<HashMap<String, bool>>> = OnceLock::new();
+static PENDING_QUESTIONS: OnceLock<Mutex<HashMap<String, PendingQuestion>>> = OnceLock::new();
 static EVENT_BUS: OnceLock<broadcast::Sender<Value>> = OnceLock::new();
 
 pub fn get_event_sender() -> broadcast::Sender<Value> {
@@ -126,6 +136,31 @@ pub fn router() -> Router {
         .route("/session/:id/todo", get(handle_empty_list))
         .route("/api/session/:id/diff", get(handle_empty_list))
         .route("/session/:id/diff", get(handle_empty_list))
+        // Interactive question clarification routes
+        .route("/api/question", get(handle_question_list_all))
+        .route("/question", get(handle_question_list_all))
+        .route("/api/session/:id/question", get(handle_question_list_session))
+        .route("/session/:id/question", get(handle_question_list_session))
+        .route(
+            "/api/session/:id/question/:reqId/reply",
+            post(handle_question_reply_session),
+        )
+        .route(
+            "/session/:id/question/:reqId/reply",
+            post(handle_question_reply_session),
+        )
+        .route("/api/question/:reqId/reply", post(handle_question_reply_global))
+        .route("/question/:reqId/reply", post(handle_question_reply_global))
+        .route(
+            "/api/session/:id/question/:reqId/reject",
+            post(handle_question_reject_session),
+        )
+        .route(
+            "/session/:id/question/:reqId/reject",
+            post(handle_question_reject_session),
+        )
+        .route("/api/question/:reqId/reject", post(handle_question_reject_global))
+        .route("/question/:reqId/reject", post(handle_question_reject_global))
 }
 
 fn resolve_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> String {
@@ -163,6 +198,102 @@ async fn handle_empty_list() -> Response {
     Json(json!([])).into_response()
 }
 
+async fn handle_question_list_all() -> Response {
+    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut list = Vec::new();
+    if let Ok(guard) = m.lock() {
+        for q in guard.values() {
+            list.push(json!({
+                "id": q.id,
+                "sessionID": q.session_id,
+                "questions": q.questions,
+                "tool": q.tool
+            }));
+        }
+    }
+    Json(json!({ "data": list })).into_response()
+}
+
+async fn handle_question_list_session(AxumPath(sid): AxumPath<String>) -> Response {
+    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut list = Vec::new();
+    if let Ok(guard) = m.lock() {
+        for q in guard.values() {
+            if q.session_id == sid {
+                list.push(json!({
+                    "id": q.id,
+                    "sessionID": q.session_id,
+                    "questions": q.questions,
+                    "tool": q.tool
+                }));
+            }
+        }
+    }
+    Json(json!({ "data": list })).into_response()
+}
+
+async fn handle_question_reply_session(
+    AxumPath((_sid, req_id)): AxumPath<(String, String)>,
+    Json(body): Json<Value>,
+) -> Response {
+    resolve_question_reply(&req_id, Some(&body))
+}
+
+async fn handle_question_reply_global(
+    AxumPath(req_id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Response {
+    resolve_question_reply(&req_id, Some(&body))
+}
+
+async fn handle_question_reject_session(
+    AxumPath((_sid, req_id)): AxumPath<(String, String)>,
+) -> Response {
+    resolve_question_reply(&req_id, None)
+}
+
+async fn handle_question_reject_global(AxumPath(req_id): AxumPath<String>) -> Response {
+    resolve_question_reply(&req_id, None)
+}
+
+fn resolve_question_reply(req_id: &str, body_opt: Option<&Value>) -> Response {
+    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let removed = m.lock().ok().and_then(|mut g| g.remove(req_id));
+    if let Some(mut pq) = removed {
+        if let Some(body) = body_opt {
+            let answers: Vec<Vec<String>> = body
+                .get("answers")
+                .and_then(|v| serde_json::from_value(v.clone()).ok())
+                .unwrap_or_default();
+            emit_event(
+                &pq.directory,
+                "question.v2.replied",
+                json!({
+                    "sessionID": pq.session_id,
+                    "requestID": pq.id,
+                    "answers": answers
+                }),
+            );
+            if let Some(tx) = pq.reply_tx.take() {
+                let _ = tx.send(Some(answers));
+            }
+        } else {
+            emit_event(
+                &pq.directory,
+                "question.v2.rejected",
+                json!({
+                    "sessionID": pq.session_id,
+                    "requestID": pq.id
+                }),
+            );
+            if let Some(tx) = pq.reply_tx.take() {
+                let _ = tx.send(None);
+            }
+        }
+    }
+    Json(json!(true)).into_response()
+}
+
 async fn handle_list(
     Query(q): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -178,6 +309,12 @@ async fn handle_list(
                 .filter(|s| !s.trim().is_empty())
                 .map(|d| normalize_workspace_path(&urlencoding_decode(d)).to_lowercase())
         });
+
+    let limit = q
+        .get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(200)
+        .clamp(1, 500);
 
     let list = with_store(|store| {
         let mut items: Vec<Value> = store
@@ -196,7 +333,33 @@ async fn handle_list(
                     true
                 }
             })
-            .cloned()
+            .map(|s| {
+                let mut obj = s.clone();
+                let sid = obj.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                let msgs = store.messages.get(sid);
+                let msg_count = msgs.map(|m| m.len()).unwrap_or(0);
+                let preview = msgs
+                    .and_then(|m| m.last())
+                    .and_then(|last| {
+                        last.get("text")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .or_else(|| {
+                                last.get("content")
+                                    .and_then(|v| v.as_array())
+                                    .and_then(|arr| {
+                                        arr.iter().find_map(|p| {
+                                            p.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                        })
+                                    })
+                            })
+                    })
+                    .unwrap_or_default();
+                let short_preview: String = preview.chars().take(95).collect();
+                obj["messageCount"] = json!(msg_count);
+                obj["lastMessagePreview"] = Value::String(short_preview);
+                obj
+            })
             .collect();
         items.sort_by(|a, b| {
             let ta = a
@@ -209,6 +372,9 @@ async fn handle_list(
                 .unwrap_or(0);
             tb.cmp(&ta)
         });
+        if items.len() > limit {
+            items.truncate(limit);
+        }
         items
     });
 
@@ -347,11 +513,39 @@ async fn handle_messages(
     Query(q): Query<HashMap<String, String>>,
 ) -> Response {
     let mut msgs = with_store(|store| store.messages.get(&id).cloned().unwrap_or_default());
+    let total = msgs.len();
     let order = q.get("order").map(|s| s.as_str()).unwrap_or("desc");
     if order == "desc" {
         msgs.reverse();
     }
-    Json(json!({ "data": msgs, "cursor": {} })).into_response()
+    let offset = q
+        .get("cursor")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let limit = q
+        .get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(200)
+        .clamp(1, 500);
+
+    let slice: Vec<Value> = if offset < msgs.len() {
+        let end = (offset + limit).min(msgs.len());
+        msgs[offset..end].to_vec()
+    } else {
+        Vec::new()
+    };
+    let next_cursor = if offset + slice.len() < total {
+        Some((offset + slice.len()).to_string())
+    } else {
+        None
+    };
+
+    Json(json!({
+        "data": slice,
+        "total": total,
+        "cursor": { "next": next_cursor }
+    }))
+    .into_response()
 }
 
 async fn handle_prompt(
@@ -704,6 +898,42 @@ fn build_tool_definitions() -> Vec<Value> {
                 }
             }
         }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "question",
+                "description": "Ask the user an interactive multiple-choice question when clarification is required",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "questions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "header": { "type": "string" },
+                                    "question": { "type": "string" },
+                                    "multiple": { "type": "boolean" },
+                                    "options": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "label": { "type": "string" },
+                                                "description": { "type": "string" }
+                                            },
+                                            "required": ["label"]
+                                        }
+                                    }
+                                },
+                                "required": ["question", "options"]
+                            }
+                        }
+                    },
+                    "required": ["questions"]
+                }
+            }
+        }),
     ]
 }
 
@@ -724,8 +954,65 @@ fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf,
     Ok(resolved)
 }
 
-async fn execute_tool_call(workspace_dir: &str, name: &str, args: &Value) -> Value {
+async fn execute_tool_call(
+    session_id: &str,
+    assistant_msg_id: &str,
+    call_id: &str,
+    workspace_dir: &str,
+    name: &str,
+    args: &Value,
+) -> Value {
     match name {
+        "question" => {
+            let req_id = gen_id("que");
+            let questions = args
+                .get("questions")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            let tool_ref = json!({
+                "messageID": assistant_msg_id,
+                "callID": call_id
+            });
+            let (tx, rx) = oneshot::channel();
+            {
+                let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+                if let Ok(mut guard) = m.lock() {
+                    guard.insert(
+                        req_id.clone(),
+                        PendingQuestion {
+                            id: req_id.clone(),
+                            session_id: session_id.to_string(),
+                            directory: workspace_dir.to_string(),
+                            questions: questions.clone(),
+                            tool: tool_ref.clone(),
+                            reply_tx: Some(tx),
+                        },
+                    );
+                }
+            }
+            emit_event(
+                workspace_dir,
+                "question.asked",
+                json!({
+                    "id": req_id,
+                    "sessionID": session_id,
+                    "questions": questions,
+                    "tool": tool_ref
+                }),
+            );
+            match tokio::time::timeout(std::time::Duration::from_secs(120), rx).await {
+                Ok(Ok(Some(answers))) => json!({ "ok": true, "answers": answers }),
+                Ok(Ok(None)) => json!({ "rejected": true }),
+                _ => {
+                    let m = PENDING_QUESTIONS.get_or_init(|| Mutex::new(HashMap::new()));
+                    if let Ok(mut guard) = m.lock() {
+                        guard.remove(&req_id);
+                    }
+                    json!({ "timeout": true })
+                }
+            }
+        }
         "glob" => {
             let pattern = args
                 .get("pattern")
@@ -1099,7 +1386,15 @@ async fn run_agent_turn(
                 }),
             );
 
-            let tool_out = execute_tool_call(workspace_dir, &fn_name, &args_val).await;
+            let tool_out = execute_tool_call(
+                session_id,
+                &assistant_msg_id,
+                &call_id,
+                workspace_dir,
+                &fn_name,
+                &args_val,
+            )
+            .await;
             let tool_out_str =
                 serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
             let tool_end = now_ms();
@@ -1232,4 +1527,37 @@ async fn run_agent_turn(
         "session.idle",
         json!({ "sessionID": session_id }),
     );
+}
+
+pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String {
+    let dir = normalize_workspace_path(workspace_dir);
+    let session_id = format!("ses_tg_{}", now_ms());
+    let model_ref = default_model_ref();
+    let provider_id = model_ref
+        .get("providerID")
+        .and_then(|v| v.as_str())
+        .unwrap_or("local-cli")
+        .to_string();
+    let model_id = model_ref
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("kiro/auto")
+        .to_string();
+
+    run_agent_turn(&session_id, &dir, &provider_id, &model_id, &[], prompt_text).await;
+
+    with_store(|store| {
+        store
+            .messages
+            .get(&session_id)
+            .and_then(|msgs| msgs.last())
+            .and_then(|last| last.get("content"))
+            .and_then(|c| c.as_array())
+            .and_then(|arr| {
+                arr.iter()
+                    .find_map(|p| p.get("text").and_then(|t| t.as_str()))
+            })
+            .unwrap_or("Done.")
+            .to_string()
+    })
 }

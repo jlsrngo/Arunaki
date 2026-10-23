@@ -1,7 +1,8 @@
-import { RefObject, useState, useMemo, useCallback, memo } from "react";
+import { RefObject, useState, useMemo, useCallback, useEffect, memo } from "react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import {
   Bot,
+  ChevronUp,
   PanelRightOpen,
 } from "lucide-react";
 import { LiveExecutionBadge, LiveStatusData } from "./LiveExecutionBadge";
@@ -13,6 +14,9 @@ import { ChatInputBox } from "./chat/ChatInputBox";
 import { ChatQueuedPrompts } from "./chat/ChatQueuedPrompts";
 import { ChatImageLightbox } from "./chat/ChatImageLightbox";
 import { WorkstationRightChatHeader } from "./chat/WorkstationRightChatHeader";
+
+const INITIAL_VISIBLE_CHAT_MESSAGES = 20;
+const LOAD_OLDER_STEP = 20;
 
 interface Workspace {
   id: string;
@@ -69,7 +73,7 @@ export const WorkstationRightChat = memo(function WorkstationRightChat({
   onRemoveQueuedPrompt,
   onSearchSection,
   reasoningEffort = "",
-setReasoningEffort,
+  setReasoningEffort,
   effortOptions = [] as string[],
   activeModel,
   modelOptions = [] as Array<{ id: string; name: string }>,
@@ -84,11 +88,17 @@ setReasoningEffort,
 }: WorkstationRightChatProps) {
   // CRITICAL: React Rules of Hooks - all hooks declared unconditionally at top
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [visibleLimit, setVisibleLimit] = useState<number>(INITIAL_VISIBLE_CHAT_MESSAGES);
   const [showThinking, setShowThinking] = useState<boolean>(() => {
     const saved = localStorage.getItem("arunaki_show_thinking");
     if (saved !== null) return saved === "true";
     return true;
   });
+
+  // Reset visible window to 20 whenever user switches chat sessions
+  useEffect(() => {
+    setVisibleLimit(INITIAL_VISIBLE_CHAT_MESSAGES);
+  }, [activeChatId]);
 
   const handlePreviewImage = useCallback((url: string) => {
     setLightboxUrl(url);
@@ -143,6 +153,23 @@ setReasoningEffort,
     return result;
   }, [chatMessages, optimisticMessages, isStreaming]);
 
+  const hiddenCount = Math.max(0, allMessages.length - visibleLimit);
+  const visibleMessages = useMemo(() => {
+    if (allMessages.length <= visibleLimit) return allMessages;
+    return allMessages.slice(allMessages.length - visibleLimit);
+  }, [allMessages, visibleLimit]);
+
+  const handleScrollContainer = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      if (hiddenCount <= 0) return;
+      const el = e.currentTarget;
+      if (el.scrollTop <= 48) {
+        setVisibleLimit((prev) => prev + LOAD_OLDER_STEP);
+      }
+    },
+    [hiddenCount]
+  );
+
   if (collapsed) {
     return (
       <aside className="w-10 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col items-center py-2 shrink-0 select-none transition-colors duration-150">
@@ -177,7 +204,10 @@ setReasoningEffort,
       />
 
       {/* Messages List Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 font-sans text-xs min-w-0">
+      <div
+        onScroll={handleScrollContainer}
+        className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-4 font-sans text-xs min-w-0"
+      >
         {allMessages.length === 0 && !isStreaming ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 select-none">
             <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center mb-3 border border-[var(--border-color)]">
@@ -189,23 +219,39 @@ setReasoningEffort,
             </p>
           </div>
         ) : (
-          allMessages.map((msg, idx) => {
-            const isUser = msg.role === "user";
-            const isMsgStreaming = isStreaming && !isUser && idx === allMessages.length - 1;
+          <>
+            {hiddenCount > 0 && (
+              <div className="flex justify-center pt-1 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleLimit((prev) => prev + LOAD_OLDER_STEP)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span>
+                    Show {Math.min(LOAD_OLDER_STEP, hiddenCount)} older messages ({hiddenCount} hidden)
+                  </span>
+                </button>
+              </div>
+            )}
+            {visibleMessages.map((msg, idx) => {
+              const isUser = msg.role === "user";
+              const isMsgStreaming = isStreaming && !isUser && idx === visibleMessages.length - 1;
 
-            return (
-              <ChatMessageBubble
-                key={msg.id || idx}
-                msg={msg}
-                isUser={isUser}
-                isStreaming={isMsgStreaming}
-                showThinking={showThinking}
-                onPreviewImage={handlePreviewImage}
-                onResend={handleResend}
-                onAnswerQuestion={onAnswerQuestion}
-              />
-            );
-          })
+              return (
+                <ChatMessageBubble
+                  key={msg.id || idx}
+                  msg={msg}
+                  isUser={isUser}
+                  isStreaming={isMsgStreaming}
+                  showThinking={showThinking}
+                  onPreviewImage={handlePreviewImage}
+                  onResend={handleResend}
+                  onAnswerQuestion={onAnswerQuestion}
+                />
+              );
+            })}
+          </>
         )}
 
         {/* Live Execution Telemetry Badge & Mirror Card */}
@@ -239,7 +285,7 @@ setReasoningEffort,
           onNewChat={onNewChat}
           reasoningEffort={reasoningEffort}
           setReasoningEffort={setReasoningEffort}
-    effortOptions={effortOptions}
+          effortOptions={effortOptions}
           activeModel={activeModel}
           modelOptions={modelOptions}
           onSelectModel={onSelectModel}
@@ -255,4 +301,3 @@ setReasoningEffort,
     </aside>
   );
 });
-

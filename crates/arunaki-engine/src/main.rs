@@ -1,5 +1,6 @@
 mod bridge;
 mod cred_store;
+mod desktop;
 mod files;
 mod knowledge;
 mod messaging;
@@ -26,20 +27,24 @@ use serde_json::json;
 use std::time::Duration;
 use tokio_stream::wrappers::BroadcastStream;
 
-const ENGINE_VERSION: &str = "1.2.15-rust";
+const ENGINE_VERSION: &str = "1.3.0-rust";
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args: Vec<String> = std::env::args().collect();
     let mut port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(4096);
     let mut hostname = String::from("127.0.0.1");
+    let mut headless = false;
 
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
+            "serve" | "--headless" | "--server" => {
+                headless = true;
+                i += 1;
+            }
             "--port" | "-p" if i + 1 < args.len() => {
                 if let Ok(p) = args[i + 1].parse::<u16>() {
                     port = p;
@@ -60,11 +65,79 @@ async fn main() {
         }
     }
 
+    if headless || std::env::var("ARUNAKI_HEADLESS").as_deref() == Ok("1") {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to create Tokio runtime");
+        rt.block_on(async move {
+            let (listener, url, actual_port) = init_engine_and_bind(&hostname, port).await;
+            println!(
+                "arunaki server listening on {} (native Rust engine v{})",
+                url, ENGINE_VERSION
+            );
+            run_axum_server(listener, actual_port).await;
+        });
+    } else {
+        // Standalone Desktop GUI Mode (double-clicked in Explorer with no terminal needed!)
+        if std::env::var("ARUNAKI_SHOW_CONSOLE").as_deref() != Ok("1") {
+            desktop::hide_console_window();
+        }
+
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel::<String>();
+        let host_clone = hostname.clone();
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to create background Tokio runtime");
+            rt.block_on(async move {
+                // Check if another arunaki-engine is already listening on `port`
+                let probe_url = format!("http://{}:{}/api/health", host_clone, port);
+                let already_up = reqwest::Client::builder()
+                    .timeout(Duration::from_millis(400))
+                    .build()
+                    .unwrap()
+                    .get(&probe_url)
+                    .send()
+                    .await
+                    .map(|r| r.status().is_success())
+                    .unwrap_or(false);
+
+                if already_up {
+                    let existing_url = format!("http://{}:{}", host_clone, port);
+                    let _ = ready_tx.send(existing_url);
+                    loop {
+                        tokio::time::sleep(Duration::from_secs(3600)).await;
+                    }
+                } else {
+                    let (listener, url, actual_port) =
+                        init_engine_and_bind(&host_clone, port).await;
+                    let _ = ready_tx.send(url);
+                    run_axum_server(listener, actual_port).await;
+                }
+            });
+        });
+
+        let app_url = ready_rx
+            .recv_timeout(Duration::from_secs(10))
+            .unwrap_or_else(|_| format!("http://{}:{}", hostname, port));
+        desktop::launch_desktop_window(&app_url);
+    }
+}
+
+async fn init_engine_and_bind(
+    hostname: &str,
+    port: u16,
+) -> (tokio::net::TcpListener, String, u16) {
     // 1. Harvest local CLI credentials & start Local-CLI Bridge on :20188
     harvest_all();
     register_local_cli_to_config(LOCAL_CLI_BRIDGE_PORT);
     if let Err(e) = start_bridge_server(LOCAL_CLI_BRIDGE_PORT).await {
-        eprintln!("[arunaki-engine] Notice: bridge server on :{}: {}", LOCAL_CLI_BRIDGE_PORT, e);
+        eprintln!(
+            "[arunaki-engine] Notice: bridge server on :{}: {}",
+            LOCAL_CLI_BRIDGE_PORT, e
+        );
     } else {
         println!(
             "[arunaki-engine] Local-CLI Bridge listening on http://127.0.0.1:{}/v1",
@@ -72,7 +145,10 @@ async fn main() {
         );
     }
 
-    // 2. Write dev-server-password if server password env is provided
+    // 2. Start background Telegram bot polling if enabled
+    messaging::start_telegram_worker();
+
+    // 3. Write dev-server-password if server password env is provided
     let srv_user = std::env::var("Arunaki_SERVER_USERNAME")
         .or_else(|_| std::env::var("ARUNAKI_SERVER_USERNAME"))
         .unwrap_or_else(|_| "arunaki".to_string());
@@ -85,26 +161,13 @@ async fn main() {
         }
     }
 
-    // 3. Build main Axum router
-    let app = Router::new()
-        .route("/api/health", get(handle_health))
-        .route("/global/health", get(handle_health))
-        .route("/health", get(handle_health))
-        .route("/api/event", get(handle_sse_events))
-        .route("/global/event", get(handle_sse_events))
-        .route("/event", get(handle_sse_events))
-        .merge(knowledge::router())
-        .merge(files::router())
-        .merge(providers::router())
-        .merge(messaging::router())
-        .merge(sessions::router())
-        .fallback(handle_fallback)
-        .layer(middleware::from_fn(cors_and_auth_middleware));
-
     let bind_addr = format!("{}:{}", hostname, port);
-    let listener = tokio::net::TcpListener::bind(&bind_addr)
-        .await
-        .unwrap_or_else(|e| panic!("Failed to bind arunaki-engine on {}: {}", bind_addr, e));
+    let listener = match tokio::net::TcpListener::bind(&bind_addr).await {
+        Ok(l) => l,
+        Err(_) => tokio::net::TcpListener::bind(format!("{}:0", hostname))
+            .await
+            .expect("Failed to bind arunaki-engine"),
+    };
 
     let actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
     let url = format!("http://{}:{}", hostname, actual_port);
@@ -117,6 +180,7 @@ async fn main() {
             "port": actual_port,
             "hostname": hostname,
             "url": url,
+            "bridgePort": LOCAL_CLI_BRIDGE_PORT,
             "pid": std::process::id(),
             "runtime": "rust",
             "version": ENGINE_VERSION
@@ -124,10 +188,25 @@ async fn main() {
         .unwrap_or_default(),
     );
 
-    println!(
-        "arunaki server listening on {} (native Rust engine v{})",
-        url, ENGINE_VERSION
-    );
+    (listener, url, actual_port)
+}
+
+async fn run_axum_server(listener: tokio::net::TcpListener, _actual_port: u16) {
+    let app = Router::new()
+        .route("/api/health", get(handle_health))
+        .route("/global/health", get(handle_health))
+        .route("/health", get(handle_health))
+        .route("/api/event", get(handle_sse_events))
+        .route("/global/event", get(handle_sse_events))
+        .route("/event", get(handle_sse_events))
+        .merge(desktop::router())
+        .merge(knowledge::router())
+        .merge(files::router())
+        .merge(providers::router())
+        .merge(messaging::router())
+        .merge(sessions::router())
+        .fallback(handle_fallback)
+        .layer(middleware::from_fn(cors_and_auth_middleware));
 
     axum::serve(listener, app).await.unwrap();
 }
@@ -176,6 +255,15 @@ async fn handle_sse_events() -> Response {
 }
 
 async fn handle_fallback(req: Request) -> Response {
+    // 1. Try serving static Vite frontend assets (apps/web/dist)
+    let uri_path = req.uri().path().to_string();
+    if req.method() == Method::GET {
+        if let Some(static_resp) = desktop::try_serve_static_asset(&uri_path) {
+            return static_resp;
+        }
+    }
+
+    // 2. Optional TypeScript upstream fallback if explicitly configured
     if let Ok(upstream) = std::env::var("ARUNAKI_TS_UPSTREAM") {
         let upstream = upstream.trim_end_matches('/');
         if !upstream.is_empty() {
@@ -190,16 +278,19 @@ async fn handle_fallback(req: Request) -> Response {
                 .timeout(Duration::from_secs(60))
                 .build()
                 .unwrap();
-            if let Ok(body_bytes) = axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024).await {
-                let req_method =
-                    reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
+            if let Ok(body_bytes) =
+                axum::body::to_bytes(req.into_body(), 16 * 1024 * 1024).await
+            {
+                let req_method = reqwest::Method::from_bytes(method.as_str().as_bytes())
+                    .unwrap_or(reqwest::Method::GET);
                 if let Ok(r) = client
                     .request(req_method, &target_url)
                     .body(body_bytes.to_vec())
                     .send()
                     .await
                 {
-                    let status = StatusCode::from_u16(r.status().as_u16()).unwrap_or(StatusCode::OK);
+                    let status =
+                        StatusCode::from_u16(r.status().as_u16()).unwrap_or(StatusCode::OK);
                     let bytes = r.bytes().await.unwrap_or_default();
                     return (status, bytes).into_response();
                 }

@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Loader2, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
 import { useHistorySessions } from "../components/history/hooks/useHistorySessions";
 import { HistoryFilterBar } from "../components/history/HistoryFilterBar";
@@ -6,7 +7,11 @@ import { EmptySessionModal } from "../components/history/modals/EmptySessionModa
 import { DeleteSessionModal } from "../components/history/modals/DeleteSessionModal";
 import { CleanupSessionsModal } from "../components/history/modals/CleanupSessionsModal";
 
+const INITIAL_HISTORY_VISIBLE = 20;
+const HISTORY_LOAD_STEP = 20;
+
 export function HistoryPage() {
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_HISTORY_VISIBLE);
   const {
     loading,
     searchQuery,
@@ -28,16 +33,36 @@ export function HistoryPage() {
     totalCount,
     activeCount,
     emptyCount,
+    filteredSessions,
     groupedSessions,
   } = useHistorySessions();
+
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      if (visibleLimit >= filteredSessions.length) return;
+      const el = e.currentTarget;
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+        setVisibleLimit((prev) => prev + HISTORY_LOAD_STEP);
+      }
+    },
+    [visibleLimit, filteredSessions.length]
+  );
+
+  let renderedCount = 0;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
       <HistoryFilterBar
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={(q) => {
+          setSearchQuery(q);
+          setVisibleLimit(INITIAL_HISTORY_VISIBLE);
+        }}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(t) => {
+          setActiveTab(t);
+          setVisibleLimit(INITIAL_HISTORY_VISIBLE);
+        }}
         totalCount={totalCount}
         activeCount={activeCount}
         emptyCount={emptyCount}
@@ -45,7 +70,10 @@ export function HistoryPage() {
       />
 
       {/* Scrollable History List */}
-      <div className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto px-8 pb-8">
+      <div
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto w-full max-w-4xl mx-auto px-8 pb-8"
+      >
         {loading ? (
           <div className="flex items-center justify-center py-16 text-[var(--text-muted)] gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -68,6 +96,10 @@ export function HistoryPage() {
         ) : (
           <div className="space-y-6 pt-2">
             {groupedSessions.map((group) => {
+              if (renderedCount >= visibleLimit) return null;
+              const remainingBudget = Math.max(0, visibleLimit - renderedCount);
+              const visibleItems = group.items.slice(0, remainingBudget);
+              renderedCount += visibleItems.length;
               const isCollapsed = collapsedGroups[group.group];
               return (
                 <div key={group.group} className="space-y-2">
@@ -91,7 +123,7 @@ export function HistoryPage() {
 
                   {!isCollapsed && (
                     <div className="space-y-1.5">
-                      {group.items.map((session) => (
+                      {visibleItems.map((session) => (
                         <HistorySessionItem
                           key={session.id}
                           session={session}
@@ -104,6 +136,18 @@ export function HistoryPage() {
                 </div>
               );
             })}
+
+            {filteredSessions.length > visibleLimit && (
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleLimit((prev) => prev + HISTORY_LOAD_STEP)}
+                  className="px-4 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                >
+                  Load more sessions ({filteredSessions.length - visibleLimit} remaining)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -30,27 +30,36 @@ export function useHistorySessions() {
         const raw = await listSessions({ limit: 100 });
         if (!isMounted) return;
 
-        const initial: ChatSession[] = (raw || []).map((s: any) => ({
-          id: s.id,
-          title: s.title || "",
-          createdAt: s.time?.created ? new Date(s.time.created).toISOString() : "",
-          updatedAt: s.time?.updated
-            ? new Date(s.time.updated).toISOString()
-            : s.time?.created
-            ? new Date(s.time.created).toISOString()
-            : "",
-          directory: s.directory || s.location?.directory || "",
-          isLoadingStats: true,
-        }));
+        const initial: ChatSession[] = (raw || []).map((s: any) => {
+          const hasInlineStats = typeof s.messageCount === "number";
+          return {
+            id: s.id,
+            title: s.title || "",
+            createdAt: s.time?.created ? new Date(s.time.created).toISOString() : "",
+            updatedAt: s.time?.updated
+              ? new Date(s.time.updated).toISOString()
+              : s.time?.created
+              ? new Date(s.time.created).toISOString()
+              : "",
+            directory: s.directory || s.location?.directory || "",
+            messageCount: hasInlineStats ? s.messageCount : undefined,
+            lastMessagePreview:
+              typeof s.lastMessagePreview === "string" ? s.lastMessagePreview : undefined,
+            isLoadingStats: !hasInlineStats,
+          };
+        });
 
         setSessions(initial);
         setLoading(false);
 
-        // Fetch stats (message count & preview) in concurrent chunks of 10
+        const needStats = initial.filter((s) => s.isLoadingStats);
+        if (needStats.length === 0) return;
+
+        // Fetch stats (message count & preview) in concurrent chunks of 10 only when not provided inline
         const chunkSize = 10;
-        for (let i = 0; i < initial.length; i += chunkSize) {
+        for (let i = 0; i < needStats.length; i += chunkSize) {
           if (!isMounted) break;
-          const chunk = initial.slice(i, i + chunkSize);
+          const chunk = needStats.slice(i, i + chunkSize);
 
           const updates = await Promise.all(
             chunk.map(async (sess) => {

@@ -3,10 +3,14 @@ name = "arunaki-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Standalone native Rust AI Engine & Local-CLI Bridge for Arunaki Desktop"
+description = "Standalone native Rust AI Engine, Local-CLI Bridge & Desktop WebView2 App for Arunaki"
 
 [[bin]]
 name = "arunaki-engine"
+path = "src/main.rs"
+
+[[bin]]
+name = "arunaki"
 path = "src/main.rs"
 
 [dependencies]
@@ -22,3 +26,6 @@ base64 = "0.22"
 sha2 = "0.10"
 crc32fast = "1.4"
 bytes = "1.6"
+tao = "0.37"
+wry = "0.57"
+mime_guess = "2.0"

@@ -4255,4 +4255,34 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
   - `npm run test:smoke`: ✅ **8/8 provider checks passed** (`Kiro text`, `Kiro tool`, `OpenCode text`, `OpenCode tool`, `Antigravity text`, `Antigravity tool`, `Codex text (free)`, `Kiro chat`) langsung di atas native Rust `engine.exe`.
   - `npm run build -w apps/web`: ✅ 0 TypeScript compilation errors.
 
+---
+
+## Phase 126: 100% Backend Parity, Standalone Tauri/Wry Desktop Binary (`arunaki.exe`) & Lazy-Loaded Chat/History UI ✅ DONE
+
+**Goal:** Menyelesaikan 100% migrasi fitur backend tersisa ke Rust (OAuth PKCE/Device Flow, Live Quota API, Telegram Bot Long-Polling, Interactive Question Clarification), membangun aplikasi desktop standalone **Rust + Vite di atas Tauri (`tao` + `wry` WebView2)** (`target/debug/arunaki.exe` & `target/release/arunaki.exe`) yang bisa langsung di-*double-click* dari File Explorer tanpa Electron dan tanpa terminal, serta mengoptimalkan frontend agar chat dan history di-*lazy-load* (20 item awal + auto-load saat scroll).
+
+### 126.1 100% Backend Feature Parity (`crates/arunaki-engine`)
+- [x] **Browser OAuth Sign-In & CLI Injector (`cred_store.rs`, `providers.rs`)**:
+  - PKCE S256 OAuth callback server lokal (`codex` & `claude`) dan AWS SSO OIDC Device Authorization polling (`kiro`) via `/api/providers/local-cli/oauth/start` & `/status`.
+  - Live quota fetching (`fetch_live_quotas_list`) untuk Antigravity, Claude, Codex, Kiro, dan OpenCode.
+  - CLI settings injector (`/api/providers/local-cli/inject`), terminal login launcher (`/api/providers/local-cli/login`), discovered CLI list (`/api/providers/local-cli/discovered`), dan CRUD `/api/providers` penuh.
+- [x] **Background Telegram Bot Long-Polling (`messaging.rs`)**:
+  - Background Tokio worker (`start_telegram_worker`) yang melakukan long-polling `getUpdates`, memvalidasi `allowedUserId`, dan mengeksekusi perintah `/start`, `/help`, `/status`, `/files`, serta instruksi dokumen langsung via `sessions::run_direct_prompt`.
+- [x] **Interactive Question Clarification (`sessions.rs`)**:
+  - Tool `question` dengan channel `tokio::sync::oneshot` + endpoint `/api/session/:id/question/:reqId/reply` & `/reject` serta SSE `question.asked` / `question.v2.replied`.
+
+### 126.2 Standalone Tauri/Wry WebView2 Desktop Executable (`desktop.rs` & `main.rs`)
+- [x] **`crates/arunaki-engine/src/desktop.rs`**:
+  - Menyembunyikan jendela terminal secara otomatis (`GetConsoleWindow` + `ShowWindow(SW_HIDE)`) saat `arunaki.exe` dijalankan langsung tanpa argumen.
+  - Membuka native Windows WebView2 window (`tao = "0.37"` + `wry = "0.57"`) yang menyajikan aset Vite `apps/web/dist` dan menyuntikkan `window.arunakiDesktop` (`/api/desktop/pick-folder`, `folder-tree`, `read-file`, `write-file`, `parse-excel`, `write-excel`, `open-excel`, `open-word`, `engineFetch`, `bridgeFetch`, `startEngineSSE`).
+
+### 126.3 Frontend Chat & History Lazy-Loading Optimization (`apps/web`)
+- [x] **`WorkstationRightChat.tsx`**: Windowed/lazy rendering — hanya merender 20 pesan terbaru secara default dan otomatis memuat 20 pesan sebelumnya saat scroll ke atas atau klik tombol `"Show 20 older messages"`.
+- [x] **`HistoryPage.tsx`, `useHistorySessions.ts` & `sessions.rs`**: Menyertakan `messageCount` dan `lastMessagePreview` langsung dari `/api/session` (mengeliminasi 100+ request N+1 saat membuka halaman History) serta membatasi render awal History menjadi 20 sesi dengan infinite scroll.
+- [x] **Verification**:
+  - `cargo test --offline`: ✅ 7/7 tests passed.
+  - `npm run build -w apps/web`: ✅ 0 TypeScript errors.
+  - `npm run test:smoke`: ✅ **8/8 live provider checks passed**.
+
+
 
