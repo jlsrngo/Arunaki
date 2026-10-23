@@ -79,4 +79,7 @@ apps/desktop/dist-package/
 target/
 crates/**/target/
 
+# Local documentation (kept on local machine, ignored from GitHub)
+docs/
+
 
