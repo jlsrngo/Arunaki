@@ -14,6 +14,13 @@ import {
   Database,
   FileSearch,
   Loader2,
+  PackageSearch,
+  Receipt,
+  Printer,
+  Vault,
+  Calculator,
+  Boxes,
+  HelpCircle,
 } from "lucide-react";
 
 export interface LiveStatusData {
@@ -44,6 +51,11 @@ export function formatToolStepLabel(
   const t = (toolName || "").toLowerCase();
 
   let target = "";
+  let queryText = "";
+  let batchCount = 0;
+  let invoiceNo = "";
+  let itemCode = "";
+
   if (typeof argsOrTarget === "string") {
     const trimmed = argsOrTarget.trim();
     if (!/^(completed|failed|executing|running|preparing)\b/i.test(trimmed)) {
@@ -61,6 +73,24 @@ export function formatToolStepLabel(
       argsOrTarget.commandLine ||
       (typeof argsOrTarget.command === "string" ? argsOrTarget.command : "") ||
       "";
+
+    if (typeof argsOrTarget.query === "string") queryText = argsOrTarget.query.trim();
+    else if (typeof argsOrTarget.q === "string") queryText = argsOrTarget.q.trim();
+    else if (typeof argsOrTarget.search === "string") queryText = argsOrTarget.search.trim();
+
+    if (Array.isArray(argsOrTarget.queries)) {
+      batchCount = argsOrTarget.queries.length;
+      if (batchCount > 0 && typeof argsOrTarget.queries[0] === "string") {
+        queryText = argsOrTarget.queries[0].trim();
+      }
+    }
+
+    if (Array.isArray(argsOrTarget.items)) {
+      batchCount = argsOrTarget.items.length;
+    }
+
+    if (typeof argsOrTarget.invoice === "string") invoiceNo = argsOrTarget.invoice.trim();
+    if (typeof argsOrTarget.item_code === "string") itemCode = argsOrTarget.item_code.trim();
   }
 
   // Clean filename if it's a path, suppressing internal dotfiles and ARUNAKI.md
@@ -72,7 +102,60 @@ export function formatToolStepLabel(
     target.includes(".git");
   const fileName = isInternalOrHidden ? "" : rawFileName;
 
-  // 1. Read / View / Explore
+  // 1. ArunakiZen POS & Retail Tools (High Priority Specific Matching)
+  if (t.includes("arunakizen") || t.includes("pos")) {
+    // A. Catalog Search
+    if (t.includes("search") || t.includes("product") || t.includes("barang") || t.includes("katalog") || t.includes("catalog")) {
+      if (batchCount > 1) {
+        return isFinished ? `Searched catalog (${batchCount} items)` : `Searching catalog (${batchCount} items)`;
+      }
+      if (queryText) {
+        return isFinished ? `Searched catalog: ${queryText}` : `Searching catalog: ${queryText}`;
+      }
+      return isFinished ? `Searched product catalog` : `Searching product catalog`;
+    }
+
+    // B. Sales Order Creation
+    if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
+      if (batchCount > 0) {
+        return isFinished ? `Created sales order (${batchCount} items)` : `Creating sales order (${batchCount} items)`;
+      }
+      return isFinished ? `Created sales order` : `Creating sales order`;
+    }
+
+    // C. Print Receipt & Drawer Kick
+    if (t.includes("print") || t.includes("receipt") || t.includes("struk") || t.includes("nota")) {
+      if (invoiceNo) {
+        return isFinished ? `Printed receipt: ${invoiceNo}` : `Printing receipt: ${invoiceNo}`;
+      }
+      return isFinished ? `Printed customer receipt` : `Printing customer receipt`;
+    }
+
+    // D. Standalone Cash Drawer
+    if (t.includes("drawer") || t.includes("laci")) {
+      return isFinished ? `Opened cash drawer` : `Opening cash drawer`;
+    }
+
+    // E. Shift Summary
+    if (t.includes("shift") || t.includes("summary") || t.includes("kasir")) {
+      return isFinished ? `Retrieved shift summary` : `Retrieving shift summary`;
+    }
+
+    // F. Stock Adjustment
+    if (t.includes("stock") || t.includes("stok")) {
+      if (itemCode) {
+        return isFinished ? `Adjusted stock: ${itemCode}` : `Adjusting stock: ${itemCode}`;
+      }
+      return isFinished ? `Adjusted inventory stock` : `Adjusting inventory stock`;
+    }
+  }
+
+  // 2. Interactive Clarification Question
+  if (t === "question" || t.includes("ask_question")) {
+    return isFinished ? `Asked clarification question` : `Asking clarification question`;
+  }
+
+  // 3. Read / View / Explore
   if (t === "read" || t === "read_file" || t === "view_file") {
     if (fileName) return isFinished ? `Explored ${fileName}` : `Reading ${fileName}`;
     return isFinished ? `Explored workspace` : `Exploring workspace`;
@@ -82,7 +165,7 @@ export function formatToolStepLabel(
     return isFinished ? `Explored workspace` : `Exploring workspace`;
   }
 
-  // 2. Edit / Write / Replace
+  // 4. Edit / Write / Replace
   if (t === "replace_file_content" || t === "multi_replace_file_content" || t === "edit" || t === "edit_file") {
     return isFinished ? `Edited ${fileName || "file"}` : `Editing ${fileName || "file"}`;
   }
@@ -90,8 +173,11 @@ export function formatToolStepLabel(
     return isFinished ? `Created ${fileName || "file"}` : `Writing ${fileName || "file"}`;
   }
 
-  // 3. Excel tools
+  // 5. Excel tools
   if (t.includes("excel")) {
+    if (t.includes("batch")) {
+      return isFinished ? `Batch updated Excel ${fileName || ""}`.trim() : `Batch updating Excel ${fileName || ""}`.trim();
+    }
     if (t.includes("read") || t.includes("view")) {
       return isFinished ? `Read Excel ${fileName || ""}`.trim() : `Reading Excel ${fileName || ""}`.trim();
     }
@@ -101,14 +187,29 @@ export function formatToolStepLabel(
     return isFinished ? `Updated Excel ${fileName || ""}`.trim() : `Updating Excel ${fileName || ""}`.trim();
   }
 
-  // 4. Command / Bash / Script
+  // 6. Word tools
+  if (t.includes("word") || t.includes("docx")) {
+    if (t.includes("read") || t.includes("view")) {
+      return isFinished ? `Read Word ${fileName || ""}`.trim() : `Reading Word ${fileName || ""}`.trim();
+    }
+    return isFinished ? `Updated Word ${fileName || ""}`.trim() : `Updating Word ${fileName || ""}`.trim();
+  }
+
+  // 7. Command / Bash / Script
   if (t === "run_command" || t === "bash" || t === "powershell") {
     const cmdPreview = target ? target.slice(0, 30) : "";
     return isFinished ? `Ran ${cmdPreview || "command"}` : `Running ${cmdPreview || "command"}`;
   }
 
-  // 5. Search / Knowledge
-  if (t.includes("knowledge") || t.includes("search") || t.includes("memory") || t.includes("grep")) {
+  // 8. Search / Knowledge
+  if (t.includes("knowledge") || t.includes("memory")) {
+    if (queryText) return isFinished ? `Searched knowledge: ${queryText}` : `Searching knowledge: ${queryText}`;
+    return isFinished ? `Searched knowledge base` : `Searching knowledge base`;
+  }
+  if (t.includes("search") || t.includes("grep")) {
+    if (queryText || target) {
+      return isFinished ? `Searched for ${queryText || target}` : `Searching for ${queryText || target}`;
+    }
     return isFinished ? `Searched workspace` : `Searching workspace`;
   }
 
@@ -137,6 +238,14 @@ export function getActiveActionText(
     const l = runningStep.label;
     if (l && !l.startsWith("Executing:") && !l.startsWith("Preparing")) {
       return l.replace(/\.\.\.$/, "");
+    }
+    if (t.includes("arunakizen") || t.includes("pos")) {
+      if (t.includes("search") || t.includes("product") || t.includes("katalog") || t.includes("catalog")) return "Searching product catalog";
+      if (t.includes("order") || t.includes("sale") || t.includes("penjualan")) return "Creating sales order";
+      if (t.includes("print") || t.includes("receipt") || t.includes("struk")) return "Printing customer receipt";
+      if (t.includes("drawer") || t.includes("laci")) return "Opening cash drawer";
+      if (t.includes("shift")) return "Checking cashier shift summary";
+      if (t.includes("stock") || t.includes("stok")) return "Adjusting inventory stock";
     }
     if (t.includes("excel")) return "Updating Excel document";
     if (t.includes("read") || t.includes("view")) return "Reading document";
@@ -206,6 +315,45 @@ function renderStepIcon(step: StepItem) {
     return <Cpu size={12} className="text-[var(--text-muted)] shrink-0 mt-0.5" />;
   }
   const t = (step.toolName || step.label || "").toLowerCase();
+
+  // POS & Retail Specific Icons
+  if (
+    t.includes("arunakizen") ||
+    t.includes("catalog") ||
+    t.includes("katalog") ||
+    t.includes("pos") ||
+    t.includes("order") ||
+    t.includes("receipt") ||
+    t.includes("drawer") ||
+    t.includes("struk") ||
+    t.includes("nota")
+  ) {
+    if (t.includes("search") || t.includes("product") || t.includes("katalog") || t.includes("catalog") || t.includes("barang")) {
+      return <PackageSearch size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
+    }
+    if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
+      return <Receipt size={12} className="text-white shrink-0 mt-0.5" />;
+    }
+    if (t.includes("print") || t.includes("receipt") || t.includes("struk") || t.includes("nota")) {
+      return <Printer size={12} className="text-white shrink-0 mt-0.5" />;
+    }
+    if (t.includes("drawer") || t.includes("laci")) {
+      return <Vault size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
+    }
+    if (t.includes("shift") || t.includes("kasir") || t.includes("summary")) {
+      return <Calculator size={12} className="text-white shrink-0 mt-0.5" />;
+    }
+    if (t.includes("stock") || t.includes("stok")) {
+      return <Boxes size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
+    }
+  }
+
+  // Interactive Question
+  if (t.includes("question") || t.includes("clarification")) {
+    return <HelpCircle size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
+  }
+
+  // Office & Documents
   if (t.includes("excel") || t.includes("csv") || t.includes("xlsx") || t.includes("xls")) {
     return <FileSpreadsheet size={12} className="text-white shrink-0 mt-0.5" />;
   }
@@ -288,6 +436,11 @@ export function MessageThoughtBadge({
   const hasRunningTool = toolSteps.some((s) => s.status === "running");
   const completedToolCount = toolSteps.filter((s) => s.status === "completed").length;
   const failedToolCount = toolSteps.filter((s) => s.status === "failed" || s.status === "error" || s.status === "blocked").length;
+  const isPosDomain = toolSteps.some((s) => {
+    const n = (s.toolName || s.label || "").toLowerCase();
+    return n.includes("arunakizen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
+  });
+  const taskCategory = isPosDomain ? "cashier" : "document";
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();
@@ -341,10 +494,10 @@ export function MessageThoughtBadge({
               )}
               <span className="font-semibold text-white truncate">
                 {hasRunningTool
-                  ? `Executing ${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}...`
+                  ? `Executing ${toolSteps.length} ${taskCategory} task${toolSteps.length > 1 ? "s" : ""}...`
                   : failedToolCount > 0 && completedToolCount === 0
-                  ? `Failed ${failedToolCount} document task${failedToolCount > 1 ? "s" : ""}`
-                  : `Executed ${completedToolCount}/${toolSteps.length} document task${toolSteps.length > 1 ? "s" : ""}`}
+                  ? `Failed ${failedToolCount} ${taskCategory} task${failedToolCount > 1 ? "s" : ""}`
+                  : `Executed ${completedToolCount}/${toolSteps.length} ${taskCategory} task${toolSteps.length > 1 ? "s" : ""}`}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">

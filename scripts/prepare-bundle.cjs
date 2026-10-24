@@ -87,12 +87,25 @@ async function main() {
   if (allOk) {
     const portableDir = path.join(rootDir, 'dist-portable');
     fs.mkdirSync(portableDir, { recursive: true });
-    fs.copyFileSync(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+
+    function safeCopy(src, dest) {
+      try {
+        fs.copyFileSync(src, dest);
+      } catch (err) {
+        if (err.code === 'EBUSY') {
+          console.warn(`\x1b[33m[prepare-bundle:WARN]\x1b[0m File ${path.basename(dest)} is currently in use/locked. Close the running application to replace it.\x1b[0m`);
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
     if (fs.existsSync(engineExePath)) {
-      fs.copyFileSync(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
+      safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
     }
     if (fs.existsSync(docsExePath)) {
-      fs.copyFileSync(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
+      safeCopy(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
     }
     const portableWebDir = path.join(portableDir, 'web');
     fs.cpSync(webDistDir, portableWebDir, { recursive: true });

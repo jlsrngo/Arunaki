@@ -287,13 +287,30 @@ pub async fn run_agent_turn(
         - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
         - `arunakizen_print_receipt`: Print an official customer receipt on the physical thermal printer and kick open the cash drawer.\n\
         - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
+        - `question`: Interactive clarification tool. Use this to ask the user to confirm product typos, ambiguities, or missing catalog items.\n\
         \n\
-        CRITICAL POS & INVOICE INSTRUCTIONS:\n\
+        CRITICAL POS & CASHIER INSTRUCTIONS:\n\
         1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEVE...'), or asks 'cetak invoice', 'cetak nota', or 'buat pesanan kasir':\n\
            - DO NOT just draw ASCII text boxes in the chat or ask 'Mau disimpan ke file .txt atau .docx?'!\n\
-           - Check or match products with `arunakizen_search_product` and record the official cashier transaction with `arunakizen_create_sale_order`.\n\
+           - Match products with `arunakizen_search_product` and record the official cashier transaction with `arunakizen_create_sale_order`.\n\
            - If user requests to print receipt/invoice, call `arunakizen_print_receipt` with the invoice number.\n\
            - ALWAYS format the order/invoice breakdown cleanly inside [CANVAS]...[/CANVAS] tags so it opens interactively in the user's Canvas editor!\n\
+        \n\
+        2. STRICT NO-SUBSTITUTION RULE & TYPO CONFIRMATION (CRITICAL):\n\
+           - NEVER invent, substitute, or replace any product code or color on your own without explicit user consent (e.g. NEVER substitute 'MAROON' for 'CARLONE' just because prices match)!\n\
+           - If `arunakizen_search_product` returns 0 results or provides typo suggestions (e.g. 'CARLONE' -> suggested 'CAROLINE BLUE'), you MUST call the `question` tool to ask the user to confirm the intended product before creating the sale order or printing!\n\
+           - Example question prompt: \"Produk 'CARLONE XL' tidak ditemukan. Apakah maksudnya 'NSA LONGSLEEVE CAROLINE BLUE XL'?\"\n\
+        \n\
+        3. PRODUCT DEDUPLICATION & LINE MERGING:\n\
+           - Identical items (same product code, size, and unit price) MUST be merged into a single line item with accumulated quantity (e.g. 1 pcs + 1 pcs = 2 pcs). Do NOT put identical items on separate lines unless prices or discounts differ.\n\
+        \n\
+        4. BATCH SEARCH (CRITICAL FOR FAST EXECUTION - ZERO REDUNDANT LOOPS):\n\
+           - When an order contains multiple products (e.g. 2 or more apparel lines), ALWAYS pass the `queries` array to `arunakizen_search_product` (e.g. `queries: [\"KPM POLO BLACK L\", \"KPM POLO MAROON XL\", \"NSA LONGSLEEVE BLACK XL\"]`) instead of calling the tool one-by-one!\n\
+           - This resolves ALL items in a single parallel call in milliseconds, completely preventing slow multiple-turn looping.\n\
+        \n\
+        5. STRICT NO-UNSOLICITED-NOTES RULE (CRITICAL):\n\
+           - NEVER auto-generate summaries, item lists, or filler text into the `notes` (catatan/keterangan) field of `arunakizen_create_sale_order`!\n\
+           - Leave `notes` completely empty (\"\") unless the user explicitly commanded a specific note to be recorded on the invoice (e.g. 'catatan: titip di satpam', 'dropship atas nama Budi').\n\
         </arunakizen_pos>\n",
         pos_cfg.host_url,
         pos_user

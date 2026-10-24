@@ -14,7 +14,10 @@ Parameters:
 - `payment_method`: One of 'CASH', 'TRANSFER', 'QRIS', 'PIUTANG'. Default is 'CASH'.
 - `amount_paid`: Amount tendered by the buyer.
 - `items`: Array of items, each with `item_code` (unique SKU), `qty` (quantity), `price` (unit price), and optional `discount_percent`.
-- `notes`: Optional memo or order description.
+- `notes`: STRICT: Leave completely empty ("") unless the user explicitly requested a specific note (e.g. "catatan: titip satpam"). Never auto-generate summaries or filler text into notes!
 
 Guidelines:
 - If item prices were not specified in the user prompt, search for the product first via `arunakizen_search_product` to retrieve its official price before submitting the order.
+- DEDUPLICATION: Always merge identical items (same `item_code` and `price`) into a single entry with combined `qty`. Do NOT send duplicate rows for the same product unless prices or discounts differ.
+- INTEGRITY: NEVER invent or substitute another product code if an item wasn't found in the catalog. Confirm with user first via `question`.
+- NO UNSOLICITED NOTES: Never fill `notes` with a summary of the order or products. Only pass text in `notes` if the customer or user explicitly commanded a specific memo.

@@ -141,15 +141,19 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Search keyword (product name, item code, or scanned barcode)."
+                            "description": "Single search keyword (product name, item code, or scanned barcode)."
+                        },
+                        "queries": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "BATCH SEARCH: Array of product names/queries to search multiple items simultaneously in ONE call (e.g. ['KPM POLO BLACK L', 'NSA LONGSLEEVE MAROON XL']). Always use this when user provides multiple items to avoid looping!"
                         },
                         "limit": {
                             "type": "integer",
-                            "description": "Maximum number of items to return (default: 10).",
-                            "default": 10
+                            "description": "Maximum number of items to return per query (default: 5).",
+                            "default": 5
                         }
-                    },
-                    "required": ["query"]
+                    }
                 }
             }
         }),
@@ -192,7 +196,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "notes": {
                             "type": "string",
-                            "description": "Optional additional invoice notes."
+                            "description": "STRICT: Leave empty (\"\") unless the user explicitly gave a specific custom note to record (e.g. 'catatan: titip satpam'). Never auto-generate notes or summaries!"
                         }
                     },
                     "required": ["payment_method", "amount_paid", "items"]
@@ -291,28 +295,213 @@ pub fn pos_tool_definitions() -> Vec<Value> {
     ]
 }
 
-pub async fn execute_search_product(args: &Value) -> Value {
-    let cfg = load_pos_config();
-    let query = args
-        .get("query")
-        .or_else(|| args.get("q"))
-        .or_else(|| args.get("search"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .trim();
-    if query.is_empty() {
-        return json!({ "error": "Search parameter 'query' is required." });
+fn levenshtein_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let (m, n) = (a_chars.len(), b_chars.len());
+
+    if m == 0 {
+        return n;
     }
-    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10);
+    if n == 0 {
+        return m;
+    }
 
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
-    };
+    let mut dp = vec![vec![0; n + 1]; m + 1];
 
+    for i in 0..=m {
+        dp[i][0] = i;
+    }
+    for j in 0..=n {
+        dp[0][j] = j;
+    }
+
+    for i in 1..=m {
+        for j in 1..=n {
+            let cost = if a_chars[i - 1].to_ascii_lowercase() == b_chars[j - 1].to_ascii_lowercase() {
+                0
+            } else {
+                1
+            };
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
+        }
+    }
+
+    dp[m][n]
+}
+
+async fn try_fuzzy_suggest_products(
+    client: &reqwest::Client,
+    cfg: &PosConfig,
+    query: &str,
+    limit: u64,
+) -> Option<Value> {
+    let q_upper = query.to_uppercase();
+    let words: Vec<&str> = q_upper.split_whitespace().collect();
+    if words.is_empty() {
+        return None;
+    }
+
+    let sizes = [
+        "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "XXL", "XXXL", "ALLSIZE", "KIDS",
+    ];
+    let detected_size = words.iter().find(|w| sizes.contains(w)).copied();
+
+    // Significant content words (non-size, >= 3 chars)
+    let content_words: Vec<&str> = words
+        .iter()
+        .filter(|w| !sizes.contains(w) && w.len() >= 3)
+        .copied()
+        .collect();
+    if content_words.is_empty() {
+        return None;
+    }
+
+    // Query candidate products from POS by searching content word prefixes (3 chars) or full word
+    let mut candidate_items: Vec<Value> = Vec::new();
+    let mut seen_codes = std::collections::HashSet::new();
+
+    for w in &content_words {
+        let prefix_len = if w.len() >= 4 { 3 } else { w.len() };
+        let prefix = &w[..prefix_len];
+        let ep = format!("{}/api/products?q={}&limit=60", cfg.host_url, prefix);
+        let mut req = client.get(&ep);
+        if !cfg.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res) = req.send().await {
+            if res.status().is_success() {
+                if let Ok(json_res) = res.json::<Value>().await {
+                    if let Some(arr) = json_res.get("data").and_then(|d| d.as_array()) {
+                        for item in arr {
+                            let kode = item.get("kode").and_then(|v| v.as_str()).unwrap_or("");
+                            if !kode.is_empty() && seen_codes.insert(kode.to_string()) {
+                                candidate_items.push(item.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if candidate_items.is_empty() {
+        return None;
+    }
+
+    // Score candidates against the query words
+    struct Scored {
+        item: Value,
+        score: i32,
+        matched_name: String,
+    }
+
+    let mut scored_list: Vec<Scored> = Vec::new();
+
+    for item in candidate_items {
+        let nama = item
+            .get("nama")
+            .or_else(|| item.get("namabarang"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let item_words: Vec<&str> = nama.split_whitespace().collect();
+
+        let mut item_score = 0;
+        let mut has_typo_match = false;
+
+        // Check size match bonus
+        if let Some(target_sz) = detected_size {
+            if item_words.iter().any(|iw| iw.eq_ignore_ascii_case(target_sz)) {
+                item_score += 15;
+            }
+        }
+
+        // Check word similarity
+        for qw in &content_words {
+            let mut min_dist = 999;
+            for iw in &item_words {
+                let d = levenshtein_distance(qw, iw);
+                if d < min_dist {
+                    min_dist = d;
+                }
+            }
+            if min_dist == 0 {
+                item_score += 30; // Exact word match
+            } else if min_dist <= 2 && qw.len() >= 4 {
+                item_score += 20 - (min_dist as i32 * 5); // Fuzzy typo match!
+                has_typo_match = true;
+            }
+        }
+
+        if has_typo_match || item_score >= 25 {
+            scored_list.push(Scored {
+                item,
+                score: item_score,
+                matched_name: nama,
+            });
+        }
+    }
+
+    scored_list.sort_by(|a, b| b.score.cmp(&a.score));
+
+    if scored_list.is_empty() {
+        return None;
+    }
+
+    let suggestions: Vec<Value> = scored_list
+        .iter()
+        .take(limit as usize)
+        .map(|s| {
+            let it = &s.item;
+            json!({
+                "kode": it.get("kode").and_then(|v| v.as_str()).unwrap_or(""),
+                "nama": s.matched_name,
+                "harga": it.get("hargajual").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                "stok": it.get("stok").and_then(|v| v.as_i64()).unwrap_or(0),
+                "similarity_score": s.score,
+            })
+        })
+        .collect();
+
+    let top_suggestion = suggestions.first()?;
+    let top_nama = top_suggestion
+        .get("nama")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let top_kode = top_suggestion
+        .get("kode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let top_harga = top_suggestion
+        .get("harga")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+
+    let msg = format!(
+        "Produk '{}' tidak ditemukan di katalog POS. Ditemukan saran produk serupa (kemungkinan typo): '{}' (Kode: {}, Rp {:.0}). DILARANG keras mensubstitusi barang secara sepihak! Tanyakan kepada user dengan memanggil tool 'question' untuk mengonfirmasi pilihan sebelum mencatat pesanan.",
+        query, top_nama, top_kode, top_harga
+    );
+
+    Some(json!({
+        "count": 0,
+        "data": [],
+        "is_typo_suggestion": true,
+        "query": query,
+        "suggested_product": top_nama,
+        "suggestions": suggestions,
+        "message": msg
+    }))
+}
+
+async fn search_single_query(
+    client: &reqwest::Client,
+    cfg: &PosConfig,
+    query: &str,
+    limit: u64,
+) -> Value {
     let endpoints = [
         format!("{}/api/products?q={}&limit={}", cfg.host_url, query, limit),
         format!("{}/products?q={}&limit={}", cfg.host_url, query, limit),
@@ -327,6 +516,22 @@ pub async fn execute_search_product(args: &Value) -> Value {
         if let Ok(res) = req.send().await {
             if res.status().is_success() {
                 if let Ok(json_val) = res.json::<Value>().await {
+                    let has_data = json_val
+                        .get("data")
+                        .and_then(|d| d.as_array())
+                        .map(|arr| !arr.is_empty())
+                        .unwrap_or(false);
+                    if has_data {
+                        return json_val;
+                    }
+
+                    // Query returned 0 results: try intelligent fuzzy typo detection!
+                    if let Some(fuzzy_res) =
+                        try_fuzzy_suggest_products(client, cfg, query, limit).await
+                    {
+                        return fuzzy_res;
+                    }
+
                     return json_val;
                 }
             }
@@ -337,6 +542,121 @@ pub async fn execute_search_product(args: &Value) -> Value {
         "error": format!("Failed to search products in ArunakiZen ({}) — ensure POS server is running.", cfg.host_url),
         "query": query
     })
+}
+
+pub async fn execute_search_product(args: &Value) -> Value {
+    let cfg = load_pos_config();
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
+    };
+
+    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(5);
+
+    // Extract queries: either batch array 'queries' or single 'query'
+    let mut queries_list: Vec<String> = Vec::new();
+    if let Some(arr) = args.get("queries").and_then(|v| v.as_array()) {
+        for it in arr {
+            if let Some(s) = it.as_str() {
+                let trimmed = s.trim();
+                if !trimmed.is_empty() {
+                    queries_list.push(trimmed.to_string());
+                }
+            }
+        }
+    }
+    if queries_list.is_empty() {
+        let single = args
+            .get("query")
+            .or_else(|| args.get("q"))
+            .or_else(|| args.get("search"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
+        if !single.is_empty() {
+            queries_list.push(single.to_string());
+        }
+    }
+
+    if queries_list.is_empty() {
+        return json!({ "error": "Search parameter 'query' or 'queries' array is required." });
+    }
+
+    // Single query mode (backward compatible output format)
+    if queries_list.len() == 1 && args.get("queries").is_none() {
+        return search_single_query(&client, &cfg, &queries_list[0], limit).await;
+    }
+
+    // Batch query mode: execute all queries concurrently in parallel!
+    use futures_util::future::join_all;
+    let futures: Vec<_> = queries_list
+        .iter()
+        .map(|q| {
+            let client = client.clone();
+            let cfg = cfg.clone();
+            let q = q.clone();
+            async move {
+                let res = search_single_query(&client, &cfg, &q, limit).await;
+                let is_typo = res.get("is_typo_suggestion") == Some(&json!(true));
+                let data_arr = res.get("data").and_then(|d| d.as_array());
+                let has_data = data_arr.map(|a| !a.is_empty()).unwrap_or(false);
+
+                let top_item = if has_data {
+                    data_arr.and_then(|a| a.first()).cloned()
+                } else {
+                    None
+                };
+
+                json!({
+                    "query": q,
+                    "matched": has_data,
+                    "top_item": top_item,
+                    "is_typo_suggestion": is_typo,
+                    "suggestion": res.get("suggested_product").cloned().unwrap_or(Value::Null),
+                    "suggestions": res.get("suggestions").cloned().unwrap_or(json!([])),
+                    "message": res.get("message").cloned().unwrap_or(Value::Null),
+                    "raw": res
+                })
+            }
+        })
+        .collect();
+
+    let results = join_all(futures).await;
+    let all_matched = results
+        .iter()
+        .all(|r| r.get("matched") == Some(&json!(true)));
+    let has_unmatched_or_typo = results
+        .iter()
+        .any(|r| r.get("matched") != Some(&json!(true)));
+
+    json!({
+        "is_batch": true,
+        "total_queries": queries_list.len(),
+        "all_matched": all_matched,
+        "has_unmatched_or_typo": has_unmatched_or_typo,
+        "results": results
+    })
+}
+
+pub fn sanitize_transaction_notes(raw_notes: &str) -> &str {
+    let t = raw_notes.trim();
+    if t.eq_ignore_ascii_case("none")
+        || t.eq_ignore_ascii_case("null")
+        || t.eq_ignore_ascii_case("-")
+        || t.starts_with("Pesanan ")
+        || t.starts_with("Order ")
+        || t.starts_with("Transaksi ")
+        || t.starts_with("Pembelian ")
+        || t.starts_with("Penjualan ")
+    {
+        ""
+    } else {
+        t
+    }
 }
 
 pub async fn execute_create_sale_order(args: &Value) -> Value {
@@ -369,12 +689,13 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
-    let notes = args
+    let raw_notes = args
         .get("notes")
         .or_else(|| args.get("catatan"))
         .or_else(|| args.get("keterangan"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    let notes = sanitize_transaction_notes(raw_notes);
 
     let mut raw_items: Vec<Value> = Vec::new();
     if let Some(items_arr) = args.get("items").and_then(|v| v.as_array()) {
@@ -384,7 +705,11 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
                 .or_else(|| it.get("kode_barang"))
                 .or_else(|| it.get("kode"))
                 .and_then(|v| v.as_str())
-                .unwrap_or("");
+                .unwrap_or("")
+                .trim();
+            if code.is_empty() {
+                continue;
+            }
             let qty = it.get("qty").and_then(|v| v.as_f64()).unwrap_or(1.0);
             let price = it
                 .get("price")
@@ -407,12 +732,33 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         }
     }
 
+    // Merge duplicate rows with identical (kode, harga, diskon) to comply with POS standard:
+    // Identical items must combine their quantity into 1 row, unless price/discount differs.
+    let mut merged_items: Vec<Value> = Vec::new();
+    for it in raw_items {
+        let code = it.get("kode").and_then(|v| v.as_str()).unwrap_or("");
+        let price = it.get("harga").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let disc = it.get("diskon").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let qty = it.get("qty").and_then(|v| v.as_f64()).unwrap_or(1.0);
+
+        if let Some(existing) = merged_items.iter_mut().find(|m| {
+            m.get("kode").and_then(|v| v.as_str()).unwrap_or("") == code
+                && (m.get("harga").and_then(|v| v.as_f64()).unwrap_or(0.0) - price).abs() < 0.01
+                && (m.get("diskon").and_then(|v| v.as_f64()).unwrap_or(0.0) - disc).abs() < 0.01
+        }) {
+            let cur_qty = existing.get("qty").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            existing["qty"] = json!(cur_qty + qty);
+        } else {
+            merged_items.push(it);
+        }
+    }
+
     let payload = json!({
         "pelanggan": customer,
         "pembayaran": payment_method,
         "bayar": amount_paid,
         "keterangan": notes,
-        "items": raw_items,
+        "items": merged_items,
         "user": cfg.username,
         "operator": {
             "username": cfg.username,
@@ -692,4 +1038,98 @@ pub async fn execute_adjust_stock(args: &Value) -> Value {
     json!({
         "error": format!("Failed to submit stock adjustment to ArunakiZen POS ({})", cfg.host_url)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_levenshtein_distance() {
+        assert_eq!(levenshtein_distance("CARLONE", "CAROLINE"), 2);
+        assert_eq!(levenshtein_distance("LONGSLEVE", "LONGSLEEVE"), 1);
+        assert_eq!(levenshtein_distance("POLO", "POLO"), 0);
+        assert_eq!(levenshtein_distance("BLACK", "WHITE"), 5);
+    }
+
+    #[test]
+    fn test_merge_duplicate_order_items() {
+        let raw_items = vec![
+            json!({ "kode": "70394", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }),
+            json!({ "kode": "70370", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }),
+            json!({ "kode": "70394", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }), // duplicate of 70394
+            json!({ "kode": "70394", "qty": 1.0, "harga": 70000.0, "diskon": 0.0 }), // different price, should stay separate
+        ];
+
+        let mut merged_items: Vec<Value> = Vec::new();
+        for it in raw_items {
+            let code = it.get("kode").and_then(|v| v.as_str()).unwrap_or("");
+            let price = it.get("harga").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let disc = it.get("diskon").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let qty = it.get("qty").and_then(|v| v.as_f64()).unwrap_or(1.0);
+
+            if let Some(existing) = merged_items.iter_mut().find(|m| {
+                m.get("kode").and_then(|v| v.as_str()).unwrap_or("") == code
+                    && (m.get("harga").and_then(|v| v.as_f64()).unwrap_or(0.0) - price).abs() < 0.01
+                    && (m.get("diskon").and_then(|v| v.as_f64()).unwrap_or(0.0) - disc).abs() < 0.01
+            }) {
+                let cur_qty = existing.get("qty").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                existing["qty"] = json!(cur_qty + qty);
+            } else {
+                merged_items.push(it);
+            }
+        }
+
+        assert_eq!(merged_items.len(), 3);
+        // The first 70394 with price 86000 should now have qty 2.0
+        let item_86k = merged_items.iter().find(|m| m["kode"] == "70394" && m["harga"] == 86000.0).unwrap();
+        assert_eq!(item_86k["qty"], 2.0);
+
+        // The second 70394 with price 70000 should remain separate with qty 1.0
+        let item_70k = merged_items.iter().find(|m| m["kode"] == "70394" && m["harga"] == 70000.0).unwrap();
+        assert_eq!(item_70k["qty"], 1.0);
+    }
+
+    #[test]
+    fn test_batch_search_args_extraction() {
+        let batch_args = json!({
+            "queries": [
+                "KPM POLO BLACK L",
+                "KPM POLO MAROON XL",
+                "CARLONE XL"
+            ]
+        });
+
+        let mut queries_list: Vec<String> = Vec::new();
+        if let Some(arr) = batch_args.get("queries").and_then(|v| v.as_array()) {
+            for it in arr {
+                if let Some(s) = it.as_str() {
+                    let trimmed = s.trim();
+                    if !trimmed.is_empty() {
+                        queries_list.push(trimmed.to_string());
+                    }
+                }
+            }
+        }
+
+        assert_eq!(queries_list.len(), 3);
+        assert_eq!(queries_list[0], "KPM POLO BLACK L");
+        assert_eq!(queries_list[1], "KPM POLO MAROON XL");
+        assert_eq!(queries_list[2], "CARLONE XL");
+    }
+
+    #[test]
+    fn test_notes_sanitization() {
+        // Unsolicited auto-generated notes are sanitized to empty
+        assert_eq!(sanitize_transaction_notes("Pesanan KPM POLO dan NSA"), "");
+        assert_eq!(sanitize_transaction_notes("Order 6 items baju"), "");
+        assert_eq!(sanitize_transaction_notes("Transaksi kasir"), "");
+        assert_eq!(sanitize_transaction_notes("none"), "");
+        assert_eq!(sanitize_transaction_notes("-"), "");
+
+        // Specific explicit user notes are preserved
+        assert_eq!(sanitize_transaction_notes("titip satpam"), "titip satpam");
+        assert_eq!(sanitize_transaction_notes("dropship Pak Budi"), "dropship Pak Budi");
+        assert_eq!(sanitize_transaction_notes("kirim via JNE YES"), "kirim via JNE YES");
+    }
 }
