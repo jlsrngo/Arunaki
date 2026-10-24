@@ -52,19 +52,31 @@ fn attach_console_if_present() {}
 
 fn main() {
     attach_console_if_present();
+
+    let exe_name = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().to_lowercase()))
+        .unwrap_or_default();
+    let is_engine = exe_name.contains("engine");
+
     let args: Vec<String> = std::env::args().collect();
     let mut port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(4096);
     let mut hostname = String::from("127.0.0.1");
-    let mut headless = false;
+    // Engine binary defaults to headless/server mode (never opens WebView2 GUI)
+    let mut headless = is_engine;
 
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "serve" | "--headless" | "--server" => {
                 headless = true;
+                i += 1;
+            }
+            "gui" | "--gui" | "--ui" => {
+                headless = false;
                 i += 1;
             }
             "--port" | "-p" if i + 1 < args.len() => {
@@ -93,11 +105,18 @@ fn main() {
             .build()
             .expect("Failed to create Tokio runtime");
         rt.block_on(async move {
-            let (listener, url, actual_port) = init_engine_and_bind(&hostname, port).await;
-            println!(
-                "arunaki server listening on {} (native Rust engine v{})",
-                url, ENGINE_VERSION
-            );
+            println!("================================================================");
+            println!("       ARUNAKI ENGINE - Native AI & Daemon Server (v{})         ", ENGINE_VERSION);
+            println!("================================================================");
+            let (listener, _url, actual_port) = init_engine_and_bind(&hostname, port).await;
+            println!(" [Engine]  Axum API Engine listening on http://{}:{}", hostname, actual_port);
+            println!(" [Bridge]  Local-CLI Bridge on http://127.0.0.1:20188/v1");
+            println!(" [Status]  Headless Engine Daemon Active (No Web UI Window)");
+            println!("----------------------------------------------------------------");
+            println!(" Live AI Activity & Telemetry Logs (Press Ctrl+C to stop):");
+            println!("================================================================");
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
             run_axum_server(listener, actual_port).await;
         });
     } else {

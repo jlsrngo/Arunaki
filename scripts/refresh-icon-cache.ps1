@@ -17,7 +17,7 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
 # Touch the files so Explorer sees new mtime if cached by timestamp
 $now = Get-Date
 Get-Item "E:\JS\Arunika\dist-portable\*.exe" | ForEach-Object {
-    $_.LastWriteTime = $now
+    try { $_.LastWriteTime = $now } catch {}
 }
 
 # Run ie4uinit if available on Windows 10/11

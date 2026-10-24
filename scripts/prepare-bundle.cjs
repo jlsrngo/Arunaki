@@ -45,6 +45,24 @@ function injectIcon(exePath, icoPath) {
   }
 }
 
+function setPeSubsystem(exePath, subsystem) {
+  if (process.platform === 'win32' && fs.existsSync(exePath)) {
+    try {
+      const buf = fs.readFileSync(exePath);
+      const peOffset = buf.readUInt32LE(0x3c);
+      const magic = buf.readUInt16LE(peOffset + 24);
+      if (magic === 0x20b) {
+        const subsystemOffset = peOffset + 24 + 68;
+        buf.writeUInt16LE(subsystem, subsystemOffset);
+        fs.writeFileSync(exePath, buf);
+        log('PE', `Configured ${path.basename(exePath)} as ${subsystem === 3 ? 'Console CUI' : 'Desktop GUI'}`);
+      }
+    } catch (e) {
+      console.warn(`\x1b[33m[prepare-bundle:WARN]\x1b[0m Could not configure subsystem for ${path.basename(exePath)}: ${e.message}`);
+    }
+  }
+}
+
 async function main() {
   const startTime = Date.now();
   console.log('====================================================');
@@ -75,13 +93,17 @@ async function main() {
     });
     if (fs.existsSync(engineExePath)) {
       fs.copyFileSync(engineExePath, desktopExePath);
-      // arunaki.exe gets the Arunaki brand logo icon in macOS squircle
+      // arunaki.exe is the Desktop GUI (Subsystem = 2) with the brand delta logo
+      setPeSubsystem(desktopExePath, 2);
       injectIcon(desktopExePath, mainIco);
-      // arunaki-engine.exe gets the mechanical gear icon in macOS squircle
+
+      // arunaki-engine.exe is the Console Daemon (Subsystem = 3) with the mechanical gear icon
+      setPeSubsystem(engineExePath, 3);
       injectIcon(engineExePath, gearIco);
     }
     if (fs.existsSync(docsExePath)) {
-      // arunaki-docs.exe gets the doc sheet + key icon in macOS squircle
+      // arunaki-docs.exe is the Document Sidecar (Subsystem = 3) with the doc sheet + key icon
+      setPeSubsystem(docsExePath, 3);
       injectIcon(docsExePath, docsIco);
     }
   } catch (err) {
@@ -126,13 +148,17 @@ async function main() {
     }
 
     safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+    setPeSubsystem(path.join(portableDir, 'arunaki.exe'), 2);
     injectIcon(path.join(portableDir, 'arunaki.exe'), mainIco);
+
     if (fs.existsSync(engineExePath)) {
       safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
+      setPeSubsystem(path.join(portableDir, 'arunaki-engine.exe'), 3);
       injectIcon(path.join(portableDir, 'arunaki-engine.exe'), gearIco);
     }
     if (fs.existsSync(docsExePath)) {
       safeCopy(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
+      setPeSubsystem(path.join(portableDir, 'arunaki-docs.exe'), 3);
       injectIcon(path.join(portableDir, 'arunaki-docs.exe'), docsIco);
     }
     const portableWebDir = path.join(portableDir, 'web');
