@@ -1,10 +1,10 @@
 import React, { useState, memo } from "react";
 import { Check, ArrowRight, Sparkles, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { QuestionData, QuestionInfo, QuestionOption } from "./types";
+import { QuestionData, QuestionInfo } from "./types";
 
 function formatHeader(header?: string): string {
-  if (!header) return "";
+  if (!header || typeof header !== "string") return "";
   const trimmed = header.trim();
   if (trimmed.length > 2 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed)) {
     return trimmed
@@ -147,18 +147,23 @@ export const QuestionPromptCard = memo(function QuestionPromptCard({
 
       {/* Option Rows (Table Style, separated by hairline border) */}
       <div className="divide-y divide-[var(--border-color)]">
-        {firstQuestion.options?.map((opt: QuestionOption, idx: number) => {
+        {firstQuestion.options?.map((rawOpt: any, idx: number) => {
+          const optLabel = typeof rawOpt === "string"
+            ? rawOpt
+            : String(rawOpt?.label || rawOpt?.text || rawOpt?.name || rawOpt?.value || `Option ${idx + 1}`);
+          const optDesc = typeof rawOpt === "object" ? rawOpt?.description : undefined;
+          const optLabelLower = optLabel.toLowerCase();
           const isRecommended =
             idx === 0 ||
-            opt.label.toLowerCase().includes("recommended") ||
-            opt.label.toLowerCase().includes("rekomendasi");
+            optLabelLower.includes("recommended") ||
+            optLabelLower.includes("rekomendasi");
 
           return (
             <button
               key={idx}
               type="button"
               disabled={disabled || isSubmitting}
-              onClick={() => handleSelect(opt.label)}
+              onClick={() => handleSelect(optLabel)}
               className={cn(
                 "group w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer",
                 "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)]",
@@ -167,11 +172,11 @@ export const QuestionPromptCard = memo(function QuestionPromptCard({
             >
               <div className="flex-1 min-w-0">
                 <div className="text-xs sm:text-[13px] font-medium text-[var(--text-primary)] break-words">
-                  {opt.label}
+                  {optLabel}
                 </div>
-                {opt.description && (
+                {optDesc && (
                   <p className="mt-0.5 text-[11px] text-[var(--text-muted)] leading-normal line-clamp-2 break-words">
-                    {opt.description}
+                    {optDesc}
                   </p>
                 )}
               </div>

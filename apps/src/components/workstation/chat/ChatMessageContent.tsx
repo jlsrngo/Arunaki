@@ -236,7 +236,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {block.rows.map((row, rIdx) => {
-                      const isTotal = row.some((c) => c.toLowerCase().includes("total"));
+                      const isTotal = row.some((c) => String(c || "").toLowerCase().includes("total"));
                       return (
                         <tr
                           key={rIdx}

@@ -121,7 +121,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     } catch {}
   }
   if (steps) {
-    steps = steps.filter((s) => s.toolName?.toLowerCase() !== "question" && !s.label.toLowerCase().includes("question"));
+    steps = steps.filter((s) => s.toolName?.toLowerCase() !== "question" && !(s.label || "").toLowerCase().includes("question"));
     if (steps.length === 0) steps = undefined;
   }
 
@@ -153,7 +153,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
       } else if (part.type === "tool") {
         if (
           part.step.toolName?.toLowerCase() === "question" ||
-          part.step.label.toLowerCase().includes("question")
+          (part.step?.label || "").toLowerCase().includes("question")
         ) {
           continue;
         }
@@ -200,7 +200,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     // Merge streaming steps if not yet present in msg.parts
     if (steps && steps.length > 0) {
       const activeSteps = steps.filter(
-        (s) => s.toolName?.toLowerCase() !== "question" && !s.label.toLowerCase().includes("question")
+        (s) => s.toolName?.toLowerCase() !== "question" && !(s.label || "").toLowerCase().includes("question")
       );
       if (activeSteps.length > 0) {
         const lastGroup = groups[groups.length - 1];

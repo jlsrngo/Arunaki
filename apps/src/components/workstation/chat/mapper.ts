@@ -274,12 +274,26 @@ export function mapEngineMessages(raw: any[]): Message[] {
               p.state?.structured?.answers?.[0]?.[0] ||
               p.state?.content?.[0]?.text?.match(/="([^"]+)"/)?.[1] ||
               undefined;
+            const normalizedQuestions = rawQuestions.map((q: any) => ({
+              ...q,
+              options: Array.isArray(q.options)
+                ? q.options.map((opt: any, optIdx: number) =>
+                    typeof opt === "string"
+                      ? { label: opt }
+                      : {
+                          label: opt?.label || opt?.text || opt?.name || opt?.value || `Option ${optIdx + 1}`,
+                          description: opt?.description,
+                        }
+                  )
+                : [],
+            }));
+
             parts.push({
               type: "question",
               data: {
                 id: p.id || `que-${idx}-${pIdx}`,
                 sessionID: msg.sessionID || "",
-                questions: rawQuestions,
+                questions: normalizedQuestions,
                 answered: isAnswered,
                 selectedAnswer,
               },
