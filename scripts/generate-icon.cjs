@@ -2,10 +2,38 @@ const fs = require('node:fs');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 
+function createIco(pngBuffers) {
+  const count = pngBuffers.length;
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type icon
+  header.writeUInt16LE(count, 4);
+
+  let offset = 6 + (16 * count);
+  const entries = [];
+  for (const item of pngBuffers) {
+    const entry = Buffer.alloc(16);
+    entry.writeUInt8(item.size >= 256 ? 0 : item.size, 0);
+    entry.writeUInt8(item.size >= 256 ? 0 : item.size, 1);
+    entry.writeUInt8(0, 2);
+    entry.writeUInt8(0, 3);
+    entry.writeUInt16LE(1, 4); // planes
+    entry.writeUInt16LE(32, 6); // bpp
+    entry.writeUInt32LE(item.buffer.length, 8); // size
+    entry.writeUInt32LE(offset, 12); // offset
+    entries.push(entry);
+    offset += item.buffer.length;
+  }
+
+  return Buffer.concat([header, ...entries, ...pngBuffers.map(p => p.buffer)]);
+}
+
 async function generate() {
   const rootDir = path.join(__dirname, '..');
   const svgPath = path.join(rootDir, 'apps', 'web', 'public', 'arunakiLogo.svg');
   const outPath = path.join(rootDir, 'apps', 'web', 'public', 'icon.png');
+  const icoPath = path.join(rootDir, 'crates', 'arunaki-engine', 'arunaki.ico');
+  const icoDocsPath = path.join(rootDir, 'crates', 'arunaki-docs', 'arunaki.ico');
 
   if (!fs.existsSync(svgPath)) {
     console.error('[icon] arunakiLogo.svg not found at:', svgPath);
@@ -86,6 +114,24 @@ async function generate() {
   const rgba = await page64.evaluate(() => window.rgba);
   fs.writeFileSync(rgbaPath, Buffer.from(rgba));
   console.log('[icon] RGBA icon generated at:', rgbaPath);
+
+  // Generate multi-size ICO for Windows File Explorer & Taskbar
+  const sizes = [256, 128, 64, 48, 32, 16];
+  const pngBuffers = [];
+  const icoPage = await browser.newPage();
+  for (const s of sizes) {
+    await icoPage.setViewport({ width: s, height: s, deviceScaleFactor: 1 });
+    const padding = Math.max(1, Math.round(s * 0.08));
+    const iconSize = s - (padding * 2);
+    const htmlIco = `<!DOCTYPE html><html><body style="margin:0;width:${s}px;height:${s}px;display:flex;align-items:center;justify-content:center;background:transparent;"><div style="width:${iconSize}px;height:${iconSize}px;display:flex;align-items:center;justify-content:center;">${svg}</div></body></html>`;
+    await icoPage.setContent(htmlIco);
+    const buf = await icoPage.screenshot({ omitBackground: true });
+    pngBuffers.push({ size: s, buffer: buf });
+  }
+  const icoBuf = createIco(pngBuffers);
+  fs.writeFileSync(icoPath, icoBuf);
+  fs.writeFileSync(icoDocsPath, icoBuf);
+  console.log('[icon] Windows .ico generated at:', icoPath);
 
   await browser.close();
 

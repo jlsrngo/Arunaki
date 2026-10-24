@@ -27,8 +27,8 @@ impl Default for PosConfig {
     fn default() -> Self {
         Self {
             host_url: "http://127.0.0.1:5000".to_string(),
-            api_key: "arunaki_sec_2026".to_string(),
-            username: "Candana".to_string(),
+            api_key: String::new(),
+            username: String::new(),
             password: None,
         }
     }

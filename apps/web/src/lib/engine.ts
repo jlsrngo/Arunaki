@@ -497,7 +497,13 @@ export function mapEngineEvent(
     }
     case "session.next.tool.called": {
       const callID = payload.callID || event.callID || payload.id || event.id;
-      const toolName = payload.tool || event.tool || (callID ? toolCallNameMap.get(callID) : undefined) || "action";
+      const toolName =
+        payload.name ||
+        event.name ||
+        payload.tool ||
+        event.tool ||
+        (callID ? toolCallNameMap.get(callID) : undefined) ||
+        "action";
       if (callID) toolCallNameMap.set(callID, toolName);
       const input = payload.input || event.input || {};
 

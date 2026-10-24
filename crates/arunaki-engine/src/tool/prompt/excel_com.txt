@@ -4,13 +4,23 @@ Usage:
 - Operates directly on the native desktop Excel instance within the active project folder.
 - Parameters:
   * `file`: Relative path to the target .xlsx/.xls workbook.
-  * `action`: One of "open", "write", "format", "summary".
-  * `sheet`: Target sheet name (e.g. "Sheet1" or "Daily Report").
-  * `cell`: Target cell coordinates (e.g. "A1", "C15", "D20").
-  * `value`: Text, number, or formula to write (e.g. "=SUM(D2:D19)").
+  * `action`: One of "open", "write", "write_range", "format", "summary".
+  * `sheet`: Target sheet name (optional, defaults to active sheet).
+  * `cells`: (RECOMMENDED) Batch list of cells to write in a single shot: `[{ "cell": "A14", "value": "2026-10-24" }, { "cell": "B14", "value": "Item" }, { "cell": "C14", "value": 150000 }]`.
+  * `rows`: 2D array of rows to write starting at `startCell` (e.g. `[["2026-10-24", "Item A", 150000], ["2026-10-24", "Item B", 200000]]`).
+  * `cell`: Single cell coordinate (e.g. "A1", "C15"). Used ONLY when updating a single cell.
+  * `value`: Text, number, or formula to write for a single cell.
   * Formatting flags: `bold`, `italic`, `fontSize`, `bgColor` (RGB integer), `alignment` ("left", "center", "right").
 
-CRITICAL RULES & FORMULA INTEGRITY:
+CRITICAL EFFICIENCY & BATCHING RULES (ZERO LOOPING):
+- NEVER call `excel_com` in a loop one cell at a time! Doing multiple sequential single-cell calls is strictly prohibited.
+- When updating or inserting records, ALWAYS bundle all cells and formulas into a SINGLE `excel_com` call using the `cells` array or `rows` array.
+- Standard update workflow:
+  1. Call `excel_read` ONCE to inspect sheet structure, identify column headers, and locate the insertion point / next available row.
+  2. Call `excel_com` ONCE with `cells` containing all newly added cells, row items, and updated total formulas.
+  3. Verify with `excel_read` if needed, then output a clean markdown summary to the user.
+
+FORMULA INTEGRITY:
 - NEVER overwrite calculated cells or formula totals (SUM, TOTAL, AVERAGE) with raw hardcoded numbers unless explicitly requested. Always preserve or update formulas dynamically.
 - When appending a new transaction/row, place it above the summary row, expand existing formulas to include the new row, or use the `summary` action to recalculate totals.
 - Maintain existing number formats, borders, font families, and column alignments.
