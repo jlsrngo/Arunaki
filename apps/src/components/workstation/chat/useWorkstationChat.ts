@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { resolveActiveSingleModel, getProviderDefaultModels } from "./chatModelResolver";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Message, MessagePart, QuestionData } from "./types";
@@ -18,9 +19,17 @@ import {
   replySessionQuestion,
   isSessionActive,
   interruptSession,
-  summarizeSession,
 } from "../../../lib/engine";
-import { API_BASE, apiFetch } from "../../../lib/api";
+import { useChatCompaction } from "./useChatCompaction";
+import { useChatModels } from "./useChatModels";
+import { useExternalChatEvents } from "./useExternalChatEvents";
+import {
+  dispatchCompletionNotification,
+  getActiveProviderDiagnostic,
+} from "./chatDiagnostics";
+
+
+export { resolveActiveSingleModel, getProviderDefaultModels };
 
 interface UseWorkstationChatOptions {
   activeFolder: string;
@@ -42,218 +51,6 @@ const EDIT_FILE_TOOLS = new Set([
   "create_file",
 ]);
 
-export function resolveActiveSingleModel(): { providerID: string; id: string } {
-  let p = localStorage.getItem("arunaki_active_provider") || "kenari";
-
-  // Migrate legacy raw gemini to antigravity local bridge if no cloud API key
-  if (p === "gemini" || p === "gemini-cli") {
-    const geminiKey = localStorage.getItem("arunaki_gemini_api_key");
-    if (!geminiKey || geminiKey === "antigravity-active") {
-      p = "antigravity";
-    }
-  }
-
-  const isModelValidForProvider = (providerId: string, modelId: string): boolean => {
-    if (!modelId) return false;
-    const clean = modelId.trim().toLowerCase();
-    if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-      return (clean.startsWith("gemini") || clean.startsWith("claude")) && !clean.endsWith(":free");
-    }
-    if (providerId === "claude-code") {
-      return clean.startsWith("claude") && !clean.endsWith(":free");
-    }
-    if (providerId === "codex") {
-      return (
-        clean.startsWith("o1") ||
-        clean.startsWith("o3") ||
-        clean.startsWith("gpt-4") ||
-        clean.startsWith("gpt-5") ||
-        clean.startsWith("gpt-6")
-      ) && !clean.endsWith(":free");
-    }
-    if (providerId === "opencode") {
-      return (
-        clean.includes("opencode") ||
-        clean.includes("groq") ||
-        clean.includes("gpt-oss") ||
-        clean.includes("qwen") ||
-        clean.includes("pickle") ||
-        clean.includes("nemotron") ||
-        clean.includes("9router") ||
-        clean.includes("combomaut")
-      );
-    }
-    if (providerId === "kenari") {
-      return !clean.startsWith("gemini") && !clean.startsWith("claude");
-    }
-    // Kiro was missing here and fell through to `return true`, which accepted any id at all. A
-    // remembered "gemini-3.8-flash" then went to the bridge as Kiro's model, matched nothing, fell
-    // through to the Claude catch-all, and the chat answered "Claude Code is not signed in". The
-    // bridge routes Kiro on this prefix and on nothing else.
-    if (providerId === "kiro") {
-      return clean.startsWith("kiro/");
-    }
-    return true;
-  };
-
-  const getFallbackModelForProvider = (providerId: string): string => {
-    if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-      return localStorage.getItem("arunaki_cli_model_antigravity") || "gemini-3.8-flash";
-    }
-    if (providerId === "claude-code" || providerId === "claude") {
-      return localStorage.getItem("arunaki_cli_model_claude") || "claude-3.7-sonnet";
-    }
-    if (providerId === "codex") {
-      return localStorage.getItem("arunaki_cli_model_codex") || "o3-mini";
-    }
-    if (providerId === "opencode") {
-      return localStorage.getItem("arunaki_cli_model_opencode") || "groq/openai/gpt-oss-120b";
-    }
-    if (providerId === "9router" || providerId === "nineRouter") {
-      return localStorage.getItem("arunaki_cli_model_nineRouter") || "cx/gpt-5.6-terra";
-    }
-    // Not in this map, so Kiro used to fall through to "default" - a value that is not a model.
-    if (providerId === "kiro") {
-      return localStorage.getItem("arunaki_cli_model_kiro") || "kiro/auto";
-    }
-    if (providerId === "kenari") {
-      return "mimo-v2-5:free";
-    }
-    return "default";
-  };
-
-  const specific =
-    localStorage.getItem(`arunaki_provider_model_${p}`) ||
-    (p === "antigravity" || p === "gemini" || p === "gemini-cli"
-      ? localStorage.getItem("arunaki_cli_model_antigravity")
-      : p === "claude-code"
-      ? localStorage.getItem("arunaki_cli_model_claude")
-      : // Kiro was in neither branch, so this always fell through to arunaki_active_model - which
-      // held a kenari model. Provider kiro, model kenari, and the bridge routed on the model id
-      // rather than the provider, so the request left for a completely different upstream.
-      p === "kiro"
-      ? localStorage.getItem("arunaki_cli_model_kiro")
-      : null) ||
-    localStorage.getItem("arunaki_active_model");
-
-  if (specific && specific.trim()) {
-    const trimmed = specific.trim();
-    const firstModel = trimmed.includes(",") ? trimmed.split(",")[0].trim() : trimmed;
-    if (firstModel && isModelValidForProvider(p, firstModel)) {
-      localStorage.setItem("arunaki_active_model", firstModel);
-      return { providerID: p, id: firstModel };
-    }
-  }
-
-  const pool = localStorage.getItem(`arunaki_provider_models_${p}`);
-  if (pool && pool.trim()) {
-    const list = pool
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const valid = list.find((m) => isModelValidForProvider(p, m));
-    if (valid) {
-      localStorage.setItem("arunaki_active_model", valid);
-      return { providerID: p, id: valid };
-    }
-  }
-
-  const fallback = getFallbackModelForProvider(p);
-  localStorage.setItem("arunaki_active_model", fallback);
-  return {
-    providerID: p,
-    id: fallback,
-  };
-}
-
-export function getProviderDefaultModels(providerId: string): string[] {
-  if (providerId === "kiro") {
-    return ["kiro/auto", "kiro/claude-sonnet-4.5", "kiro/claude-haiku-4.5", "kiro/deepseek-3.2", "kiro/qwen3-coder-next"];
-  }
-  if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-    return ["gemini-3.8-flash", "gemini-2.5-pro", "gemini-2.5-flash", "claude-sonnet-4-6"];
-  }
-  if (providerId === "claude-code" || providerId === "claude") {
-    return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"];
-  }
-  if (providerId === "codex") {
-    return ["o3-mini", "o1", "gpt-4o", "gpt-5.6-terra"];
-  }
-  if (providerId === "opencode") {
-    return ["groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b", "opencode/big-pickle", "9router/ComboMaut"];
-  }
-  if (providerId === "9router" || providerId === "nineRouter") {
-    return ["cx/gpt-5.6-terra", "cx/gpt-5.5", "deepseek-r1", "9router/ComboMaut"];
-  }
-  if (providerId === "kenari") {
-    return ["mimo-v2-5:free", "nemotron-3-super-120b-a12b:free", "glm-4-7-flash:free", "agnes-2-0-flash:free"];
-  }
-  return [];
-}
-
-const RETIRED_MODELS_STORAGE_KEY = "arunaki_retired_models";
-const RETIREMENT_TTL_MS = 60 * 60 * 1000; // 1 hour TTL: models can be revived or retried
-
-function loadRetiredModelsFromStorage(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    const now = Date.now();
-    const active = new Set<string>();
-    const cleanedRecord: Record<string, number> = {};
-
-    if (Array.isArray(parsed)) {
-      // Legacy unversioned string array format: clean up and discard old permanent flags
-      localStorage.removeItem(RETIRED_MODELS_STORAGE_KEY);
-      return new Set();
-    } else if (typeof parsed === "object" && parsed !== null) {
-      for (const [id, ts] of Object.entries(parsed)) {
-        if (typeof ts === "number" && now - ts < RETIREMENT_TTL_MS) {
-          active.add(id);
-          cleanedRecord[id] = ts;
-        }
-      }
-      localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(cleanedRecord));
-    }
-    return active;
-  } catch {
-    return new Set();
-  }
-}
-
-function saveRetiredModelToStorage(modelId: string) {
-  if (typeof window === "undefined" || !modelId) return;
-  try {
-    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
-    let record: Record<string, number> = {};
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-          record = parsed;
-        }
-      } catch {}
-    }
-    record[modelId] = Date.now();
-    localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(record));
-  } catch {}
-}
-
-function removeRetiredModelFromStorage(modelId: string) {
-  if (typeof window === "undefined" || !modelId) return;
-  try {
-    const raw = localStorage.getItem(RETIRED_MODELS_STORAGE_KEY);
-    if (!raw) return;
-    const record = JSON.parse(raw);
-    if (typeof record === "object" && record !== null && !Array.isArray(record)) {
-      delete record[modelId];
-      localStorage.setItem(RETIRED_MODELS_STORAGE_KEY, JSON.stringify(record));
-    }
-  } catch {}
-}
-
 export function useWorkstationChat({
   activeFolder,
   activeChatId,
@@ -266,183 +63,16 @@ export function useWorkstationChat({
 }: UseWorkstationChatOptions) {
   const queryClient = useQueryClient();
 
-  const [reasoningEffort, setReasoningEffortState] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("arunaki_reasoning_effort");
-      // Every level the active model offers is a real setting, not a typo to be filtered out. This
-      // used to accept low/medium/high only, so picking xhigh or max worked for the session and
-      // silently reverted to low on the next load. A stored value the current model does not offer
-      // is handled where it is used, which falls back to that model's first level.
-      if (saved) return saved;
-      return "low";
-    }
-    return "low";
-  });
-
-  const setReasoningEffort = useCallback((val: string) => {
-    setReasoningEffortState(val);
-    try {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("arunaki_reasoning_effort", val);
-      }
-    } catch {}
-  }, []);
-
-  // Which tiers the selected model actually has, read from the catalogue rather than assumed.
-  //
-  // The picker was a fixed Low/Medium/High and "low" went out with every request whatever the
-  // provider. Kiro, Kenari and Codex have no tiers at all, so they were sent one and the bridge
-  // either ignored it or rewrote an id that has no tier suffix to the nearest tier it knows. A
-  // provider that does not offer tiers now offers no picker and is sent no variant.
-  const modelsQuery = useQuery({
-    queryKey: ["engine-models"],
-    queryFn: async () => {
-      const folder = typeof window !== "undefined" ? localStorage.getItem("arunaki_active_folder") || "" : "";
-      const res = await apiFetch(`${API_BASE}/model${folder ? `?directory=${encodeURIComponent(folder)}` : ""}`);
-      if (!res.ok) return [] as any[];
-      const json = await res.json().catch(() => ({}));
-      return (json.data ?? []) as any[];
-    },
-    staleTime: 60_000,
-  });
-
-  const tiersFor = useCallback(
-    (providerID: string, modelID: string) => {
-      const match = modelsQuery.data?.find((m) => m?.providerID === providerID && m?.id === modelID);
-      const ids: string[] = Array.isArray(match?.variants)
-        ? match.variants.map((v: any) => String(v?.id ?? "")).filter(Boolean)
-        : [];
-      return ids;
-    },
-    [modelsQuery.data],
-  );
-
-  // A model id remembered before tiers were folded is a tier that no longer exists on its own:
-  // "gemini-3.8-flash-high" became "gemini-3.8-flash" with the tier as a variant. Left alone it
-  // matches nothing in the catalogue, so the picker came up empty and the request asked for a
-  // model that was never there. Fall back to the family when the exact id is gone, and write the
-  // corrected id back so it heals once instead of on every send.
-  const [modelTick, setModelTick] = useState(0);
-
-  const activeModel = useMemo(() => {
-    const active = resolveActiveSingleModel();
-    const list = modelsQuery.data;
-    if (!list?.length) return active;
-    const known = (id: string) => list.some((m: any) => m?.providerID === active.providerID && m?.id === id);
-    if (known(active.id)) return active;
-    const family = active.id.replace(/-(?:low|medium|high|tiered)$/i, "");
-    if (family !== active.id && known(family)) {
-      try {
-        localStorage.setItem("arunaki_active_model", family);
-        localStorage.setItem(`arunaki_provider_model_${active.providerID}`, family);
-      } catch {}
-      return { providerID: active.providerID, id: family };
-    }
-    return active;
-    // modelTick is what makes this re-read localStorage after setActiveModel writes it.
-  }, [modelsQuery.data, modelTick]);
-
-  const activeTiers = tiersFor(activeModel.providerID, activeModel.id);
-
-  // Only the active provider's own models, the same rule the tier picker follows: a picker that
-  // lists every provider's catalogue offers models this account cannot reach from the provider it
-  // is connected to, and the bridge answers an unknown id from a different upstream rather than
-  // refusing it.
-  const [retiredModels, setRetiredModels] = useState<Set<string>>(() => {
-    return loadRetiredModelsFromStorage();
-  });
-
-  const markModelRetired = useCallback((modelId: string) => {
-    if (!modelId) return;
-    saveRetiredModelToStorage(modelId);
-    setRetiredModels((prev) => {
-      const next = new Set(prev);
-      next.add(modelId);
-      return next;
-    });
-  }, []);
-
-  const unmarkModelRetired = useCallback((modelId: string) => {
-    if (!modelId) return;
-    removeRetiredModelFromStorage(modelId);
-    setRetiredModels((prev) => {
-      if (!prev.has(modelId)) return prev;
-      const next = new Set(prev);
-      next.delete(modelId);
-      return next;
-    });
-  }, []);
-
-  const providerModels = useMemo(() => {
-    const list = modelsQuery.data ?? [];
-    const fromApi = list
-      .filter((m: any) => m?.providerID === activeModel.providerID)
-      .map((m: any) => ({
-        id: String(m?.id ?? ""),
-        name: String(m?.name ?? m?.id ?? ""),
-        isRetired: retiredModels.has(String(m?.id ?? "")),
-      }))
-      .filter((m: any) => m.id !== "");
-
-    if (fromApi.length > 0) return fromApi;
-
-    // Fallback if engine catalogue hasn't synced this provider's models yet
-    const pool = typeof window !== "undefined" ? localStorage.getItem(`arunaki_provider_models_${activeModel.providerID}`) : null;
-    if (pool) {
-      const items = pool.split(",").map((s) => s.trim()).filter(Boolean);
-      if (items.length > 0) {
-        return items.map((id) => ({ id, name: id, isRetired: retiredModels.has(id) }));
-      }
-    }
-
-    const defaults = getProviderDefaultModels(activeModel.providerID);
-    if (defaults.length > 0) {
-      return defaults.map((id) => ({ id, name: id, isRetired: retiredModels.has(id) }));
-    }
-
-    if (activeModel.id) {
-      return [{ id: activeModel.id, name: activeModel.id, isRetired: false }];
-    }
-    return [];
-  }, [modelsQuery.data, activeModel.providerID, activeModel.id, retiredModels]);
-
-  const setActiveModel = useCallback(
-    (providerID: string, id: string) => {
-      if (!id) return;
-      // Selecting a model clears its retired flag, allowing immediate retry
-      unmarkModelRetired(id);
-      try {
-        localStorage.setItem("arunaki_active_provider", providerID);
-        localStorage.setItem("arunaki_active_model", id);
-        localStorage.setItem(`arunaki_provider_model_${providerID}`, id);
-        localStorage.setItem(`arunaki_cli_model_${providerID}`, id);
-      } catch {}
-      setModelTick((n) => n + 1);
-      queryClient.invalidateQueries({ queryKey: ["engine-models"] });
-      window.dispatchEvent(
-        new CustomEvent("arunaki:provider-change", {
-          detail: { providerId: providerID, model: id },
-        })
-      );
-    },
-    [queryClient, unmarkModelRetired],
-  );
-
-  // Listen for provider / model changes dispatched from Settings, menus, or other tabs
-  useEffect(() => {
-    const handleProviderChange = () => {
-      setModelTick((n) => n + 1);
-      queryClient.invalidateQueries({ queryKey: ["engine-models"] });
-    };
-
-    window.addEventListener("arunaki:provider-change", handleProviderChange);
-    window.addEventListener("storage", handleProviderChange);
-
-    return () => {
-      window.removeEventListener("arunaki:provider-change", handleProviderChange);
-      window.removeEventListener("storage", handleProviderChange);
-    };
-  }, [queryClient]);
+  const {
+    reasoningEffort,
+    setReasoningEffort,
+    activeModel,
+    setActiveModel,
+    activeTiers,
+    tiersFor,
+    providerModels,
+    markModelRetired,
+  } = useChatModels();
 
   const [isStreaming, setIsStreaming] = useState(false);
   const isStreamingRef = useRef(false);
@@ -468,7 +98,6 @@ export function useWorkstationChat({
   const resetWatchdogRef = useRef<((timeoutMs?: number) => void) | null>(null);
   const currentTurnIdRef = useRef<string>("");
   const isLocalSendingRef = useRef(false);
-  const isCompactingRef = useRef(false);
 
   const clearWatchdog = useCallback(() => {
     if (watchdogRef.current) {
@@ -503,6 +132,19 @@ export function useWorkstationChat({
     },
     enabled: !!activeChatId,
     refetchOnWindowFocus: true,
+  });
+
+  const {
+    isCompacting,
+    isCompacted,
+    handleCompactSession,
+    isCompactingRef,
+  } = useChatCompaction({
+    activeChatId,
+    chatMessages,
+    isStreaming,
+    activeModel,
+    activeFolder,
   });
 
   // Track external message updates (e.g. from Telegram gateway or external prompts)
@@ -670,246 +312,20 @@ export function useWorkstationChat({
     }
   }, [activeChatId, chatMessages, isStreaming, upsertCanvasTab, setRecentCanvases]);
 
-  // 6. Persistent background SSE event listener for the active session (captures Telegram & external prompts)
-  useEffect(() => {
-    if (!activeChatId) return;
-
-    const abortCtrl = new AbortController();
-    let extSteps: StepItem[] = [];
-    let extReasoning = "";
-    let extText = "";
-    let extStartTime = 0;
-    const extAssistantId = `ext-asst-${activeChatId}`;
-
-    subscribeEvents(
-      (rawEvent) => {
-        // If local user is actively driving the stream or compaction is running, let background listener skip
-        if (isLocalSendingRef.current || isCompactingRef.current) return;
-
-        const event = mapEngineEvent(rawEvent, activeChatId);
-        if (!event) return;
-
-        if (event.type === "session_busy" || event.type === "thinking") {
-          if (!isStreamingRef.current) {
-            setStreamingState(true);
-            extStartTime = Date.now();
-            extSteps = [];
-            extReasoning = "";
-            extText = "";
-            queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-          }
-          setLiveStatus({
-            type: "thinking",
-            preview: typeof event.data === "string" ? event.data : "Analyzing request & documents...",
-          });
-        } else if (event.type === "reasoning_delta" && event.data) {
-          if (!isStreamingRef.current) {
-            setStreamingState(true);
-            if (!extStartTime) extStartTime = Date.now();
-            queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-          }
-          extReasoning += event.data;
-          const elapsed = extStartTime ? Math.max(1, Math.round((Date.now() - extStartTime) / 1000)) : 1;
-          setOptimisticMessages([
-            {
-              id: extAssistantId,
-              role: "assistant",
-              content: extText,
-              reasoning: extReasoning,
-              executionSteps: extSteps.length > 0 ? [...extSteps] : undefined,
-              thoughtSec: elapsed,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        } else if (event.type === "tool_start" || event.type === "tool_preparing") {
-          if (!isStreamingRef.current) {
-            setStreamingState(true);
-            if (!extStartTime) extStartTime = Date.now();
-            queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-          }
-          const toolName = event.data?.toolName || "action";
-          const label = formatToolStepLabel(
-            toolName,
-            event.data?.args || event.data?.input,
-            false
-          );
-          setLiveStatus({
-            type: "tool_start",
-            toolName,
-            preview: label,
-          });
-
-          const stepId = event.data?.callID || `ext-tool-${extSteps.length}`;
-          const existingStep = extSteps.find((s) => s.id === stepId);
-          if (!existingStep) {
-            extSteps.push({
-              id: stepId,
-              label,
-              status: "running",
-              iconType: "tool",
-              toolName,
-            });
-          }
-
-          const elapsed = extStartTime ? Math.max(1, Math.round((Date.now() - extStartTime) / 1000)) : 1;
-          setOptimisticMessages([
-            {
-              id: extAssistantId,
-              role: "assistant",
-              content: extText,
-              reasoning: extReasoning,
-              executionSteps: [...extSteps],
-              thoughtSec: elapsed,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        } else if (event.type === "tool_live_status") {
-          const stepId = event.data?.callID;
-          if (stepId) {
-            const st = extSteps.find((s) => s.id === stepId);
-            if (st) {
-              st.status = "completed";
-              const rawInput = event.data?.args || event.data?.input;
-              if (rawInput) {
-                st.label = formatToolStepLabel(
-                  st.toolName || event.data?.toolName || "action",
-                  rawInput,
-                  true
-                );
-              } else if (st.label) {
-                st.label = st.label
-                  .replace(/^Reading\b/i, "Explored")
-                  .replace(/^Editing\b/i, "Edited")
-                  .replace(/^Writing\b/i, "Created")
-                  .replace(/^Running\b/i, "Executed");
-              }
-            }
-          }
-          const toolName = event.data?.toolName || "action";
-          setLiveStatus({
-            type: "tool_live_status",
-            toolName,
-            preview: event.data?.preview || `Completed ${toolName}`,
-          });
-
-          const elapsed = extStartTime ? Math.max(1, Math.round((Date.now() - extStartTime) / 1000)) : 1;
-          setOptimisticMessages([
-            {
-              id: extAssistantId,
-              role: "assistant",
-              content: extText,
-              reasoning: extReasoning,
-              executionSteps: [...extSteps],
-              thoughtSec: elapsed,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-          refetchFiles();
-          reloadOpenTabsContent();
-        } else if (event.type === "text_delta" && event.data) {
-          if (!isStreamingRef.current) {
-            setStreamingState(true);
-            if (!extStartTime) extStartTime = Date.now();
-          }
-          extText += event.data;
-          const elapsed = extStartTime ? Math.max(1, Math.round((Date.now() - extStartTime) / 1000)) : 1;
-          setOptimisticMessages([
-            {
-              id: extAssistantId,
-              role: "assistant",
-              content: extText,
-              reasoning: extReasoning,
-              executionSteps: extSteps.length > 0 ? [...extSteps] : undefined,
-              thoughtSec: elapsed,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        } else if (event.type === "done" || event.type === "error") {
-          setStreamingState(false);
-          setLiveStatus(null);
-          setOptimisticMessages([]);
-          extSteps = [];
-          extReasoning = "";
-          extText = "";
-          extStartTime = 0;
-          queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-          refetchFiles();
-          reloadOpenTabsContent();
-        }
-      },
-      abortCtrl.signal,
-      activeFolder || undefined
-    );
-
-    // Initial check: if session is already running when component mounts or switches chats
-    isSessionActive(activeChatId).then((active) => {
-      if (active && !isStreamingRef.current && !isLocalSendingRef.current) {
-        setStreamingState(true);
-        extStartTime = Date.now();
-        setLiveStatus({
-          type: "thinking",
-          preview: "Processing document tasks...",
-        });
-      }
-    }).catch(() => {});
-
-    return () => {
-      abortCtrl.abort();
-    };
-  }, [activeChatId, activeFolder, queryClient, refetchFiles, reloadOpenTabsContent, setStreamingState]);
-
-  // 7. External stream watchdog & fallback poller (ensures UI doesn't remain stuck if disconnected)
-  useEffect(() => {
-    if (!isStreaming || isLocalSendingRef.current || !activeChatId) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const active = await isSessionActive(activeChatId);
-        if (!active && isStreamingRef.current && !isLocalSendingRef.current) {
-          setStreamingState(false);
-          setLiveStatus(null);
-          setOptimisticMessages([]);
-          queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-          refetchFiles();
-          reloadOpenTabsContent();
-        }
-      } catch {}
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [isStreaming, activeChatId, queryClient, refetchFiles, reloadOpenTabsContent, setStreamingState]);
-
-  // 8. Auto-detect in-flight prompt if last message is a recent user message without assistant reply
-  useEffect(() => {
-    if (isStreaming || isLocalSendingRef.current || !activeChatId || chatMessages.length === 0) return;
-    const lastMsg = chatMessages[chatMessages.length - 1];
-    if (lastMsg && lastMsg.role === "user") {
-      const now = Date.now();
-      const msgTime = lastMsg.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
-      if (msgTime && now - msgTime < 120000) {
-        // If message was posted recently (< 30s) and there is no assistant reply yet, activate thinking indicator immediately
-        if (now - msgTime < 30000 && !isStreamingRef.current) {
-          setStreamingState(true);
-          setLiveStatus({
-            type: "thinking",
-            preview: "Thinking...",
-          });
-        }
-        isSessionActive(activeChatId).then((active) => {
-          if (active && !isStreamingRef.current && !isLocalSendingRef.current) {
-            setStreamingState(true);
-            setLiveStatus({
-              type: "thinking",
-              preview: "Arunaki is processing...",
-            });
-          } else if (!active && now - msgTime >= 30000 && isStreamingRef.current && !isLocalSendingRef.current) {
-            setStreamingState(false);
-            setLiveStatus(null);
-          }
-        }).catch(() => {});
-      }
-    }
-  }, [chatMessages, isStreaming, activeChatId, setStreamingState]);
+  useExternalChatEvents({
+    activeChatId,
+    activeFolder,
+    isStreaming,
+    isLocalSendingRef,
+    isCompactingRef,
+    isStreamingRef,
+    setStreamingState,
+    setLiveStatus,
+    setOptimisticMessages,
+    refetchFiles,
+    reloadOpenTabsContent,
+    chatMessages,
+  });
 
   const handleRemoveQueuedPrompt = useCallback((index: number) => {
     queuedPromptsRef.current = queuedPromptsRef.current.filter((_, i) => i !== index);
@@ -1388,38 +804,10 @@ export function useWorkstationChat({
     }
 
     let hasDispatchedNotification = false;
-    const dispatchCompletionNotification = (toolsCount = 0) => {
+    const notifyOnce = (toolsCount = 0) => {
       if (hasDispatchedNotification) return;
       hasDispatchedNotification = true;
-      try {
-        const isNotifEnabled = localStorage.getItem("arunaki_pref_desktop_notification") !== "false";
-        if (!isNotifEnabled) return;
-
-        const notifBody =
-          toolsCount > 0
-            ? `Executed ${toolsCount} document task${toolsCount > 1 ? "s" : ""} successfully.`
-            : "Document response generated.";
-
-        const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-        if (desktop?.notify) {
-          desktop.notify({
-            title: "Arunaki Workstation",
-            body: notifBody,
-          });
-        } else if (typeof window !== "undefined" && "Notification" in window) {
-          if (Notification.permission === "granted") {
-            new Notification("Arunaki Workstation", { body: notifBody });
-          } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then((perm) => {
-              if (perm === "granted") {
-                new Notification("Arunaki Workstation", { body: notifBody });
-              }
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[useWorkstationChat] notification error:", err);
-      }
+      dispatchCompletionNotification(toolsCount);
     };
 
     const abortCtrl = new AbortController();
@@ -1433,68 +821,6 @@ export function useWorkstationChat({
           handleSendMessage(nextPrompt);
         }, 300);
       }
-    };
-
-    const getActiveProviderDiagnostic = async (): Promise<{
-      hasConfiguredProvider: boolean;
-      activeProviderName: string;
-      modelName?: string;
-    }> => {
-      const activeModel = resolveActiveSingleModel();
-      try {
-        const res = await apiFetch(`${API_BASE}/providers`);
-        if (res.ok) {
-          const json = await res.json();
-          const providers: any[] = json.data || [];
-          if (providers.length === 0) {
-            return { hasConfiguredProvider: false, activeProviderName: "" };
-          }
-          const savedActiveId = localStorage.getItem("arunaki_active_provider");
-          const CLI_NAMES: Record<string, string> = {
-            "claude-code": "Claude Code CLI",
-            codex: "OpenAI Codex CLI",
-            antigravity: "Google Antigravity CLI",
-            "gemini-cli": "Google Antigravity CLI",
-            gemini: "Google Antigravity CLI",
-            opencode: "OpenCode Interpreter",
-            "9router": "9Router Gateway",
-          };
-          if (savedActiveId && CLI_NAMES[savedActiveId]) {
-            return {
-              hasConfiguredProvider: true,
-              activeProviderName: CLI_NAMES[savedActiveId],
-              modelName: activeModel.id || localStorage.getItem("arunaki_active_model") || "CLI Agent",
-            };
-          }
-
-          const active =
-            providers.find((p) => p.id === savedActiveId) ||
-            providers.find((p) => p.id === "kenari" || p.apiKey) ||
-            providers[0];
-
-          return {
-            hasConfiguredProvider: true,
-            activeProviderName: active?.name || active?.id || "AI Provider",
-            modelName: activeModel.id,
-          };
-        }
-      } catch {}
-
-      const fallbackId = localStorage.getItem("arunaki_active_provider");
-      const CLI_NAMES: Record<string, string> = {
-        "claude-code": "Claude Code CLI",
-        codex: "OpenAI Codex CLI",
-        antigravity: "Google Antigravity CLI",
-        "gemini-cli": "Google Antigravity CLI",
-        gemini: "Google Antigravity CLI",
-        opencode: "OpenCode Interpreter",
-        "9router": "9Router Gateway",
-      };
-      return {
-        hasConfiguredProvider: !!fallbackId,
-        activeProviderName: (fallbackId && CLI_NAMES[fallbackId]) || (fallbackId === "kenari" ? "Kenari" : fallbackId || "AI Provider"),
-        modelName: activeModel.id,
-      };
     };
 
     const resetWatchdog = (timeoutMs = 90000) => {
@@ -1523,7 +849,7 @@ export function useWorkstationChat({
           accumulatedParts.length > 0;
 
         if (hasReceivedData) {
-          dispatchCompletionNotification(accumulatedSteps.filter((s) => s.iconType === "tool").length);
+          notifyOnce(accumulatedSteps.filter((s) => s.iconType === "tool").length);
           queryClient.invalidateQueries({ queryKey: ["chat-messages", chatIdToUse] });
           setOptimisticMessages([]);
           processNext();
@@ -1722,7 +1048,7 @@ export function useWorkstationChat({
 
       // Desktop OS Notification
       const completedToolsCount = doneData?.toolOutputs?.length || accumulatedSteps.filter((s) => s.iconType === "tool").length;
-      dispatchCompletionNotification(completedToolsCount);
+      notifyOnce(completedToolsCount);
 
       // Auto-backup + auto-open produced documents
       const autoOpenOffice =
@@ -2264,74 +1590,6 @@ export function useWorkstationChat({
       processNext();
     }
   };
-
-  const [isCompacting, setIsCompacting] = useState(false);
-  const [isCompacted, setIsCompacted] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !activeChatId) return false;
-    return localStorage.getItem(`arunaki_compacted_${activeChatId}`) === "true";
-  });
-
-  useEffect(() => {
-    if (!activeChatId) {
-      setIsCompacted(false);
-      return;
-    }
-    const saved = localStorage.getItem(`arunaki_compacted_${activeChatId}`);
-    if (saved === "disabled") {
-      setIsCompacted(false);
-      return;
-    }
-    if (saved === "true") {
-      setIsCompacted(true);
-      return;
-    }
-    const hasSummaryMsg = chatMessages.some((m) => m.summary === true);
-    setIsCompacted(hasSummaryMsg);
-  }, [activeChatId, chatMessages]);
-
-  const handleCompactSession = useCallback(async () => {
-    if (!activeChatId) {
-      toast.error("No active session to compact");
-      return;
-    }
-    if (isStreaming) {
-      toast.warning("Please wait for current response to finish");
-      return;
-    }
-
-    // Toggle OFF: if already compacted/active, turn it off cleanly
-    if (isCompacted) {
-      try {
-        localStorage.setItem(`arunaki_compacted_${activeChatId}`, "disabled");
-      } catch {}
-      setIsCompacted(false);
-      toast.info("Context compaction disabled.");
-      return;
-    }
-
-    // Toggle ON: trigger compaction
-    setIsCompacting(true);
-    isCompactingRef.current = true;
-    const toastId = toast.loading("Compacting session context...");
-    try {
-      const ok = await summarizeSession(activeChatId, activeModel, activeFolder);
-      if (ok) {
-        toast.success("Active session context compacted successfully.", { id: toastId });
-        try {
-          localStorage.setItem(`arunaki_compacted_${activeChatId}`, "true");
-        } catch {}
-        setIsCompacted(true);
-        await queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
-      } else {
-        toast.error("Failed to compact session context.", { id: toastId });
-      }
-    } catch (err: any) {
-      toast.error(`Compaction error: ${err?.message || err}`, { id: toastId });
-    } finally {
-      setIsCompacting(false);
-      isCompactingRef.current = false;
-    }
-  }, [activeChatId, isStreaming, isCompacted, activeModel, activeFolder, queryClient]);
 
   return {
     chatMessages,
