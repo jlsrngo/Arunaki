@@ -137,6 +137,15 @@ async function main() {
     }
     const portableWebDir = path.join(portableDir, 'web');
     fs.cpSync(webDistDir, portableWebDir, { recursive: true });
+
+    // Refresh Windows Shell icon cache so Explorer updates instantly
+    const refreshScript = path.join(rootDir, 'scripts', 'refresh-icon-cache.ps1');
+    if (process.platform === 'win32' && fs.existsSync(refreshScript)) {
+      try {
+        execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${refreshScript}"`, { stdio: 'ignore' });
+      } catch {}
+    }
+
     log('Portable', `Assembled standalone portable bundle in: ${portableDir}`);
     console.log(`✨ NATIVE PORTABLE BUNDLE READY IN ${elapsed}s (0 Electron / Pure Native)`);
   } else {
