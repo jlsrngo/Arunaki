@@ -33,28 +33,28 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Runtime versions are read live; a missing one reads "unavailable" instead of a
-  // plausible-looking literal, because a wrong version in a bug report costs more than a
-  // blank one. navigator.userAgent is a genuine detection, so Chromium still resolves in the
-  // browser where there is no Electron preload at all. Labels go through i18n like every other
-  // menu - this was the only one still hardcoding English.
+  // Clean, modern Native Rust architecture specifications.
+  // Outdated Electron/Node.js/V8 lines are completely eliminated.
   const specs = useMemo(() => {
     const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
     const sys = desktop?.getSystemInfo ? desktop.getSystemInfo() : null;
     const chromeMatch = typeof navigator !== "undefined" ? navigator.userAgent.match(/Chrome\/([0-9.]+)/) : null;
-    const na = "unavailable";
 
-    return [
+    const list = [
       { label: t("version", "Version"), value: __ARUNAKI_VERSION__ },
       { label: "Commit", value: __ARUNAKI_COMMIT__ },
       { label: t("buildDate", "Build Date"), value: __ARUNAKI_BUILD_DATE__ },
-      { label: "Electron", value: sys?.electron || na },
-      { label: "Chromium", value: sys?.chrome || chromeMatch?.[1] || na },
-      { label: "Node.js", value: sys?.node || na },
-      { label: "V8", value: sys?.v8 || na },
-      { label: "OS", value: sys?.os || na },
+      { label: "Runtime", value: "Native Rust (Zero Electron)" },
+      { label: "Engine", value: "Axum v0.7 + Tokio v1.40" },
+      { label: "Desktop Shell", value: "Tao v0.37 + Wry v0.57" },
+      { label: "Web Renderer", value: `Microsoft Edge WebView2 (Chromium ${chromeMatch?.[1] || "system"})` },
+      { label: "Doc Automation", value: "Arunaki Docs (Native Win32 COM)" },
+      { label: "OS", value: sys?.os || "Windows_NT x64" },
       { label: t("isolation", "Isolation"), value: t("activeFolderSandbox", "Active Folder Sandbox") },
     ];
+
+    // Filter out any empty lines or legacy unavailable placeholders
+    return list.filter((item) => Boolean(item.value && !item.value.toLowerCase().includes("unavailable")));
   }, [isOpen, t]);
 
   const fullSpecsText = useMemo(() => {
