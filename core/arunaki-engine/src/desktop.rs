@@ -776,6 +776,11 @@ pub fn try_serve_static_asset(uri_path: &str) -> Option<Response> {
 
 pub const DESKTOP_INIT_SCRIPT: &str = r#"
 (function() {
+  // Suppress browser context menu
+  window.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  }, true);
+
   if (window.arunakiDesktop) return;
   const ORIGIN = window.location.origin || 'http://127.0.0.1:4096';
   const postJson = async (path, body) => {
