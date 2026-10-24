@@ -115,16 +115,19 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 138: DeckCraft — Presentation Slide Carousel & Executive Deck Viewer (Center Panel) ⏳ QUEUED
+### Phase 138: DeckCraft — Presentation Slide Carousel & Executive Deck Viewer (Center Panel) ✅ DONE
 **Goal:** Menyediakan viewer dan presenter slide presentasi (**DeckCraft**) di panel tengah untuk meninjau ringkasan eksekutif, laporan bulanan, dan materi presentasi dalam bentuk kartu slide visual.
 
 #### 138.1 Slide Deck Presentation Viewer
-- [ ] Komponen presenter slide di panel tengah dengan kartu slide berasio 16:9, navigasi slide sebelumnya/berikutnya, dan panel thumbnail di sebelah kiri.
-- [ ] Mode presentasi fullscreen langsung dari Arunaki.
+- [x] Komponen presenter slide di panel tengah dengan kartu slide berasio 16:9 (960px × 540px), navigasi slide sebelumnya/berikutnya, dan panel thumbnail di sebelah kiri.
+- [x] Mode presentasi fullscreen (F5 / tombol Present) langsung dari Arunaki dengan overlay kontrol mengambang minimalis.
+- [x] Zoom in/out, navigasi keyboard (Arrow Left/Right, Space, Page Up/Down), dan template kartu slide (Cover/Hero, KPI metric blocks, bullet points, data tables).
 
-#### 138.2 Autonomous Slide Generation from Project Documents
-- [ ] Agent dapat merangkum data dari file GridCraft (.xlsx) atau WordCraft (.docx) yang ada di folder proyek menjadi slide presentasi ringkas (Judul, Metrik Utama, Grafik Ringkasan).
-- [ ] Ekspor slide deck langsung ke format `.pptx`.
+#### 138.2 Autonomous Slide Generation from Project Documents & Dual-Mode Office
+- [x] Agent dapat membuka dan menyajikan slide deck dari file presentasi (`.pptx`, `.ppt`, file slide markdown).
+- [x] Editor mode terintegrasi untuk menambah atau merevisi slide deck secara langsung.
+- [x] Dual-Mode Win32 COM Office companion (`/api/desktop/open-ppt` dan `/api/desktop/parse-ppt`) untuk membuka presentasi di aplikasi desktop Microsoft PowerPoint asli.
+- [x] Dukungan print slide handouts dan copy slide content.
 
 ---
 

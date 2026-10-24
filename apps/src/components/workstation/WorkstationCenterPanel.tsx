@@ -15,6 +15,10 @@ const WordCraft = lazy(() =>
   import("./canvas/WordCraft").then((m) => ({ default: m.WordCraft }))
 );
 
+const DeckCraft = lazy(() =>
+  import("./canvas/DeckCraft").then((m) => ({ default: m.DeckCraft }))
+);
+
 export type { CenterTab };
 
 export interface WorkstationCenterPanelProps {
@@ -241,9 +245,11 @@ function WorkstationCenterPanelComponent({
       : activeTab.title.endsWith(".csv")
       ? "CSV"
       : (/\.(xlsx|xls|xlsm|xlsb)$/i).test(activeTab.title)
-      ? "Excel"
+      ? "Excel Spreadsheet"
       : (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title)
       ? "Word Document"
+      : (/\.(pptx|ppt|odp)$/i).test(activeTab.title)
+      ? "PowerPoint Deck"
       : activeTab.title.split(".").pop()?.toUpperCase() || "Plain Text"
     : "Plain Text";
 
@@ -259,11 +265,19 @@ function WorkstationCenterPanelComponent({
       )
     : false;
 
+  const isDeck = activeTab
+    ? Boolean(
+        ["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
+        (/\.(pptx|ppt|odp)$/i).test(activeTab.title) ||
+        (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("slide") || activeTab.title.toLowerCase().includes("deck") || activeTab.title.toLowerCase().includes("presentasi")))
+      )
+    : false;
+
   const isWordDoc = activeTab
     ? Boolean(
         ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
         (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
-        (activeTab.type === "canvas" && !isSpreadsheet)
+        (activeTab.type === "canvas" && !isSpreadsheet && !isDeck)
       )
     : false;
 
@@ -293,7 +307,7 @@ function WorkstationCenterPanelComponent({
       {/* 2. BREADCRUMBS BAR */}
       {activeTab && <CenterBreadcrumbs folderName={folderName} tabTitle={activeTab.title} />}
 
-      {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / FILE EDITOR) */}
+      {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / DECKCRAFT / FILE EDITOR) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
         {activeTab ? (
           isSpreadsheet ? (
@@ -305,6 +319,22 @@ function WorkstationCenterPanelComponent({
               }
             >
               <SpreadsheetViewer
+                content={currentContent}
+                filePath={activeTab.path}
+                title={activeTab.title}
+                onContentChange={(newContent) => handleTextChange(newContent)}
+                onSave={handleSave}
+              />
+            </Suspense>
+          ) : isDeck ? (
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
+                  Loading DeckCraft...
+                </div>
+              }
+            >
+              <DeckCraft
                 content={currentContent}
                 filePath={activeTab.path}
                 title={activeTab.title}
