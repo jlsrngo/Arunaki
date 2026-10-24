@@ -76,9 +76,10 @@ export async function dispatchCompletionNotification(toolsCount = 0): Promise<vo
     // 1. Try Tauri v2 Native Windows Toast Notification (Action Center)
     if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
       try {
-        const { isPermissionGranted, requestPermission, sendNotification } = await import(
-          "@tauri-apps/plugin-notification"
-        );
+        const pkg = "@tauri-apps/plugin-notification";
+        // @ts-ignore
+        const notifPlugin: any = await import(/* @vite-ignore */ pkg);
+        const { isPermissionGranted, requestPermission, sendNotification } = notifPlugin;
         let granted = await isPermissionGranted();
         if (!granted) {
           const perm = await requestPermission();

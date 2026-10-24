@@ -17,6 +17,7 @@
     "test:smoke": "bun run scripts/smoke-local-cli.ts",
     "test:pos": "bun run scripts/test-pos-integration.ts",
     "test:knowledge": "bun run scripts/test-knowledge-e2e.ts",
+    "sync:artcraft": "node scripts/sync-artcraft.cjs",
     "bundle:prepare": "node scripts/prepare-bundle.cjs",
     "tauri": "npx @tauri-apps/cli",
     "tauri:dev": "npx @tauri-apps/cli dev",

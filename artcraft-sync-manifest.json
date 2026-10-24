@@ -1,0 +1,29 @@
+{
+  "lastChecked": "2026-10-24T22:24:00.000Z",
+  "apps": {
+    "GridCraft": {
+      "repo": "storytold/gridcraft",
+      "lastCommit": "upstream-beta",
+      "status": "synced",
+      "role": "Spreadsheet Engine (.xlsx, .csv)"
+    },
+    "WordCraft": {
+      "repo": "storytold/wordcraft",
+      "lastCommit": "upstream-beta",
+      "status": "synced",
+      "role": "Official Rich Document & A4 Layout (.docx, .md)"
+    },
+    "PdfCraft": {
+      "repo": "storytold/pdfcraft",
+      "lastCommit": "upstream-beta",
+      "status": "synced",
+      "role": "Offline PDF Reader & Data Cartographer (.pdf)"
+    },
+    "DeckCraft": {
+      "repo": "storytold/deckcraft",
+      "lastCommit": "upstream-beta",
+      "status": "synced",
+      "role": "Slide Presenter & Carousel (.pptx)"
+    }
+  }
+}

@@ -294,6 +294,8 @@ function WorkstationCenterPanelComponent({
                 content={currentContent}
                 filePath={activeTab.path}
                 title={activeTab.title}
+                onContentChange={(newContent) => handleTextChange(newContent)}
+                onSave={handleSave}
               />
             </Suspense>
           ) : (

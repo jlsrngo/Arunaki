@@ -61,23 +61,24 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 135: GridCraft — In-App Interactive Spreadsheet Engine (Center Panel) 🔄 IN PROGRESS
+### Phase 135: GridCraft — In-App Interactive Spreadsheet Engine (Center Panel) ✅ DONE
 **Goal:** Mengubah viewer spreadsheet statis di panel tengah (`WorkstationCenterPanel.tsx` & `SpreadsheetViewer.tsx`) menjadi engine spreadsheet interaktif mandiri (**GridCraft**). Pengguna dapat melihat sel dihitung secara *live* saat AI mengetik, memilih dan mengedit cell/formula manual, menambah sheet, serta menyimpan perubahan langsung ke file `.xlsx`/`.csv` tanpa memerlukan Microsoft Excel.
 
 #### 135.1 Interactive Spreadsheet Grid Component
-- [ ] Ganti rendering tabel statis dengan canvas/DOM spreadsheet grid interaktif berkecepatan tinggi (header kolom A, B, C..., nomor baris 1, 2, 3..., cell selection box).
-- [ ] Implementasikan Formula Bar di bagian atas panel tengah yang menampilkan teks atau formula aktif (contoh: `=SUM(C2:C10)`).
-- [ ] Dukungan navigasi keyboard (Arrow keys, Tab, Enter) dan inline cell editing.
-- [ ] Multi-sheet tab bar di bagian bawah grid (Sheet1, Sheet2, dsb.) dengan kemampuan beralih sheet secara instan.
+- [x] Ganti rendering tabel statis dengan canvas/DOM spreadsheet grid interaktif berkecepatan tinggi (header kolom A, B, C..., nomor baris 1, 2, 3..., cell selection box).
+- [x] Implementasikan Formula Bar di bagian atas panel tengah yang menampilkan teks atau formula aktif (contoh: `=SUM(C2:C10)`).
+- [x] Dukungan navigasi keyboard (Arrow keys, Tab, Enter) dan inline cell editing.
+- [x] Multi-sheet tab bar di bagian bawah grid (Sheet1, Sheet2, dsb.) dengan kemampuan beralih sheet secara instan.
 
 #### 135.2 Live AI-to-Grid Synchronization
-- [ ] Tambahkan listener event perubahan file lokal: saat backend Rust (`write-excel` atau `doc_com`) memperbarui cell, tab GridCraft yang sedang terbuka otomatis memperbarui nilai cell yang terpengaruh dengan animasi highlight halus tanpa mereload seluruh tab.
-- [ ] Integrasikan kalkulasi formula offline (SUM, AVERAGE, MIN, MAX, IF, kalkulasi pajak/diskon) langsung di memori lokal.
+- [x] Tambahkan listener event perubahan file lokal: saat backend Rust (`write-excel` atau `doc_com`) memperbarui cell, tab GridCraft yang sedang terbuka otomatis memperbarui nilai cell yang terpengaruh dengan animasi highlight halus tanpa mereload seluruh tab.
+- [x] Integrasikan kalkulasi formula offline (SUM, AVERAGE, MIN, MAX, IF, kalkulasi pajak/diskon) langsung di memori lokal.
 
 #### 135.3 File Persistence & Native Office Bridge
-- [ ] Tombol Save/Export langsung dari GridCraft ke `.xlsx` dan `.csv` via endpoint `/api/desktop/write-excel`.
-- [ ] Tombol pintas *"Open in Native Excel"* di header tab yang memanggil `/api/desktop/open-excel` via `core/arunaki-docs` bagi pengguna yang ingin melihat file di aplikasi Microsoft Excel desktop asli.
-- [ ] Tampilkan status autosave / unsaved indicator pada header tab panel tengah.
+- [x] Tombol Save/Export langsung dari GridCraft ke `.xlsx` dan `.csv` via endpoint `/api/desktop/write-excel`.
+- [x] Tombol pintas *"Open in Native Excel"* di header tab yang memanggil `/api/desktop/open-excel` via `core/arunaki-docs` bagi pengguna yang ingin melihat file di aplikasi Microsoft Excel desktop asli.
+- [x] Tampilkan status autosave / unsaved indicator pada header tab panel tengah.
+- [x] Script tracker pembaruan upstream ArtCraft (`scripts/sync-artcraft.cjs` dan manifest `artcraft-sync-manifest.json`).
 
 ---
 
