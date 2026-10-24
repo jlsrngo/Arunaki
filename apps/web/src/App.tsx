@@ -111,10 +111,22 @@ export default function App() {
       <Toaster 
         theme={effectiveTheme as 'light' | 'dark'} 
         position="top-center" 
-        offset="52px"
-        visibleToasts={1}
+        offset="48px"
+        visibleToasts={3}
         toastOptions={{
-          className: 'dark:!bg-[#1C1C1F]/90 dark:!text-[#F4F4F5] dark:!border-[#323232] !bg-white/90 !text-[#111827] !border-[#E5E7EB] !rounded-full !shadow-none !px-4 !py-2 !text-[11px] !font-medium tracking-wide backdrop-blur-md flex items-center gap-2 justify-center border',
+          style: {
+            background: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            borderColor: 'var(--border-strong)',
+            borderRadius: '12px',
+          },
+          className: '!border !px-4 !py-3 !text-[12px] backdrop-blur-md',
+          classNames: {
+            title: '!text-[var(--text-primary)] !font-semibold !text-[12px]',
+            description: '!text-[var(--text-muted)] !text-[11px] !mt-0.5',
+            icon: '!text-[var(--text-primary)]',
+            toast: '!bg-[var(--bg-card)] !border-[var(--border-strong)] !text-[var(--text-primary)]',
+          },
           duration: 3000,
         }}
       />

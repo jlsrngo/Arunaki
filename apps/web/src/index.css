@@ -176,3 +176,23 @@
   }
 }
 
+
+/* Sonner Toast High-Contrast Theme Enforcement */
+[data-sonner-toaster] [data-sonner-toast] {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-strong) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-title] {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: var(--text-muted) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-icon] {
+  color: var(--text-primary) !important;
+}

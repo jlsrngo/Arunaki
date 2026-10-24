@@ -1008,7 +1008,8 @@ export function SettingsCliConnectionsTab({
         ) : (
           <div className="space-y-1.5">
             {report.buckets.map((b) => {
-              const pct = Math.round(b.remaining * 100);
+              const rawRemaining = typeof b.remaining === "number" ? b.remaining : 0;
+              const pct = Math.max(0, Math.min(100, Math.round(rawRemaining > 1 ? rawRemaining : rawRemaining * 100)));
               const bar = b.exhausted
                 ? "bg-red-500"
                 : pct <= 15
