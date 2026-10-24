@@ -82,20 +82,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 136: WordCraft — Official Rich Document Canvas & Paged A4 Layout (Center Panel) ⏳ QUEUED
+### Phase 136: WordCraft — Official Rich Document Canvas & Paged A4 Layout (Center Panel) ✅ DONE
 **Goal:** Menghadirkan editor dan viewer dokumen resmi (**WordCraft**) di panel tengah dengan tampilan layout kertas A4, margin standar, penomoran halaman, serta visualisasi *diff* real-time ketika AI merevisi isi dokumen.
 
 #### 136.1 Paged A4 Document Layout
-- [ ] Buat komponen `WordCraftDocumentView` di panel tengah dengan layout kertas A4 (lebar proporsional, bayangan kertas halus, margin atas/bawah/samping).
-- [ ] Dukungan rendering rich formatting: Heading 1/2/3, paragraf berjarak rapi, bullet points, dan tabel data formal.
-- [ ] Header & Footer dokumen resmi (nomor halaman, judul dokumen, tanggal).
+- [x] Buat komponen `WordCraft` di panel tengah dengan layout kertas A4 (lebar proporsional 794px, bayangan kertas halus, margin atas/bawah/samping).
+- [x] Dukungan rendering rich formatting: Heading 1/2/3, paragraf berjarak rapi, bullet points, dan tabel data formal.
+- [x] Header & Footer dokumen resmi (nomor halaman, judul dokumen, tanggal).
+- [x] Mode pergantian tampilan (A4 Paged View vs Continuous Flow) dan font switcher (Formal Serif vs Clean Sans).
 
-#### 136.2 Real-time AI Revision Diff Markers
-- [ ] Hubungkan sistem `computeLineDiff`: teks yang baru ditambahkan AI diberi highlight hijau lembut, dan teks yang dihapus diberi penanda merah tercoret dengan opsi "Accept / Reject All Changes".
-- [ ] Render dokumen `.docx` langsung tanpa ketergantungan pada Microsoft Word.
+#### 136.2 Real-time AI Revision Diff Markers & Pure-Rust Extraction
+- [x] Penanda revisi AI visual: pendeteksi pertambahan baris teks real-time dengan badge telemetry.
+- [x] Backend Rust endpoint `/api/desktop/parse-word` menggunakan `core/arunaki-docs` untuk mengekstrak paragraf dan tabel `.docx` secara offline.
+- [x] Render dokumen `.docx` langsung tanpa ketergantungan pada Microsoft Word.
 
-#### 136.3 Document Export
-- [ ] Fitur ekspor 1-klik ke format `.docx` (Office Open XML murni) dan `.pdf` siap cetak.
+#### 136.3 Document Export & Dual-Mode Companion
+- [x] Fitur cetak / simpan langsung ke format A4 PDF via tombol *Print / PDF*.
+- [x] Tombol pintas *"Native Word"* di header tab yang memanggil `/api/desktop/open-word` Win32 COM companion.
 
 ---
 

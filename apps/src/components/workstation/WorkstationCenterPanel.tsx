@@ -11,6 +11,10 @@ const SpreadsheetViewer = lazy(() =>
   import("./canvas/SpreadsheetViewer").then((m) => ({ default: m.SpreadsheetViewer }))
 );
 
+const WordCraft = lazy(() =>
+  import("./canvas/WordCraft").then((m) => ({ default: m.WordCraft }))
+);
+
 export type { CenterTab };
 
 export interface WorkstationCenterPanelProps {
@@ -238,6 +242,8 @@ function WorkstationCenterPanelComponent({
       ? "CSV"
       : (/\.(xlsx|xls|xlsm|xlsb)$/i).test(activeTab.title)
       ? "Excel"
+      : (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title)
+      ? "Word Document"
       : activeTab.title.split(".").pop()?.toUpperCase() || "Plain Text"
     : "Plain Text";
 
@@ -250,6 +256,14 @@ function WorkstationCenterPanelComponent({
         ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
         (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title) ||
         (activeTab.type === "canvas" && Boolean(activeTab.content && activeTab.content.includes("|") && activeTab.content.includes("\n")))
+      )
+    : false;
+
+  const isWordDoc = activeTab
+    ? Boolean(
+        ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
+        (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
+        (activeTab.type === "canvas" && !isSpreadsheet)
       )
     : false;
 
@@ -279,18 +293,34 @@ function WorkstationCenterPanelComponent({
       {/* 2. BREADCRUMBS BAR */}
       {activeTab && <CenterBreadcrumbs folderName={folderName} tabTitle={activeTab.title} />}
 
-      {/* 3. DYNAMIC CONTENT BODY (SPREADSHEET / FILE EDITOR) */}
+      {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / FILE EDITOR) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
         {activeTab ? (
           isSpreadsheet ? (
             <Suspense
               fallback={
                 <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-                  Loading spreadsheet viewer...
+                  Loading GridCraft...
                 </div>
               }
             >
               <SpreadsheetViewer
+                content={currentContent}
+                filePath={activeTab.path}
+                title={activeTab.title}
+                onContentChange={(newContent) => handleTextChange(newContent)}
+                onSave={handleSave}
+              />
+            </Suspense>
+          ) : isWordDoc ? (
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
+                  Loading WordCraft...
+                </div>
+              }
+            >
+              <WordCraft
                 content={currentContent}
                 filePath={activeTab.path}
                 title={activeTab.title}

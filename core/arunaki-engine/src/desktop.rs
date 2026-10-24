@@ -46,6 +46,7 @@ pub fn router() -> Router {
         .route("/api/desktop/open-excel", post(handle_open_excel))
         .route("/api/desktop/open-word", post(handle_open_word))
         .route("/api/desktop/parse-excel", post(handle_parse_excel))
+        .route("/api/desktop/parse-word", post(handle_parse_word))
         .route("/api/desktop/write-excel", post(handle_write_excel))
         .route("/api/desktop/read-binary", post(handle_read_binary))
         .route("/api/desktop/read-clipboard-image", post(handle_read_clipboard_image))
@@ -428,6 +429,29 @@ async fn handle_open_word(Json(body): Json<Value>) -> Response {
         Ok(Ok(_)) => Json(json!({ "success": true })).into_response(),
         Ok(Err(e)) => Json(json!({ "error": e })).into_response(),
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+    }
+}
+
+async fn handle_parse_word(Json(body): Json<Value>) -> Response {
+    let fp = body
+        .get("filePath")
+        .or_else(|| body.get("path"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let path = Path::new(fp);
+    if let Err(e) = check_allowed_path(path) {
+        return Json(json!({ "error": e })).into_response();
+    }
+    match arunaki_docs::build_word_map(fp) {
+        Ok(json_str) => {
+            let parsed: Value = serde_json::from_str(&json_str).unwrap_or_else(|_| json!({}));
+            Json(json!({
+                "success": true,
+                "data": parsed
+            }))
+            .into_response()
+        }
+        Err(e) => Json(json!({ "error": e })).into_response(),
     }
 }
 
