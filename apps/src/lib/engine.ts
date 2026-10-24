@@ -447,6 +447,9 @@ export function mapEngineEvent(
   const normalizedType = rawType ? rawType.replace(/\.\d+$/, "") : "";
 
   switch (normalizedType || rawType) {
+    case "session.updated":
+    case "session.title.updated":
+      return { type: "session_updated", data: payload };
     case "session.next.prompt.admitted":
     case "session.next.prompted":
     case "session.prompted":

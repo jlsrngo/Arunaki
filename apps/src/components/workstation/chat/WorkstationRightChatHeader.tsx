@@ -1,6 +1,7 @@
 import { memo, useState, useEffect, type KeyboardEvent, type FocusEvent } from "react";
 import { Bot, Plus, PanelRightClose, Minimize2 } from "lucide-react";
 import { getSession } from "../../../lib/engine";
+import { API_BASE, apiFetch } from "../../../lib/api";
 import { useI18n } from "../../../lib/i18n";
 import { cn } from "../../../lib/utils";
 
@@ -26,22 +27,37 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
   const [chatTitle, setChatTitle] = useState("Chat");
 
   useEffect(() => {
-    if (activeChatId) {
-      const saved = localStorage.getItem(`arunaki_chat_name_${activeChatId}`);
-      if (saved) {
-        setChatTitle(saved);
+    const fetchTitle = () => {
+      if (activeChatId) {
+        const saved = localStorage.getItem(`arunaki_chat_name_${activeChatId}`);
+        if (saved) {
+          setChatTitle(saved);
+        } else {
+          getSession(activeChatId).then((sess) => {
+            if (sess?.title) {
+              setChatTitle(sess.title);
+            } else {
+              setChatTitle("Chat");
+            }
+          }).catch(() => setChatTitle("Chat"));
+        }
       } else {
-        getSession(activeChatId).then((sess) => {
-          if (sess?.title) {
-            setChatTitle(sess.title);
-          } else {
-            setChatTitle("Chat");
-          }
-        }).catch(() => setChatTitle("Chat"));
+        setChatTitle("New Chat");
       }
-    } else {
-      setChatTitle("New Chat");
-    }
+    };
+
+    fetchTitle();
+
+    const handleSessionUpdated = (e: any) => {
+      const targetId = e.detail?.sessionId || e.detail?.sessionID;
+      if (targetId === activeChatId && e.detail?.title) {
+        setChatTitle(e.detail.title);
+        localStorage.setItem(`arunaki_chat_name_${activeChatId}`, e.detail.title);
+      }
+    };
+
+    window.addEventListener("arunaki:session-updated", handleSessionUpdated);
+    return () => window.removeEventListener("arunaki:session-updated", handleSessionUpdated);
   }, [activeChatId]);
 
   const handleTitleSubmit = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -56,6 +72,16 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
     setIsEditingTitle(false);
     if (activeChatId) {
       localStorage.setItem(`arunaki_chat_name_${activeChatId}`, newTitle);
+      apiFetch(`${API_BASE}/session/${activeChatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      }).catch(() => {});
+      window.dispatchEvent(
+        new CustomEvent("arunaki:session-updated", {
+          detail: { sessionId: activeChatId, title: newTitle },
+        })
+      );
     }
   };
 

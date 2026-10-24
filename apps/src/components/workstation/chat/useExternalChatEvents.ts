@@ -53,6 +53,19 @@ export function useExternalChatEvents({
         const event = mapEngineEvent(rawEvent, activeChatId);
         if (!event) return;
 
+        if (event.type === "session_updated") {
+          const sTitle = event.data?.title;
+          const sId = event.data?.sessionID || event.data?.sessionId || activeChatId;
+          if (sTitle) {
+            window.dispatchEvent(
+              new CustomEvent("arunaki:session-updated", {
+                detail: { sessionId: sId, title: sTitle },
+              })
+            );
+          }
+          return;
+        }
+
         if (event.type === "session_busy" || event.type === "thinking") {
           if (!isStreamingRef.current) {
             setStreamingState(true);

@@ -60,6 +60,35 @@ pub async fn handle_abort(AxumPath(id): AxumPath<String>) -> Response {
     Json(json!({ "data": { "aborted": true } })).into_response()
 }
 
+fn derive_session_title(prompt: &str) -> String {
+    let first_line = prompt
+        .lines()
+        .map(|l| l.trim())
+        .find(|l| !l.is_empty())
+        .unwrap_or(prompt.trim());
+
+    let cleaned = first_line
+        .trim_start_matches(|c: char| c == '#' || c == '*' || c == '-' || c == '>' || c == '`' || c == '@' || c.is_whitespace())
+        .trim();
+
+    if cleaned.is_empty() {
+        return "New Session".to_string();
+    }
+
+    if cleaned.chars().count() > 40 {
+        let mut truncated = String::new();
+        for ch in cleaned.chars() {
+            if truncated.chars().count() >= 37 {
+                break;
+            }
+            truncated.push(ch);
+        }
+        format!("{}...", truncated.trim())
+    } else {
+        cleaned.to_string()
+    }
+}
+
 pub async fn handle_prompt(
     AxumPath(session_id): AxumPath<String>,
     q: HashMap<String, String>,
@@ -123,13 +152,41 @@ pub async fn handle_prompt(
         "time": { "created": created_ms }
     });
 
+    let mut updated_title: Option<String> = None;
     let history = with_store(|store| {
+        if let Some(sess) = store.sessions.get_mut(&session_id) {
+            let current_title = sess.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            if current_title.is_empty()
+                || current_title.eq_ignore_ascii_case("New Session")
+                || current_title.eq_ignore_ascii_case("Chat")
+                || current_title.starts_with("New session -")
+                || current_title.starts_with("New Session -")
+            {
+                let auto_title = derive_session_title(&prompt_text);
+                if auto_title != "New Session" {
+                    sess["title"] = json!(&auto_title);
+                    sess["time"]["updated"] = json!(created_ms);
+                    updated_title = Some(auto_title);
+                }
+            }
+        }
         let msgs = store.messages.entry(session_id.clone()).or_default();
         let hist = msgs.clone();
         msgs.push(user_msg.clone());
         save_store(store);
         hist
     });
+
+    if let Some(ref title) = updated_title {
+        emit_event(
+            &workspace_dir,
+            "session.updated",
+            json!({
+                "sessionID": session_id,
+                "title": title
+            }),
+        );
+    }
 
     emit_event(
         &workspace_dir,
@@ -203,12 +260,44 @@ pub async fn run_agent_turn(
         }),
     );
 
-    // 1. Base system prompt
+    // 1. Base system prompt from prompt/default.txt
+    let base_prompt_template = include_str!("prompt/default.txt");
     let mut sys_prompt = format!(
-        "You are Arunaki, a Desktop Document AI Agent operating strictly inside the active project folder: {}\n\
-        Respond concisely and accurately.",
+        "{}\n\n# Active Workspace\nYou are operating strictly inside the active project folder: {}\n\
+        All file operations must be isolated to this directory.",
+        base_prompt_template,
         workspace_dir
     );
+
+    // 2. ArunakiZen POS Retail Integration (if configured)
+    let pos_cfg = crate::tool::pos::load_pos_config();
+    let pos_user = if pos_cfg.username.is_empty() {
+        "Cashier Operator".to_string()
+    } else {
+        pos_cfg.username.clone()
+    };
+    sys_prompt.push_str(&format!(
+        "\n\n<arunakizen_pos>\n\
+        # ArunakiZen POS Retail & Cashier Integration\n\
+        Arunaki is connected to the local ArunakiZen POS cashier server at: {}\n\
+        Active Operator: {}\n\
+        \n\
+        Available POS Tools:\n\
+        - `arunakizen_search_product`: Search retail product catalog by barcode, SKU, or name to find official items and prices.\n\
+        - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
+        - `arunakizen_print_receipt`: Print an official customer receipt on the physical thermal printer and kick open the cash drawer.\n\
+        - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
+        \n\
+        CRITICAL POS & INVOICE INSTRUCTIONS:\n\
+        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEVE...'), or asks 'cetak invoice', 'cetak nota', or 'buat pesanan kasir':\n\
+           - DO NOT just draw ASCII text boxes in the chat or ask 'Mau disimpan ke file .txt atau .docx?'!\n\
+           - Check or match products with `arunakizen_search_product` and record the official cashier transaction with `arunakizen_create_sale_order`.\n\
+           - If user requests to print receipt/invoice, call `arunakizen_print_receipt` with the invoice number.\n\
+           - ALWAYS format the order/invoice breakdown cleanly inside [CANVAS]...[/CANVAS] tags so it opens interactively in the user's Canvas editor!\n\
+        </arunakizen_pos>\n",
+        pos_cfg.host_url,
+        pos_user
+    ));
 
     // 2. Living Workspace Memory (Cartographer & Sentinel: ARUNAKI.md)
     let living_mem = crate::session::memory::get_living_memory_for_workspace(workspace_dir);
@@ -627,4 +716,29 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
             .unwrap_or("Done.")
             .to_string()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_derive_session_title() {
+        assert_eq!(
+            derive_session_title("KPM POLO BLACK\nL 18\n\nMAROON"),
+            "KPM POLO BLACK"
+        );
+        assert_eq!(
+            derive_session_title("# Laporan Keuangan Harian"),
+            "Laporan Keuangan Harian"
+        );
+        assert_eq!(
+            derive_session_title("- cetak invoice toko"),
+            "cetak invoice toko"
+        );
+        assert_eq!(
+            derive_session_title(""),
+            "New Session"
+        );
+    }
 }
