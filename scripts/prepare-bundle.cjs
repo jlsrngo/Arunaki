@@ -19,6 +19,10 @@ const targetReleaseDir = path.join(rootDir, 'target', 'release');
 const desktopExePath = path.join(targetReleaseDir, 'arunaki.exe');
 const engineExePath = path.join(targetReleaseDir, 'arunaki-engine.exe');
 const docsExePath = path.join(targetReleaseDir, 'arunaki-docs.exe');
+const injectScript = path.join(rootDir, 'scripts', 'inject-icon.ps1');
+const mainIco = path.join(rootDir, 'core', 'arunaki-engine', 'arunaki.ico');
+const gearIco = path.join(rootDir, 'core', 'arunaki-engine', 'gear.ico');
+const docsIco = path.join(rootDir, 'core', 'arunaki-docs', 'arunaki.ico');
 
 function log(step, msg) {
   console.log(`\x1b[36m[prepare-bundle]\x1b[0m \x1b[1m${step}\x1b[0m ${msg}`);
@@ -26,6 +30,19 @@ function log(step, msg) {
 
 function error(step, msg) {
   console.error(`\x1b[31m[prepare-bundle:ERROR]\x1b[0m \x1b[1m${step}\x1b[0m ${msg}`);
+}
+
+function injectIcon(exePath, icoPath) {
+  if (process.platform === 'win32' && fs.existsSync(exePath) && fs.existsSync(icoPath) && fs.existsSync(injectScript)) {
+    try {
+      execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${injectScript}" -ExePath "${exePath}" -IcoPath "${icoPath}"`, {
+        stdio: 'pipe',
+      });
+      log('Icon', `Injected ${path.basename(icoPath)} -> ${path.basename(exePath)}`);
+    } catch (e) {
+      console.warn(`\x1b[33m[prepare-bundle:WARN]\x1b[0m Could not inject icon into ${path.basename(exePath)}: ${e.message}`);
+    }
+  }
 }
 
 async function main() {
@@ -58,6 +75,14 @@ async function main() {
     });
     if (fs.existsSync(engineExePath)) {
       fs.copyFileSync(engineExePath, desktopExePath);
+      // arunaki.exe gets the Arunaki brand logo icon in macOS squircle
+      injectIcon(desktopExePath, mainIco);
+      // arunaki-engine.exe gets the mechanical gear icon in macOS squircle
+      injectIcon(engineExePath, gearIco);
+    }
+    if (fs.existsSync(docsExePath)) {
+      // arunaki-docs.exe gets the doc sheet + key icon in macOS squircle
+      injectIcon(docsExePath, docsIco);
     }
   } catch (err) {
     error('Step 2/3', `Failed to compile Rust binaries: ${err.message}`);
@@ -101,11 +126,14 @@ async function main() {
     }
 
     safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+    injectIcon(path.join(portableDir, 'arunaki.exe'), mainIco);
     if (fs.existsSync(engineExePath)) {
       safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
+      injectIcon(path.join(portableDir, 'arunaki-engine.exe'), gearIco);
     }
     if (fs.existsSync(docsExePath)) {
       safeCopy(docsExePath, path.join(portableDir, 'arunaki-docs.exe'));
+      injectIcon(path.join(portableDir, 'arunaki-docs.exe'), docsIco);
     }
     const portableWebDir = path.join(portableDir, 'web');
     fs.cpSync(webDistDir, portableWebDir, { recursive: true });

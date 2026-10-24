@@ -1,4 +1,4 @@
-Adjust or correct inventory stock quantities (Stock Opname / Stock Correction) in ArunakiZen POS.
+Adjust or correct inventory stock quantities (Stock Opname / Stock Correction) in ArunakiZen.
 
 Capabilities:
 - Records official stock adjustment document with prefix 'KS-' (e.g. 'KS-241026001').

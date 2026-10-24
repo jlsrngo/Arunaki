@@ -1,4 +1,4 @@
-Search for product catalog items in the local ArunakiZen POS retail system.
+Search for product catalog items in the local ArunakiZen retail system.
 
 Capabilities:
 - Searches across product names, unique SKU codes, categories, and scanned barcode numbers.

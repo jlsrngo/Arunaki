@@ -1,4 +1,4 @@
-Retrieve the active cashier shift summary and register drawer status from ArunakiZen POS.
+Retrieve the active cashier shift summary and register drawer status from ArunakiZen.
 
 Capabilities:
 - Fetches initial opening cash float (`kas_awal`).

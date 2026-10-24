@@ -103,7 +103,7 @@ export function formatToolStepLabel(
     target.includes(".git");
   const fileName = isInternalOrHidden ? "" : rawFileName;
 
-  // 1. ArunakiZen POS & Retail Tools (High Priority Specific Matching)
+  // 1. ArunakiZen Retail & Transaction Tools (High Priority Specific Matching)
   if (t.includes("arunakizen") || t.includes("pos")) {
     // A. Catalog Search
     if (t.includes("search") || t.includes("product") || t.includes("barang") || t.includes("katalog") || t.includes("catalog")) {
@@ -325,7 +325,7 @@ function renderStepIcon(step: StepItem) {
   }
   const t = (step.toolName || step.label || "").toLowerCase();
 
-  // POS & Retail Specific Icons
+  // ArunakiZen Retail Specific Icons
   if (
     t.includes("arunakizen") ||
     t.includes("catalog") ||
@@ -448,11 +448,11 @@ export function MessageThoughtBadge({
   const hasRunningTool = toolSteps.some((s) => s.status === "running");
   const completedToolCount = toolSteps.filter((s) => s.status === "completed").length;
   const failedToolCount = toolSteps.filter((s) => s.status === "failed" || s.status === "error" || s.status === "blocked").length;
-  const isPosDomain = toolSteps.some((s) => {
+  const isZenDomain = toolSteps.some((s) => {
     const n = (s.toolName || s.label || "").toLowerCase();
-    return n.includes("arunakizen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
+    return n.includes("arunakizen") || n.includes("zen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
   });
-  const taskCategory = isPosDomain ? "arunaki" : "document";
+  const taskCategory = isZenDomain ? "ArunakiZen" : "document";
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();

@@ -4485,3 +4485,44 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `cargo build --release -p arunaki-engine`: ✅ Berhasil dikompilasi ke release binary.
 - [x] `npm run bundle:prepare`: ✅ Standalone portable bundle dist-portable terbarui (Web bundle + arunaki.exe 8.45 MB + arunaki-engine.exe 8.45 MB + arunaki-docs.exe 0.39 MB).
 - [x] Live POS API Test: Berhasil membatalkan nota uji duplikat `R43-241026007` dan `R43-241026009` secara atomic dengan rollback stok dan kas di server kasir ArunakiZen.
+
+---
+
+## Phase 133: ArunakiZen Clean Brand Alignment, POS to Zen File Renaming, and Distinct macOS Squircle App Icons ✅ DONE
+
+**Goal:** Menghilangkan seluruh kata "POS" agar LLM dan UI mengenalnya secara murni sebagai "ArunakiZen", mengganti nama seluruh file `pos_*.txt` dan `pos.rs` menjadi `zen_*.txt` dan `zen.rs`, menampilkan execution badge label `Executed 1/1 ArunakiZen task`, serta memberikan 3 ikon macOS dark squircle yang berbeda dan warna oranye yang lebih gelap (`#cf6613`) untuk masing-masing binary (`arunaki.exe`, `arunaki-engine.exe`, dan `arunaki-docs.exe`).
+
+### 133.1 File & Module Renaming from POS to Zen
+- [x] Mengganti nama file tool Rust: `core/arunaki-engine/src/tool/pos.rs` -> `core/arunaki-engine/src/tool/zen.rs`.
+- [x] Mengganti nama seluruh berkas prompt tool:
+  - `core/arunaki-engine/src/tool/prompt/pos_adjust_stock.txt` -> `zen_adjust_stock.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_drawer.txt` -> `zen_drawer.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_order.txt` -> `zen_order.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_receipt.txt` -> `zen_receipt.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_search.txt` -> `zen_search.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_shift.txt` -> `zen_shift.txt`
+  - `core/arunaki-engine/src/tool/prompt/pos_void.txt` -> `zen_void.txt`
+- [x] Memperbarui modul di `core/arunaki-engine/src/tool/mod.rs` (`pub mod zen; pub use zen as pos;`).
+
+### 133.2 Elimination of "POS" & ArunakiZen Badge Telemetry
+- [x] Menghilangkan kata "POS" dari system prompt di `core/arunaki-engine/src/session/prompt.rs`: mengubah tag XML `<arunakizen_pos>` menjadi `<arunakizen>`, instruksi menjadi "ArunakiZen Retail & Transaction Integration".
+- [x] Membersihkan penyebutan "POS" dari seluruh prompt tool `zen_*.txt` dan pesan error `zen.rs`.
+- [x] Memperbarui `apps/src/components/workstation/LiveExecutionBadge.tsx`: memetakan kategori eksekusi tool domain ritel/kasir ke `"ArunakiZen"`, sehingga badge menampilkan `Executing X ArunakiZen task` / `Executed 1/1 ArunakiZen task`.
+- [x] Menyelaraskan teks pada settings UI `SettingsAppConnectionsTab.tsx` dan `i18n.ts`.
+
+### 133.3 Distinct macOS Squircle App Icons & Win32 PE Resource Injection
+- [x] Memperbarui warna aksen brand menjadi oranye lebih gelap dan kaya (`#cf6613` dengan subtle drop shadow glow).
+- [x] Membuat container ikon macOS squircle (`radial-gradient` gelap `#202028` ke `#0c0c10`, rounded border `#2e2e38`, smooth curvature 22.5%).
+- [x] Mendesain 3 ikon berbeda:
+  - **`arunaki.exe`**: Ikon brand asli logo Arunaki (delta loop) dengan oranye `#cf6613` di dalam squircle hitam macOS.
+  - **`arunaki-engine.exe`**: Ikon precision mechanical gear/cog mesin backend di dalam squircle hitam macOS.
+  - **`arunaki-docs.exe`**: Ikon sheet dokumen dengan lambang kunci (*file key*) di dalam squircle hitam macOS.
+- [x] Membuat script injector Win32 `scripts/inject-icon.ps1` yang menggunakan API `BeginUpdateResource` dan `UpdateResource` untuk menyuntikkan file `.ico` langsung ke header resource PE `.exe`.
+- [x] Mengintegrasikan `inject-icon.ps1` ke dalam pipeline `scripts/prepare-bundle.cjs`, sehingga setiap binary (`arunaki.exe`, `arunaki-engine.exe`, `arunaki-docs.exe`) mendapatkan ikon uniknya secara otomatis saat build release.
+
+### 133.4 Verification & Quality Gate
+- [x] `cargo test -p arunaki-engine`: ✅ 10/10 passed (termasuk modul `tool::zen::tests`).
+- [x] `npm run build -w apps`: ✅ 0 error TypeScript, Vite build sukses.
+- [x] `node scripts/generate-icon.cjs`: ✅ Menghasilkan 3 file ICO squircle macOS (`arunaki.ico`, `gear.ico`, `arunaki-docs/arunaki.ico`), `icon.png`, dan `icon_64x64.rgba`.
+- [x] `node scripts/prepare-bundle.cjs`: ✅ Sukses mengompilasi release binary dan menyuntikkan masing-masing ikon unik ke dalam file `.exe`.
+

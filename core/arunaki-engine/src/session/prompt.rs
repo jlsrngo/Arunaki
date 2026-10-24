@@ -269,20 +269,20 @@ pub async fn run_agent_turn(
         workspace_dir
     );
 
-    // 2. ArunakiZen POS Retail Integration (if configured)
-    let pos_cfg = crate::tool::pos::load_pos_config();
+    // 2. ArunakiZen Retail Integration (if configured)
+    let pos_cfg = crate::tool::zen::load_zen_config();
     let pos_user = if pos_cfg.username.is_empty() {
         "Cashier Operator".to_string()
     } else {
         pos_cfg.username.clone()
     };
     sys_prompt.push_str(&format!(
-        "\n\n<arunakizen_pos>\n\
-        # ArunakiZen POS Retail & Cashier Integration\n\
-        Arunaki is connected to the local ArunakiZen POS cashier server at: {}\n\
+        "\n\n<arunakizen>\n\
+        # ArunakiZen Retail & Transaction Integration\n\
+        Arunaki is connected to the local ArunakiZen server at: {}\n\
         Active Operator: {}\n\
         \n\
-        Available POS Tools:\n\
+        Available ArunakiZen Tools:\n\
         - `arunakizen_search_product`: Search retail product catalog by barcode, SKU, or name to find official items and prices.\n\
         - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
         - `arunakizen_void_sale_order`: Void (cancel and rollback) an existing cashier sales invoice (R43), restoring inventory stock and cashier drawer cash.\n\
@@ -290,10 +290,10 @@ pub async fn run_agent_turn(
         - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
         - `question`: Interactive clarification tool. Use this to ask the user to confirm product typos, ambiguities, or missing catalog items.\n\
         \n\
-        CRITICAL POS & CASHIER INSTRUCTIONS:\n\
-        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEEVE...'), or asks to 'print invoice', 'print receipt', or 'create cashier order':\n\
+        CRITICAL ARUNAKIZEN INSTRUCTIONS:\n\
+        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEEVE...'), or asks to 'print invoice', 'print receipt', or 'create transaction':\n\
            - DO NOT just draw ASCII text boxes in the chat or ask to save into a .txt or .docx file!\n\
-           - Match products with `arunakizen_search_product` and record the official cashier transaction with `arunakizen_create_sale_order`.\n\
+           - Match products with `arunakizen_search_product` and record the official retail transaction with `arunakizen_create_sale_order`.\n\
            - If user requests to print receipt/invoice, call `arunakizen_print_receipt` with the invoice number.\n\
            - ALWAYS format the order/invoice breakdown cleanly inside [CANVAS]...[/CANVAS] tags so it opens interactively in the user's Canvas editor!\n\
         \n\
@@ -316,9 +316,9 @@ pub async fn run_agent_turn(
         6. ORDER REVISION & VOID PROTECTION (CRITICAL - PREVENT DUPLICATE INVOICES):\n\
            - If an invoice was already created earlier in the conversation (e.g. invoice R43-241026007), and the user now asks to correct, revise, replace an item, or cancel (e.g. 'keep caroline instead of maroon', 'revise previous order', 'change item quantity'):\n\
            - You MUST FIRST call `arunakizen_void_sale_order` with the previous invoice number (e.g. invoice: 'R43-241026007', reason: 'Order revision / item correction') BEFORE creating a new corrected sale order!\n\
-           - NEVER create duplicate orders without voiding the prior incorrect invoice! Creating duplicate orders deducts inventory multiple times and corrupts cashier daily revenue.\n\
+           - NEVER create duplicate orders without voiding the prior incorrect invoice! Creating duplicate orders deducts inventory multiple times and corrupts daily transaction revenue.\n\
            - Always notify the user: \"Previous invoice [R43-...] has been voided and replaced with new invoice [R43-...]\".\n\
-        </arunakizen_pos>\n",
+        </arunakizen>\n",
         pos_cfg.host_url,
         pos_user
     ));

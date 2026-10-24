@@ -1,4 +1,4 @@
-Void (cancel and rollback) an existing cashier sales invoice in ArunakiZen POS.
+Void (cancel and rollback) an existing cashier sales invoice in ArunakiZen.
 
 Capabilities:
 - Fully rolls back the transaction atomically.

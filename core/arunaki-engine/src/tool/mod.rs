@@ -7,7 +7,9 @@ pub mod doc_read;
 pub mod edit;
 pub mod glob;
 pub mod grep;
-pub mod pos;
+pub mod zen;
+#[allow(unused_imports)]
+pub use zen as pos;
 pub mod question;
 pub mod read;
 pub mod todo;
@@ -40,7 +42,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     ];
     defs.extend(doc_read::doc_read_tool_definitions());
     defs.extend(doc_com::doc_com_tool_definitions());
-    defs.extend(pos::pos_tool_definitions());
+    defs.extend(zen::zen_tool_definitions());
     defs
 }
 
@@ -98,26 +100,26 @@ pub async fn execute_tool_call(
         "excel_com" | "word_com" | "ppt_com" => {
             doc_com::execute_doc_com(name, workspace_dir, arguments).await
         }
-        "arunakizen_search_product" | "pos_search_product" => {
-            pos::execute_search_product(arguments).await
+        "arunakizen_search_product" | "zen_search_product" | "pos_search_product" => {
+            zen::execute_search_product(arguments).await
         }
-        "arunakizen_create_sale_order" | "pos_create_order" => {
-            pos::execute_create_sale_order(arguments).await
+        "arunakizen_create_sale_order" | "zen_create_order" | "pos_create_order" => {
+            zen::execute_create_sale_order(arguments).await
         }
-        "arunakizen_get_shift_summary" | "pos_shift_summary" => {
-            pos::execute_get_shift_summary(arguments).await
+        "arunakizen_get_shift_summary" | "zen_shift_summary" | "pos_shift_summary" => {
+            zen::execute_get_shift_summary(arguments).await
         }
-        "arunakizen_print_receipt" | "pos_print_receipt" => {
-            pos::execute_print_receipt(arguments).await
+        "arunakizen_print_receipt" | "zen_print_receipt" | "pos_print_receipt" => {
+            zen::execute_print_receipt(arguments).await
         }
-        "arunakizen_open_drawer" | "pos_open_drawer" => {
-            pos::execute_open_drawer(arguments).await
+        "arunakizen_open_drawer" | "zen_open_drawer" | "pos_open_drawer" => {
+            zen::execute_open_drawer(arguments).await
         }
-        "arunakizen_adjust_stock" | "pos_adjust_stock" => {
-            pos::execute_adjust_stock(arguments).await
+        "arunakizen_adjust_stock" | "zen_adjust_stock" | "pos_adjust_stock" => {
+            zen::execute_adjust_stock(arguments).await
         }
-        "arunakizen_void_sale_order" | "pos_void_order" | "void_sale_order" | "arunakizen_cancel_sale_order" => {
-            pos::execute_void_sale_order(arguments).await
+        "arunakizen_void_sale_order" | "zen_void_order" | "pos_void_order" | "void_sale_order" | "arunakizen_cancel_sale_order" => {
+            zen::execute_void_sale_order(arguments).await
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await

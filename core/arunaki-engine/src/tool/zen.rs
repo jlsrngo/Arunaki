@@ -1,6 +1,6 @@
-//! ArunakiZen POS Integration Tools
+//! ArunakiZen Integration Tools
 //!
-//! Provides OpenAI-compatible function tools to interact with local ArunakiZen POS engine:
+//! Provides OpenAI-compatible function tools to interact with local ArunakiZen engine:
 //! - `arunakizen_search_product`: Catalog search by barcode, item code, or name
 //! - `arunakizen_create_sale_order`: Atomic cashier retail sales order (R43 invoice)
 //! - `arunakizen_get_shift_summary`: Cash register shift drawer turnover and cash balance
@@ -18,14 +18,16 @@ use std::time::Duration;
 use crate::paths::arunaki_dot_dir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PosConfig {
+pub struct ZenConfig {
     pub host_url: String,
     pub api_key: String,
     pub username: String,
     pub password: Option<String>,
 }
 
-impl Default for PosConfig {
+pub type PosConfig = ZenConfig;
+
+impl Default for ZenConfig {
     fn default() -> Self {
         Self {
             host_url: "http://127.0.0.1:5000".to_string(),
@@ -49,7 +51,11 @@ fn detect_active_pos_port() -> Option<u16> {
     None
 }
 
-pub fn load_pos_config() -> PosConfig {
+pub fn load_zen_config() -> ZenConfig {
+    load_pos_config()
+}
+
+pub fn load_pos_config() -> ZenConfig {
     let mut cfg = PosConfig::default();
 
     // 1. Try reading user custom config from ~/.arunaki/pos-config.json
@@ -77,7 +83,7 @@ pub fn load_pos_config() -> PosConfig {
         }
     }
 
-    // 2. Production & Development auto-discovery from active ArunakiZen pos-runtime.json
+    // 2. Production & Development auto-discovery from active ArunakiZen runtime configuration
     let mut runtime_candidates = vec![
         std::path::PathBuf::from("pos-runtime.json"),
         arunaki_dot_dir().join("pos-runtime.json"),
@@ -131,13 +137,17 @@ pub fn load_pos_config() -> PosConfig {
     cfg
 }
 
+pub fn zen_tool_definitions() -> Vec<Value> {
+    pos_tool_definitions()
+}
+
 pub fn pos_tool_definitions() -> Vec<Value> {
     vec![
         json!({
             "type": "function",
             "function": {
                 "name": "arunakizen_search_product",
-                "description": include_str!("prompt/pos_search.txt"),
+                "description": include_str!("prompt/zen_search.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -163,7 +173,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_create_sale_order",
-                "description": include_str!("prompt/pos_order.txt"),
+                "description": include_str!("prompt/zen_order.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -209,7 +219,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_get_shift_summary",
-                "description": include_str!("prompt/pos_shift.txt"),
+                "description": include_str!("prompt/zen_shift.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {}
@@ -220,7 +230,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_print_receipt",
-                "description": include_str!("prompt/pos_receipt.txt"),
+                "description": include_str!("prompt/zen_receipt.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -250,7 +260,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_open_drawer",
-                "description": include_str!("prompt/pos_drawer.txt"),
+                "description": include_str!("prompt/zen_drawer.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -266,7 +276,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_adjust_stock",
-                "description": include_str!("prompt/pos_adjust_stock.txt"),
+                "description": include_str!("prompt/zen_adjust_stock.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -298,7 +308,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_void_sale_order",
-                "description": include_str!("prompt/pos_void.txt"),
+                "description": include_str!("prompt/zen_void.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -509,7 +519,7 @@ async fn try_fuzzy_suggest_products(
         .unwrap_or(0.0);
 
     let msg = format!(
-        "Produk '{}' tidak ditemukan di katalog POS. Ditemukan saran produk serupa (kemungkinan typo): '{}' (Kode: {}, Rp {:.0}). DILARANG keras mensubstitusi barang secara sepihak! Tanyakan kepada user dengan memanggil tool 'question' untuk mengonfirmasi pilihan sebelum mencatat pesanan.",
+        "Produk '{}' tidak ditemukan di katalog ArunakiZen. Ditemukan saran produk serupa (kemungkinan typo): '{}' (Kode: {}, Rp {:.0}). DILARANG keras mensubstitusi barang secara sepihak! Tanyakan kepada user dengan memanggil tool 'question' untuk mengonfirmasi pilihan sebelum mencatat pesanan.",
         query, top_nama, top_kode, top_harga
     );
 
@@ -567,7 +577,7 @@ async fn search_single_query(
     }
 
     json!({
-        "error": format!("Failed to search products in ArunakiZen ({}) — ensure POS server is running.", cfg.host_url),
+        "error": format!("Failed to search products in ArunakiZen ({}) — ensure ArunakiZen server is running.", cfg.host_url),
         "query": query
     })
 }
@@ -814,7 +824,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
                     return json_val;
                 }
                 return json!({
-                    "error": format!("ArunakiZen POS rejected invoice: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "error": format!("ArunakiZen rejected invoice: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
                     "details": json_val
                 });
             }
@@ -822,7 +832,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Failed to submit sales order to ArunakiZen POS ({})", cfg.host_url)
+        "error": format!("Failed to submit sales order to ArunakiZen ({})", cfg.host_url)
     })
 }
 
@@ -861,7 +871,7 @@ pub async fn execute_get_shift_summary(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Failed to retrieve cashier shift summary from ArunakiZen POS ({})", cfg.host_url)
+        "error": format!("Failed to retrieve cashier shift summary from ArunakiZen ({})", cfg.host_url)
     })
 }
 
@@ -1056,7 +1066,7 @@ pub async fn execute_adjust_stock(args: &Value) -> Value {
                     return json_val;
                 }
                 return json!({
-                    "error": format!("ArunakiZen POS rejected stock adjustment: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "error": format!("ArunakiZen rejected stock adjustment: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
                     "details": json_val
                 });
             }
@@ -1064,7 +1074,7 @@ pub async fn execute_adjust_stock(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Failed to submit stock adjustment to ArunakiZen POS ({})", cfg.host_url)
+        "error": format!("Failed to submit stock adjustment to ArunakiZen ({})", cfg.host_url)
     })
 }
 
@@ -1134,7 +1144,7 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
                     return json_val;
                 }
                 return json!({
-                    "error": format!("ArunakiZen POS rejected void request: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "error": format!("ArunakiZen rejected void request: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
                     "details": json_val
                 });
             }
@@ -1142,7 +1152,7 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
     }
 
     json!({
-        "error": format!("Failed to send void request to ArunakiZen POS ({})", cfg.host_url),
+        "error": format!("Failed to send void request to ArunakiZen ({})", cfg.host_url),
         "invoice": invoice
     })
 }

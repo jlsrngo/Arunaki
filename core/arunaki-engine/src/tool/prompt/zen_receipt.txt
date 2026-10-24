@@ -1,9 +1,9 @@
-Print a customer sales receipt to a physical POS thermal receipt printer (58mm or 80mm paper) via ArunakiZen.
+Print a customer sales receipt to a physical thermal receipt printer (58mm or 80mm paper) via ArunakiZen.
 
 Capabilities:
 - Formats store name, address, contact phone, invoice header, transaction item breakdown, total, amount tendered, and change.
 - Optionally triggers an automatic kick signal to open the physical cash drawer upon receipt completion.
-- Dispatches formatted ESC/POS printer byte streams to local Windows printer spoolers.
+- Dispatches formatted receipt printer byte streams to local Windows printer spoolers.
 
 When to use:
 - The user asks to print or re-print a receipt for a completed transaction (e.g. "print receipt for invoice R43-231026001", "print the last receipt").

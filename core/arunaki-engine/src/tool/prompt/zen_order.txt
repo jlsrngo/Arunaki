@@ -1,4 +1,4 @@
-Execute an atomic cashier retail sales transaction (official invoice R43) in ArunakiZen POS.
+Execute an atomic cashier retail sales transaction (official invoice R43) in ArunakiZen.
 
 Capabilities:
 - Deducts stock quantities directly from local store inventory.

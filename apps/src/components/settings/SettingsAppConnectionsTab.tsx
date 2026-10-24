@@ -123,7 +123,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
       if (detectedUrl) {
         setHostUrl(detectedUrl);
-        toast.success(`${t("posToastPortDetected", "ArunakiZen POS detected at:")} ${detectedUrl}`);
+        toast.success(`${t("posToastPortDetected", "ArunakiZen detected at:")} ${detectedUrl}`);
       } else {
         toast.info(t("posToastPortNotFound", "No active POS port detected automatically. Using default http://127.0.0.1:5000"));
       }
@@ -250,7 +250,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         body: JSON.stringify(configPayload),
       }).catch(() => {});
 
-      toast.success(t("posConfigSavedSuccess", "ArunakiZen POS configuration saved successfully."));
+      toast.success(t("posConfigSavedSuccess", "ArunakiZen configuration saved successfully."));
     } catch (err: any) {
       toast.error(`${t("posToastSaveFailed", "Failed to save configuration")}: ${err.message}`);
     } finally {
@@ -265,7 +265,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         <div>
           <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
             <Store className="w-4 h-4 text-[var(--text-primary)]" />
-            <span>{t("arunakiZenTitle", "Engine Kasir ArunakiZen POS")}</span>
+            <span>{t("arunakiZenTitle", "Engine Kasir ArunakiZen")}</span>
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
             {t("arunakiZenDesc", "Engine kasir dan POS toko offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.")}
