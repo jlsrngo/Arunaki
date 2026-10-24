@@ -113,6 +113,9 @@ pub async fn execute_tool_call(
         "arunakizen_open_drawer" | "pos_open_drawer" => {
             pos::execute_open_drawer(arguments).await
         }
+        "arunakizen_adjust_stock" | "pos_adjust_stock" => {
+            pos::execute_adjust_stock(arguments).await
+        }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
         }

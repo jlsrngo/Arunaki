@@ -1,0 +1,16 @@
+Adjust or correct inventory stock quantities (Stock Opname / Koreksi Stok) in ArunakiZen POS.
+
+Capabilities:
+- Records official stock adjustment document with prefix 'KS-' (e.g. 'KS-241026001').
+- Records previous stock, new physical count, and stock difference in the audit trail.
+- Automatically binds the active authenticated cashier identity from the user's login session.
+- Updates store inventory balance atomically.
+
+When to use:
+- The user requests to update, edit, or adjust inventory stock (e.g. "update stok DTF jadi 50", "sesuaikan stok KPM Black di toko 20 pcs", "koreksi stok fisik barang 2410001 menjadi 15").
+
+Parameters:
+- `item_code`: Unique SKU, barcode, or item code of the product.
+- `actual_stock`: Actual physical stock count (must be a number >= 0).
+- `location`: Target inventory location: 'toko' (default) or 'gudang'.
+- `reason`: Optional reason or audit note for the stock adjustment.

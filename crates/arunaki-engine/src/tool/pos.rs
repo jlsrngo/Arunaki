@@ -256,6 +256,38 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                 }
             }
         }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_adjust_stock",
+                "description": include_str!("prompt/pos_adjust_stock.txt"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "item_code": {
+                            "type": "string",
+                            "description": "Unique SKU, barcode, or item code of the product."
+                        },
+                        "actual_stock": {
+                            "type": "number",
+                            "description": "New physical stock quantity (must be >= 0)."
+                        },
+                        "location": {
+                            "type": "string",
+                            "enum": ["toko", "gudang"],
+                            "description": "Target stock location: 'toko' (default) or 'gudang'.",
+                            "default": "toko"
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Optional reason for the adjustment (e.g. 'Opname fisik', 'Barang rusak').",
+                            "default": "Penyesuaian stok via Arunaki Agent"
+                        }
+                    },
+                    "required": ["item_code", "actual_stock"]
+                }
+            }
+        }),
     ]
 }
 
@@ -566,5 +598,98 @@ pub async fn execute_open_drawer(args: &Value) -> Value {
 
     json!({
         "error": format!("Failed to send cash drawer kick signal to ArunakiZen printer ({})", cfg.host_url)
+    })
+}
+
+pub async fn execute_adjust_stock(args: &Value) -> Value {
+    let cfg = load_pos_config();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
+    };
+
+    let item_code = args
+        .get("item_code")
+        .or_else(|| args.get("kode_barang"))
+        .or_else(|| args.get("kode"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+
+    if item_code.is_empty() {
+        return json!({ "error": "Parameter 'item_code' (or 'kode') is required." });
+    }
+
+    let actual_stock = args
+        .get("actual_stock")
+        .or_else(|| args.get("stok"))
+        .or_else(|| args.get("stok_kini"))
+        .or_else(|| args.get("qty"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+
+    if actual_stock < 0.0 {
+        return json!({ "error": "Parameter 'actual_stock' must be >= 0." });
+    }
+
+    let location = args
+        .get("location")
+        .or_else(|| args.get("lokasi"))
+        .or_else(|| args.get("lokasistok"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("toko");
+
+    let reason = args
+        .get("reason")
+        .or_else(|| args.get("alasan"))
+        .or_else(|| args.get("keterangan"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("Penyesuaian stok via Arunaki Agent");
+
+    let payload = json!({
+        "items": [
+            {
+                "kode": item_code,
+                "stok_kini": actual_stock,
+                "alasan": reason
+            }
+        ],
+        "lokasistok": location,
+        "jenis": "KOREKSI STOK",
+        "user": cfg.username,
+        "operator": cfg.username,
+        "level": "KS"
+    });
+
+    let endpoints = [
+        format!("{}/api/stock-adjustments", cfg.host_url),
+        format!("{}/stock-adjustments", cfg.host_url),
+        format!("{}/api/penyesuaian-stok", cfg.host_url),
+    ];
+
+    for ep in &endpoints {
+        let mut req = client.post(ep);
+        if !cfg.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res) = req.json(&payload).send().await {
+            let status_code = res.status();
+            if let Ok(json_val) = res.json::<Value>().await {
+                if status_code.is_success() || json_val.get("success") == Some(&json!(true)) {
+                    return json_val;
+                }
+                return json!({
+                    "error": format!("ArunakiZen POS rejected stock adjustment: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "details": json_val
+                });
+            }
+        }
+    }
+
+    json!({
+        "error": format!("Failed to submit stock adjustment to ArunakiZen POS ({})", cfg.host_url)
     })
 }

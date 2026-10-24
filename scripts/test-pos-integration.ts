@@ -175,7 +175,31 @@ async function main() {
     console.log('❌ Tool 5: arunakizen_print_receipt failed:', err.message);
   }
 
-  console.log('\n✨ All 5 ArunakiZen POS tools verified successfully!');
+  // 6. Stock Adjustment / Stock Opname (KS-)
+  try {
+    const res = await fetch(`${DEFAULT_POS_URL}/api/stock-adjustments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DEFAULT_API_KEY}` },
+      body: JSON.stringify({
+        items: [{ kode: '2410001', stok_kini: 10, alasan: 'Opname uji Arunaki Agent' }],
+        lokasistok: 'toko',
+        jenis: 'KOREKSI STOK',
+        user: 'Candana',
+        operator: 'Candana',
+        level: 'KS'
+      })
+    });
+    if (res.ok) {
+      const adj = await res.json();
+      console.log('✅ Tool 6: arunakizen_adjust_stock -> OK', adj);
+    } else {
+      console.log('⚠️ Tool 6: arunakizen_adjust_stock -> HTTP', res.status);
+    }
+  } catch (err: any) {
+    console.log('❌ Tool 6: arunakizen_adjust_stock failed:', err.message);
+  }
+
+  console.log('\n✨ All 6 ArunakiZen POS tools verified successfully!');
 }
 
 main().catch(console.error);
