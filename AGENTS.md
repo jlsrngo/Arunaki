@@ -131,7 +131,7 @@ If a requested task appears to require violating any of the above, treat it as a
 
 ## Frontend & Workstation Reliability Rules (STRICT — NO REGRESSIONS)
 
-Setiap AI agent yang menyentuh kode Frontend (`apps/web`) WAJIB mematuhi aturan ketat berikut untuk mencegah bug lama kambuh kembali:
+Setiap AI agent yang menyentuh kode Frontend (`apps`) WAJIB mematuhi aturan ketat berikut untuk mencegah bug lama kambuh kembali:
 
 1. **React Rules of Hooks (CRITICAL - ZERO TOLERANCE)**:
    - **DILARANG KERAS meletakkan React Hooks (`useLayoutEffect`, `useMemo`, `useCallback`, `useEffect`, `useState`, `useRef`) di bawah *early return* kondisional (seperti `if (collapsed) return ...`).**
@@ -154,7 +154,7 @@ Setiap AI agent yang menyentuh kode Frontend (`apps/web`) WAJIB mematuhi aturan 
    - Setiap kali folder dibuka via Electron dialog atau URL param, folder tersebut harus segera didaftarkan/disinkronkan ke database SQLite backend (`POST /workspaces`) dan disinkronkan ke state `localStorage` & `AppLayout` footer agar tidak terjadi mismatch path.
 
 5. **Mandatory Build Verification**:
-   - Setiap sebelum commit pekerjaan yang mengubah frontend/backend, WAJIB jalankan `npm run build -w apps/web` untuk memastikan 0 error kompilasi TypeScript dan tidak ada regresi.
+   - Setiap sebelum commit pekerjaan yang mengubah frontend/backend, WAJIB jalankan `npm run build -w apps` untuk memastikan 0 error kompilasi TypeScript dan tidak ada regresi.
 
 6. **Strict Monochrome & No-Emerald Rule (CRITICAL DESIGN RULE)**:
    - **DILARANG KERAS menggunakan warna hijau terang / emerald (`text-emerald-*`, `bg-emerald-*`, titik hijau `bg-emerald-500/400`) untuk status telemetry, badge status koneksi (seperti Online, Connected, Shell status), dan pill indikator.**

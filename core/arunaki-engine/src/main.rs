@@ -291,7 +291,7 @@ async fn handle_sse_events() -> Response {
 }
 
 async fn handle_fallback(req: Request) -> Response {
-    // 1. Try serving static Vite frontend assets (apps/web/dist)
+    // 1. Try serving static Vite frontend assets (apps/dist)
     let uri_path = req.uri().path().to_string();
     if req.method() == Method::GET {
         if let Some(static_resp) = desktop::try_serve_static_asset(&uri_path) {

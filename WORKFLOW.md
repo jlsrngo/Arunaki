@@ -4421,3 +4421,38 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `cargo test --workspace`: ✅ 6/6 unit tests passed.
 - [x] `npm run test:smoke`: ✅ **8/8 live provider checks passed**.
 - [x] `npm run bundle:prepare`: ✅ Native bundle ready in 22.4s (Web bundle + arunaki.exe 7.93 MB + arunaki-engine.exe 7.93 MB + arunaki-docs.exe 0.38 MB).
+
+---
+
+## Phase 131: Workspace Modernization, Directory Flattening, & Conversation Compactor Live Integration ✅ DONE
+
+**Goal:** Menata arsitektur monorepo menjadi lebih profesional dan bersih: meratakan direktori frontend dari `apps/web/` langsung ke `apps/` (tanpa folder bertingkat), mengganti nama workspace Rust dari `crates/` menjadi `core/`, serta memastikan fitur pemadatan percakapan cerdas (`/compact` dan endpoint `/api/session/:id/summarize`) berfungsi secara nyata dengan LLM.
+
+### 131.1 Frontend Workspace Flattening (`apps/web/*` -> `apps/*`)
+- [x] Memindahkan seluruh berkas frontend dari `apps/web/` langsung ke `apps/` (`apps/src`, `apps/public`, `apps/package.json`, `apps/vite.config.ts`, `apps/tsconfig.json`, `apps/index.html`). Menghapus sub-folder `apps/web`.
+- [x] Memperbarui root `package.json`:
+  - `"workspaces": { "packages": ["apps"] }`
+  - `"build": "npm run build -w apps"`
+  - `"dev:web": "npm run dev -w apps"`
+  - `"typecheck": "tsc -b apps/tsconfig.json"`
+- [x] Memperbaiki resolusi konfigurasi di `apps/vite.config.ts`: Mengubah impor root package.json dari `../../package.json` menjadi `../package.json`.
+- [x] Memperbarui jalur static asset lookup di `core/arunaki-engine/src/desktop.rs` dan `scripts/prepare-bundle.cjs`.
+
+### 131.2 Rust Workspace Professionalization (`crates/` -> `core/`)
+- [x] Mengubah nama folder `crates/` menjadi `core/` (`core/arunaki-engine`, `core/arunaki-docs`).
+- [x] Memperbarui root `Cargo.toml`:
+  - `members = ["core/arunaki-docs", "core/arunaki-engine"]`
+- [x] Memperbarui `.gitignore` (`core/**/target/`) dan `.github/workflows/ci.yml`.
+- [x] Memperbarui path ikon dan RGBA buffer di `scripts/generate-icon.cjs`.
+- [x] Menyelaraskan seluruh dokumentasi arsitektur di `README.md` dan `AGENTS.md`.
+
+### 131.3 Live Conversation Compactor & Summarization Integration
+- [x] Memverifikasi implementasi LLM context compaction di `core/arunaki-engine/src/session/summary.rs`.
+- [x] Memperbaiki pemuatan persistent store di `core/arunaki-engine/src/session/session.rs` agar mendeteksi sesi dan pesan valid secara robust (`!parsed.sessions.is_empty() || !parsed.messages.is_empty()`).
+- [x] Menghubungkan input handler `/compact` di `apps/src/components/workstation/chat/ChatInputBox.tsx` agar langsung mengeksekusi `onCompactSession` saat pengguna mengetik `/compact` dan menekan Enter.
+- [x] Menguji endpoint `/api/session/:id/summarize` secara live dengan model LLM `gemini-3.8-flash-medium` pada sesi nyata dengan 5 riwayat pesan. Respons LLM terverifikasi merangkum perubahan file (`ARUNAKI.md`), memadatkan riwayat obrolan, menyisipkan pesan `compaction`, dan mengurangi token obrolan.
+
+### 131.4 Full Verification & Quality Gate
+- [x] `npm run build -w apps`: ✅ 0 TypeScript compilation errors, Vite production build sukses (2285 modules transformed).
+- [x] `cargo test --workspace`: ✅ 9/9 unit tests passed (5 di `arunaki-docs`, 4 di `arunaki-engine`).
+- [x] `npm run bundle:prepare`: ✅ Standalone portable bundle ready (Web bundle + arunaki.exe 8.34 MB + arunaki-engine.exe 8.34 MB + arunaki-docs.exe 0.39 MB).

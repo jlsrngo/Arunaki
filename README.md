@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="apps/web/public/arunakiLogo.svg" alt="Arunaki Logo" width="120" height="120" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);" />
+  <img src="apps/public/arunakiLogo.svg" alt="Arunaki Logo" width="120" height="120" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);" />
 
   # arunaki
 
@@ -132,12 +132,12 @@ graph TD
     end
 
     subgraph Native Shell [Native Desktop Shell - arunaki.exe ~7.9MB]
-        UI[React Workstation UI - apps/web]
+        UI[React Workstation UI - apps]
         WebView[Windows WebView2 Runtime - Wry / Tao]
         WindowControls[Frameless Seamless Header Controls]
     end
 
-    subgraph Backend Engine [Native Rust AI Engine - crates/arunaki-engine :4096]
+    subgraph Backend Engine [Native Rust AI Engine - core/arunaki-engine :4096]
         Axum[Axum High-Concurrency HTTP & SSE Server]
         Router[Universal LLM Provider Router]
         CLIBridge[Embedded Local CLI Bridge :20188]
@@ -165,10 +165,10 @@ graph TD
    - Built on Rust (`tao` + `wry` Edge WebView2) with a modern frameless dark-mode header overlay.
    - Memory consumption: **~60 MB – 80 MB** (down from ~500 MB in Electron — **>80% lighter**).
    - Single standalone binary (~7.9 MB) with zero Node.js runtime overhead.
-2. **Workstation UI (`apps/web`):**
-   - Built with React 18, Vite, and Tailwind CSS.
+2. **Workstation UI (`apps`):**
+   - Built with React 19, Vite, and Tailwind CSS.
    - Features Monaco Editor, native spreadsheet viewer, developer telemetry metrics, and multi-tab document management.
-3. **Backend AI Engine (`crates/arunaki-engine`):**
+3. **Backend AI Engine (`core/arunaki-engine`):**
    - Pure native Rust server on `:4096`.
    - Comprehensive model routing (AWS Kiro Claude, OpenCode Zen, Google Antigravity Gemini, OpenAI Codex, Claude).
    - Embedded Telegram Gateway Worker for remote command dispatch.
@@ -182,25 +182,25 @@ graph TD
 Arunaki's capabilities are divided into **15 Core LLM Agent Tools** (callable by the AI during conversation) and **17 Desktop System IPC Operations** (used by the workstation shell):
 
 ### 1. 🤖 15 Core LLM Document & Workspace Tools
-*All tools feature comprehensive instruction prompts embedded via `crates/arunaki-engine/src/tool/prompt/*.txt`.*
+*All tools feature comprehensive instruction prompts embedded via `core/arunaki-engine/src/tool/prompt/*.txt`.*
 
 | Tool Name | Dedicated Prompt | Purpose & Operational Scope |
 | :--- | :--- | :--- |
-| `excel_read` | [`excel_read.txt`](crates/arunaki-engine/src/tool/prompt/excel_read.txt) | Extract sheet names, table coordinates, data cells, and calculation formulas from Excel workbooks. |
-| `excel_com` | [`excel_com.txt`](crates/arunaki-engine/src/tool/prompt/excel_com.txt) | Native Windows Excel COM automation: cell updates, formula integrity preservation (SUM/TOTAL), row expansion, styling. |
-| `word_read` | [`word_read.txt`](crates/arunaki-engine/src/tool/prompt/word_read.txt) | Parse structured paragraph hierarchies, heading levels (H1-H3), bullet runs, and embedded tables from Word documents. |
-| `word_com` | [`word_com.txt`](crates/arunaki-engine/src/tool/prompt/word_com.txt) | Native Windows Word COM automation: style formatting, text append, placeholder replacement without breaking typography. |
-| `ppt_read` | [`ppt_read.txt`](crates/arunaki-engine/src/tool/prompt/ppt_read.txt) | Inspect presentation slides, shapes, title frames, bullet layouts, and speaker notes. |
-| `ppt_com` | [`ppt_com.txt`](crates/arunaki-engine/src/tool/prompt/ppt_com.txt) | Native Windows PowerPoint COM automation: slide creation, shape text updates, layout containers. |
-| `pdf_read` | [`pdf_read.txt`](crates/arunaki-engine/src/tool/prompt/pdf_read.txt) | Extract selectable plain text and multi-page structured content from PDF documents. |
-| `read` / `read_file` | [`read.txt`](crates/arunaki-engine/src/tool/prompt/read.txt) | Read filesystem content with line numbers and offset pagination inside active workspace. |
-| `write` / `write_file` | [`write.txt`](crates/arunaki-engine/src/tool/prompt/write.txt) | Create new files strictly sandboxed to the active workspace folder. |
-| `edit` / `edit_file` | [`edit.txt`](crates/arunaki-engine/src/tool/prompt/edit.txt) | Precise search-and-replace string patching with surrounding context matching. |
-| `glob` / `list_files` | [`glob.txt`](crates/arunaki-engine/src/tool/prompt/glob.txt) | Discover filenames and paths across workspace using wildcard/glob patterns. |
-| `grep` / `search_files`| [`grep.txt`](crates/arunaki-engine/src/tool/prompt/grep.txt) | Regex search within files to locate relevant references and data. |
-| `todowrite` / `todo` | [`todowrite.txt`](crates/arunaki-engine/src/tool/prompt/todowrite.txt) | Working memory task tracking for multi-step agent plans. |
-| `websearch` | [`websearch.txt`](crates/arunaki-engine/src/tool/prompt/websearch.txt) | Real-time web search for market data, regulatory standards, or exchange rates. |
-| `question` | [`question.txt`](crates/arunaki-engine/src/tool/prompt/question.txt) | Request interactive user clarification before making ambiguous document edits. |
+| `excel_read` | [`excel_read.txt`](core/arunaki-engine/src/tool/prompt/excel_read.txt) | Extract sheet names, table coordinates, data cells, and calculation formulas from Excel workbooks. |
+| `excel_com` | [`excel_com.txt`](core/arunaki-engine/src/tool/prompt/excel_com.txt) | Native Windows Excel COM automation: cell updates, formula integrity preservation (SUM/TOTAL), row expansion, styling. |
+| `word_read` | [`word_read.txt`](core/arunaki-engine/src/tool/prompt/word_read.txt) | Parse structured paragraph hierarchies, heading levels (H1-H3), bullet runs, and embedded tables from Word documents. |
+| `word_com` | [`word_com.txt`](core/arunaki-engine/src/tool/prompt/word_com.txt) | Native Windows Word COM automation: style formatting, text append, placeholder replacement without breaking typography. |
+| `ppt_read` | [`ppt_read.txt`](core/arunaki-engine/src/tool/prompt/ppt_read.txt) | Inspect presentation slides, shapes, title frames, bullet layouts, and speaker notes. |
+| `ppt_com` | [`ppt_com.txt`](core/arunaki-engine/src/tool/prompt/ppt_com.txt) | Native Windows PowerPoint COM automation: slide creation, shape text updates, layout containers. |
+| `pdf_read` | [`pdf_read.txt`](core/arunaki-engine/src/tool/prompt/pdf_read.txt) | Extract selectable plain text and multi-page structured content from PDF documents. |
+| `read` / `read_file` | [`read.txt`](core/arunaki-engine/src/tool/prompt/read.txt) | Read filesystem content with line numbers and offset pagination inside active workspace. |
+| `write` / `write_file` | [`write.txt`](core/arunaki-engine/src/tool/prompt/write.txt) | Create new files strictly sandboxed to the active workspace folder. |
+| `edit` / `edit_file` | [`edit.txt`](core/arunaki-engine/src/tool/prompt/edit.txt) | Precise search-and-replace string patching with surrounding context matching. |
+| `glob` / `list_files` | [`glob.txt`](core/arunaki-engine/src/tool/prompt/glob.txt) | Discover filenames and paths across workspace using wildcard/glob patterns. |
+| `grep` / `search_files`| [`grep.txt`](core/arunaki-engine/src/tool/prompt/grep.txt) | Regex search within files to locate relevant references and data. |
+| `todowrite` / `todo` | [`todowrite.txt`](core/arunaki-engine/src/tool/prompt/todowrite.txt) | Working memory task tracking for multi-step agent plans. |
+| `websearch` | [`websearch.txt`](core/arunaki-engine/src/tool/prompt/websearch.txt) | Real-time web search for market data, regulatory standards, or exchange rates. |
+| `question` | [`question.txt`](core/arunaki-engine/src/tool/prompt/question.txt) | Request interactive user clarification before making ambiguous document edits. |
 
 ### 2. 🖥️ 17 Desktop Shell & System Operations (`/api/desktop/*`)
 | Operation | HTTP Route | Description |
@@ -248,7 +248,7 @@ git clone https://github.com/jlsrngo/Arunaki.git
 cd Arunaki
 
 # 2. Build Web Frontend
-npm run build -w apps/web
+npm run build -w apps
 
 # 3. Start Native Desktop Application (Pure Rust + WebView2)
 npm start

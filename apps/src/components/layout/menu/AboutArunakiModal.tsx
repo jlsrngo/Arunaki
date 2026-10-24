@@ -2,7 +2,7 @@ import { memo, useState, useEffect, useCallback, useMemo } from "react";
 import { X, Check } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
 
-// Substituted by vite `define` at build time; see apps/web/vite.config.ts.
+// Substituted by vite `define` at build time; see apps/vite.config.ts.
 declare const __ARUNAKI_COMMIT__: string;
 declare const __ARUNAKI_BUILD_DATE__: string;
 declare const __ARUNAKI_VERSION__: string;

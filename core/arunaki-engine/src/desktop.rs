@@ -718,10 +718,12 @@ pub fn locate_web_dist() -> Option<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             candidates.push(exe_dir.join("web"));
+            candidates.push(exe_dir.join("apps/dist"));
             candidates.push(exe_dir.join("apps/web/dist"));
             let mut cur = Some(exe_dir);
             for _ in 0..5 {
                 if let Some(d) = cur {
+                    candidates.push(d.join("apps/dist"));
                     candidates.push(d.join("apps/web/dist"));
                     candidates.push(d.join("apps/desktop/web"));
                     candidates.push(d.join("web"));
@@ -731,6 +733,7 @@ pub fn locate_web_dist() -> Option<PathBuf> {
         }
     }
     if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("apps/dist"));
         candidates.push(cwd.join("apps/web/dist"));
         candidates.push(cwd.join("apps/desktop/web"));
     }

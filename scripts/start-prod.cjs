@@ -142,9 +142,11 @@ async function main() {
   console.log(`[⏱️ 0.00s] [start] Memulai perhitungan waktu launch Arunaki (Production)...`);
   console.log(`================================================================`);
 
-  const distIndex = path.join(rootDir, 'apps', 'web', 'dist', 'index.html');
+  const distIndex = fs.existsSync(path.join(rootDir, 'apps', 'dist', 'index.html'))
+    ? path.join(rootDir, 'apps', 'dist', 'index.html')
+    : path.join(rootDir, 'apps', 'web', 'dist', 'index.html');
   if (!fs.existsSync(distIndex)) {
-    console.error('[start] apps/web/dist/index.html not found. Run: npm run build');
+    console.error('[start] apps/dist/index.html not found. Run: npm run build');
     process.exit(1);
   }
 

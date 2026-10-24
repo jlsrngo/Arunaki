@@ -9,10 +9,10 @@
     "dev": "npm run dev:web & npm run dev:desktop",
     "dev:app": "node scripts/dev-app.cjs",
     "start": "cargo run --release -p arunaki-engine --bin arunaki-engine",
-    "dev:web": "npm run dev -w apps/web",
+    "dev:web": "npm run dev -w apps",
     "dev:desktop": "cargo run --release -p arunaki-engine --bin arunaki-engine",
-    "build": "npm run build -w apps/web",
-    "typecheck": "tsc -b apps/web/tsconfig.json",
+    "build": "npm run build -w apps",
+    "typecheck": "tsc -b apps/tsconfig.json",
     "test:unit": "cargo test --workspace",
     "test:smoke": "bun run scripts/smoke-local-cli.ts",
     "test:pos": "bun run scripts/test-pos-integration.ts",
@@ -22,7 +22,7 @@
   },
   "workspaces": {
     "packages": [
-      "apps/web"
+      "apps"
     ]
   },
   "devDependencies": {

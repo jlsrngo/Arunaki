@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/arunaki-docs",
-  "crates/arunaki-engine",
+  "core/arunaki-docs",
+  "core/arunaki-engine",
 ]
 
 [workspace.package]

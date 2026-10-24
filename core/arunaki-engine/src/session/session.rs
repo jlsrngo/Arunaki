@@ -1,4 +1,4 @@
-﻿//! Session data model, persistent store & run lifecycle.
+//! Session data model, persistent store & run lifecycle.
 use crate::paths::arunaki_data_dir;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,7 +24,7 @@ pub fn load_store() -> SessionStoreData {
     let p = store_file_path();
     if let Ok(raw) = std::fs::read_to_string(&p) {
         if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
-            if !parsed.sessions.is_empty() {
+            if !parsed.sessions.is_empty() || !parsed.messages.is_empty() {
                 return parsed;
             }
         }
@@ -37,7 +37,7 @@ pub fn load_store() -> SessionStoreData {
             .output();
         if let Ok(raw) = std::fs::read_to_string(&p) {
             if let Ok(parsed) = serde_json::from_str::<SessionStoreData>(&raw) {
-                if !parsed.sessions.is_empty() {
+                if !parsed.sessions.is_empty() || !parsed.messages.is_empty() {
                     return parsed;
                 }
             }

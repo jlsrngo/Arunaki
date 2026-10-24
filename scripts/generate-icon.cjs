@@ -103,11 +103,11 @@ async function renderIcoFromSvg(browser, svgInner, isStroke, outPath) {
 
 async function generate() {
   const rootDir = path.join(__dirname, '..');
-  const svgPath = path.join(rootDir, 'apps', 'web', 'public', 'arunakiLogo.svg');
-  const outPngPath = path.join(rootDir, 'apps', 'web', 'public', 'icon.png');
-  const mainIcoPath = path.join(rootDir, 'crates', 'arunaki-engine', 'arunaki.ico');
-  const gearIcoPath = path.join(rootDir, 'crates', 'arunaki-cli', 'gear.ico');
-  const docsIcoPath = path.join(rootDir, 'crates', 'arunaki-docs', 'arunaki.ico');
+  const svgPath = path.join(rootDir, 'apps', 'public', 'arunakiLogo.svg');
+  const outPngPath = path.join(rootDir, 'apps', 'public', 'icon.png');
+  const mainIcoPath = path.join(rootDir, 'core', 'arunaki-engine', 'arunaki.ico');
+  const gearIcoPath = path.join(rootDir, 'core', 'arunaki-engine', 'gear.ico');
+  const docsIcoPath = path.join(rootDir, 'core', 'arunaki-docs', 'arunaki.ico');
 
   if (!fs.existsSync(svgPath)) {
     console.error('[icon] arunakiLogo.svg not found at:', svgPath);
@@ -164,7 +164,7 @@ async function generate() {
   await page64.setContent(html64);
   await page64.waitForFunction('window.rgba && window.rgba.length === 64*64*4');
   const rgba = await page64.evaluate(() => window.rgba);
-  const rgbaPath = path.join(rootDir, 'crates', 'arunaki-engine', 'src', 'icon_64x64.rgba');
+  const rgbaPath = path.join(rootDir, 'core', 'arunaki-engine', 'src', 'icon_64x64.rgba');
   fs.writeFileSync(rgbaPath, Buffer.from(rgba));
   await page64.close();
 

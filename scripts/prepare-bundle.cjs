@@ -2,7 +2,7 @@
  * Arunika Native Desktop Bundle Preparation Script
  *
  * Prepares the pure native Rust desktop application:
- * 1. Builds the web frontend (apps/web) into production distribution (apps/web/dist).
+ * 1. Builds the web frontend (apps) into production distribution (apps/dist).
  * 2. Compiles standalone native Rust binaries:
  *    - target/release/arunaki.exe (Desktop GUI with WebView2)
  *    - target/release/arunaki-engine.exe (CLI/Headless backend)
@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const rootDir = path.join(__dirname, '..');
-const webDistDir = path.join(rootDir, 'apps', 'web', 'dist');
+const webDistDir = path.join(rootDir, 'apps', 'dist');
 const targetReleaseDir = path.join(rootDir, 'target', 'release');
 const desktopExePath = path.join(targetReleaseDir, 'arunaki.exe');
 const engineExePath = path.join(targetReleaseDir, 'arunaki-engine.exe');
@@ -35,9 +35,9 @@ async function main() {
   console.log('====================================================');
 
   // Step 1: Build Web Frontend
-  log('Step 1/3', 'Building production web frontend (apps/web)...');
+  log('Step 1/3', 'Building production web frontend (apps)...');
   try {
-    execSync('npm run build -w apps/web', { cwd: rootDir, stdio: 'inherit' });
+    execSync('npm run build -w apps', { cwd: rootDir, stdio: 'inherit' });
   } catch (err) {
     error('Step 1/3', 'Web build failed.');
     process.exit(1);

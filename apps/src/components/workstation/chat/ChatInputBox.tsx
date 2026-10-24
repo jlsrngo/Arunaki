@@ -225,6 +225,20 @@ export const ChatInputBox = memo(function ChatInputBox({
       return;
     }
 
+    if (promptTrimmed === "/compact") {
+      setLocalPrompt("");
+      clearAttachedFiles();
+      onCompactSession?.();
+      return;
+    }
+
+    if (promptTrimmed === "/clear" || promptTrimmed === "/new") {
+      setLocalPrompt("");
+      clearAttachedFiles();
+      onNewChat?.();
+      return;
+    }
+
     if (!promptTrimmed && attachedFiles.length === 0) return;
 
     const filesToSend = attachedFiles.map((file) => ({

@@ -44,7 +44,7 @@ export default defineConfig({
     __ARUNAKI_VERSION__: JSON.stringify(
       // Root package.json carries no version today, so this reports "0.0.0" - the same value
       // apps/web and apps/desktop declare - rather than the "0.1.0" that was only ever a guess.
-      JSON.parse(readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'))
+      JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
         .version || '0.0.0',
     ),
   },

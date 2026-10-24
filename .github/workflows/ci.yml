@@ -24,7 +24,7 @@ jobs:
         run: bun install
 
       - name: Build Web Frontend
-        working-directory: apps/web
+        working-directory: apps
         run: bun run build
 
       - name: Setup Rust Toolchain
