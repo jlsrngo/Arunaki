@@ -37,6 +37,21 @@ Ketika pengguna mengetik perintah singkat di chat, AI secara otomatis memproses 
 
 ---
 
+## Dual-Mode Document Architecture: In-App Suite + Native Office Companion (CRITICAL)
+
+**Arunaki mengusung arsitektur Dual-Mode. Integrasi dokumen in-app (ArtCraft) TIDAK MENGGANTIKAN kemampuan native Microsoft Office yang sudah ada.**
+
+1. **Mode 1 — Built-In In-App Suite (ArtCraft / Panel Tengah)**:
+   - Berjalan langsung di dalam Panel Tengah (GridCraft, WordCraft, PdfCraft, DeckCraft).
+   - Menjamin pengguna yang *tidak memiliki* Microsoft Office atau Adobe Acrobat di komputernya tetap bisa membuka, melihat, mengedit formula/cell, dan mengekspor dokumen secara 100% mandiri, offline, dan bebas biaya lisensi.
+
+2. **Mode 2 — Native Microsoft Office COM Companion (`core/arunaki-docs`)**:
+   - Kemampuan automasi native Win32 COM (`openExcelNative`, `openWordNative`, `/api/desktop/open-excel`, `/api/desktop/open-word`) **TETAP DIPERTAHANKAN 100%**.
+   - Jika pengguna memiliki Microsoft Office (Excel / Word) terinstal di komputernya dan ingin membukanya di jendela OS Windows asli, Arunaki menyediakan tombol cepat (*"Open in Native Excel"* / *"Open in Native Word"*) dan perintah AI untuk membuka/mengendalikannya secara native.
+   - Pengguna memiliki fleksibilitas penuh: bekerja ringkas langsung di panel tengah Arunaki ATAU meluncurkan jendela Microsoft Office asli di taskbar Windows.
+
+---
+
 ## Minimal Typing, Maximum Automation (CRITICAL UX RULE)
 
 **Pengguna cukup mengetik seminimal mungkin. Arunaki harus mampu mengeksekusi dengan automasi maksimal.**

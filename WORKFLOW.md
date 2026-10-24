@@ -9,7 +9,9 @@
 ## Overview
 
 Dokumen ini mendefinisikan urutan pengembangan resmi untuk **Arunaki — Autonomous Document Operating System**.
-Tujuan akhir sistem adalah mengintegrasikan suite 4 aplikasi dokumen mandiri (**GridCraft**, **WordCraft**, **PdfCraft**, dan **DeckCraft**) yang dibuka, diedit, dan dikendalikan langsung di **Panel Tengah (Center Panel Workstation)** secara otonom tanpa bergantung pada Microsoft Office atau Adobe Acrobat.
+Arunaki mengusung arsitektur **Dual-Mode Document**:
+1. **In-App Suite (ArtCraft)**: Suite 4 aplikasi dokumen mandiri (**GridCraft**, **WordCraft**, **PdfCraft**, dan **DeckCraft**) yang dibuka, diedit, dan dikendalikan langsung di **Panel Tengah (Center Panel Workstation)** secara otonom tanpa bergantung pada software eksternal berbayar.
+2. **Native Microsoft Office COM Companion (`core/arunaki-docs`)**: Integrasi native Win32 COM (`open-excel`, `open-word`) **tetap dipertahankan 100%**. Pengguna yang memiliki Microsoft Office di komputernya tetap bisa membuka dan mengendalikan dokumen langsung di aplikasi Excel/Word desktop asli Windows kapan pun diinginkan.
 
 ---
 
@@ -72,8 +74,9 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 - [ ] Tambahkan listener event perubahan file lokal: saat backend Rust (`write-excel` atau `doc_com`) memperbarui cell, tab GridCraft yang sedang terbuka otomatis memperbarui nilai cell yang terpengaruh dengan animasi highlight halus tanpa mereload seluruh tab.
 - [ ] Integrasikan kalkulasi formula offline (SUM, AVERAGE, MIN, MAX, IF, kalkulasi pajak/diskon) langsung di memori lokal.
 
-#### 135.3 File Persistence & Export
+#### 135.3 File Persistence & Native Office Bridge
 - [ ] Tombol Save/Export langsung dari GridCraft ke `.xlsx` dan `.csv` via endpoint `/api/desktop/write-excel`.
+- [ ] Tombol pintas *"Open in Native Excel"* di header tab yang memanggil `/api/desktop/open-excel` via `core/arunaki-docs` bagi pengguna yang ingin melihat file di aplikasi Microsoft Excel desktop asli.
 - [ ] Tampilkan status autosave / unsaved indicator pada header tab panel tengah.
 
 ---
