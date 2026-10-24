@@ -67,7 +67,10 @@ export function LiveMirrorCard({
           />
           <div className="w-full mt-1.5 px-2 flex justify-between text-[11px] text-gray-400">
             <span className="truncate">{subtitle}</span>
-            <span className="text-emerald-400 font-mono text-[10px]">🟢 Live Connected</span>
+            <span className="text-white font-mono text-[10px] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              Live Connected
+            </span>
           </div>
         </div>
       )}

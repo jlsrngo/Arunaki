@@ -4526,3 +4526,42 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `node scripts/generate-icon.cjs`: ✅ Menghasilkan 3 file ICO squircle macOS (`arunaki.ico`, `gear.ico`, `arunaki-docs/arunaki.ico`), `icon.png`, dan `icon_64x64.rgba`.
 - [x] `node scripts/prepare-bundle.cjs`: ✅ Sukses mengompilasi release binary dan menyuntikkan masing-masing ikon unik ke dalam file `.exe`.
 
+---
+
+## Phase 134: Tauri v2 Hybrid Desktop Architecture, Smart Port Collision Protection, Dynamic System Stack Detection, ArtCraft Document Suite Integration & Full SVG Vector Migration ✅ DONE
+
+**Goal:** Mengintegrasikan Arunaki ke dalam shell desktop native modern menggunakan **Tauri v2** dengan arsitektur hybrid (Tauri v2 Desktop Shell + Axum Tokio Backend Engine), menambahkan proteksi port anti-bentrok cerdas (Smart Probing & Incremental Fallback) serta Origin Guard pada Local-CLI Bridge (port 20188), mengaktifkan notifikasi native Windows Action Center Toast via `tauri-plugin-notification`, mendeteksi spesifikasi sistem secara dinamis tanpa hardcode pada dialog About, membersihkan seluruh emoji di UI dan judul menjadi ikon vektor SVG murni (Lucide), serta mendokumentasikan integrasi 4 aplikasi dokumen ArtCraft (`getartcraft.com/apps`: WordCraft, GridCraft, PdfCraft, DeckCraft) ke file `ARTCRAFT_DOCUMENTS_INTEGRATION.txt` dan `ARCHITECTURE_AND_TESTS.txt`.
+
+### 134.1 Tauri v2 Desktop Shell Setup & Background Axum Engine Spawning
+- [x] Menambahkan crate `src-tauri` ke dalam Cargo workspace root.
+- [x] Menghubungkan library `arunaki-engine` ke dalam `src-tauri` via Tokio background task di setup hook.
+- [x] Menambahkan dukungan System Tray Icon native Windows dengan menu item "Open Arunaki" dan "Quit Arunaki".
+- [x] Mengonfigurasi `tauri.conf.json` dengan identitas `com.arunaki.desktop`, ukuran window 1280x820 (min 960x600), dark theme, dan asset dist `../apps/dist`.
+- [x] Menyalin aset ikon brand squircle macOS (`arunaki.ico`, `icon.png`, `128x128.png`, `32x32.png`) ke `src-tauri/icons/`.
+
+### 134.2 Smart Port Allocation, Anti-Collision Fallback & Origin Guard on Bridge (:20188)
+- [x] Memperbarui `core/arunaki-engine/src/bridge/mod.rs` dengan logika Smart Probing: memeriksa endpoint `/health` terlebih dahulu sebelum binding; jika instance Arunaki lain sudah berjalan, bridge yang ada langsung dipakai ulang secara transparan tanpa error *Address already in use*.
+- [x] Menambahkan Incremental Fallback: jika port 20188 terkunci oleh software pihak ketiga, otomatis mencoba port 20189, 20190, hingga port dinamis 0, lalu mencatat metadata aktif ke `~/.arunaki/bridge-info.json`.
+- [x] Menerapkan middleware `origin_guard_middleware`: menolak request browser lintas-situs (cross-site localhost probing) dengan 403 Forbidden untuk mencegah website berbahaya di browser menyedot kuota AI, namun tetap mengizinkan tool developer CLI (Cursor IDE, Claude Code CLI, Python, curl) dan origin lokal Arunaki.
+
+### 134.3 Native Windows Action Center Notifications
+- [x] Memasang package `@tauri-apps/api` dan `@tauri-apps/plugin-notification` pada `apps/package.json`.
+- [x] Memperbarui `apps/src/components/workstation/chat/chatDiagnostics.ts` (`dispatchCompletionNotification`): memanggil `sendNotification` dari `@tauri-apps/plugin-notification` saat berjalan di dalam desktop shell Tauri v2, menampilkan toast notification Windows Action Center yang bersuara chime saat tugas AI selesai.
+
+### 134.4 Dynamic System Stack Detection (Anti-Hardcode)
+- [x] Memperbarui `core/arunaki-engine/src/lib.rs` dan `core/arunaki-engine/src/desktop.rs` (`engine-info.json` & `/api/desktop/engine-info`) untuk mencatat framework aktif (`Axum v0.7 + Tokio v1.40`, `Tauri v2 + WebView2`, versi OS, arsitektur).
+- [x] Memperbarui `apps/src/components/layout/menu/AboutArunakiModal.tsx`: memuat data sistem secara asinkron dari `/api/desktop/engine-info` setiap kali dialog dibuka, sehingga tidak ada string yang di-hardcode dan spesifikasi selalu terupdate otomatis. Menghapus seluruh baris usang `unavailable (pure-rust)`.
+
+### 134.5 Full SVG Vector Migration & Strict Anti-Emoji Rules
+- [x] Menghapus emoji `🧾` dan menggantinya dengan ikon SVG vektor dinamis pada `apps/src/components/workstation/explorer/ExplorerRecentCanvases.tsx` (`ReceiptText`, `ShoppingBag`, `PanelsTopLeft`).
+- [x] Menambahkan sanitasi emoji (`EMOJI_REGEX`) pada `canvas.ts` (`extractCanvasTitle`), `ExplorerRecentCanvases.tsx` (`formatCanvasTitle`), dan `prompt.rs` (`derive_session_title`) agar emoji dari teks LLM otomatis dibersihkan dari judul kanvas dan sesi.
+- [x] Membersihkan emoji lain di UI: mengganti `📎` dengan SVG paperclip di `ChatMessageBubble.tsx`, mengganti `⚠️` dengan SVG `<AlertTriangle />` di `ChatMessageContent.tsx`, mengganti `🟢` dan warna emerald dengan titik putih monochrome di `LiveMirrorCard.tsx`, serta menghapus emoji dari toast dan ringkasan percakapan.
+- [x] Menambahkan aturan ke-7 (`STRICT NO-EMOJI RULE`) pada system prompt `core/arunaki-engine/src/session/prompt.rs`.
+
+### 134.6 ArtCraft Apps Documentation & Verification
+- [x] Menulis file `ARTCRAFT_DOCUMENTS_INTEGRATION.txt` dan `ARCHITECTURE_AND_TESTS.txt` di root folder yang merinci arsitektur 4 aplikasi dokumen ArtCraft (WordCraft, GridCraft, PdfCraft, DeckCraft), cara pengerjaannya di Arunaki, dan seluruh bagian test suites.
+- [x] `cargo test --workspace`: ✅ 15/15 unit tests passed (5 di `arunaki-docs`, 10 di `arunaki-engine`, 0 di `arunaki-desktop`).
+- [x] `npm run build -w apps`: ✅ 0 TypeScript errors, Vite production build sukses (2294 modules transformed).
+- [x] `cargo build --release -p arunaki-desktop`: ✅ Berhasil menghasilkan binary release `target/release/arunaki-desktop.exe` (17.1 MB).
+- [x] `node scripts/prepare-bundle.cjs`: ✅ Paket bundle standalone mandiri terverifikasi di `dist-portable/`.
+

@@ -845,10 +845,10 @@ pub const DESKTOP_INIT_SCRIPT: &str = r#"
       } catch {}
     },
     getSystemInfo: () => ({
-      runtime: 'rust-webview2',
+      runtime: 'Native Rust Hybrid',
       engine: 'Axum v0.7 + Tokio v1.40',
-      desktop: 'Tao v0.37 + Wry v0.57',
-      docs: 'Native Win32 COM Sidecar',
+      desktop: 'Tauri v2 + Microsoft Edge WebView2',
+      docs: 'Native Win32 COM Sidecar (arunaki-docs)',
       os: 'Windows_NT x64'
     }),
     // No engineFetch / bridgeFetch / SSE relay here on purpose: the page is served from the

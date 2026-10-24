@@ -133,11 +133,11 @@ pub async fn handle_summarize(
             "summary": true,
             "compacted": true
         },
-        "text": format!("📋 **Ringkasan Percakapan (Compacted Memory):**\n\n{}", summary_text),
+        "text": format!("**Conversation Summary (Compacted Memory):**\n\n{}", summary_text),
         "content": [
             {
                 "type": "text",
-                "text": format!("📋 **Ringkasan Percakapan (Compacted Memory):**\n\n{}", summary_text)
+                "text": format!("**Conversation Summary (Compacted Memory):**\n\n{}", summary_text)
             }
         ],
         "time": {

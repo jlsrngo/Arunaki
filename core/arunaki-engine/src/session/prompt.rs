@@ -60,6 +60,13 @@ pub async fn handle_abort(AxumPath(id): AxumPath<String>) -> Response {
     Json(json!({ "data": { "aborted": true } })).into_response()
 }
 
+fn is_emoji_char(c: char) -> bool {
+    ('\u{1F300}'..='\u{1FAFF}').contains(&c)
+        || ('\u{2600}'..='\u{27BF}').contains(&c)
+        || ('\u{1F600}'..='\u{1F64F}').contains(&c)
+        || ('\u{1F680}'..='\u{1F6FF}').contains(&c)
+}
+
 fn derive_session_title(prompt: &str) -> String {
     let first_line = prompt
         .lines()
@@ -67,7 +74,8 @@ fn derive_session_title(prompt: &str) -> String {
         .find(|l| !l.is_empty())
         .unwrap_or(prompt.trim());
 
-    let cleaned = first_line
+    let no_emoji: String = first_line.chars().filter(|&c| !is_emoji_char(c)).collect();
+    let cleaned = no_emoji
         .trim_start_matches(|c: char| c == '#' || c == '*' || c == '-' || c == '>' || c == '`' || c == '@' || c.is_whitespace())
         .trim();
 
@@ -318,6 +326,10 @@ pub async fn run_agent_turn(
            - You MUST FIRST call `arunakizen_void_sale_order` with the previous invoice number (e.g. invoice: 'R43-241026007', reason: 'Order revision / item correction') BEFORE creating a new corrected sale order!\n\
            - NEVER create duplicate orders without voiding the prior incorrect invoice! Creating duplicate orders deducts inventory multiple times and corrupts daily transaction revenue.\n\
            - Always notify the user: \"Previous invoice [R43-...] has been voided and replaced with new invoice [R43-...]\".\n\
+        \n\
+        7. STRICT NO-EMOJI RULE (CRITICAL):\n\
+           - NEVER include emojis (e.g. 🧾, 📄, 🛒, ⚠️, 📦, 💰, ✨) in order headings, markdown titles, receipt text, canvas titles, or invoice outputs.\n\
+           - Always output clean, professional, plain alphanumeric text with standard markdown formatting.\n\
         </arunakizen>\n",
         pos_cfg.host_url,
         pos_user
@@ -759,6 +771,10 @@ mod tests {
         assert_eq!(
             derive_session_title("- cetak invoice toko"),
             "cetak invoice toko"
+        );
+        assert_eq!(
+            derive_session_title("🧾 Struk — R43-241026010"),
+            "Struk — R43-241026010"
         );
         assert_eq!(
             derive_session_title(""),

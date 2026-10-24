@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import Markdown from "react-markdown";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
@@ -110,7 +110,7 @@ const MARKDOWN_COMPONENTS = {
     if (str.trimStart().startsWith("⚠️")) {
       return (
         <div className="my-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200/90 text-[11px] leading-relaxed flex items-start gap-2 shadow-xs">
-          <span className="text-amber-400 shrink-0 select-none text-xs mt-0.5">⚠️</span>
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 select-none mt-0.5" strokeWidth={1.5} />
           <div className="flex-1 whitespace-pre-wrap break-words [word-break:break-word] text-[var(--text-primary)]">
             {Array.isArray(children)
               ? [str.replace(/^\s*⚠️\s*/, ""), ...children.slice(1)]

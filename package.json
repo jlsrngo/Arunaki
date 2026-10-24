@@ -18,13 +18,14 @@
     "test:pos": "bun run scripts/test-pos-integration.ts",
     "test:knowledge": "bun run scripts/test-knowledge-e2e.ts",
     "bundle:prepare": "node scripts/prepare-bundle.cjs",
+    "tauri": "npx @tauri-apps/cli",
+    "tauri:dev": "npx @tauri-apps/cli dev",
+    "tauri:build": "npm run build && npx @tauri-apps/cli build",
     "verify": "npm run build && npm run test:unit && npm run test:smoke"
   },
-  "workspaces": {
-    "packages": [
-      "apps"
-    ]
-  },
+  "workspaces": [
+    "apps"
+  ],
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "turbo": "2.10.2"

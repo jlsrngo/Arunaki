@@ -1,16 +1,25 @@
+const EMOJI_REGEX = /[\u{1F300}-\u{1FAD6}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu;
+
 export function extractCanvasTitle(content: string): string {
   const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return "Data Table";
 
   // Check if first non-empty line is a markdown title/heading
-  const firstLine = lines[0].replace(/^#+\s*/, "").replace(/[`*|_]/g, "").trim();
+  const firstLine = lines[0]
+    .replace(/^#+\s*/, "")
+    .replace(EMOJI_REGEX, "")
+    .replace(/[`*|_]/g, "")
+    .trim();
   if (firstLine.length > 0 && !firstLine.startsWith("|") && firstLine.length <= 40) {
     return firstLine;
   }
 
   // If starts directly with a markdown table row
   if (lines[0].startsWith("|")) {
-    const cells = lines[0].split("|").map((c) => c.trim()).filter(Boolean);
+    const cells = lines[0]
+      .split("|")
+      .map((c) => c.replace(EMOJI_REGEX, "").trim())
+      .filter(Boolean);
     if (cells.length > 0) {
       return `Table: ${cells.slice(0, 2).join(" / ")}`;
     }
@@ -58,22 +67,12 @@ export function extractCanvasContent(llmText: string): string {
       /^\|[\s\-:]+(\|[\s\-:]+)+\|$/.test(l2)
     ) {
       if (firstTableStart === -1) {
-        // Look back for an immediately preceding title/heading (e.g. **NSA Kaos Pendek** or # Rekap)
-        let start = i;
-        for (let k = i - 1; k >= 0; k--) {
-          const prev = lines[k].trim();
-          if (prev) {
-            if (
-              prev.startsWith("#") ||
-              (prev.startsWith("**") && prev.endsWith("**")) ||
-              (prev.startsWith("__") && prev.endsWith("__"))
-            ) {
-              start = k;
-            }
-            break;
-          }
+        firstTableStart = i;
+        let p = i - 1;
+        while (p >= 0 && lines[p].trim() === "") p--;
+        if (p >= 0 && lines[p].trim().startsWith("#")) {
+          firstTableStart = p;
         }
-        firstTableStart = start;
       }
       let j = i + 2;
       while (j < lines.length && lines[j].trim().startsWith("|") && lines[j].trim().endsWith("|")) {
@@ -84,10 +83,10 @@ export function extractCanvasContent(llmText: string): string {
     }
   }
 
-  if (firstTableStart !== -1 && lastTableEnd > firstTableStart) {
-    const tableBlock = lines.slice(firstTableStart, lastTableEnd).join("\n").trim();
-    if (tableBlock.length >= 15) {
-      return tableBlock;
+  if (firstTableStart !== -1 && lastTableEnd !== -1) {
+    const tableSnippet = lines.slice(firstTableStart, lastTableEnd).join("\n").trim();
+    if (tableSnippet.length >= 20) {
+      return tableSnippet;
     }
   }
 

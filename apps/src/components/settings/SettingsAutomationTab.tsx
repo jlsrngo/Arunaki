@@ -239,7 +239,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                       try {
                         const ok = await summarizeSession(activeChatId, undefined, activeFolder);
                         if (ok) {
-                          toast.success("✨ Active session context compacted successfully!", { id: tid });
+                          toast.success("Active session context compacted successfully!", { id: tid });
                         } else {
                           toast.error("Failed to compact session context", { id: tid });
                         }

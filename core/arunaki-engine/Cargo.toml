@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "Standalone native Rust AI Engine, Local-CLI Bridge & Desktop WebView2 App for Arunaki"
 
+[lib]
+name = "arunaki_engine"
+path = "src/lib.rs"
+
 [[bin]]
 name = "arunaki-engine"
 path = "src/main.rs"

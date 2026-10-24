@@ -17,6 +17,13 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
   onClose,
 }: AboutArunakiModalProps) {
   const [copied, setCopied] = useState(false);
+  const [engineInfo, setEngineInfo] = useState<{
+    runtime?: string;
+    engine?: string;
+    desktop?: string;
+    docs?: string;
+    os?: string;
+  } | null>(null);
   const { t } = useI18n();
 
   // Close on Escape key
@@ -33,29 +40,56 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Dynamically load active runtime stack from backend engine-info
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let active = true;
+    async function loadInfo() {
+      try {
+        const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+        if (desktop?.getEngineInfo) {
+          const info = await desktop.getEngineInfo();
+          if (active && info) setEngineInfo(info);
+          return;
+        }
+        const res = await fetch("/api/desktop/engine-info");
+        if (res.ok) {
+          const info = await res.json();
+          if (active && info) setEngineInfo(info);
+        }
+      } catch {}
+    }
+    loadInfo();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
   // Clean, modern Native Rust architecture specifications.
   // Outdated Electron/Node.js/V8 lines are completely eliminated.
   const specs = useMemo(() => {
     const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
     const sys = desktop?.getSystemInfo ? desktop.getSystemInfo() : null;
     const chromeMatch = typeof navigator !== "undefined" ? navigator.userAgent.match(/Chrome\/([0-9.]+)/) : null;
+    const info = engineInfo || sys || {};
 
     const list = [
       { label: t("version", "Version"), value: __ARUNAKI_VERSION__ },
       { label: "Commit", value: __ARUNAKI_COMMIT__ },
       { label: t("buildDate", "Build Date"), value: __ARUNAKI_BUILD_DATE__ },
-      { label: "Runtime", value: "Native Rust (Zero Electron)" },
-      { label: "Engine", value: "Axum v0.7 + Tokio v1.40" },
-      { label: "Desktop Shell", value: "Tao v0.37 + Wry v0.57" },
+      { label: "Runtime", value: info.runtime || "Native Rust Hybrid" },
+      { label: "Desktop Shell", value: info.desktop || "Tauri v2 + Microsoft Edge WebView2" },
+      { label: "AI Engine", value: info.engine || "Axum v0.7 + Tokio v1.40" },
+      { label: "Document Sidecar", value: info.docs || "Native Win32 COM (arunaki-docs)" },
       { label: "Web Renderer", value: `Microsoft Edge WebView2 (Chromium ${chromeMatch?.[1] || "system"})` },
-      { label: "Doc Automation", value: "Arunaki Docs (Native Win32 COM)" },
-      { label: "OS", value: sys?.os || "Windows_NT x64" },
+      { label: "OS", value: info.os || sys?.os || "Windows_NT x64" },
       { label: t("isolation", "Isolation"), value: t("activeFolderSandbox", "Active Folder Sandbox") },
     ];
 
     // Filter out any empty lines or legacy unavailable placeholders
     return list.filter((item) => Boolean(item.value && !item.value.toLowerCase().includes("unavailable")));
-  }, [isOpen, t]);
+  }, [engineInfo, isOpen, t]);
 
   const fullSpecsText = useMemo(() => {
     return specs.map((item) => `${item.label}: ${item.value}`).join("\n");

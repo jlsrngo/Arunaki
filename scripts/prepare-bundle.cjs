@@ -86,17 +86,24 @@ async function main() {
       ...process.env,
       PATH: `${process.env.PATH || ''}${path.delimiter}${cargoBinDir}`,
     };
-    execSync('cargo build --release -p arunaki-engine -p arunaki-docs', {
+    execSync('cargo build --release -p arunaki-desktop -p arunaki-engine -p arunaki-docs', {
       cwd: rootDir,
       env: envWithCargo,
       stdio: 'inherit',
     });
-    if (fs.existsSync(engineExePath)) {
-      fs.copyFileSync(engineExePath, desktopExePath);
+    const tauriDesktopExe = path.join(targetReleaseDir, 'arunaki-desktop.exe');
+    if (fs.existsSync(tauriDesktopExe)) {
+      fs.copyFileSync(tauriDesktopExe, desktopExePath);
       // arunaki.exe is the Desktop GUI (Subsystem = 2) with the brand delta logo
       setPeSubsystem(desktopExePath, 2);
       injectIcon(desktopExePath, mainIco);
+    } else if (fs.existsSync(engineExePath)) {
+      fs.copyFileSync(engineExePath, desktopExePath);
+      setPeSubsystem(desktopExePath, 2);
+      injectIcon(desktopExePath, mainIco);
+    }
 
+    if (fs.existsSync(engineExePath)) {
       // arunaki-engine.exe is the Console Daemon (Subsystem = 3) with the mechanical gear icon
       setPeSubsystem(engineExePath, 3);
       injectIcon(engineExePath, gearIco);

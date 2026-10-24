@@ -62,7 +62,7 @@ export async function getActiveProviderDiagnostic(): Promise<ProviderDiagnostic>
   };
 }
 
-export function dispatchCompletionNotification(toolsCount = 0): void {
+export async function dispatchCompletionNotification(toolsCount = 0): Promise<void> {
   try {
     const isNotifEnabled =
       localStorage.getItem("arunaki_pref_desktop_notification") !== "false";
@@ -73,13 +73,41 @@ export function dispatchCompletionNotification(toolsCount = 0): void {
         ? `Executed ${toolsCount} document task${toolsCount > 1 ? "s" : ""} successfully.`
         : "Document response generated.";
 
+    // 1. Try Tauri v2 Native Windows Toast Notification (Action Center)
+    if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+      try {
+        const { isPermissionGranted, requestPermission, sendNotification } = await import(
+          "@tauri-apps/plugin-notification"
+        );
+        let granted = await isPermissionGranted();
+        if (!granted) {
+          const perm = await requestPermission();
+          granted = perm === "granted";
+        }
+        if (granted) {
+          sendNotification({
+            title: "Arunaki Workstation",
+            body: notifBody,
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn("[notification] Tauri native notification fallback:", e);
+      }
+    }
+
+    // 2. Desktop helper / wry fallback
     const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
     if (desktop?.notify) {
       desktop.notify({
         title: "Arunaki Workstation",
         body: notifBody,
       });
-    } else if (typeof window !== "undefined" && "Notification" in window) {
+      return;
+    }
+
+    // 3. Web Notification API fallback
+    if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === "granted") {
         new Notification("Arunaki Workstation", { body: notifBody });
       } else if (Notification.permission !== "denied") {

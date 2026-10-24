@@ -1,11 +1,17 @@
 import { memo } from "react";
-import { ChevronDown, PanelsTopLeft } from "lucide-react";
+import { ChevronDown, PanelsTopLeft, ReceiptText, ShoppingBag } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { CanvasItem } from "./types";
 
+const EMOJI_REGEX = /[\u{1F300}-\u{1FAD6}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu;
+
 export function formatCanvasTitle(title: string): string {
   if (!title) return "Document Canvas";
-  const clean = title.replace(/^#+\s*/, "").replace(/[`*|_]/g, "").trim();
+  const clean = title
+    .replace(/^#+\s*/, "")
+    .replace(EMOJI_REGEX, "")
+    .replace(/[`*|_]/g, "")
+    .trim();
   if (clean === clean.toUpperCase() && clean.length > 2) {
     return clean
       .toLowerCase()
@@ -13,7 +19,33 @@ export function formatCanvasTitle(title: string): string {
       .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
       .join(" ");
   }
-  return clean;
+  return clean || "Document Canvas";
+}
+
+function getCanvasIcon(title: string) {
+  const lower = title.toLowerCase();
+  if (lower.includes("struk") || lower.includes("receipt") || lower.includes("invoice")) {
+    return (
+      <ReceiptText
+        className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
+        strokeWidth={1.5}
+      />
+    );
+  }
+  if (lower.includes("order") || lower.includes("pesanan") || lower.includes("sales")) {
+    return (
+      <ShoppingBag
+        className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
+        strokeWidth={1.5}
+      />
+    );
+  }
+  return (
+    <PanelsTopLeft
+      className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
+      strokeWidth={1.5}
+    />
+  );
 }
 
 interface ExplorerRecentCanvasesProps {
@@ -74,10 +106,7 @@ export const ExplorerRecentCanvases = memo(function ExplorerRecentCanvases({
                   title={`Open Canvas: ${formattedTitle}`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <PanelsTopLeft
-                      className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
-                      strokeWidth={1.5}
-                    />
+                    {getCanvasIcon(formattedTitle)}
                     <span className="truncate text-[11px] font-normal text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
                       {formattedTitle}
                     </span>

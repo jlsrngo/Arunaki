@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "core/arunaki-docs",
   "core/arunaki-engine",
+  "src-tauri",
 ]
 
 [workspace.package]

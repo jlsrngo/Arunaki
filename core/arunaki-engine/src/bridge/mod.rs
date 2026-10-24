@@ -1,4 +1,4 @@
-﻿//! Local-CLI Bridge (:20188) — OpenAI-compatible server that routes to vendor adapters.
+//! Local-CLI Bridge (:20188) — OpenAI-compatible server that routes to vendor adapters.
 
 mod antigravity;
 mod claude;
@@ -11,6 +11,7 @@ use axum::{
     body::Body,
     extract::Request,
     http::{header, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -25,22 +26,100 @@ use kiro::handle_kiro_request;
 
 pub const LOCAL_CLI_BRIDGE_PORT: u16 = 20188;
 
-pub async fn start_bridge_server(port: u16) -> Result<(), String> {
+/// Origin guard: Blocks arbitrary browser websites from making cross-site calls to the local bridge.
+/// CLI tools (Cursor IDE, Claude Code, curl, scripts) don't send an Origin header and are allowed.
+async fn origin_guard_middleware(req: Request, next: Next) -> Response {
+    if let Some(origin) = req.headers().get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
+        let allowed = origin == "http://localhost"
+            || origin == "https://localhost"
+            || origin.starts_with("http://127.0.0.1:")
+            || origin.starts_with("http://localhost:")
+            || origin == "http://127.0.0.1"
+            || origin.starts_with("tauri://")
+            || origin == "http://tauri.localhost";
+
+        if !allowed {
+            return Response::builder()
+                .status(StatusCode::FORBIDDEN)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"error":"Forbidden: Cross-site browser access to local bridge is blocked for security"}"#))
+                .unwrap();
+        }
+    }
+    next.run(req).await
+}
+
+pub async fn start_bridge_server(preferred_port: u16) -> Result<u16, String> {
     harvest_all();
+
+    // 1. Probe first: If an existing Arunaki Local-CLI Bridge is already running on preferred_port, reuse it!
+    let probe_url = format!("http://127.0.0.1:{}/health", preferred_port);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build();
+    if let Ok(c) = client {
+        if let Ok(resp) = c.get(&probe_url).send().await {
+            if resp.status().is_success() {
+                println!(
+                    "[arunaki-bridge] Existing bridge instance detected on port {}, reusing.",
+                    preferred_port
+                );
+                return Ok(preferred_port);
+            }
+        }
+    }
+
+    // 2. Incremental fallback: Try preferred_port, preferred_port + 1 ... preferred_port + 5, then random port 0
+    let candidate_ports = [
+        preferred_port,
+        preferred_port + 1,
+        preferred_port + 2,
+        preferred_port + 3,
+        0,
+    ];
+
+    let mut bound_listener = None;
+    for &p in &candidate_ports {
+        let addr = format!("127.0.0.1:{}", p);
+        match tokio::net::TcpListener::bind(&addr).await {
+            Ok(l) => {
+                bound_listener = Some(l);
+                break;
+            }
+            Err(_) => continue,
+        }
+    }
+
+    let listener = bound_listener.ok_or_else(|| {
+        format!("Failed to bind Local-CLI Bridge on any candidate port around {}", preferred_port)
+    })?;
+
+    let actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(preferred_port);
+
+    // 3. Write active bridge metadata to ~/.arunaki/bridge-info.json
+    let info_path = crate::paths::arunaki_dot_dir().join("bridge-info.json");
+    let _ = std::fs::write(
+        info_path,
+        serde_json::to_string_pretty(&json!({
+            "port": actual_port,
+            "url": format!("http://127.0.0.1:{}/v1", actual_port),
+            "pid": std::process::id(),
+            "healthy": true
+        }))
+        .unwrap_or_default(),
+    );
+
     let app = Router::new()
         .route("/health", get(handle_health))
         .route("/v1/models", get(handle_models))
-        .route("/v1/chat/completions", post(handle_chat_completions));
-
-    let addr = format!("127.0.0.1:{}", port);
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .map_err(|e| format!("Failed to bind bridge on {}: {}", addr, e))?;
+        .route("/v1/chat/completions", post(handle_chat_completions))
+        .layer(middleware::from_fn(origin_guard_middleware));
 
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
-    Ok(())
+
+    Ok(actual_port)
 }
 
 async fn handle_health() -> impl IntoResponse {
