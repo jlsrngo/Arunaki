@@ -6,7 +6,7 @@ Capabilities:
 - SUPPORTS BATCH SEARCH via `queries: [...]`: pass an array of product queries to lookup all items concurrently in 1 call!
 
 When to use:
-- The user asks for product stock, availability, or pricing (e.g. "cek stok baju", "cari barang DTF", "harga seragam").
+- The user asks for product stock, availability, or pricing (e.g. "check shirt stock", "find DTF item", "uniform price").
 - Before creating a sales order. For multi-item orders, ALWAYS use batch `queries` array to resolve all items in a single shot.
 
 Guidelines:

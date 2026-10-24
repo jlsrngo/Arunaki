@@ -285,13 +285,14 @@ pub async fn run_agent_turn(
         Available POS Tools:\n\
         - `arunakizen_search_product`: Search retail product catalog by barcode, SKU, or name to find official items and prices.\n\
         - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
+        - `arunakizen_void_sale_order`: Void (cancel and rollback) an existing cashier sales invoice (R43), restoring inventory stock and cashier drawer cash.\n\
         - `arunakizen_print_receipt`: Print an official customer receipt on the physical thermal printer and kick open the cash drawer.\n\
         - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
         - `question`: Interactive clarification tool. Use this to ask the user to confirm product typos, ambiguities, or missing catalog items.\n\
         \n\
         CRITICAL POS & CASHIER INSTRUCTIONS:\n\
-        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEVE...'), or asks 'cetak invoice', 'cetak nota', or 'buat pesanan kasir':\n\
-           - DO NOT just draw ASCII text boxes in the chat or ask 'Mau disimpan ke file .txt atau .docx?'!\n\
+        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEEVE...'), or asks to 'print invoice', 'print receipt', or 'create cashier order':\n\
+           - DO NOT just draw ASCII text boxes in the chat or ask to save into a .txt or .docx file!\n\
            - Match products with `arunakizen_search_product` and record the official cashier transaction with `arunakizen_create_sale_order`.\n\
            - If user requests to print receipt/invoice, call `arunakizen_print_receipt` with the invoice number.\n\
            - ALWAYS format the order/invoice breakdown cleanly inside [CANVAS]...[/CANVAS] tags so it opens interactively in the user's Canvas editor!\n\
@@ -299,7 +300,7 @@ pub async fn run_agent_turn(
         2. STRICT NO-SUBSTITUTION RULE & TYPO CONFIRMATION (CRITICAL):\n\
            - NEVER invent, substitute, or replace any product code or color on your own without explicit user consent (e.g. NEVER substitute 'MAROON' for 'CARLONE' just because prices match)!\n\
            - If `arunakizen_search_product` returns 0 results or provides typo suggestions (e.g. 'CARLONE' -> suggested 'CAROLINE BLUE'), you MUST call the `question` tool to ask the user to confirm the intended product before creating the sale order or printing!\n\
-           - Example question prompt: \"Produk 'CARLONE XL' tidak ditemukan. Apakah maksudnya 'NSA LONGSLEEVE CAROLINE BLUE XL'?\"\n\
+           - Example question prompt: \"Product 'CARLONE XL' was not found. Did you mean 'NSA LONGSLEEVE CAROLINE BLUE XL'?\"\n\
         \n\
         3. PRODUCT DEDUPLICATION & LINE MERGING:\n\
            - Identical items (same product code, size, and unit price) MUST be merged into a single line item with accumulated quantity (e.g. 1 pcs + 1 pcs = 2 pcs). Do NOT put identical items on separate lines unless prices or discounts differ.\n\
@@ -309,8 +310,14 @@ pub async fn run_agent_turn(
            - This resolves ALL items in a single parallel call in milliseconds, completely preventing slow multiple-turn looping.\n\
         \n\
         5. STRICT NO-UNSOLICITED-NOTES RULE (CRITICAL):\n\
-           - NEVER auto-generate summaries, item lists, or filler text into the `notes` (catatan/keterangan) field of `arunakizen_create_sale_order`!\n\
-           - Leave `notes` completely empty (\"\") unless the user explicitly commanded a specific note to be recorded on the invoice (e.g. 'catatan: titip di satpam', 'dropship atas nama Budi').\n\
+           - NEVER auto-generate summaries, item lists, or filler text into the `notes` (memo/remarks) field of `arunakizen_create_sale_order`!\n\
+           - Leave `notes` completely empty (\"\") unless the user explicitly commanded a specific memo to be recorded on the invoice (e.g. 'leave with security guard', 'dropship for customer Budi').\n\
+        \n\
+        6. ORDER REVISION & VOID PROTECTION (CRITICAL - PREVENT DUPLICATE INVOICES):\n\
+           - If an invoice was already created earlier in the conversation (e.g. invoice R43-241026007), and the user now asks to correct, revise, replace an item, or cancel (e.g. 'keep caroline instead of maroon', 'revise previous order', 'change item quantity'):\n\
+           - You MUST FIRST call `arunakizen_void_sale_order` with the previous invoice number (e.g. invoice: 'R43-241026007', reason: 'Order revision / item correction') BEFORE creating a new corrected sale order!\n\
+           - NEVER create duplicate orders without voiding the prior incorrect invoice! Creating duplicate orders deducts inventory multiple times and corrupts cashier daily revenue.\n\
+           - Always notify the user: \"Previous invoice [R43-...] has been voided and replaced with new invoice [R43-...]\".\n\
         </arunakizen_pos>\n",
         pos_cfg.host_url,
         pos_user

@@ -5,4 +5,4 @@ Capabilities:
 - Dispatches hardware kick pulse to default or designated thermal POS receipt printer.
 
 When to use:
-- The user requests to open the cash drawer physically (e.g. "buka laci", "open cash drawer", "buka laci kasir").
+- The user requests to open the cash drawer physically (e.g. "open drawer", "kick cash drawer", "open cash register").

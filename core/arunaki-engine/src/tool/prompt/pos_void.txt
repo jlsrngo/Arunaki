@@ -1,0 +1,17 @@
+Void (cancel and rollback) an existing cashier sales invoice in ArunakiZen POS.
+
+Capabilities:
+- Fully rolls back the transaction atomically.
+- Restores item quantities back to store inventory (UPDATE barang SET toko = toko + qty).
+- Reverts cash drawer inflows from cashier drawer balance (UPDATE kas SET saldo = saldo - cash).
+- Marks or removes invoice records and logs supervisor audit trail.
+
+When to use:
+- The user requests to cancel an order or invoice (e.g. "cancel invoice R43-241026007", "void the order").
+- The user requests to REVISE, FIX, or CHANGE an order that has already been created (e.g. "keep caroline instead of maroon", "revise the previous order", "change shirt quantity").
+  CRITICAL: You MUST call `arunakizen_void_sale_order` FIRST on the previous invoice before creating a corrected order with `arunakizen_create_sale_order`. NEVER create duplicate orders without voiding the prior incorrect invoice!
+
+Parameters:
+- `invoice` (required): The invoice number to void (e.g. "R43-241026007"). Can also be passed as `faktur`.
+- `reason` (optional): Reason for voiding (e.g. "Incorrect item correction", "Customer order revision", "Cancelled by customer"). Defaults to "Void / order revision via Arunaki Agent".
+- `operator` (optional): Cashier or operator name. Defaults to active user.

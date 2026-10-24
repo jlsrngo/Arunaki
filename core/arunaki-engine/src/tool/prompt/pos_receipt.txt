@@ -6,7 +6,7 @@ Capabilities:
 - Dispatches formatted ESC/POS printer byte streams to local Windows printer spoolers.
 
 When to use:
-- The user asks to print or re-print a receipt for a completed transaction (e.g. "cetak struk nota R43-231026001", "print nota terakhir").
+- The user asks to print or re-print a receipt for a completed transaction (e.g. "print receipt for invoice R43-231026001", "print the last receipt").
 
 Parameters:
 - `invoice`: Required official invoice number (e.g. 'R43-231026001').

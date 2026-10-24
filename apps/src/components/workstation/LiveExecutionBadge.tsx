@@ -21,6 +21,7 @@ import {
   Calculator,
   Boxes,
   HelpCircle,
+  RotateCcw,
 } from "lucide-react";
 
 export interface LiveStatusData {
@@ -115,7 +116,15 @@ export function formatToolStepLabel(
       return isFinished ? `Searched product catalog` : `Searching product catalog`;
     }
 
-    // B. Sales Order Creation
+    // B. Void / Cancel Sales Order
+    if (t.includes('void') || t.includes('cancel') || t.includes('batal')) {
+      if (invoiceNo) {
+        return isFinished ? `Voided sales order: ${invoiceNo}` : `Voiding sales order: ${invoiceNo}`;
+      }
+      return isFinished ? `Voided sales order` : `Voiding sales order`;
+    }
+
+    // C. Sales Order Creation
     if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
       if (batchCount > 0) {
         return isFinished ? `Created sales order (${batchCount} items)` : `Creating sales order (${batchCount} items)`;
@@ -330,6 +339,9 @@ function renderStepIcon(step: StepItem) {
   ) {
     if (t.includes("search") || t.includes("product") || t.includes("katalog") || t.includes("catalog") || t.includes("barang")) {
       return <PackageSearch size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
+    }
+    if (t.includes("void") || t.includes("cancel") || t.includes("batal")) {
+      return <RotateCcw size={12} className="text-white shrink-0 mt-0.5" />;
     }
     if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
       return <Receipt size={12} className="text-white shrink-0 mt-0.5" />;

@@ -6,6 +6,8 @@
 //! - `arunakizen_get_shift_summary`: Cash register shift drawer turnover and cash balance
 //! - `arunakizen_print_receipt`: Thermal receipt printing and optional drawer kick
 //! - `arunakizen_open_drawer`: Standalone cash drawer kick pulse
+//! - `arunakizen_adjust_stock`: Correct stock inventory balance
+//! - `arunakizen_void_sale_order`: Void / cancel and rollback cashier sales invoice
 //!
 //! Conforms to `E:\JS\Arunaki-POS\doc\PANDUAN_KONEKSI_ARUNAKI_AGENT_KE_ARUNAKIZEN.md`.
 
@@ -289,6 +291,32 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         }
                     },
                     "required": ["item_code", "actual_stock"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_void_sale_order",
+                "description": include_str!("prompt/pos_void.txt"),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "invoice": {
+                            "type": "string",
+                            "description": "Sales invoice number to void (e.g. 'R43-241026007')."
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Reason for cancellation or revision (e.g. 'Revisi pesanan / koreksi item salah').",
+                            "default": "Pembatalan / revisi transaksi via Arunaki Agent"
+                        },
+                        "operator": {
+                            "type": "string",
+                            "description": "Cashier or operator name (optional, defaults to active user)."
+                        }
+                    },
+                    "required": ["invoice"]
                 }
             }
         }),
@@ -1040,6 +1068,85 @@ pub async fn execute_adjust_stock(args: &Value) -> Value {
     })
 }
 
+pub async fn execute_void_sale_order(args: &Value) -> Value {
+    let cfg = load_pos_config();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
+    };
+
+    let invoice = args
+        .get("invoice")
+        .or_else(|| args.get("faktur"))
+        .or_else(|| args.get("nomor_faktur"))
+        .or_else(|| args.get("kode"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+
+    if invoice.is_empty() {
+        return json!({ "error": "Parameter 'invoice' (or 'faktur') is required to void sales order." });
+    }
+
+    let reason = args
+        .get("reason")
+        .or_else(|| args.get("alasan"))
+        .or_else(|| args.get("keterangan"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("Pembatalan / revisi transaksi via Arunaki Agent");
+
+    let operator = args
+        .get("operator")
+        .or_else(|| args.get("kasir"))
+        .or_else(|| args.get("user"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&cfg.username);
+
+    let payload = json!({
+        "faktur": invoice,
+        "alasan": reason,
+        "operator": operator
+    });
+
+    let endpoints = [
+        format!("{}/api/sales/void", cfg.host_url),
+        format!("{}/api/penjualan/void", cfg.host_url),
+        format!("{}/sales/void", cfg.host_url),
+        format!("{}/penjualan/void", cfg.host_url),
+    ];
+
+    for ep in &endpoints {
+        let mut req = client.post(ep);
+        if !cfg.api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res) = req.json(&payload).send().await {
+            let status = res.status();
+            if let Ok(json_val) = res.json::<Value>().await {
+                if status.is_success() || json_val.get("success") == Some(&json!(true)) {
+                    return json_val;
+                }
+                return json!({
+                    "error": format!("ArunakiZen POS rejected void request: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "details": json_val
+                });
+            }
+        }
+    }
+
+    json!({
+        "error": format!("Failed to send void request to ArunakiZen POS ({})", cfg.host_url),
+        "invoice": invoice
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1131,5 +1238,39 @@ mod tests {
         assert_eq!(sanitize_transaction_notes("titip satpam"), "titip satpam");
         assert_eq!(sanitize_transaction_notes("dropship Pak Budi"), "dropship Pak Budi");
         assert_eq!(sanitize_transaction_notes("kirim via JNE YES"), "kirim via JNE YES");
+    }
+
+    #[test]
+    fn test_void_args_extraction() {
+        let args = json!({
+            "invoice": "R43-241026007",
+            "reason": "Revisi order pelanggan"
+        });
+
+        let inv = args
+            .get("invoice")
+            .or_else(|| args.get("faktur"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let rsn = args
+            .get("reason")
+            .or_else(|| args.get("alasan"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        assert_eq!(inv, "R43-241026007");
+        assert_eq!(rsn, "Revisi order pelanggan");
+
+        // Test fallback to 'faktur'
+        let args_id = json!({
+            "faktur": "R43-241026009",
+            "alasan": "Batal transaksi"
+        });
+        let inv2 = args_id
+            .get("invoice")
+            .or_else(|| args_id.get("faktur"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        assert_eq!(inv2, "R43-241026009");
     }
 }

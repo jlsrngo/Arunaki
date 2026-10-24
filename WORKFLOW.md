@@ -4456,3 +4456,32 @@ Engine sudah mendukung per-prompt `variant` (`PromptInput.variant`, `session/pro
 - [x] `npm run build -w apps`: ✅ 0 TypeScript compilation errors, Vite production build sukses (2285 modules transformed).
 - [x] `cargo test --workspace`: ✅ 9/9 unit tests passed (5 di `arunaki-docs`, 4 di `arunaki-engine`).
 - [x] `npm run bundle:prepare`: ✅ Standalone portable bundle ready (Web bundle + arunaki.exe 8.34 MB + arunaki-engine.exe 8.34 MB + arunaki-docs.exe 0.39 MB).
+
+---
+
+## Phase 132: ArunakiZen POS Order Void / Cancellation Tool & Clean English Prompt Standardization ✅ DONE
+
+**Goal:** Mengatasi bug duplikasi pesanan ketika pengguna meminta revisi/koreksi transaksi kasir (misal mengganti item dari Maroon ke Caroline Blue yang sebelumnya membuat 3 nota terpisah), menyediakan tool resmi pembatalan/void `arunakizen_void_sale_order` untuk me-rollback stok dan kas kasir, serta menstandarkan seluruh system prompt dan contoh POS ke bahasa Inggris profesional bersih (tanpa contoh bahasa Indonesia).
+
+### 132.1 POS Order Void Tool Implementation (`arunakizen_void_sale_order`)
+- [x] Menambahkan fungsi `execute_void_sale_order` di `core/arunaki-engine/src/tool/pos.rs` yang memanggil endpoint `POST /api/sales/void` (atau fallback `/api/penjualan/void`).
+- [x] Mendaftarkan tool `arunakizen_void_sale_order` di `pos_tools()` dan mapping tool dispatcher di `core/arunaki-engine/src/tool/mod.rs` (dengan alias `pos_void_order`, `void_sale_order`, `arunakizen_cancel_sale_order`).
+- [x] Membuat dokumentasi tool `core/arunaki-engine/src/tool/prompt/pos_void.txt` yang menjelaskan kapabilitas atomic rollback (kembalikan stok toko dan saldo kasir) serta aturan penggunaan saat user meminta revisi transaksi.
+- [x] Menambahkan unit test `test_void_args_extraction` di `pos.rs`.
+
+### 132.2 Strict Order Revision & Anti-Duplication Rule in System Prompt
+- [x] Memperbarui `<arunakizen_pos>` di `core/arunaki-engine/src/session/prompt.rs` dengan aturan ke-6 (ORDER REVISION & VOID PROTECTION): jika nota penjualan sudah terbit dan user meminta perbaikan/revisi/penggantian item, LLM WAJIB memanggil `arunakizen_void_sale_order` terlebih dahulu untuk membatalkan nota lama sebelum menerbitkan nota baru.
+- [x] Membersihkan dan menstandarkan seluruh petunjuk serta contoh di system prompt (`prompt.rs`) dan berkas tool prompt (`pos_order.txt`, `pos_search.txt`, `pos_adjust_stock.txt`, `pos_receipt.txt`, `pos_shift.txt`, `pos_drawer.txt`, `pos_void.txt`) ke dalam bahasa Inggris profesional bersih (100% English prompt & examples).
+
+### 132.3 UI Telemetry & Execution Badge Support
+- [x] Memperbarui `apps/src/components/workstation/LiveExecutionBadge.tsx`:
+  - Menambahkan label status `Voided sales order: ${invoice}` / `Voiding sales order`.
+  - Menambahkan ikon monokrom `RotateCcw` untuk step void/rollback pesanan.
+  - Memastikan prioritas matching void dievaluasi sebelum order creation.
+
+### 132.4 Verification & Quality Gate
+- [x] `cargo test -p arunaki-engine`: ✅ 10/10 unit tests passed (termasuk `test_void_args_extraction`).
+- [x] `npm run build -w apps`: ✅ 0 TypeScript errors, build production Vite sukses.
+- [x] `cargo build --release -p arunaki-engine`: ✅ Berhasil dikompilasi ke release binary.
+- [x] `npm run bundle:prepare`: ✅ Standalone portable bundle dist-portable terbarui (Web bundle + arunaki.exe 8.45 MB + arunaki-engine.exe 8.45 MB + arunaki-docs.exe 0.39 MB).
+- [x] Live POS API Test: Berhasil membatalkan nota uji duplikat `R43-241026007` dan `R43-241026009` secara atomic dengan rollback stok dan kas di server kasir ArunakiZen.

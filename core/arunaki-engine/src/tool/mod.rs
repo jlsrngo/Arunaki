@@ -116,6 +116,9 @@ pub async fn execute_tool_call(
         "arunakizen_adjust_stock" | "pos_adjust_stock" => {
             pos::execute_adjust_stock(arguments).await
         }
+        "arunakizen_void_sale_order" | "pos_void_order" | "void_sale_order" | "arunakizen_cancel_sale_order" => {
+            pos::execute_void_sale_order(arguments).await
+        }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
         }

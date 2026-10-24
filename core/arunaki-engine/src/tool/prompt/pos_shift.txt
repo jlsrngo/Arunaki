@@ -7,4 +7,4 @@ Capabilities:
 - Identifies current logged-in operator, shift number, and shift active/closed status.
 
 When to use:
-- The user asks for cashier daily recap, shift report, or cash drawer balance (e.g. "rekap kasir", "cek uang di laci", "omset shift ini", "laporan kasir").
+- The user asks for cashier daily recap, shift report, or cash drawer balance (e.g. "cashier recap", "check drawer cash", "current shift turnover", "cashier shift report").
