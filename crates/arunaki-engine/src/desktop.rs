@@ -909,6 +909,11 @@ pub fn launch_desktop_window(url: &str) {
         .with_decorations(false)
         .with_resizable(true);
 
+    let icon_rgba = include_bytes!("icon_64x64.rgba");
+    if let Ok(icon) = tao::window::Icon::from_rgba(icon_rgba.to_vec(), 64, 64) {
+        builder = builder.with_window_icon(Some(icon));
+    }
+
     #[cfg(target_os = "windows")]
     {
         builder = builder.with_undecorated_shadow(false);

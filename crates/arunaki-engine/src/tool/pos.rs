@@ -34,6 +34,19 @@ impl Default for PosConfig {
     }
 }
 
+fn detect_active_pos_port() -> Option<u16> {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+
+    for port in 5000..=5010 {
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(30)).is_ok() {
+            return Some(port);
+        }
+    }
+    None
+}
+
 pub fn load_pos_config() -> PosConfig {
     let mut cfg = PosConfig::default();
 
@@ -62,12 +75,30 @@ pub fn load_pos_config() -> PosConfig {
         }
     }
 
-    // 2. Auto-discovery fallback from active ArunakiZen pos-runtime.json
-    let runtime_candidates = [
-        std::path::PathBuf::from("E:/JS/Arunaki-POS/pos-runtime.json"),
-        std::path::PathBuf::from("../Arunaki-POS/pos-runtime.json"),
+    // 2. Production & Development auto-discovery from active ArunakiZen pos-runtime.json
+    let mut runtime_candidates = vec![
         std::path::PathBuf::from("pos-runtime.json"),
+        arunaki_dot_dir().join("pos-runtime.json"),
     ];
+
+    if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        runtime_candidates.push(std::path::PathBuf::from(&local_appdata).join("Programs/ArunakiZen/pos-runtime.json"));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        runtime_candidates.push(std::path::PathBuf::from(&appdata).join("ArunakiZen/pos-runtime.json"));
+    }
+    if let Ok(userprofile) = std::env::var("USERPROFILE") {
+        runtime_candidates.push(std::path::PathBuf::from(&userprofile).join(".arunakizen/pos-runtime.json"));
+    }
+
+    // Dev workspace fallback candidates
+    runtime_candidates.extend(vec![
+        std::path::PathBuf::from("E:/JS/Arunaki-POS/target/debug/pos-runtime.json"),
+        std::path::PathBuf::from("E:/JS/Arunaki-POS/pos-runtime.json"),
+        std::path::PathBuf::from("../Arunaki-POS/target/debug/pos-runtime.json"),
+        std::path::PathBuf::from("../Arunaki-POS/pos-runtime.json"),
+    ]);
+
     for rp in &runtime_candidates {
         if let Ok(raw) = std::fs::read_to_string(rp) {
             if let Ok(val) = serde_json::from_str::<Value>(&raw) {
@@ -83,6 +114,15 @@ pub fn load_pos_config() -> PosConfig {
                 }
                 break;
             }
+        }
+    }
+
+    // 3. Dynamic Localhost Port Hunting (5000-5100):
+    // If running on localhost and the target port is not open or on default,
+    // automatically detect the live port where ArunakiZen is listening.
+    if cfg.host_url.starts_with("http://127.0.0.1") || cfg.host_url.starts_with("http://localhost") {
+        if let Some(active_port) = detect_active_pos_port() {
+            cfg.host_url = format!("http://127.0.0.1:{}", active_port);
         }
     }
 
@@ -190,6 +230,10 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         "printer": {
                             "type": "string",
                             "description": "Target thermal printer name (empty to use the system default printer)."
+                        },
+                        "kasir": {
+                            "type": "string",
+                            "description": "Cashier operator name to display on receipt (optional, defaults to active user e.g. 'Candana')."
                         }
                     },
                     "required": ["invoice"]
@@ -337,6 +381,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         "bayar": amount_paid,
         "keterangan": notes,
         "items": raw_items,
+        "user": cfg.username,
         "operator": {
             "username": cfg.username,
             "password": cfg.password.unwrap_or_default(),
@@ -440,13 +485,26 @@ pub async fn execute_print_receipt(args: &Value) -> Value {
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    let payload = json!({
+    let cashier = args
+        .get("kasir")
+        .or_else(|| args.get("operator"))
+        .or_else(|| args.get("cashier"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&cfg.username);
+
+    let mut payload = json!({
         "faktur": invoice,
         "kode": invoice,
         "print": true,
         "drawer": open_drawer,
         "printer": args.get("printer").and_then(|v| v.as_str())
     });
+
+    if !cashier.is_empty() {
+        payload["kasir"] = json!(cashier);
+    }
 
     let endpoints = [
         format!("{}/api/printer/receipt", cfg.host_url),

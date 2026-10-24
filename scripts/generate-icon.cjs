@@ -5,7 +5,7 @@ const puppeteer = require('puppeteer');
 async function generate() {
   const rootDir = path.join(__dirname, '..');
   const svgPath = path.join(rootDir, 'apps', 'web', 'public', 'arunakiLogo.svg');
-  const outPath = path.join(rootDir, 'apps', 'desktop', 'resources', 'icon.png');
+  const outPath = path.join(rootDir, 'apps', 'web', 'public', 'icon.png');
 
   if (!fs.existsSync(svgPath)) {
     console.error('[icon] arunakiLogo.svg not found at:', svgPath);
@@ -62,9 +62,31 @@ async function generate() {
 </body>
 </html>`;
 
+  const rgbaPath = path.join(rootDir, 'crates', 'arunaki-engine', 'src', 'icon_64x64.rgba');
+
   await page.setContent(html);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   await page.screenshot({ path: outPath, omitBackground: true });
+
+  // Generate 64x64 raw RGBA for Tao Window Icon
+  const page64 = await browser.newPage();
+  await page64.setViewport({ width: 64, height: 64 });
+  const html64 = `<!DOCTYPE html><html><body style="margin:0;background:transparent;"><canvas id="c" width="64" height="64"></canvas><script>
+    const img = new Image();
+    img.onload = () => {
+      const c = document.getElementById('c');
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 2, 2, 60, 60);
+      window.rgba = Array.from(ctx.getImageData(0, 0, 64, 64).data);
+    };
+    img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(${JSON.stringify(svg)});
+  </script></body></html>`;
+  await page64.setContent(html64);
+  await page64.waitForFunction('window.rgba && window.rgba.length === 64*64*4');
+  const rgba = await page64.evaluate(() => window.rgba);
+  fs.writeFileSync(rgbaPath, Buffer.from(rgba));
+  console.log('[icon] RGBA icon generated at:', rgbaPath);
+
   await browser.close();
 
   console.log('[icon] Icon successfully generated at:', outPath);

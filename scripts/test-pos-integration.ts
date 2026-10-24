@@ -5,8 +5,21 @@
  *   bun run scripts/test-pos-integration.ts
  */
 
-const DEFAULT_POS_URL = 'http://127.0.0.1:5000';
-const DEFAULT_API_KEY = 'arunaki_sec_2026';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+let DEFAULT_POS_URL = 'http://127.0.0.1:5000';
+let DEFAULT_API_KEY = 'arunaki_sec_2026';
+
+try {
+  const cfgPath = path.join(os.homedir(), '.arunaki', 'pos-config.json');
+  if (fs.existsSync(cfgPath)) {
+    const raw = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    if (raw.hostUrl) DEFAULT_POS_URL = raw.hostUrl.replace(/\/$/, '');
+    if (raw.apiKey) DEFAULT_API_KEY = raw.apiKey;
+  }
+} catch (_) {}
 
 async function checkPosStatus(baseUrl: string) {
   try {
@@ -106,6 +119,8 @@ async function main() {
         pelanggan: 'UMUM',
         bayar: 50000,
         tahan: true, // test hold order without cutting live stock
+        user: 'Candana',
+        kasir: 'CO1',
         keterangan: 'Simulasi order uji Arunaki Agent',
         items: [{ kode: '2410001', qty: 1, harga: 50000, diskon: 0 }]
       })
@@ -113,6 +128,23 @@ async function main() {
     if (res.ok) {
       const order = await res.json();
       console.log('✅ Tool 4: arunakizen_create_sale_order -> OK', order);
+
+      // Now test printing this invoice via arunakizen_print_receipt with kasir 'Candana'
+      const pRes = await fetch(`${DEFAULT_POS_URL}/api/printer/receipt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DEFAULT_API_KEY}` },
+        body: JSON.stringify({
+          faktur: order.faktur,
+          kasir: 'Candana',
+          print: false
+        })
+      });
+      if (pRes.ok) {
+        const pJson = await pRes.json();
+        const hex = pJson.hex || '';
+        const hasCandana = hex.includes('43 61 6E 64 61 6E 61');
+        console.log(`✅ Print Receipt for ${order.faktur}: Kasir 'Candana' present in ESC/POS byte stream? -> ${hasCandana ? 'YES (Confirmed)' : 'NO'}`);
+      }
     } else {
       console.log('⚠️ Tool 4: arunakizen_create_sale_order -> HTTP', res.status);
     }
