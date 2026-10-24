@@ -253,7 +253,7 @@ export function getActiveActionText(
       if (t.includes("order") || t.includes("sale") || t.includes("penjualan")) return "Creating sales order";
       if (t.includes("print") || t.includes("receipt") || t.includes("struk")) return "Printing customer receipt";
       if (t.includes("drawer") || t.includes("laci")) return "Opening cash drawer";
-      if (t.includes("shift")) return "Checking cashier shift summary";
+      if (t.includes("shift")) return "Checking shift summary";
       if (t.includes("stock") || t.includes("stok")) return "Adjusting inventory stock";
     }
     if (t.includes("excel")) return "Updating Excel document";
@@ -452,7 +452,7 @@ export function MessageThoughtBadge({
     const n = (s.toolName || s.label || "").toLowerCase();
     return n.includes("arunakizen") || n.includes("pos") || n.includes("catalog") || n.includes("katalog") || n.includes("receipt") || n.includes("order") || n.includes("drawer");
   });
-  const taskCategory = isPosDomain ? "cashier" : "document";
+  const taskCategory = isPosDomain ? "arunaki" : "document";
 
   const displayReasoning = useMemo(() => {
     if (reasoning && reasoning.trim().length > 0) return reasoning.trim();
