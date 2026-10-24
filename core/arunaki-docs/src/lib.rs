@@ -63,6 +63,16 @@ mod tests {
     }
 
     #[test]
+    fn pdf_map_extracts_tables_and_bounding_box() {
+        let pdf = b"%PDF-1.4\n1 0 obj << /Type /Page >> endobj\n2 0 obj << /Length 120 >>\nstream\nBT /F1 12 Tf 72 720 Td (Invoice Summary) Tj ET\nBT /F1 12 Tf 72 680 Td (Item    Qty    Price    Total) Tj ET\nBT /F1 12 Tf 72 650 Td (Apples    10    15.000    150.000) Tj ET\nBT /F1 12 Tf 72 620 Td (Oranges    5    20.000    100.000) Tj ET\nendstream\nendobj\n%%EOF";
+        let out = build_pdf_map_from_bytes("invoice.pdf", pdf, None).unwrap();
+        assert!(out.contains(r#""tables""#));
+        assert!(out.contains("Apples"));
+        assert!(out.contains("150.000"));
+        assert!(out.contains(r#""bbox""#));
+    }
+
+    #[test]
     fn com_scripts_generate_expected_powershell() {
         let script = build_excel_com_script(&ExcelComParams {
             action: "write_cell".to_string(),

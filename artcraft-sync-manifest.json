@@ -1,27 +1,27 @@
 {
-  "lastChecked": "2026-10-24T22:24:00.000Z",
+  "lastChecked": "2026-10-24T23:50:00.000Z",
   "apps": {
     "GridCraft": {
       "repo": "storytold/gridcraft",
-      "lastCommit": "upstream-beta",
+      "lastCommit": "3099df934f82873133be421945f3ba21359c2588",
       "status": "synced",
       "role": "Spreadsheet Engine (.xlsx, .csv)"
     },
     "WordCraft": {
       "repo": "storytold/wordcraft",
-      "lastCommit": "upstream-beta",
+      "lastCommit": "254351c028baadfe32811a0ea49eebc5d0124fe7",
       "status": "synced",
       "role": "Official Rich Document & A4 Layout (.docx, .md)"
     },
     "PdfCraft": {
       "repo": "storytold/pdfcraft",
-      "lastCommit": "upstream-beta",
+      "lastCommit": "d445410807e7eefbe5b96f9662ab963ae8dd2a3a",
       "status": "synced",
       "role": "Offline PDF Reader & Data Cartographer (.pdf)"
     },
     "DeckCraft": {
       "repo": "storytold/deckcraft",
-      "lastCommit": "upstream-beta",
+      "lastCommit": "38d2ade296a6cbe7173dbbb5ca5d648c68ff82a1",
       "status": "synced",
       "role": "Slide Presenter & Carousel (.pptx)"
     }

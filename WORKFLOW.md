@@ -102,16 +102,18 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 137: PdfCraft — Embedded PDF Reader & Visual Data Cartographer (Center Panel) ⏳ QUEUED
+### Phase 137: PdfCraft — Embedded PDF Reader & Visual Data Cartographer (Center Panel) ✅ DONE
 **Goal:** Membuka file PDF (faktur, nota, rekening koran) langsung di dalam tab panel tengah (**PdfCraft**), dengan layer visualisasi kotak bounding-box yang menunjukkan bagian teks atau tabel mana yang sedang diekstrak oleh AI.
 
 #### 137.1 Embedded Native PDF Canvas Viewer
-- [ ] Integrasikan renderer canvas PDF di panel tengah dengan fitur zoom in/out, fit to width, dan thumbnail halaman di sisi kiri.
-- [ ] Rendering 100% offline di memori lokal tanpa upload file ke server eksternal.
+- [x] Integrasikan renderer canvas PDF di panel tengah dengan fitur zoom in/out, fit to width/page, navigasi halaman (`ChevronLeft`/`ChevronRight`), dan thumbnail halaman di sisi kiri.
+- [x] Rendering 100% offline di memori lokal melalui backend Pure-Rust endpoint `/api/desktop/read-binary` dan `iframe/embed` native WebView2.
+- [x] Mode view switcher terintegrasi: *Cartographer* (Visual overlay), *Structured Tables* (Data grid), dan *Raw Text* (Stream extractor).
 
-#### 137.2 Visual Data Extraction Overlay
-- [ ] Saat user meminta "ekstrak tabel dari PDF ini", koordinat bounding-box dari `core/arunaki-docs` dirender sebagai overlay semi-transparan di atas halaman PDF, sehingga user melihat apa yang dibaca oleh AI secara transparan.
-- [ ] Tombol aksi cepat: *"Kirim ke GridCraft (Rekap ke Excel)"* langsung dari tabel PDF yang terdeteksi.
+#### 137.2 Visual Data Extraction Overlay & GridCraft Bridge
+- [x] Koordinat bounding-box dari `core/arunaki-docs` (`detect_tables_from_text` & `bbox`) dirender sebagai overlay semi-transparan interaktif di atas halaman PDF, sehingga user melihat apa yang dibaca oleh AI secara transparan.
+- [x] Tombol aksi cepat: *"Send to GridCraft (Rekap ke Excel)"* langsung mengekspor tabel transaksi dari PDF ke format `.xlsx` GridCraft tanpa ketik manual.
+- [x] Tombol pintas pencarian teks di halaman, cetak PDF (`window.print`), dan tombol *"Open External"* untuk membuka file di pembaca PDF sistem operasi asli.
 
 ---
 

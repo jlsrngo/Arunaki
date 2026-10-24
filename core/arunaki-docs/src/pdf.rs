@@ -59,6 +59,172 @@ pub fn extract_pdf_text_from_stream(stream_str: &str) -> String {
     out.trim().to_string()
 }
 
+#[derive(Debug, Clone)]
+pub struct PdfBoundingBox {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct PdfExtractedTable {
+    pub index: usize,
+    pub bbox: PdfBoundingBox,
+    pub headers: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+fn split_table_columns(line: &str) -> Vec<String> {
+    if line.contains('|') {
+        let parts: Vec<String> = line
+            .split('|')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.len() >= 2 {
+            return parts;
+        }
+    }
+
+    let mut cols = Vec::new();
+    let mut current = String::new();
+    let mut space_run = 0;
+
+    for ch in line.chars() {
+        if ch == '\t' {
+            let trimmed = current.trim().to_string();
+            if !trimmed.is_empty() {
+                cols.push(trimmed);
+            }
+            current.clear();
+            space_run = 0;
+        } else if ch == ' ' {
+            space_run += 1;
+            if space_run >= 2 {
+                let trimmed = current.trim().to_string();
+                if !trimmed.is_empty() {
+                    cols.push(trimmed);
+                }
+                current.clear();
+            } else {
+                current.push(ch);
+            }
+        } else {
+            space_run = 0;
+            current.push(ch);
+        }
+    }
+
+    let trimmed = current.trim().to_string();
+    if !trimmed.is_empty() {
+        cols.push(trimmed);
+    }
+
+    cols
+}
+
+fn finalize_table(
+    index: usize,
+    start_line: usize,
+    end_line: usize,
+    total_lines: usize,
+    mut rows: Vec<Vec<String>>,
+) -> PdfExtractedTable {
+    let top_pct = ((start_line as f32 / total_lines.max(1) as f32) * 100.0).max(5.0);
+    let height_pct = (((end_line.saturating_sub(start_line)) as f32 / total_lines.max(1) as f32) * 100.0).max(10.0);
+
+    let has_header = rows.len() > 1
+        && rows[0].iter().all(|c| {
+            !c.chars()
+                .all(|ch| ch.is_numeric() || ch == '.' || ch == ',' || ch == '-' || ch == '$' || ch == '%')
+        });
+
+    let (headers, data_rows) = if has_header {
+        let h = rows.remove(0);
+        (h, rows)
+    } else {
+        let col_count = rows.iter().map(|r| r.len()).max().unwrap_or(2);
+        let h = (1..=col_count).map(|i| format!("Col {}", i)).collect();
+        (h, rows)
+    };
+
+    PdfExtractedTable {
+        index,
+        bbox: PdfBoundingBox {
+            x: 8.0,
+            y: top_pct.min(85.0),
+            width: 84.0,
+            height: height_pct.min(90.0),
+        },
+        headers,
+        rows: data_rows,
+    }
+}
+
+pub fn detect_tables_from_text(page_text: &str) -> Vec<PdfExtractedTable> {
+    let lines: Vec<&str> = page_text.lines().map(|l| l.trim()).collect();
+    let total_lines = lines.len();
+    if total_lines == 0 {
+        return Vec::new();
+    }
+
+    let mut tables = Vec::new();
+    let mut current_table_rows: Vec<Vec<String>> = Vec::new();
+    let mut start_line_idx = 0;
+
+    for (line_idx, line) in lines.iter().enumerate() {
+        if line.is_empty() {
+            if current_table_rows.len() >= 2 {
+                tables.push(finalize_table(
+                    tables.len() + 1,
+                    start_line_idx,
+                    line_idx,
+                    total_lines,
+                    current_table_rows,
+                ));
+                current_table_rows = Vec::new();
+            } else {
+                current_table_rows.clear();
+            }
+            continue;
+        }
+
+        let cols: Vec<String> = split_table_columns(line);
+        if cols.len() >= 2 {
+            if current_table_rows.is_empty() {
+                start_line_idx = line_idx;
+            }
+            current_table_rows.push(cols);
+        } else {
+            if current_table_rows.len() >= 2 {
+                tables.push(finalize_table(
+                    tables.len() + 1,
+                    start_line_idx,
+                    line_idx,
+                    total_lines,
+                    current_table_rows,
+                ));
+                current_table_rows = Vec::new();
+            } else {
+                current_table_rows.clear();
+            }
+        }
+    }
+
+    if current_table_rows.len() >= 2 {
+        tables.push(finalize_table(
+            tables.len() + 1,
+            start_line_idx,
+            total_lines,
+            total_lines,
+            current_table_rows,
+        ));
+    }
+
+    tables
+}
+
 pub fn build_pdf_map_from_bytes(file_path: &str, data: &[u8], max_pages: Option<usize>) -> Result<String, String> {
     if !data.starts_with(b"%PDF") {
         return Err("Not a valid PDF file (missing %PDF header)".to_string());
@@ -152,10 +318,44 @@ pub fn build_pdf_map_from_bytes(file_path: &str, data: &[u8], max_pages: Option<
         if !p_text.is_empty() {
             has_text = true;
         }
+
+        let tables = detect_tables_from_text(p_text);
+        let tables_json: Vec<String> = tables
+            .iter()
+            .map(|t| {
+                let h_str = t
+                    .headers
+                    .iter()
+                    .map(|h| json_escape(h))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let r_str = t
+                    .rows
+                    .iter()
+                    .map(|r| {
+                        format!(
+                            "[{}]",
+                            r.iter()
+                                .map(|c| json_escape(c))
+                                .collect::<Vec<_>>()
+                                .join(",")
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+
+                format!(
+                    "{{\"index\":{},\"bbox\":{{\"x\":{:.1},\"y\":{:.1},\"width\":{:.1},\"height\":{:.1}}},\"headers\":[{}],\"rows\":[{}]}}",
+                    t.index, t.bbox.x, t.bbox.y, t.bbox.width, t.bbox.height, h_str, r_str
+                )
+            })
+            .collect();
+
         pages_json.push(format!(
-            "{{\"number\":{},\"text\":{}}}",
+            "{{\"number\":{},\"text\":{},\"tables\":[{}]}}",
             p_num,
-            json_escape(p_text)
+            json_escape(p_text),
+            tables_json.join(",")
         ));
         combined_parts.push(format!("--- PAGE {} ---\n{}", p_num, p_text));
     }

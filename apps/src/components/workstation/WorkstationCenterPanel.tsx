@@ -19,6 +19,10 @@ const DeckCraft = lazy(() =>
   import("./canvas/DeckCraft").then((m) => ({ default: m.DeckCraft }))
 );
 
+const PdfCraft = lazy(() =>
+  import("./canvas/PdfCraft").then((m) => ({ default: m.PdfCraft }))
+);
+
 export type { CenterTab };
 
 export interface WorkstationCenterPanelProps {
@@ -250,6 +254,8 @@ function WorkstationCenterPanelComponent({
       ? "Word Document"
       : (/\.(pptx|ppt|odp)$/i).test(activeTab.title)
       ? "PowerPoint Deck"
+      : (/\.pdf$/i).test(activeTab.title)
+      ? "PDF Document"
       : activeTab.title.split(".").pop()?.toUpperCase() || "Plain Text"
     : "Plain Text";
 
@@ -257,27 +263,38 @@ function WorkstationCenterPanelComponent({
     ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || "workspace"
     : "workspace";
 
+  const isPdf = activeTab
+    ? Boolean(
+        ["pdf"].includes(activeTab.fileType?.toLowerCase() || "") ||
+        (/\.pdf$/i).test(activeTab.title) ||
+        (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("pdf") || activeTab.title.toLowerCase().includes("invoice") || activeTab.title.toLowerCase().includes("faktur")))
+      )
+    : false;
+
   const isSpreadsheet = activeTab
     ? Boolean(
-        ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
-        (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title) ||
-        (activeTab.type === "canvas" && Boolean(activeTab.content && activeTab.content.includes("|") && activeTab.content.includes("\n")))
+        !isPdf &&
+        (["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
+          (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title) ||
+          (activeTab.type === "canvas" && Boolean(activeTab.content && activeTab.content.includes("|") && activeTab.content.includes("\n"))))
       )
     : false;
 
   const isDeck = activeTab
     ? Boolean(
-        ["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
-        (/\.(pptx|ppt|odp)$/i).test(activeTab.title) ||
-        (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("slide") || activeTab.title.toLowerCase().includes("deck") || activeTab.title.toLowerCase().includes("presentasi")))
+        !isPdf &&
+        (["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
+          (/\.(pptx|ppt|odp)$/i).test(activeTab.title) ||
+          (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("slide") || activeTab.title.toLowerCase().includes("deck") || activeTab.title.toLowerCase().includes("presentasi"))))
       )
     : false;
 
   const isWordDoc = activeTab
     ? Boolean(
-        ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
-        (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
-        (activeTab.type === "canvas" && !isSpreadsheet && !isDeck)
+        !isPdf &&
+        (["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
+          (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
+          (activeTab.type === "canvas" && !isSpreadsheet && !isDeck))
       )
     : false;
 
@@ -310,7 +327,23 @@ function WorkstationCenterPanelComponent({
       {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / DECKCRAFT / FILE EDITOR) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
         {activeTab ? (
-          isSpreadsheet ? (
+          isPdf ? (
+            <Suspense
+              fallback={
+                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
+                  Loading PdfCraft...
+                </div>
+              }
+            >
+              <PdfCraft
+                content={currentContent}
+                filePath={activeTab.path}
+                title={activeTab.title}
+                onContentChange={(newContent) => handleTextChange(newContent)}
+                onSave={handleSave}
+              />
+            </Suspense>
+          ) : isSpreadsheet ? (
             <Suspense
               fallback={
                 <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
