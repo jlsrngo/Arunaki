@@ -1,17 +1,12 @@
+pub mod api;
+pub mod dialog;
+pub mod fs;
+pub mod office;
+pub mod system;
+
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
-
-#[tauri::command]
-fn desktop_info() -> serde_json::Value {
-    serde_json::json!({
-        "runtime": "tauri-v2",
-        "engine": "Axum v0.7 + Tokio v1.40",
-        "desktop": "Tauri v2 + Microsoft Edge WebView2",
-        "docs": "Native Win32 COM Sidecar",
-        "os": "Windows_NT x64"
-    })
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -52,7 +47,34 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![desktop_info])
+        .invoke_handler(tauri::generate_handler![
+            // 1. Core API & Window
+            api::desktop_info,
+            api::window_minimize,
+            api::window_toggle_maximize,
+            api::window_close,
+            api::tauri_engine_fetch,
+            api::tauri_cli_login,
+            api::tauri_cli_status,
+            // 2. Native Dialogs
+            dialog::pick_folder,
+            dialog::pick_file,
+            dialog::show_in_explorer,
+            dialog::open_path,
+            // 3. Office COM Companion
+            office::open_excel_native,
+            office::open_word_native,
+            office::open_ppt_native,
+            office::check_office_support,
+            // 4. Safe Project Filesystem
+            fs::list_project_files,
+            fs::read_project_file,
+            fs::write_project_file,
+            // 5. System Diagnostics & Telemetry
+            system::get_system_telemetry,
+            system::detect_cli_binaries,
+            system::system_ping
+        ])
         .setup(|app| {
             // Setup System Tray Icon with Open & Quit menu items
             let show_i = MenuItem::with_id(app, "show", "Open Arunaki", true, None::<&str>)?;

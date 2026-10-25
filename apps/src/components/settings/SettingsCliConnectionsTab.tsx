@@ -15,7 +15,7 @@ import {
   Sparkles,
   Gauge,
 } from "lucide-react";
-import { API_BASE, BRIDGE_URL, apiFetch, bridgeFetch, directoryQuery } from "../../lib/api";
+import { API_BASE, BRIDGE_URL, apiFetch, bridgeFetch, directoryQuery, tauriCliLogin } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -968,18 +968,14 @@ export function SettingsCliConnectionsTab({
   const handleOpenCodeSignOut = async () => {
     setSigningOutTarget("opencode");
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "opencode-logout" }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json.data?.success) {
-        toast.success(isEn ? "Terminal opened" : "Terminal dibuka", {
-          description: json.data.message,
+      const res = await tauriCliLogin("opencode-logout");
+      if (res.success) {
+        toast.success(isEn ? "Signed out from OpenCode" : "Berhasil keluar dari OpenCode", {
+          description: res.message,
         });
+        await fetchStatus();
       } else {
-        toast.error(isEn ? "Sign out failed" : "Gagal keluar", { description: json.data?.message ?? "" });
+        toast.error(isEn ? "Sign out failed" : "Gagal keluar", { description: res.message ?? "" });
       }
     } catch (err: any) {
       toast.error(isEn ? "Sign out error" : "Kesalahan keluar", { description: err.message });
@@ -1049,23 +1045,14 @@ export function SettingsCliConnectionsTab({
   const handleLaunchClaudeTerminal = async () => {
     setIsSigningInCli(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "claude" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
+      const res = await tauriCliLogin("claude");
+      if (res.success) {
         toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
-          description: isEn
-            ? "Claude Code CLI opened in a new terminal window."
-            : "Claude Code CLI dibuka pada jendela terminal baru.",
+          description: res.message,
         });
       } else {
         toast.error(isEn ? "Cannot open terminal automatically" : "Tidak dapat membuka terminal otomatis", {
-          description: isEn
-            ? "Please run 'claude' manually in your terminal."
-            : "Silakan jalankan 'claude' secara manual di terminal.",
+          description: res.message,
         });
       }
     } catch (err: any) {
@@ -1078,23 +1065,14 @@ export function SettingsCliConnectionsTab({
   const handleLaunchCodexTerminal = async () => {
     setIsSigningInCli(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "codex" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
+      const res = await tauriCliLogin("codex");
+      if (res.success) {
         toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
-          description: isEn
-            ? "OpenAI Codex CLI opened in a new terminal window."
-            : "OpenAI Codex CLI dibuka pada jendela terminal baru.",
+          description: res.message,
         });
       } else {
         toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
-          description: isEn
-            ? "Please run 'codex' manually in your terminal."
-            : "Silakan jalankan 'codex' secara manual di terminal.",
+          description: res.message,
         });
       }
     } catch (err: any) {
@@ -1107,23 +1085,14 @@ export function SettingsCliConnectionsTab({
   const handleLaunchOpenCodeTerminal = async () => {
     setIsSigningInCli(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "opencode-terminal" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
+      const res = await tauriCliLogin("opencode-terminal");
+      if (res.success) {
         toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
-          description: isEn
-            ? "OpenCode CLI opened in a new terminal window."
-            : "OpenCode CLI dibuka pada jendela terminal baru.",
+          description: res.message,
         });
       } else {
         toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
-          description: isEn
-            ? "Please run 'opencode' manually in your terminal."
-            : "Silakan jalankan 'opencode' secara manual di terminal.",
+          description: res.message,
         });
       }
     } catch (err: any) {
@@ -1252,13 +1221,8 @@ export function SettingsCliConnectionsTab({
   const handleAntigravityCliLogin = async () => {
     setIsSigningInCli(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity-cli" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
+      const res = await tauriCliLogin("antigravity-cli");
+      if (res.success) {
         toast.info("Antigravity Terminal Opened", {
           description: isEn
             ? "Terminal window opened for CLI authentication."
@@ -1266,7 +1230,7 @@ export function SettingsCliConnectionsTab({
         });
         startAntigravityPoll();
       } else {
-        toast.error(isEn ? "Failed to open CLI terminal" : "Gagal membuka CLI terminal", { description: json.data?.message });
+        toast.error(isEn ? "Failed to open CLI terminal" : "Gagal membuka CLI terminal", { description: res.message });
       }
     } catch (err: any) {
       toast.error(isEn ? "Failed to initiate CLI login" : "Gagal memulai login CLI", { description: err.message });
@@ -1279,20 +1243,15 @@ export function SettingsCliConnectionsTab({
   const handleAntigravityLogout = async () => {
     setIsLoggingOutAntigravity(true);
     try {
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: "antigravity-logout" }),
-      });
-      const json = await res.json();
-      if (json.data?.success) {
+      const res = await tauriCliLogin("antigravity-logout");
+      if (res.success) {
         toast.info("Logged Out", {
           description: "Google Antigravity credentials cleared. You can now login with a new account.",
         });
         await handleDisconnect("antigravity", "Google Antigravity");
         fetchStatus();
       } else {
-        toast.error("Logout failed", { description: json.data?.message });
+        toast.error("Logout failed", { description: res.message });
       }
     } catch (err: any) {
       toast.error("Failed to logout", { description: err.message });

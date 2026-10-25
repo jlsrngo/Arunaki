@@ -1,10 +1,12 @@
 // Centralized engine access.
 //
 // Electron (production): all requests are relayed through IPC. The main process
-// handles auth headers and proxies to the engine's localhost port. The renderer
-// never opens a network connection to the engine directly.
+// handles auth headers and proxies to the engine's localhost port.
 //
-// Dev browser (no Electron): the Vite proxy forwards /api to the engine on :4096,
+// Tauri v2 (production/desktop): all requests are relayed through Native Tauri IPC
+// (tauri_engine_fetch) directly across the native OS bridge without browser network sockets.
+//
+// Dev browser (no desktop shell): the Vite proxy forwards /api to the engine on :4096,
 // so a relative path is correct and requests go over HTTP as before.
 
 const ENGINE_URL = "http://127.0.0.1:4096";
@@ -25,17 +27,26 @@ export function isDesktop(): boolean {
   return !!desktop()?.engineFetch;
 }
 
-/** True when the UI came off disk rather than off the dev server. */
-export function isDesktopBundle() {
-  return typeof location !== "undefined" && location.protocol === "file:";
+/** True when the UI is running inside Tauri v2 desktop shell or loaded off disk. */
+export function isDesktopBundle(): boolean {
+  if (typeof location === "undefined") return false;
+  return (
+    location.protocol === "file:" ||
+    location.protocol === "tauri:" ||
+    location.hostname === "tauri.localhost" ||
+    (typeof window !== "undefined" && (
+      "__TAURI_INTERNALS__" in window ||
+      "__TAURI__" in window
+    ))
+  );
 }
 
-export function engineUrl() {
+export function engineUrl(): string {
   return desktopCredentials()?.engineUrl ?? ENGINE_URL;
 }
 
-// Stays a const so the 62 existing `${API_BASE}` call sites keep working. The preload script runs
-// before any page script, so the desktop credentials are already there when this module evaluates.
+// In Tauri desktop, requests target the local engine directly on :4096.
+// In browser dev mode, requests go through Vite proxy (/api -> :4096).
 export const API_BASE = isDesktopBundle() ? `${engineUrl()}/api` : "/api";
 
 /** Normalize Windows backslashes to forward slashes so SQLite directory queries always match. */
@@ -56,7 +67,7 @@ export function activeDirectory(): string | undefined {
  * The engine authenticates with HTTP Basic (engine/src/server/auth.ts), not with x-api-key - that
  * header was sent for a long time and read by nothing.
  *
- * When running inside Electron, auth is handled by the main process IPC relay
+ * When running inside Electron or Tauri IPC, auth is handled by the main process IPC relay
  * and this function returns empty headers. Only used as fallback for dev browser mode.
  */
 export function authHeader(): Record<string, string> {
@@ -69,21 +80,18 @@ export function authHeader(): Record<string, string> {
 
 /**
  * Path for an engine route that is mounted at the root.
- *
- * Most of the UI talks to `/api/...`, but that prefix is a legacy alias covering only part of the
- * API. The file routes are not in it: `/file`, `/file/content` and `/file/status` answer at the root,
- * and under `/api` they fall through to the UI catch-all and come back 500 with an empty body. That
- * is why the workspace file list silently came back empty - the caller caught the failure and
- * rendered an empty array, which is indistinguishable from an empty folder.
  */
 export function enginePath(path: string): string {
-  // In IPC mode, paths are always root-relative — main process prepends the engine URL
   if (isDesktop()) return path;
-  return isDesktopBundle() ? `${engineUrl()}${path}` : path;
+  if (isDesktopBundle()) {
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    return `${engineUrl()}${path.startsWith("/") ? "" : "/"}${path}`;
+  }
+  return path;
 }
 
 function withDirectory(url: string): string {
-  if (!url.startsWith(`${API_BASE}/`) && !url.startsWith("/api/")) return url;
+  if (!url.startsWith(`${API_BASE}/`) && !url.startsWith("/api/") && !url.includes(":4096/api/")) return url;
   const folder = activeDirectory();
   if (!folder || url.includes("directory=")) return url;
   const separator = url.includes("?") ? "&" : "?";
@@ -124,7 +132,6 @@ function resolveApiPath(input: RequestInfo | URL): string {
   if (typeof input !== "string") {
     return input instanceof URL ? input.pathname + input.search : String(input);
   }
-  // If input is already an absolute URL to the engine, extract the path
   if (input.startsWith("http://127.0.0.1:") || input.startsWith("http://localhost:")) {
     try {
       const u = new URL(input);
@@ -150,7 +157,6 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     const serializableInit: Record<string, any> = {};
     if (init?.method) serializableInit.method = init.method;
     if (init?.body && typeof init.body === "string") serializableInit.body = init.body;
-    // Merge headers (excluding auth — main process adds that)
     const h: Record<string, string> = {};
     if (init?.headers) {
       if (init.headers instanceof Headers) {
@@ -164,7 +170,6 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     if (init?.body && typeof init.body === "string" && !h["Content-Type"] && !h["content-type"]) {
       h["Content-Type"] = "application/json";
     }
-    // Add directory header
     const folder = activeDirectory();
     if (folder && !h["x-arunaki-directory"]) {
       h["x-arunaki-directory"] = folder;
@@ -185,7 +190,55 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     return wrapIpcResponse(ipcRes);
   }
 
-  // ── HTTP path (dev browser, no Electron) ─────────────────────────────
+  // ── Native Tauri v2 IPC path (Zero Network / Direct Memory IPC) ──────
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    if (init?.signal?.aborted) {
+      throw new DOMException("The user aborted a request.", "AbortError");
+    }
+
+    try {
+      const rawPath = resolveApiPath(input);
+      const resolved = withDirectory(rawPath);
+      const h: Record<string, string> = {};
+      if (init?.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((v, k) => { h[k] = v; });
+        } else if (Array.isArray(init.headers)) {
+          for (const [k, v] of init.headers) h[k] = v;
+        } else {
+          Object.assign(h, init.headers);
+        }
+      }
+      for (const [k, v] of Object.entries(authHeader())) {
+        if (!h[k]) h[k] = v;
+      }
+      if (init?.body && typeof init.body === "string" && !h["Content-Type"] && !h["content-type"]) {
+        h["Content-Type"] = "application/json";
+      }
+      const folder = activeDirectory();
+      if (folder && !h["x-arunaki-directory"]) {
+        h["x-arunaki-directory"] = folder;
+      }
+
+      const ipcRes = await tauri.invoke("tauri_engine_fetch", {
+        req: {
+          path: resolved,
+          method: init?.method || "GET",
+          headers: Object.keys(h).length > 0 ? h : undefined,
+          body: typeof init?.body === "string" ? init.body : undefined,
+        },
+      });
+
+      if (ipcRes && typeof (ipcRes as any).status === "number") {
+        return wrapIpcResponse(ipcRes as any);
+      }
+    } catch (ipcErr) {
+      console.warn("[tauri-ipc] Fallback to direct HTTP:", ipcErr);
+    }
+  }
+
+  // ── HTTP path (dev browser or fallback) ──────────────────────────────
   const headers = new Headers(init?.headers);
   for (const [k, v] of Object.entries(authHeader())) headers.set(k, v);
   if (init?.body && typeof init.body === "string" && !headers.has("Content-Type")) {
@@ -195,14 +248,106 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
   if (folder && !headers.has("x-arunaki-directory")) {
     headers.set("x-arunaki-directory", folder);
   }
-  const url = typeof input === "string" ? enginePath(input) : input;
-  const resolved = withDirectory(typeof url === "string" ? url : url.toString());
+  const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : String(input);
+  const targetUrl = (isDesktopBundle() && rawUrl.startsWith("/"))
+    ? `${engineUrl()}${rawUrl}`
+    : typeof input === "string" ? enginePath(input) : input;
+  const resolved = withDirectory(typeof targetUrl === "string" ? targetUrl : targetUrl.toString());
   return fetch(resolved, { ...init, headers });
 }
 
 /**
+ * Direct Tauri native command for Local-CLI operations.
+ */
+export async function tauriCliLogin(target: string): Promise<{ success: boolean; message: string }> {
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    try {
+      const res: any = await tauri.invoke("tauri_cli_login", { target });
+      return res?.data || res;
+    } catch (e: any) {
+      return { success: false, message: e?.message || String(e) };
+    }
+  }
+  const res = await apiFetch(`${API_BASE}/providers/local-cli/login${directoryQuery()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target }),
+  });
+  const json = await res.json().catch(() => ({}));
+  return json?.data || { success: false, message: "No response" };
+}
+
+/**
+ * Direct Tauri native command for Local-CLI status.
+ */
+export async function tauriCliStatus(): Promise<any> {
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    try {
+      const res: any = await tauri.invoke("tauri_cli_status");
+      return res?.data || res;
+    } catch {}
+  }
+  const res = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
+  const json = await res.json().catch(() => ({}));
+  return json?.data || json;
+}
+
+/**
+ * Native Tauri folder picker dialog.
+ */
+export async function tauriPickFolder(): Promise<string | null> {
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    try {
+      const res = await tauri.invoke("pick_folder");
+      return (res as string) || null;
+    } catch (e) {
+      console.error("[tauriPickFolder] Error:", e);
+    }
+  }
+  const d = desktop();
+  if (d?.pickFolder) {
+    const res = await d.pickFolder();
+    return res?.path || null;
+  }
+  return null;
+}
+
+/**
+ * Native Tauri file picker dialog.
+ */
+export async function tauriPickFile(filter?: string): Promise<string | null> {
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    try {
+      const res = await tauri.invoke("pick_file", { filter });
+      return (res as string) || null;
+    } catch (e) {
+      console.error("[tauriPickFile] Error:", e);
+    }
+  }
+  return null;
+}
+
+/**
+ * Reveal path in Windows Explorer.
+ */
+export async function tauriShowInExplorer(path: string): Promise<void> {
+  const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
+  if (tauri?.invoke) {
+    try {
+      await tauri.invoke("show_in_explorer", { path });
+    } catch (e) {
+      console.error("[tauriShowInExplorer] Error:", e);
+    }
+  }
+}
+
+/**
  * Fetch from the bridge server. In Electron, uses IPC relay.
- * In dev browser, falls back to direct HTTP.
+ * In dev browser / Tauri, uses direct HTTP.
  */
 export async function bridgeFetch(input: string, init?: RequestInit): Promise<Response> {
   const d = desktop();
@@ -211,7 +356,6 @@ export async function bridgeFetch(input: string, init?: RequestInit): Promise<Re
       throw new DOMException("The user aborted a request.", "AbortError");
     }
 
-    // Extract path from full URL if needed
     let path = input;
     if (input.startsWith("http://")) {
       try { path = new URL(input).pathname + new URL(input).search; } catch {}
@@ -250,4 +394,3 @@ export function directoryQuery(): string {
   const folder = activeDirectory();
   return folder ? `?directory=${encodeURIComponent(folder)}` : "";
 }
-

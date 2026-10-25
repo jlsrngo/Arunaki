@@ -133,6 +133,65 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 139: Tauri v2 Native Rust IPC Architecture & Frameless Desktop Shell (`api.rs`) ✅ DONE
+**Goal:** Menghilangkan double titlebar Windows dengan custom frameless titlebar (`decorations: false`), memindahkan seluruh logika backend/CLI dari webview fetch ke modul Pure-Rust [`src-tauri/src/api.rs`](file:///E:/ARUNAKI/src-tauri/src/api.rs), dan menyederhanakan `api.ts` di sisi React menjadi thin IPC bridge adapter.
+
+#### 139.1 Frameless Window & Native Drag Region
+- [x] Nonaktifkan dekorasi jendela bawaan Windows OS (`decorations: false`) di `src-tauri/tauri.conf.json`.
+- [x] Berikan kapabilitas `core:window:allow-minimize`, `allow-maximize`, `allow-toggle-maximize`, `allow-close`, `allow-start-dragging` di `src-tauri/capabilities/default.json`.
+- [x] Integrasikan `data-tauri-drag-region` pada header aplikasi dan tombol kontrol native (Minimize, Maximize/Restore, Close) dengan proteksi klik pada elemen interaktif.
+
+#### 139.2 Modular Rust Backend API (`src-tauri/src/api.rs`)
+- [x] Buat modul Rust khusus [`src-tauri/src/api.rs`](file:///E:/ARUNAKI/src-tauri/src/api.rs) yang memuat seluruh handler native Tauri:
+  - `tauri_engine_fetch`: Direct internal loopback dispatcher tanpa limitasi browser web socket.
+  - `tauri_cli_login`: Spawn proses native Windows terminal (`agy`, `codex`, `claude`, `opencode`) dan credential clearance atomic.
+  - `tauri_cli_status`: In-memory harvesting status credential langsung di Rust.
+  - Window commands: `window_minimize`, `window_toggle_maximize`, `window_close`.
+- [x] Refactor [`src-tauri/src/lib.rs`](file:///E:/ARUNAKI/src-tauri/src/lib.rs) menjadi bersih (98 baris) dengan mendelegasikan perintah ke `pub mod api`.
+
+#### 139.3 React Thin-Client Bridge Adapter
+- [x] Perbarui [`apps/src/lib/api.ts`](file:///E:/ARUNAKI/apps/src/lib/api.ts) untuk mengutamakan Native Tauri IPC `invoke()` sebelum fallback ke HTTP.
+- [x] Hubungkan seluruh aksi login dan sign-out CLI di [`SettingsCliConnectionsTab.tsx`](file:///E:/ARUNAKI/apps/src/components/settings/SettingsCliConnectionsTab.tsx) ke `tauriCliLogin()` untuk mencegah 404 network fetch error.
+
+---
+
+### Phase 140: Pure-Rust Native Dialog Module (`dialog.rs`) & Folder Picker Parity ✅ DONE
+**Goal:** Menggantikan pemanggilan legacy `window.arunakiDesktop.pickFolder` dengan modul Pure-Rust [`src-tauri/src/dialog.rs`](file:///E:/ARUNAKI/src-tauri/src/dialog.rs) untuk membuka dialog pemilih folder dan file Windows bawaan secara native tanpa console flash.
+
+#### 140.1 Native Dialog Handlers in Rust
+- [x] Buat modul [`src-tauri/src/dialog.rs`](file:///E:/ARUNAKI/src-tauri/src/dialog.rs) dengan perintah:
+  - `pick_folder`: Membuka `FolderBrowserDialog` Windows di latar belakang secara asynchronous (`tokio::task::spawn_blocking`) dengan flag `CREATE_NO_WINDOW`.
+  - `pick_file`: Membuka `OpenFileDialog` Windows dengan filter ekstensi file.
+  - `show_in_explorer`: Membuka Windows Explorer dan menyorot path file target.
+  - `open_path`: Meluncurkan path file/URL di aplikasi default OS.
+- [x] Daftarkan `pub mod dialog;` dan handler dialog di [`src-tauri/src/lib.rs`](file:///E:/ARUNAKI/src-tauri/src/lib.rs).
+
+#### 140.2 Frontend Integration
+- [x] Tambahkan helper `tauriPickFolder()`, `tauriPickFile()`, dan `tauriShowInExplorer()` di [`apps/src/lib/api.ts`](file:///E:/ARUNAKI/apps/src/lib/api.ts).
+- [x] Integrasikan `tauriPickFolder()` di [`useActiveFolderSync.ts`](file:///E:/ARUNAKI/apps/src/components/layout/hooks/useActiveFolderSync.ts) sehingga tombol "Open Folder" di header langsung membuka dialog native.
+- [x] Integrasikan `tauriPickFolder()` di [`ConnectFolderModal.tsx`](file:///E:/ARUNAKI/apps/src/components/workstation/ConnectFolderModal.tsx) sehingga tombol "Pilih Folder..." bekerja 100%.
+
+---
+
+### Phase 141: Modular Rust Desktop Architecture (`office.rs`, `fs.rs`, `system.rs`) ✅ DONE
+**Goal:** Memindahkan seluruh automasi dokumen Office COM, pembacaan file terisolasi, deteksi tool CLI, dan telemetri hardware ke dalam suite modul Pure-Rust di `src-tauri/src/`.
+
+#### 141.1 Native Win32 COM Document Companion (`office.rs`)
+- [x] Implementasi `open_excel_native`, `open_word_native`, `open_ppt_native` menggunakan `arunaki-docs::com`.
+- [x] Implementasi `check_office_support` untuk deteksi keberadaan aplikasi Microsoft Office di OS Windows.
+
+#### 141.2 Workspace Filesystem Isolation (`fs.rs`)
+- [x] Implementasi `list_project_files`, `read_project_file`, dan `write_project_file`.
+- [x] Proteksi path traversal ketat: akses file di luar folder aktif diblokir (`Path traversal violation`).
+
+#### 141.3 System Telemetry & Diagnostics (`system.rs`)
+- [x] Implementasi `get_system_telemetry`: CPU cores, OS architecture, runtime version.
+- [x] Implementasi `detect_cli_binaries`: scanning PATH otomatis untuk `agy`, `claude`, `codex`, `opencode`, `kiro`, `9router`, `git`, `node`.
+- [x] Implementasi `system_ping`: latency probe webview-to-Rust IPC berpresisi milidetik.
+- [x] Unit testing: 4 unit test di `system.rs` dan `fs.rs` lulus 100% (`cargo test --manifest-path src-tauri/Cargo.toml`).
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:

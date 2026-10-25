@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { triggerKnowledgeSync, triggerKnowledgeSyncIfStale } from "../../../lib/knowledgeSync";
+import { tauriPickFolder } from "../../../lib/api";
 
 export function useActiveFolderSync() {
   const navigate = useNavigate();
@@ -54,34 +55,31 @@ export function useActiveFolderSync() {
   }, [activeFolder]);
 
   const handleOpenFolder = useCallback(async () => {
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-    if (desktop?.pickFolder) {
-      try {
-        const result = await desktop.pickFolder();
-        if (result?.path) {
-          localStorage.setItem("arunaki_active_folder", result.path);
-          setActiveFolder(result.path);
+    try {
+      const selectedPath = await tauriPickFolder();
+      if (selectedPath) {
+        localStorage.setItem("arunaki_active_folder", selectedPath);
+        setActiveFolder(selectedPath);
 
-          // Strictly isolate active chat per folder
-          const folderChatId =
-            localStorage.getItem(`arunaki_active_chat_id_${result.path}`) || "";
-          if (folderChatId) {
-            localStorage.setItem("arunaki_active_chat_id", folderChatId);
-          } else {
-            localStorage.removeItem("arunaki_active_chat_id");
-          }
-
-          window.dispatchEvent(new Event("arunaki-folder-change"));
-          window.dispatchEvent(new Event("arunaki-session-change"));
-
-          const params = new URLSearchParams();
-          params.set("folder", result.path);
-          if (folderChatId) params.set("chatId", folderChatId);
-          navigate(`/?${params.toString()}`);
+        // Strictly isolate active chat per folder
+        const folderChatId =
+          localStorage.getItem(`arunaki_active_chat_id_${selectedPath}`) || "";
+        if (folderChatId) {
+          localStorage.setItem("arunaki_active_chat_id", folderChatId);
+        } else {
+          localStorage.removeItem("arunaki_active_chat_id");
         }
-      } catch (err) {
-        console.error("[useActiveFolderSync] Open folder error:", err);
+
+        window.dispatchEvent(new Event("arunaki-folder-change"));
+        window.dispatchEvent(new Event("arunaki-session-change"));
+
+        const params = new URLSearchParams();
+        params.set("folder", selectedPath);
+        if (folderChatId) params.set("chatId", folderChatId);
+        navigate(`/?${params.toString()}`);
       }
+    } catch (err) {
+      console.error("[useActiveFolderSync] Open folder error:", err);
     }
   }, [navigate]);
 

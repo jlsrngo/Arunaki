@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
+import { tauriPickFolder } from "../../lib/api";
 
 interface ConnectFolderModalProps {
   isOpen: boolean;
@@ -18,27 +19,18 @@ export function ConnectFolderModal({
   if (!isOpen) return null;
 
   const openElectronDialog = async () => {
-    const desktop = typeof window !== "undefined" ? (window as any).arunakiDesktop : null;
-    // The bridge exposes this as pickFolder and it answers { path }. Asking for openFolderDialog
-    // and reading folderPath - neither of which exist - meant the guard fell through to the toast
-    // below every single time, so "Pilih Folder..." never opened a dialog. AppLayout already used
-    // the correct names for the same IPC.
-    if (desktop?.pickFolder) {
-      try {
-        const res = await desktop.pickFolder();
-        if (res?.path) {
-          onOpenFolder(res.path);
-          onClose();
-          setFolderInputPath("");
-          toast.success(`Folder aktif: ${res.path}`);
-        }
-        return;
-      } catch (err: any) {
-        toast.error(`Gagal membuka dialog folder: ${err?.message || err}`);
+    try {
+      const selected = await tauriPickFolder();
+      if (selected) {
+        onOpenFolder(selected);
+        onClose();
+        setFolderInputPath("");
+        toast.success(`Folder aktif: ${selected}`);
         return;
       }
+    } catch (err: any) {
+      toast.error(`Gagal membuka dialog folder: ${err?.message || err}`);
     }
-    toast.info("Use the path input below (or open via desktop app)");
   };
 
   const handleConnectFolderSubmit = (e: React.FormEvent) => {
