@@ -175,3 +175,20 @@ Cakupan Pengujian:
 - Menghasilkan installer resmi Windows NSIS (`.exe`) dan WiX (`.msi`) yang siap
   didistribusikan ke pengguna awam tanpa perlu instalasi manual dependensi tambahan.
 ================================================================================
+
+  1. arunaki.exe (Desktop GUI Launcher):
+      • Terkoneksi langsung (statically linked) dengan modul arunaki-      
+      engine di Rust.
+      • Begitu Anda mengklik arunaki.exe, ia langsung menyalakan server    
+      backend Axum Tokio lokal pada port 127.0.0.1:4096 dan Local-CLI      
+      bridge pada port 20188 secara otomatis di latar belakang.
+      • Ia memuat seluruh tampilan antarmuka dari subfolder dist-
+      ￺portable/web/, termasuk bundel WebAssembly WordCraft yang baru      
+      saja kita pasang.
+  2. arunaki-docs.exe (Win32 COM Document Sidecar):
+      • Terhubung sebagai pendamping (companion) untuk membuka dan
+      mengendalikan aplikasi Microsoft Office asli di Windows
+      (openExcelNative, openWordNative, parsing XML).
+  3. arunaki-engine.exe (CLI/Headless Backend):
+      • Biner server AI Engine yang dapat dijalankan terpisah tanpa GUI    
+      jika dibutuhkan untuk automasi terminal.
