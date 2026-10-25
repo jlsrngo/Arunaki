@@ -79,6 +79,85 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
     });
   }, []);
 
+  useEffect(() => {
+    const handleOpenAppEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ app: string; title?: string; content?: string }>;
+      const app = customEvent.detail?.app?.toLowerCase();
+      if (!app) return;
+
+      if (app === "gridcraft" || app === "grid" || app === "spreadsheet") {
+        const title = customEvent.detail?.title || "GridCraft.xlsx";
+        const id = `app-gridcraft-${Date.now()}`;
+        const content =
+          customEvent.detail?.content ||
+          "Item,Category,Quantity,Unit Price,Total\nProduct A,Electronics,2,150000,=C2*D2\nProduct B,Stationery,5,25000,=C3*D3\nTotal,,,,=SUM(E2:E3)\n";
+        const newTab: CenterTab = {
+          id,
+          type: "file",
+          title,
+          path: title,
+          fileType: "xlsx",
+          content,
+        };
+        setTabs((prev) => [...prev, newTab]);
+        setActiveTabId(id);
+      } else if (app === "wordcraft" || app === "word" || app === "document") {
+        const title = customEvent.detail?.title || "WordCraft.docx";
+        const id = `app-wordcraft-${Date.now()}`;
+        const content =
+          customEvent.detail?.content ||
+          "# Document Title\n\nOfficial document canvas for reports, briefs, and notes.\n\n## Section 1: Executive Summary\nType your content here or use Arunaki AI to draft sections automatically.\n";
+        const newTab: CenterTab = {
+          id,
+          type: "file",
+          title,
+          path: title,
+          fileType: "docx",
+          content,
+        };
+        setTabs((prev) => [...prev, newTab]);
+        setActiveTabId(id);
+      } else if (app === "pdfcraft" || app === "pdf") {
+        const title = customEvent.detail?.title || "PdfCraft.pdf";
+        const id = `app-pdfcraft-${Date.now()}`;
+        const content =
+          customEvent.detail?.content ||
+          "PDF Document Viewer & Cartographer\n\nExtract tables, analyze invoices, and inspect documents.";
+        const newTab: CenterTab = {
+          id,
+          type: "file",
+          title,
+          path: title,
+          fileType: "pdf",
+          content,
+        };
+        setTabs((prev) => [...prev, newTab]);
+        setActiveTabId(id);
+      } else if (app === "deckcraft" || app === "deck" || app === "slides") {
+        const title = customEvent.detail?.title || "DeckCraft.pptx";
+        const id = `app-deckcraft-${Date.now()}`;
+        const content =
+          customEvent.detail?.content ||
+          "# Presentation Title\nExecutive Deck\n---\n## Slide 1: Introduction\n- Key objective 1\n- Key objective 2\n---\n## Slide 2: Next Steps\n- Roadmap and deliverables\n";
+        const newTab: CenterTab = {
+          id,
+          type: "file",
+          title,
+          path: title,
+          fileType: "pptx",
+          content,
+        };
+        setTabs((prev) => [...prev, newTab]);
+        setActiveTabId(id);
+      }
+    };
+
+    window.addEventListener("arunaki:open-app", handleOpenAppEvent);
+    return () => {
+      window.removeEventListener("arunaki:open-app", handleOpenAppEvent);
+    };
+  }, []);
+
   const handleOpenCanvasTab = useCallback((item: CanvasItem) => {
     const canvasTabId = `tab-canvas-${item.id}`;
     setTabs((prev) => {

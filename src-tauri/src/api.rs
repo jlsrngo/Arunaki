@@ -186,6 +186,7 @@ pub async fn tauri_cli_status() -> Result<serde_json::Value, String> {
                     "expiresAt": c.expires_at,
                     "updatedAt": c.updated_at,
                     "autoHarvested": c.auto_harvested,
+                    "accountEmail": c.account_email.clone().or_else(|| c.account_info.clone().filter(|x| x.contains('@'))),
                     "accountInfo": c.account_info,
                     "hasRefreshToken": c.refresh_token.is_some()
                 }),

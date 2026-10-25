@@ -129,6 +129,11 @@ export function useAppCommands({
     navigate("/knowledge");
   }, [navigate]);
 
+  const openApp = useCallback((app: "gridcraft" | "wordcraft" | "pdfcraft" | "deckcraft") => {
+    navigate("/");
+    window.dispatchEvent(new CustomEvent("arunaki:open-app", { detail: { app } }));
+  }, [navigate]);
+
   return {
     undo,
     redo,
@@ -148,6 +153,7 @@ export function useAppCommands({
     exitApp,
     openSettings,
     openKnowledge,
+    openApp,
     openFolder: onOpenFolder,
     closeFolder: onCloseFolder,
     openShortcuts: onOpenShortcuts,

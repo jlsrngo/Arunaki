@@ -521,11 +521,36 @@ fn harvest_antigravity() -> Option<CredentialEntry> {
         .and_then(|v| v.as_str())
         .and_then(parse_iso_to_ms);
 
-    let account_email = data
+    let mut account_email = data
+        .get("id_token_email")
+        .or_else(|| data.get("email"))
+        .or_else(|| data.get("user"))
+        .or_else(|| data.get("account"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            token_obj
+                .get("id_token")
+                .and_then(|v| v.as_str())
+                .and_then(decode_jwt_payload)
+                .and_then(|p| p.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        });
+
+    if account_email.is_none() {
+        for word in trimmed.split(|c: char| c == '"' || c == ' ' || c == ',' || c == '\n') {
+            if word.contains('@') && word.contains('.') && !word.contains('/') && !word.contains('\\') && word.len() >= 5 {
+                account_email = Some(word.to_string());
+                break;
+            }
+        }
+    }
+
+    /*
         .get("id_token_email")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
+    */
     let account_info = account_email
         .as_ref()
         .map(|e| e.clone())
@@ -569,7 +594,11 @@ pub fn harvest_all() -> HashMap<String, bool> {
                         } else {
                             let h_exp = harvested.expires_at.unwrap_or(0);
                             let e_exp = existing.expires_at.unwrap_or(0);
-                            h_exp > e_exp || harvested.access_token != existing.access_token
+                            h_exp > e_exp
+                                || harvested.access_token != existing.access_token
+                                || (existing.account_email.is_none() && harvested.account_email.is_some())
+                                || harvested.account_email != existing.account_email
+                                || harvested.account_info != existing.account_info
                         }
                     }
                 };

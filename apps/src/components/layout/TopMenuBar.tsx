@@ -3,6 +3,7 @@ import {
   FileMenu,
   EditMenu,
   ViewMenu,
+  AppsMenu,
   HelpMenu,
   KeyboardShortcutsModal,
   AboutArunakiModal,
@@ -102,6 +103,14 @@ export const TopMenuBar = memo(function TopMenuBar({
           isOpen={activeMenu === "view"}
           onToggle={() => toggleMenu("view")}
           onMouseEnter={() => handleMouseEnter("view")}
+          onClose={handleClose}
+          commands={commands}
+        />
+
+        <AppsMenu
+          isOpen={activeMenu === "apps"}
+          onToggle={() => toggleMenu("apps")}
+          onMouseEnter={() => handleMouseEnter("apps")}
           onClose={handleClose}
           commands={commands}
         />

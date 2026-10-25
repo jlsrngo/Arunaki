@@ -255,7 +255,11 @@ export function SettingsCliConnectionsTab({
     antigravity: (d) => ({
       installed: Boolean(d.antigravity?.agyInstalled ?? d.antigravity?.cliInstalled),
       signedIn: Boolean(d.antigravity?.agySignedIn || d.sources?.antigravity?.connected),
-      email: d.antigravity?.accountEmail || d.sources?.antigravity?.accountInfo || d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail,
+      email:
+        d.antigravity?.accountEmail ||
+        d.sources?.antigravity?.accountEmail ||
+        (d.sources?.antigravity?.accountInfo?.includes("@") ? d.sources?.antigravity?.accountInfo : undefined) ||
+        d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail,
       version: d.antigravity?.agyVersion,
     }),
     nineRouter: (d) => ({

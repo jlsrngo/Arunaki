@@ -10,6 +10,7 @@ export const translations = {
     file: "File",
     edit: "Edit",
     view: "View",
+    apps: "Apps",
     help: "Help",
 
     // File Menu
@@ -394,6 +395,7 @@ export const translations = {
     file: "Berkas",
     edit: "Edit",
     view: "Tampilan",
+    apps: "Aplikasi",
     help: "Bantuan",
 
     // File Menu

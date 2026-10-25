@@ -127,6 +127,7 @@ pub fn build_discovered_list() -> Vec<Value> {
             "hasRefreshToken": entry.and_then(|e| e.refresh_token.as_ref()).is_some(),
             "isExpired": expired,
             "expiresAt": entry.and_then(|e| e.expires_at),
+            "accountEmail": entry.and_then(|e| e.account_email.clone()).or_else(|| entry.and_then(|e| e.account_info.clone()).filter(|s| s.contains('@'))),
             "region": entry.and_then(|e| e.region.clone()),
             "defaultModel": def_mod,
             "models": default_models_for_target(prov)
