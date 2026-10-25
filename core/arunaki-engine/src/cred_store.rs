@@ -589,7 +589,7 @@ pub fn harvest_all() -> HashMap<String, bool> {
                 let should_update = match store.entries.get(name) {
                     None => true,
                     Some(existing) => {
-                        if !existing.auto_harvested {
+                        if !existing.auto_harvested && existing.account_email.is_some() && existing.expires_at.unwrap_or(0) >= harvested.expires_at.unwrap_or(0) {
                             false
                         } else {
                             let h_exp = harvested.expires_at.unwrap_or(0);

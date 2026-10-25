@@ -300,6 +300,7 @@ pub async fn handle_local_cli_status() -> Response {
                     "updatedAt": c.updated_at,
                     "autoHarvested": c.auto_harvested,
                     "accountInfo": c.account_info,
+                    "accountEmail": c.account_email.clone().or_else(|| c.account_info.clone().filter(|s| s.contains('@'))),
                     "hasRefreshToken": c.refresh_token.is_some(),
                     "quota": quotas.get(s).cloned()
                 }),

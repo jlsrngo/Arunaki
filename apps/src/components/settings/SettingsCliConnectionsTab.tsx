@@ -259,7 +259,8 @@ export function SettingsCliConnectionsTab({
         d.antigravity?.accountEmail ||
         d.sources?.antigravity?.accountEmail ||
         (d.sources?.antigravity?.accountInfo?.includes("@") ? d.sources?.antigravity?.accountInfo : undefined) ||
-        d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail,
+        d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail ||
+        (typeof window !== "undefined" ? localStorage.getItem("arunaki_agy_email") || undefined : undefined),
       version: d.antigravity?.agyVersion,
     }),
     nineRouter: (d) => ({
@@ -551,7 +552,8 @@ export function SettingsCliConnectionsTab({
             </div>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
               {d.vendor}
-              {state.email ? ` • ${state.email}` : state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
+              {state.email ? ` • ${state.email}` : ""}
+              {state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
             </p>
             {/* Say the requirement up front. Hitting a wall in the browser teaches nothing;
                 the user has to come back and guess why it failed. */}
