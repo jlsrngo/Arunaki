@@ -111,6 +111,7 @@ export interface LocalCliData {
   discovered?: DiscoveredCliItem[];
   /** Provider catalog from the engine registry. */
   registry?: CliProviderDescriptor[];
+  sources?: Record<string, any>;
 }
 
 export interface QuotaBucket {

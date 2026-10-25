@@ -221,7 +221,7 @@ pub fn decode_jwt_payload(jwt: &str) -> Option<Value> {
 }
 
 fn parse_iso_to_ms(iso: &str) -> Option<u64> {
-    // Handles "YYYY-MM-DDTHH:MM:SSZ" or similar
+    // Handles "YYYY-MM-DDTHH:MM:SSZ", "YYYY-MM-DDTHH:MM:SS.sss+07:00", etc.
     let s = iso.trim();
     if s.len() < 19 {
         return None;
@@ -232,6 +232,18 @@ fn parse_iso_to_ms(iso: &str) -> Option<u64> {
     let hour: u64 = s.get(11..13)?.parse().ok()?;
     let min: u64 = s.get(14..16)?.parse().ok()?;
     let sec: u64 = s.get(17..19)?.parse().ok()?;
+
+    // Parse timezone offset: "+07:00" or "-05:00" or "Z"
+    let mut offset_secs: i64 = 0;
+    if let Some(pos) = s[19..].find(|c| c == '+' || c == '-') {
+        let tz_str = &s[19 + pos..];
+        if tz_str.len() >= 6 {
+            let sign = if tz_str.starts_with('+') { 1 } else { -1 };
+            if let (Ok(tz_h), Ok(tz_m)) = (tz_str[1..3].parse::<i64>(), tz_str[4..6].parse::<i64>()) {
+                offset_secs = sign * (tz_h * 3600 + tz_m * 60);
+            }
+        }
+    }
 
     // Inverse civil_from_days
     let y = if month <= 2 { year - 1 } else { year };
@@ -244,8 +256,12 @@ fn parse_iso_to_ms(iso: &str) -> Option<u64> {
     if days < 0 {
         return None;
     }
-    let total_secs = (days as u64) * 86400 + hour * 3600 + min * 60 + sec;
-    Some(total_secs * 1000)
+    let local_secs = (days as i64) * 86400 + (hour * 3600 + min * 60 + sec) as i64;
+    let utc_secs = local_secs - offset_secs;
+    if utc_secs < 0 {
+        return None;
+    }
+    Some((utc_secs as u64) * 1000)
 }
 
 #[cfg(windows)]
@@ -505,6 +521,16 @@ fn harvest_antigravity() -> Option<CredentialEntry> {
         .and_then(|v| v.as_str())
         .and_then(parse_iso_to_ms);
 
+    let account_email = data
+        .get("id_token_email")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let account_info = account_email
+        .as_ref()
+        .map(|e| e.clone())
+        .or_else(|| Some("Google Cloud Code (agy)".to_string()));
+
     Some(CredentialEntry {
         source: "antigravity".to_string(),
         access_token,
@@ -513,7 +539,8 @@ fn harvest_antigravity() -> Option<CredentialEntry> {
         client_id: None,
         client_secret: None,
         region: None,
-        account_info: Some("Google Cloud Code (agy)".to_string()),
+        account_email,
+        account_info,
         updated_at: now_iso(),
         auto_harvested: true,
         ..Default::default()
@@ -1443,7 +1470,11 @@ pub async fn fetch_live_quotas_list() -> Vec<Value> {
 
     let mut out = Vec::new();
     for prov in ["antigravity", "claude", "codex", "kiro", "opencode"] {
-        let Some(entry) = creds.get(prov) else {
+        let entry = if let Some(fresh) = ensure_fresh_credential(prov).await {
+            fresh
+        } else if let Some(e) = creds.get(prov).cloned() {
+            e
+        } else {
             out.push(json!({
                 "provider": prov,
                 "ok": false,
@@ -1453,6 +1484,7 @@ pub async fn fetch_live_quotas_list() -> Vec<Value> {
             continue;
         };
 
+        let entry = &entry;
         if is_expired(entry, 0) && prov != "opencode" {
             out.push(json!({
                 "provider": prov,

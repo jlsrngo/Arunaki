@@ -254,8 +254,8 @@ export function SettingsCliConnectionsTab({
     opencode: (d) => ({ installed: true, signedIn: true, version: d.opencode.version }),
     antigravity: (d) => ({
       installed: Boolean(d.antigravity?.agyInstalled ?? d.antigravity?.cliInstalled),
-      signedIn: Boolean(d.antigravity?.agySignedIn),
-      email: d.antigravity?.accountEmail,
+      signedIn: Boolean(d.antigravity?.agySignedIn || d.sources?.antigravity?.connected),
+      email: d.antigravity?.accountEmail || d.sources?.antigravity?.accountInfo || d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail,
       version: d.antigravity?.agyVersion,
     }),
     nineRouter: (d) => ({
@@ -458,7 +458,7 @@ export function SettingsCliConnectionsTab({
     // endpoint has no such target, so the generic buttons below used to fire a request that could
     // only ever 400 and leave a permanent "Refresh failed" badge on a card that reads Connected.
     // It also rendered a second, generic Sign out next to the one that delegates to its CLI.
-    const ownsOwnCredential = id === "opencode";
+    const ownsOwnCredential = id === "opencode" || id === "antigravity";
     const state = cardState[id] ?? {
       installed: false,
       signedIn: false,
@@ -547,7 +547,7 @@ export function SettingsCliConnectionsTab({
             </div>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
               {d.vendor}
-              {state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
+              {state.email ? ` • ${state.email}` : state.version ? ` • ${d.loginMode === "none" ? "" : d.name + " "}${state.version}` : ""}
             </p>
             {/* Say the requirement up front. Hitting a wall in the browser teaches nothing;
                 the user has to come back and guess why it failed. */}
