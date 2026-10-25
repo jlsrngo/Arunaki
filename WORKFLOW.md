@@ -192,6 +192,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 142: ArtCraft WordCraft WASM In-App Suite Integration (Center Panel) ✅ DONE
+**Goal:** Menggantikan tampilan lama `WordCraft.tsx` dengan aplikasi resmi **WordCraft** dari ekosistem ArtCraft (`storytold/wordcraft`) yang di-embed langsung via WebAssembly (WASM) di Panel Tengah Workstation, lengkap dengan Office Ribbon, Margin Ruler, dan Navigation Outline.
+
+#### 142.1 Official WordCraft WASM Bundle
+- [x] Sediakan bundel statis rilis resmi WordCraft Web di `apps/public/artcraft/wordcraft/` (`index.html`, `wordcraft-web.js`, `wordcraft-web_bg.wasm`).
+- [x] Konfigurasi serving aset statis Vite/Tauri untuk dukungan streaming kompilasi WebAssembly (`application/wasm`).
+
+#### 142.2 Embedded Canvas & Bidirectional Bridge
+- [x] Rombak total [`WordCraft.tsx`](file:///E:/ARUNAKI/apps/src/components/workstation/canvas/WordCraft.tsx): hilangkan toolbar manual lama dan gantikan dengan embedded canvas WordCraft Web murni (`?host=parent`).
+- [x] Implementasikan protokol event bus `postMessage`:
+  - `wordcraft:ready` & `wordcraft:open`: Injeksi dokumen dari Arunaki ke kanvas WordCraft seketika.
+  - `wordcraft:save`: Tangkap dokumen hasil simpan/Ctrl+S dari WordCraft dan tulis ke folder proyek aktif.
+  - `wordcraft:dirty`: Sinkronisasi status indikator perubahan file di tab bar.
+- [x] Dual-Mode Office Companion: Pertahankan tombol cepat *"Native Office"* untuk peluncuran langsung ke Microsoft Word desktop Windows asli.
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
