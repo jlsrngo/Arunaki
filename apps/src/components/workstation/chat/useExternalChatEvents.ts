@@ -66,6 +66,20 @@ export function useExternalChatEvents({
           return;
         }
 
+        if (event.type === "open_document_app" || event.type === "open_app") {
+          const app = event.data?.app || (event as any)?.properties?.app;
+          const title = event.data?.title || (event as any)?.properties?.title;
+          const content = event.data?.content || (event as any)?.properties?.content;
+          if (app) {
+            window.dispatchEvent(
+              new CustomEvent("arunaki:open-app", {
+                detail: { app, title, content },
+              })
+            );
+          }
+          return;
+        }
+
         if (event.type === "session_busy" || event.type === "thinking") {
           if (!isStreamingRef.current) {
             setStreamingState(true);

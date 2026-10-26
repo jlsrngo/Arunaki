@@ -22,6 +22,7 @@ import {
   Boxes,
   HelpCircle,
   RotateCcw,
+  Presentation,
 } from "lucide-react";
 
 export interface LiveStatusData {
@@ -159,7 +160,22 @@ export function formatToolStepLabel(
     }
   }
 
-  // 2. Interactive Clarification Question
+  // 2. ArtCraft Document Applications Launch
+  if (t === "open_document_app" || t === "open_app" || t === "launch_app") {
+    const rawApp =
+      (argsOrTarget && typeof argsOrTarget === "object" ? argsOrTarget.app || argsOrTarget.name : undefined) ||
+      target ||
+      "document";
+    const appName =
+      rawApp.toLowerCase().includes("word") ? "WordCraft"
+      : rawApp.toLowerCase().includes("grid") || rawApp.toLowerCase().includes("excel") ? "GridCraft"
+      : rawApp.toLowerCase().includes("pdf") ? "PdfCraft"
+      : rawApp.toLowerCase().includes("deck") || rawApp.toLowerCase().includes("slide") ? "DeckCraft"
+      : "Document App";
+    return isFinished ? `Opened ${appName}` : `Opening ${appName}`;
+  }
+
+  // 3. Interactive Clarification Question
   if (t === "question" || t.includes("ask_question")) {
     return isFinished ? `Asked clarification question` : `Asking clarification question`;
   }
@@ -366,11 +382,18 @@ function renderStepIcon(step: StepItem) {
   }
 
   // Office & Documents
-  if (t.includes("excel") || t.includes("csv") || t.includes("xlsx") || t.includes("xls")) {
+  const l = (step.label || "").toLowerCase();
+  if (t.includes("excel") || t.includes("csv") || t.includes("xlsx") || t.includes("xls") || t.includes("grid") || l.includes("gridcraft")) {
     return <FileSpreadsheet size={12} className="text-white shrink-0 mt-0.5" />;
   }
-  if (t.includes("word") || t.includes("docx") || t.includes("doc")) {
+  if (t.includes("word") || t.includes("docx") || t.includes("doc") || l.includes("wordcraft")) {
     return <FileText size={12} className="text-blue-400 shrink-0 mt-0.5" />;
+  }
+  if (t.includes("pdf") || l.includes("pdfcraft")) {
+    return <FileSearch size={12} className="text-rose-400 shrink-0 mt-0.5" />;
+  }
+  if (t.includes("deck") || t.includes("ppt") || t.includes("slide") || l.includes("deckcraft")) {
+    return <Presentation size={12} className="text-amber-400 shrink-0 mt-0.5" />;
   }
   if (t.includes("knowledge") || t.includes("memory")) {
     return <Database size={12} className="text-purple-400 shrink-0 mt-0.5" />;

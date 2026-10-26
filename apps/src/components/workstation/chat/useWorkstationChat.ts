@@ -219,7 +219,7 @@ export function useWorkstationChat({
         clearWatchdog();
         setLiveStatus({
           type: "thinking",
-          preview: "Network disconnected â€” Waiting for internet connection...",
+          preview: "Network disconnected - Waiting for internet connection...",
         });
         toast.warning("Network connection lost", {
           description: "Execution paused. Arunaki will resume automatically when reconnected.",
@@ -827,11 +827,11 @@ export function useWorkstationChat({
       clearWatchdog();
       watchdogRef.current = setTimeout(async () => {
         if (currentTurnIdRef.current !== assistantMessageId) return;
-        // If computer is offline, don't abort â€” wait for reconnect!
+        // If computer is offline, don't abort - wait for reconnect!
         if (typeof navigator !== "undefined" && !navigator.onLine) {
           setLiveStatus({
             type: "thinking",
-            preview: "Network disconnected â€” Waiting for internet connection...",
+            preview: "Network disconnected - Waiting for internet connection...",
           });
           return;
         }
@@ -868,7 +868,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `⚠️  **No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File -> Preferences -> Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
+                    content: `**No Model Provider Configured:**\n\nNo active AI model provider is configured on this workstation.\n\n**Quick Fix:**\n1. Open **File -> Preferences -> Settings**.\n2. Add and connect your provider (e.g., **Kenari** or **OpenAI**) with a valid API key.\n3. Verify connection with **Test Ping** and ensure it is set to **Primary Active**.\n4. Return here to send your instruction.`,
                   }
                 : m
             )
@@ -884,7 +884,7 @@ export function useWorkstationChat({
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: `⚠️  **Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File -> Preferences -> Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
+                    content: `**Upstream Provider Timeout (${pName}):**\n\nNo response received from **${pName}** within 90 seconds.\n\n**Diagnostics:**\n- Upstream server latency is high (~5000ms ping) or server queue is currently experiencing heavy load.\n${diagnostic.modelName ? `- Active Model: \`${diagnostic.modelName}\`\n` : ""}\n**Recommendations:**\n1. **Try sending again:** Free model queues often clear within 1-2 minutes.\n2. **Switch model:** In **File -> Preferences -> Settings**, select another fast model from the model pool.\n3. Verify provider status with **Test Ping** in Settings.`,
                   }
                 : m
             )
@@ -1371,6 +1371,32 @@ export function useWorkstationChat({
               }
             }
           }
+
+          // Auto-launch ArtCraft document application in Center Panel when open_document_app tool executes
+          const lowerTool = toolName.toLowerCase();
+          if (lowerTool === "open_document_app" || lowerTool === "open_app") {
+            const app = toolData.args?.app || toolData.args?.name || toolData.app;
+            const title = toolData.args?.title || toolData.title;
+            const content = toolData.args?.content || toolData.content;
+            if (app) {
+              window.dispatchEvent(
+                new CustomEvent("arunaki:open-app", {
+                  detail: { app, title, content },
+                })
+              );
+            }
+          }
+        } else if (event.type === "open_document_app" && event.data) {
+          const app = event.data?.app;
+          const title = event.data?.title;
+          const content = event.data?.content;
+          if (app) {
+            window.dispatchEvent(
+              new CustomEvent("arunaki:open-app", {
+                detail: { app, title, content },
+              })
+            );
+          }
         } else if (event.type === "question_asked" && event.data) {
           flushThrottledUpdate();
           if (textEndFinalizeTimeout) {
@@ -1553,7 +1579,7 @@ export function useWorkstationChat({
           setOptimisticMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: `⚠️ **Error:** ${errorMsg}` }
+                ? { ...m, content: `**Error:** ${errorMsg}` }
                 : m
             )
           );

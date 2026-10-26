@@ -2,7 +2,7 @@
 
 **Product:** Arunaki — Autonomous Document Operating System & Desktop Computer Use Agent  
 **Architecture:** Tauri v2 Native Desktop Shell + Axum Tokio Pure-Rust Engine + Native Win32 COM Sidecar  
-**Last Updated:** 2026-10-24  
+**Last Updated:** 2026-10-26  
 
 ---
 
@@ -206,6 +206,27 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
   - `wordcraft:save`: Tangkap dokumen hasil simpan/Ctrl+S dari WordCraft dan tulis ke folder proyek aktif.
   - `wordcraft:dirty`: Sinkronisasi status indikator perubahan file di tab bar.
 - [x] Dual-Mode Office Companion: Pertahankan tombol cepat *"Native Office"* untuk peluncuran langsung ke Microsoft Word desktop Windows asli.
+
+---
+
+### Phase 143: ArtCraft Autonomous Agent Integration & Center Workspace Expansion ✅ DONE
+**Goal:** Menghubungkan 4 suite aplikasi dokumen ArtCraft (WordCraft, GridCraft, PdfCraft, DeckCraft) ke AI Agent via tool resmi `open_document_app`, memperbarui system prompt `default.txt`, menambahkan toggle Maximize Center Workspace (Full width), dan memisahkan CLI connection provider dari menu API key.
+
+#### 143.1 ArtCraft Document Application Tool (`open_document_app`)
+- [x] Implementasi modul Rust `open_app.rs` di `core/arunaki-engine/src/tool/` dengan tool definition dan eksekutor yang memancarkan SSE event `open_document_app`.
+- [x] Registrasi `open_document_app` pada dispatcher `build_tool_definitions()` dan `execute_tool_call()` di `core/arunaki-engine/src/tool/mod.rs`.
+- [x] Penambahan dokumentasi prompt tool `core/arunaki-engine/src/tool/prompt/open_document_app.txt`.
+- [x] Pembaruan system prompt `core/arunaki-engine/src/session/prompt/default.txt` memberi pemahaman bahwa Arunaki memiliki ArtCraft in-app suite dan menginstruksikan agent untuk selalu memanggil `open_document_app` (bukan menyuruh user membuka Start Menu).
+
+#### 143.2 Frontend Event Wiring & Tab Experience
+- [x] Pemetaan event SSE `open_document_app` di `apps/src/lib/engine.ts`.
+- [x] Integrasi listener event `arunaki:open-app` di `useWorkstationChat.ts` dan `useExternalChatEvents.ts` untuk membuka tab dokumen di Panel Tengah saat agent memanggil tool.
+- [x] Telemetri badge eksekusi bersih di `LiveExecutionBadge.tsx` ("Opened WordCraft", "Opening WordCraft") dengan icon representatif SVG.
+- [x] Perbaikan label dan icon tab aplikasi: tipe `"app"` dengan fileType `"wordcraft-app"`, menghapus path palsu `WordCraft.docx` saat meluncurkan aplikasi mandiri.
+- [x] Tombol Maximize Center Workspace (`Maximize2`/`Minimize2`) di `CenterTabHeader.tsx` untuk membentangkan ruang kerja panel tengah hingga 100% selebar layar (dengan menyembunyikan explorer dan chat).
+
+#### 143.3 CLI vs Cloud API Key Provider Isolation
+- [x] Pemisahan ketat penyedia CLI (`codex-cli`, `kiro-cli`, `claude-cli`, dsb.) dan port local-bridge (`20188`/`20189`) dari tab Model Providers di Settings. Tab Providers kini eksklusif untuk API Key cloud.
 
 ---
 

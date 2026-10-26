@@ -1,9 +1,10 @@
-import { memo, type ReactNode } from "react";
-import { X, Copy, Check, Download, Save, FileText, FileSpreadsheet, FileSearch, Presentation } from "lucide-react";
+import { memo, type ReactNode, useCallback } from "react";
+import { X, Copy, Check, Download, Save, FileText, FileSpreadsheet, FileSearch, Presentation, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { CenterTab } from "./types";
 import { DiffLine } from "./diffUtils";
+import { usePanels, setPanel } from "../../../lib/panels";
 
 /** Returns the correct icon for ArtCraft app-type tabs, or falls back to file-extension icon */
 function getTabIcon(tab: CenterTab): ReactNode {
@@ -58,6 +59,18 @@ export const CenterTabHeader = memo(function CenterTabHeader({
   isUnsaved,
   copied,
 }: CenterTabHeaderProps) {
+  const { explorerOpen, chatOpen } = usePanels();
+  const isMaximized = !explorerOpen && !chatOpen;
+  const toggleMaximize = useCallback(() => {
+    if (isMaximized) {
+      setPanel("explorer", true);
+      setPanel("chat", true);
+    } else {
+      setPanel("explorer", false);
+      setPanel("chat", false);
+    }
+  }, [isMaximized]);
+
   if (tabs.length === 0) return null;
 
   return (
@@ -172,6 +185,19 @@ export const CenterTabHeader = memo(function CenterTabHeader({
               <Download className="w-3.5 h-3.5" />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={toggleMaximize}
+            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            title={isMaximized ? "Restore side panels" : "Maximize center workspace (Full width)"}
+          >
+            {isMaximized ? (
+              <Minimize2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+            )}
+          </button>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-// Engine API adapter â€” all requests go through Vite proxy /api -> engine :4096
+// Engine API adapter Ã¢â‚¬â€ all requests go through Vite proxy /api -> engine :4096
 
 // Engine API adapter. Base URL, credentials and directory resolution all live in lib/api.ts -
 // this file used to carry its own copy of the first two, and the copy without credentials is how 19
@@ -643,6 +643,9 @@ export function mapEngineEvent(
     }
     case "session.idle":
       return { type: "done", data: payload };
+    case "open_document_app":
+    case "open_app":
+      return { type: "open_document_app", data: payload };
     default:
       return null;
   }

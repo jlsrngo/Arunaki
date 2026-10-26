@@ -1,0 +1,7 @@
+Open one of the four integrated ArtCraft document applications directly inside Arunaki's Center Panel Workstation:
+- 'wordcraft': Official document canvas for Word documents (.docx), reports, briefs, memos, and letters.
+- 'gridcraft': Interactive spreadsheet engine for Excel (.xlsx, .csv) with formula bar and table cells.
+- 'pdfcraft': Embedded PDF viewer and visual data cartographer for invoices, statements, and bank records.
+- 'deckcraft': Presentation slide carousel and executive deck viewer for slide presentations (.pptx).
+
+Use this tool whenever the user instructs to open, launch, or create documents in WordCraft, GridCraft, PdfCraft, or DeckCraft. Never instruct the user to open desktop software externally from the Windows Start menu or taskbar.
