@@ -109,10 +109,9 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           "# Document Title\n\nOfficial document canvas for reports, briefs, and notes.\n\n## Section 1: Executive Summary\nType your content here or use Arunaki AI to draft sections automatically.\n";
         const newTab: CenterTab = {
           id,
-          type: "file",
+          type: "app",
           title,
-          path: "WordCraft.docx",
-          fileType: "docx",
+          fileType: "wordcraft-app",
           content,
         };
         setTabs((prev) => [...prev, newTab]);

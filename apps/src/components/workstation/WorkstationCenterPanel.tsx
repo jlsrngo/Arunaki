@@ -91,7 +91,7 @@ function WorkstationCenterPanelComponent({
       incomingContent !== existingContent &&
       incomingContent !== previousContents[activeTab.id]
     ) {
-      if (activeTab.type === "file") {
+      if (activeTab.type === "file" || activeTab.type === "app") {
         const prevText = previousContents[activeTab.id] ?? existingContent;
         const diffLines = computeLineDiff(prevText, incomingContent);
         const added = diffLines.filter((l) => l.type === "added").length;
@@ -238,9 +238,20 @@ function WorkstationCenterPanelComponent({
     return set;
   }, [activeDiff]);
 
-  // Detect language mode for VSCode status bar
+  // Detect language mode for VSCode-style status bar
+  // App-type tabs (ArtCraft suite) get clean labels; file tabs use extension detection
   const langMode = activeTab
-    ? activeTab.title.endsWith(".txt")
+    ? activeTab.type === "app"
+      ? activeTab.fileType === "wordcraft-app"
+        ? "Word Document"
+        : activeTab.fileType === "gridcraft-app"
+        ? "Excel Spreadsheet"
+        : activeTab.fileType === "pdfcraft-app"
+        ? "PDF Document"
+        : activeTab.fileType === "deckcraft-app"
+        ? "PowerPoint Deck"
+        : "Document"
+      : activeTab.title.endsWith(".txt")
       ? "Plain Text"
       : activeTab.title.endsWith(".md")
       ? "Markdown"
@@ -292,7 +303,8 @@ function WorkstationCenterPanelComponent({
   const isWordDoc = activeTab
     ? Boolean(
         !isPdf &&
-        (["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
+        (activeTab.fileType === "wordcraft-app" ||
+          ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
           (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
           (activeTab.type === "canvas" && !isSpreadsheet && !isDeck))
       )

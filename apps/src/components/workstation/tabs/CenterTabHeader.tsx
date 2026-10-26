@@ -1,9 +1,27 @@
-import { memo } from "react";
-import { X, Copy, Check, Download, Save } from "lucide-react";
+import { memo, type ReactNode } from "react";
+import { X, Copy, Check, Download, Save, FileText, FileSpreadsheet, FileSearch, Presentation } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { CenterTab } from "./types";
 import { DiffLine } from "./diffUtils";
+
+/** Returns the correct icon for ArtCraft app-type tabs, or falls back to file-extension icon */
+function getTabIcon(tab: CenterTab): ReactNode {
+  if (tab.type === "app") {
+    const iconClass = "w-3.5 h-3.5 shrink-0";
+    switch (tab.fileType) {
+      case "wordcraft-app":
+        return <FileText className={`${iconClass} text-sky-600/85 dark:text-sky-400/80`} strokeWidth={1.5} />;
+      case "gridcraft-app":
+        return <FileSpreadsheet className={`${iconClass} text-emerald-600/85 dark:text-emerald-400/80`} strokeWidth={1.5} />;
+      case "pdfcraft-app":
+        return <FileSearch className={`${iconClass} text-rose-500/85 dark:text-rose-400/80`} strokeWidth={1.5} />;
+      case "deckcraft-app":
+        return <Presentation className={`${iconClass} text-amber-500/85 dark:text-amber-400/80`} strokeWidth={1.5} />;
+    }
+  }
+  return getFileIcon(tab.path || tab.title);
+}
 
 interface CenterTabHeaderProps {
   tabs: CenterTab[];
@@ -72,7 +90,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
                   : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] border-t-2 border-t-transparent"
               )}
             >
-              {getFileIcon(tab.path || tab.title)}
+              {getTabIcon(tab)}
               <span className="truncate max-w-[150px] text-[12px]">{tab.title}</span>
               {hasUnsavedChanges ? (
                 <span
