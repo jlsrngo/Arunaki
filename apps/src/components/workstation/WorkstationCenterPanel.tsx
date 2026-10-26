@@ -6,6 +6,7 @@ import { CenterBreadcrumbs } from "./tabs/CenterBreadcrumbs";
 import { CenterEditorView } from "./tabs/CenterEditorView";
 import { CenterEmptyState } from "./tabs/CenterEmptyState";
 import { CenterStatusBar } from "./tabs/CenterStatusBar";
+import { cn } from "../../lib/utils";
 
 const SpreadsheetViewer = lazy(() =>
   import("./canvas/SpreadsheetViewer").then((m) => ({ default: m.SpreadsheetViewer }))
@@ -173,6 +174,36 @@ function WorkstationCenterPanelComponent({
     setPreviousContents((prev) => ({ ...prev, [activeTab.id]: currentContent }));
   }, [activeTab?.id, currentContent, onSaveTabContent, onUpdateTabContent]);
 
+  const handleTextChangeForTab = useCallback(
+    (tabId: string, newText: string) => {
+      setEditedContents((prev) => ({ ...prev, [tabId]: newText }));
+      setUnsavedTabs((prev) => ({ ...prev, [tabId]: true }));
+      if (onUpdateTabContent) {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+          onUpdateTabContent(tabId, newText);
+        }, 500);
+      }
+    },
+    [onUpdateTabContent]
+  );
+
+  const handleSaveForTab = useCallback(
+    async (tabId: string) => {
+      const contentToSave = editedContents[tabId] ?? tabs.find((t) => t.id === tabId)?.content ?? "";
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (onUpdateTabContent) {
+        onUpdateTabContent(tabId, contentToSave);
+      }
+      if (onSaveTabContent) {
+        await onSaveTabContent(tabId, contentToSave);
+      }
+      setUnsavedTabs((prev) => ({ ...prev, [tabId]: false }));
+      setPreviousContents((prev) => ({ ...prev, [tabId]: contentToSave }));
+    },
+    [editedContents, tabs, onSaveTabContent, onUpdateTabContent]
+  );
+
   const handleScroll = () => {
     if (textareaRef.current && gutterRef.current) {
       gutterRef.current.scrollTop = textareaRef.current.scrollTop;
@@ -276,43 +307,6 @@ function WorkstationCenterPanelComponent({
     ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || "workspace"
     : "workspace";
 
-  const isPdf = activeTab
-    ? Boolean(
-        ["pdf"].includes(activeTab.fileType?.toLowerCase() || "") ||
-        (/\.pdf$/i).test(activeTab.title) ||
-        (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("pdf") || activeTab.title.toLowerCase().includes("invoice") || activeTab.title.toLowerCase().includes("faktur")))
-      )
-    : false;
-
-  const isSpreadsheet = activeTab
-    ? Boolean(
-        !isPdf &&
-        activeTab.type !== "canvas" &&
-        (activeTab.fileType === "gridcraft-app" ||
-          ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
-          (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title))
-      )
-    : false;
-
-  const isDeck = activeTab
-    ? Boolean(
-        !isPdf &&
-        (activeTab.fileType === "deckcraft-app" ||
-          ["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
-          (/\.(pptx|ppt|odp)$/i).test(activeTab.title) ||
-          (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("slide") || activeTab.title.toLowerCase().includes("deck") || activeTab.title.toLowerCase().includes("presentasi"))))
-      )
-    : false;
-
-  const isWordDoc = activeTab
-    ? Boolean(
-        !isPdf &&
-        (activeTab.fileType === "wordcraft-app" ||
-          ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
-          (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
-          (activeTab.type === "canvas" && !isDeck))
-      )
-    : false;
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-app)] overflow-hidden select-none border-r border-[var(--border-color)] transition-colors duration-150">
@@ -356,66 +350,111 @@ function WorkstationCenterPanelComponent({
         />
       )}
 
-      {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / DECKCRAFT / FILE EDITOR) */}
+      {/* 3. DYNAMIC CONTENT BODY (KEEP-ALIVE MULTI-TAB ENGINE) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
-        {activeTab ? (
-          isPdf ? (
-            <Suspense fallback={null}>
-              <PdfCraft
-                content={currentContent}
-                filePath={activeTab.path}
-                title={activeTab.title}
-                onContentChange={(newContent) => handleTextChange(newContent)}
-                onSave={handleSave}
-              />
-            </Suspense>
-          ) : isSpreadsheet ? (
-            <Suspense fallback={null}>
-              <SpreadsheetViewer
-                content={currentContent}
-                filePath={activeTab.path}
-                title={activeTab.title}
-                onContentChange={(newContent) => handleTextChange(newContent)}
-                onSave={handleSave}
-              />
-            </Suspense>
-          ) : isDeck ? (
-            <Suspense fallback={null}>
-              <DeckCraft
-                content={currentContent}
-                filePath={activeTab.path}
-                title={activeTab.title}
-                onContentChange={(newContent) => handleTextChange(newContent)}
-                onSave={handleSave}
-              />
-            </Suspense>
-          ) : isWordDoc ? (
-            <Suspense fallback={null}>
-              <WordCraft
-                content={currentContent}
-                filePath={activeTab.path}
-                title={activeTab.title}
-                onContentChange={(newContent) => handleTextChange(newContent)}
-                onSave={handleSave}
-                onDirtyChange={(dirty) => {
-                  setUnsavedTabs((prev) => ({ ...prev, [activeTab.id]: dirty }));
-                }}
-              />
-            </Suspense>
-          ) : (
-            <CenterEditorView
-              currentContent={currentContent}
-              lineCount={lineCount}
-              addedLineNums={addedLineNums}
-              cursorPos={cursorPos}
-              textareaRef={textareaRef}
-              gutterRef={gutterRef}
-              onTextChange={handleTextChange}
-              updateCursorPos={updateCursorPos}
-              onScroll={handleScroll}
-              onKeyDown={handleKeyDown}
-            />
-          )
+        {tabs.length > 0 ? (
+          tabs.map((tab) => {
+            const isActive = tab.id === activeTabId;
+            const tabContent = editedContents[tab.id] ?? tab.content ?? "";
+
+            const isTabPdf = Boolean(
+              ["pdf"].includes(tab.fileType?.toLowerCase() || "") ||
+              (/\.pdf$/i).test(tab.title) ||
+              (tab.type === "canvas" && (tab.title.toLowerCase().includes("pdf") || tab.title.toLowerCase().includes("invoice") || tab.title.toLowerCase().includes("faktur")))
+            );
+
+            const isTabSpreadsheet = Boolean(
+              !isTabPdf &&
+              (tab.fileType === "gridcraft-app" ||
+                ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(tab.fileType?.toLowerCase() || "") ||
+                (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(tab.title) ||
+                (tab.type === "canvas" && Boolean(tabContent && tabContent.includes("|") && (tabContent.includes("\n") || tabContent.includes("||")))))
+            );
+
+            const isTabDeck = Boolean(
+              !isTabPdf &&
+              (tab.fileType === "deckcraft-app" ||
+                ["pptx", "ppt", "odp"].includes(tab.fileType?.toLowerCase() || "") ||
+                (/\.(pptx|ppt|odp)$/i).test(tab.title) ||
+                (tab.type === "canvas" && (tab.title.toLowerCase().includes("slide") || tab.title.toLowerCase().includes("deck") || tab.title.toLowerCase().includes("presentasi"))))
+            );
+
+            const isTabWordDoc = Boolean(
+              !isTabPdf &&
+              (tab.fileType === "wordcraft-app" ||
+                ["docx", "doc", "odt", "rtf"].includes(tab.fileType?.toLowerCase() || "") ||
+                (/\.(docx|doc|odt|rtf)$/i).test(tab.title) ||
+                (tab.type === "canvas" && !isTabSpreadsheet && !isTabDeck))
+            );
+
+            return (
+              <div
+                key={tab.id}
+                className={cn("w-full h-full flex flex-col flex-1", !isActive && "hidden")}
+                style={{ display: isActive ? "flex" : "none" }}
+              >
+                {isTabPdf ? (
+                  <Suspense fallback={null}>
+                    <PdfCraft
+                      content={tabContent}
+                      filePath={tab.path}
+                      title={tab.title}
+                      onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
+                      onSave={() => handleSaveForTab(tab.id)}
+                    />
+                  </Suspense>
+                ) : isTabSpreadsheet ? (
+                  <Suspense fallback={null}>
+                    <SpreadsheetViewer
+                      content={tabContent}
+                      filePath={tab.path}
+                      title={tab.title}
+                      onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
+                      onSave={() => handleSaveForTab(tab.id)}
+                    />
+                  </Suspense>
+                ) : isTabDeck ? (
+                  <Suspense fallback={null}>
+                    <DeckCraft
+                      content={tabContent}
+                      filePath={tab.path}
+                      title={tab.title}
+                      onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
+                      onSave={() => handleSaveForTab(tab.id)}
+                    />
+                  </Suspense>
+                ) : isTabWordDoc ? (
+                  <Suspense fallback={null}>
+                    <WordCraft
+                      content={tabContent}
+                      filePath={tab.path}
+                      title={tab.title}
+                      onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
+                      onSave={() => handleSaveForTab(tab.id)}
+                      onDirtyChange={(dirty) => {
+                        setUnsavedTabs((prev) => ({ ...prev, [tab.id]: dirty }));
+                      }}
+                    />
+                  </Suspense>
+                ) : (
+                  isActive && (
+                    <CenterEditorView
+                      currentContent={currentContent}
+                      lineCount={lineCount}
+                      addedLineNums={addedLineNums}
+                      cursorPos={cursorPos}
+                      textareaRef={textareaRef}
+                      gutterRef={gutterRef}
+                      onTextChange={handleTextChange}
+                      updateCursorPos={updateCursorPos}
+                      onScroll={handleScroll}
+                      onKeyDown={handleKeyDown}
+                    />
+                  )
+                )}
+              </div>
+            );
+          })
         ) : (
           <CenterEmptyState
             onOpenFolder={onOpenFolder}

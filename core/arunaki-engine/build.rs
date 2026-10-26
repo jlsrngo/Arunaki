@@ -1,5 +1,5 @@
 fn main() {
-    println!("cargo:rerun-if-changed=arunaki.ico");
+    println!("cargo:rerun-if-changed=gear.ico");
     println!("cargo:rerun-if-changed=arunaki.rc");
 
     #[cfg(target_os = "windows")]

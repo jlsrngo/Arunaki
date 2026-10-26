@@ -4,10 +4,12 @@ import App from './App'
 import './index.css'
 import { applyTheme, getStoredTheme } from './lib/theme'
 import { initDesktopBridge } from './lib/desktopBridge'
+import { initArtCraftPreloader } from './lib/artcraftPreloader'
 
-// Initial desktop bridge & theme application on boot
+// Initial desktop bridge, theme, & ArtCraft WASM suite preloader on boot
 initDesktopBridge();
 applyTheme(getStoredTheme());
+initArtCraftPreloader();
 
 // Disable default browser context menu (Back, Forward, Reload, Save as, Print, Inspect)
 window.addEventListener('contextmenu', (e) => {
