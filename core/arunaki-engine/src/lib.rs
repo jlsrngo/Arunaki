@@ -218,7 +218,40 @@ pub async fn handle_fallback(req: Request) -> Response {
         .into_response()
 }
 
+/// Browsers always send `Origin` on cross-site requests; the native webview (same-origin),
+/// CLI tools and other local processes do not. Only Arunaki's own UI and local dev servers
+/// are cross-site origins worth trusting, so everything else is refused.
+pub fn is_allowed_origin(origin: &str) -> bool {
+    origin.starts_with("tauri://")
+        || origin == "http://tauri.localhost"
+        || origin == "https://tauri.localhost"
+        || origin == "http://localhost"
+        || origin == "https://localhost"
+        || origin.starts_with("http://localhost:")
+        || origin.starts_with("https://localhost:")
+        || origin == "http://127.0.0.1"
+        || origin.starts_with("http://127.0.0.1:")
+}
+
 pub async fn cors_and_auth_middleware(req: Request, next: Next) -> Response {
+    // Any page the user opens in a browser can reach loopback:4096; only let Arunaki's
+    // own origins through so a random website cannot drive the local API.
+    if let Some(origin) = req
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+    {
+        if !is_allowed_origin(origin) {
+            return Response::builder()
+                .status(StatusCode::FORBIDDEN)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"error":"Forbidden: cross-site browser access to the local engine is blocked"}"#,
+                ))
+                .unwrap();
+        }
+    }
+
     if req.method() == Method::OPTIONS {
         return Response::builder()
             .status(StatusCode::NO_CONTENT)
@@ -305,4 +338,36 @@ pub async fn cors_and_auth_middleware(req: Request, next: Next) -> Response {
         ),
     );
     resp
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::is_allowed_origin;
+
+    #[test]
+    fn allows_own_ui_and_local_dev_origins() {
+        for origin in [
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+            "http://localhost",
+            "http://localhost:5173",
+            "http://127.0.0.1:4173",
+        ] {
+            assert!(is_allowed_origin(origin), "{origin} should be allowed");
+        }
+    }
+
+    #[test]
+    fn blocks_arbitrary_web_origins() {
+        for origin in [
+            "https://evil.com",
+            "null",
+            "http://localhost.evil.com",
+            "http://127.0.0.1.evil.com",
+            "https://tauri.localhost.evil.com",
+        ] {
+            assert!(!is_allowed_origin(origin), "{origin} should be blocked");
+        }
+    }
 }
