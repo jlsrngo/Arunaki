@@ -498,7 +498,10 @@ export function SettingsCliConnectionsTab({
         <div className="px-4 py-3 flex items-center gap-3 min-w-0">
           <button
             type="button"
-            onClick={() => handleToggleConnection(id, state.active, d.name)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleConnection(id, state.active, d.name);
+            }}
             disabled={busy}
             title={
               state.active
@@ -638,7 +641,10 @@ export function SettingsCliConnectionsTab({
           <div className="flex-1" />
           <button
             type="button"
-            onClick={() => handleToggleConnection(id, state.active, d.name)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleConnection(id, state.active, d.name);
+            }}
             disabled={busy}
             className={cn(
               "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs group",
@@ -725,15 +731,13 @@ export function SettingsCliConnectionsTab({
                   Auto-Configure CLI
                 </button>
               )}
-              {/* Browser PKCE is the default: no CLI to install, one click. The terminal stays as the
-                secondary route for people who already have the vendor CLI, which is what 9Router
-                offers too. */}
-              {d.supportsBrowserLogin && !state.signedIn && (
+              {/* Browser PKCE is the default: no CLI to install, one click. Shows for initial sign-in or when refresh failed */}
+              {d.supportsBrowserLogin && (!state.signedIn || Boolean(refreshErrors[id])) && (
                 <button
                   type="button"
                   onClick={() => handleBrowserSignIn(id)}
                   disabled={oauthPendingTarget === id}
-                  className="px-2 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
+                  className="px-2.5 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-xs"
                   title={
                     isEn
                       ? "Sign in with your browser, no CLI needed"
@@ -749,6 +753,10 @@ export function SettingsCliConnectionsTab({
                     ? isEn
                       ? "Waiting for browser..."
                       : "Menunggu browser..."
+                    : refreshErrors[id]
+                    ? isEn
+                      ? "Re-authenticate via browser"
+                      : "Masuk ulang via browser"
                     : isEn
                     ? "Sign in with browser"
                     : "Masuk via browser"}
@@ -756,7 +764,7 @@ export function SettingsCliConnectionsTab({
               )}
               {/* Signing out deletes the stored token. Without it a user who connected a
                   subscription account had no way to remove it from Arunaki. */}
-              {state.signedIn && discovered?.hasToken && !ownsOwnCredential && (
+              {state.signedIn && (discovered?.hasToken || d.id === "kiro") && !ownsOwnCredential && (
                 <button
                   type="button"
                   onClick={() => handleSignOut(id)}
@@ -1439,6 +1447,16 @@ const isGeminiActive =
     isActive: boolean,
     friendlyName: string
   ) => {
+    const state = cardState[target];
+    if (!isActive && !state?.signedIn) {
+      toast.error(
+        isEn
+          ? `Please sign in to ${friendlyName} first before connecting.`
+          : `Silakan login ke ${friendlyName} terlebih dahulu sebelum menghubungkan.`
+      );
+      setExpandedCards((prev) => ({ ...prev, [target]: true }));
+      return;
+    }
     const config = connectConfigFor(target, friendlyName);
     if (!config) {
       toast.error(isEn ? `${friendlyName} is not ready` : `${friendlyName} belum siap`, {

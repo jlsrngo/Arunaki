@@ -678,8 +678,8 @@ pub async fn refresh_credential_source(
                 #[cfg(windows)]
                 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-                let mut cmd = std::process::Command::new("cmd");
-                cmd.args(["/c", "agy", "models"]);
+                let mut cmd = std::process::Command::new("agy");
+                cmd.arg("models");
                 #[cfg(windows)]
                 cmd.creation_flags(CREATE_NO_WINDOW);
                 cmd.output()
@@ -699,56 +699,69 @@ pub async fn refresh_credential_source(
                     cur = h;
                 }
             }
-            let rt = cur.refresh_token.as_ref()?;
-            let cid = cur.client_id.as_ref()?;
-            let csec = cur.client_secret.as_ref()?;
+            let cid_opt = cur.client_id.as_ref();
+            let csec_opt = cur.client_secret.as_ref();
+            let rt_opt = cur.refresh_token.as_ref();
             let region = cur.region.as_deref().unwrap_or("us-east-1");
             let url = format!("https://oidc.{}.amazonaws.com/token", region);
 
-            let resp = client
-                .post(&url)
-                .json(&json!({
-                    "clientId": cid,
-                    "clientSecret": csec,
-                    "grantType": "refresh_token",
-                    "refreshToken": rt,
-                }))
-                .send()
-                .await
-                .ok()?;
+            if let (Some(cid), Some(csec), Some(rt)) = (cid_opt, csec_opt, rt_opt) {
+                if let Ok(resp) = client
+                    .post(&url)
+                    .json(&json!({
+                        "clientId": cid,
+                        "clientSecret": csec,
+                        "grantType": "refresh_token",
+                        "refreshToken": rt,
+                    }))
+                    .send()
+                    .await
+                {
+                    if resp.status().is_success() {
+                        if let Ok(data) = resp.json::<Value>().await {
+                            if let Some(new_at) = data.get("accessToken").and_then(|v| v.as_str()) {
+                                let new_rt = data
+                                    .get("refreshToken")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string())
+                                    .or_else(|| cur.refresh_token.clone());
+                                let expires_in = data
+                                    .get("expiresIn")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(3600);
 
-            if !resp.status().is_success() {
-                return None;
+                                let updated = CredentialEntry {
+                                    source: "kiro".to_string(),
+                                    access_token: new_at.to_string(),
+                                    refresh_token: new_rt,
+                                    expires_at: Some(now_ms() + expires_in * 1000),
+                                    client_id: Some(cid.clone()),
+                                    client_secret: Some(csec.clone()),
+                                    region: Some(region.to_string()),
+                                    profile_arn: cur.profile_arn.clone(),
+                                    account_id: cur.account_id.clone(),
+                                    account_email: cur.account_email.clone(),
+                                    account_info: cur.account_info.clone(),
+                                    updated_at: now_iso(),
+                                    auto_harvested: cur.auto_harvested,
+                                };
+                                set_credential(updated.clone());
+                                return Some(updated);
+                            }
+                        }
+                    }
+                }
             }
-            let data: Value = resp.json().await.ok()?;
-            let new_at = data.get("accessToken").and_then(|v| v.as_str())?.to_string();
-            let new_rt = data
-                .get("refreshToken")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string())
-                .or_else(|| cur.refresh_token.clone());
-            let expires_in = data
-                .get("expiresIn")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(3600);
 
-            let updated = CredentialEntry {
-                source: "kiro".to_string(),
-                access_token: new_at,
-                refresh_token: new_rt,
-                expires_at: Some(now_ms() + expires_in * 1000),
-                client_id: Some(cid.clone()),
-                client_secret: Some(csec.clone()),
-                region: Some(region.to_string()),
-                profile_arn: cur.profile_arn.clone(),
-                account_id: cur.account_id.clone(),
-                account_email: cur.account_email.clone(),
-                account_info: cur.account_info.clone(),
-                updated_at: now_iso(),
-                auto_harvested: cur.auto_harvested,
-            };
-            set_credential(updated.clone());
-            Some(updated)
+            // Fallback: Check if local SSO cache has a fresh token
+            if let Some(h) = harvest_kiro() {
+                if !is_expired(&h, 0) {
+                    set_credential(h.clone());
+                    return Some(h);
+                }
+            }
+
+            None
         }
         "codex" => {
             let rt = entry.refresh_token.as_ref()?;
@@ -1567,8 +1580,14 @@ pub async fn fetch_live_quotas_list() -> Vec<Value> {
                 }
                 if buckets.is_empty() {
                     buckets.push(json!({
-                        "id": "agy-active",
-                        "label": "Google Cloud Code (agy)",
+                        "id": "agy-gemini",
+                        "label": "Gemini Models",
+                        "remaining": 100,
+                        "exhausted": false
+                    }));
+                    buckets.push(json!({
+                        "id": "agy-claude",
+                        "label": "Claude Models (Antigravity)",
                         "remaining": 100,
                         "exhausted": false
                     }));
