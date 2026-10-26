@@ -72,7 +72,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
                   : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] border-t-2 border-t-transparent"
               )}
             >
-              {getFileIcon(tab.title)}
+              {getFileIcon(tab.path || tab.title)}
               <span className="truncate max-w-[150px] text-[12px]">{tab.title}</span>
               {hasUnsavedChanges ? (
                 <span

@@ -86,7 +86,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
       if (!app) return;
 
       if (app === "gridcraft" || app === "grid" || app === "spreadsheet") {
-        const title = customEvent.detail?.title || "GridCraft.xlsx";
+        const title = customEvent.detail?.title || "GridCraft";
         const id = `app-gridcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -95,14 +95,14 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: title,
+          path: "GridCraft.xlsx",
           fileType: "xlsx",
           content,
         };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabId(id);
       } else if (app === "wordcraft" || app === "word" || app === "document") {
-        const title = customEvent.detail?.title || "WordCraft.docx";
+        const title = customEvent.detail?.title || "WordCraft";
         const id = `app-wordcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -111,14 +111,14 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: title,
+          path: "WordCraft.docx",
           fileType: "docx",
           content,
         };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabId(id);
       } else if (app === "pdfcraft" || app === "pdf") {
-        const title = customEvent.detail?.title || "PdfCraft.pdf";
+        const title = customEvent.detail?.title || "PdfCraft";
         const id = `app-pdfcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -127,14 +127,14 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: title,
+          path: "PdfCraft.pdf",
           fileType: "pdf",
           content,
         };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabId(id);
       } else if (app === "deckcraft" || app === "deck" || app === "slides") {
-        const title = customEvent.detail?.title || "DeckCraft.pptx";
+        const title = customEvent.detail?.title || "DeckCraft";
         const id = `app-deckcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -143,7 +143,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: title,
+          path: "DeckCraft.pptx",
           fileType: "pptx",
           content,
         };
