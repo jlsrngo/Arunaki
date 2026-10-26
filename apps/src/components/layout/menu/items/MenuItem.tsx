@@ -1,9 +1,9 @@
-import { memo, type ReactNode, type ComponentType } from "react";
+import { memo, type ReactNode, type ComponentType, isValidElement } from "react";
 import { Check } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 
 interface MenuItemProps {
-  icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon?: ComponentType<{ className?: string; strokeWidth?: number }> | ReactNode;
   label: string;
   shortcut?: string;
   checked?: boolean;
@@ -15,7 +15,7 @@ interface MenuItemProps {
 }
 
 export const MenuItem = memo(function MenuItem({
-  icon: Icon,
+  icon,
   label,
   shortcut,
   checked,
@@ -25,6 +25,18 @@ export const MenuItem = memo(function MenuItem({
   onClick,
   className,
 }: MenuItemProps) {
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (isValidElement(icon)) {
+      return <div className="w-4 h-4 flex items-center justify-center shrink-0">{icon}</div>;
+    }
+    if (typeof icon === "function") {
+      const IconComponent = icon as ComponentType<{ className?: string; strokeWidth?: number }>;
+      return <IconComponent className="w-4 h-4 text-[var(--text-muted)] shrink-0" strokeWidth={1.75} />;
+    }
+    return <div className="w-4 h-4 flex items-center justify-center shrink-0">{icon}</div>;
+  };
+
   return (
     <button
       type="button"
@@ -37,7 +49,7 @@ export const MenuItem = memo(function MenuItem({
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        {Icon && <Icon className="w-4 h-4 text-[var(--text-muted)] shrink-0" strokeWidth={1.75} />}
+        {renderIcon()}
         <span className="truncate">{label}</span>
       </div>
 

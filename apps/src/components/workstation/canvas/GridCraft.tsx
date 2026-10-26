@@ -64,16 +64,16 @@ export const GridCraft = memo(function GridCraft({
         let buffer: ArrayBuffer | null = null;
 
         // If file exists on disk and is a binary XLSX, read binary bytes
-        if (filePath && filePath.toLowerCase().endsWith(".xlsx")) {
+        if (filePath && (filePath.toLowerCase().endsWith(".xlsx") || filePath.toLowerCase().endsWith(".xls"))) {
           try {
-            const res = await apiFetch("/api/desktop/read-binary", {
+            const res = await apiFetch("/api/desktop/read-file", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ filePath }),
             });
             const json = await res.json();
             if (json?.content) {
-              const binaryStr = atob(json.content);
+              const binaryStr = atob(json.content.trim());
               const bytes = new Uint8Array(binaryStr.length);
               for (let i = 0; i < binaryStr.length; i++) {
                 bytes[i] = binaryStr.charCodeAt(i);
@@ -83,10 +83,23 @@ export const GridCraft = memo(function GridCraft({
           } catch {}
         }
 
-        if (!buffer) {
-          const encoder = new TextEncoder();
-          const bytes = encoder.encode(textPayload);
-          buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        if (!buffer && textPayload) {
+          const trimmed = textPayload.trim();
+          if (trimmed.startsWith("UEsDB") || trimmed.includes(";base64,")) {
+            try {
+              const rawB64 = trimmed.includes(";base64,") ? trimmed.split(";base64,")[1] : trimmed;
+              const binaryStr = atob(rawB64.trim());
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+              }
+              buffer = bytes.buffer;
+            } catch {}
+          } else {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(textPayload);
+            buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          }
         }
 
         iframe.contentWindow.postMessage(

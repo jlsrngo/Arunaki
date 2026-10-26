@@ -312,8 +312,13 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 #### 148.2 Document Byte Transport & Canvas Drop Dispatcher
 - [x] Tambahkan message handler di `index.html` masing-masing aplikasi (`apps/public/artcraft/*/index.html`) yang menyintesiskan `DragEvent("drop")` berstandar W3C DataTransfer ke elemen `<canvas>` egui-winit saat dokumen dikirim dari host.
-- [x] Pembacaan binary dokumen fisik (`.xlsx`, `.pdf`, `.pptx`, `.docx`) melalui endpoint `/api/desktop/read-binary` disalurkan secara aman ke kanvas ArtCraft.
+- [x] Pembacaan binary dokumen fisik (`.xlsx`, `.pdf`, `.pptx`, `.docx`) melalui endpoint `/api/desktop/read-file` disalurkan secara aman ke kanvas ArtCraft dengan decoding base64 ke `ArrayBuffer` murni.
 - [x] Pertahankan Dual-Mode Office Companion (*"Open in Native Excel"*, *"Open in Native Word"*, *"Open in Native PowerPoint"*, *"Open in Native Reader"*) saat file fisik tersedia.
+
+#### 148.3 Official Storytold ArtCraft Icons & Base64 Binary Auto-Decoding Guard
+- [x] Unduh dan sematkan 4 ikon resmi aplikasi dari repositori GitHub Storytold (`gridcraft.png`, `wordcraft.png`, `pdfcraft.png`, `deckcraft.png`).
+- [x] Hubungkan ikon resmi ArtCraft ke menu dropdown `AppsMenu.tsx`, tab header `CenterTabHeader.tsx`, dan penanda ekstensi file di `tree-utils.tsx`.
+- [x] Implementasikan auto-decoding Base64 pada `handle_write_file` di backend Rust (`desktop.rs`) untuk mencegah kebocoran string ASCII Base64 (`UEsDB...`) ke dalam sel Excel atau dokumen Word.
 
 ---
 

@@ -1,4 +1,4 @@
-import { FileText, FileImage, FileSpreadsheet, File, FileCode, FileArchive } from "lucide-react";
+import { FileText, FileImage, File, FileCode, FileArchive } from "lucide-react";
 
 export interface FileItem {
   id: string;
@@ -82,42 +82,46 @@ export function getFileIcon(name: string) {
   const lowerName = name.toLowerCase();
   const ext = lowerName.split(".").pop() || "";
 
-  // Excel / Spreadsheets (Soft Sage / Emerald Green)
+  // Excel / Spreadsheets (GridCraft)
   if (["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(ext)) {
     return (
-      <FileSpreadsheet
-        className="w-3.5 h-3.5 text-emerald-600/85 dark:text-emerald-400/80 shrink-0"
-        strokeWidth={1.5}
+      <img
+        src="/artcraft/gridcraft/gridcraft.png"
+        alt="GridCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
       />
     );
   }
 
-  // Word Documents (Soft Steel / Slate Blue)
+  // Word Documents (WordCraft)
   if (["docx", "doc", "rtf", "odt"].includes(ext)) {
     return (
-      <FileText
-        className="w-3.5 h-3.5 text-sky-600/85 dark:text-sky-400/80 shrink-0"
-        strokeWidth={1.5}
+      <img
+        src="/artcraft/wordcraft/wordcraft.png"
+        alt="WordCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
       />
     );
   }
 
-  // PDF Documents (Soft Coral / Muted Rose)
+  // PDF Documents (PdfCraft)
   if (["pdf"].includes(ext)) {
     return (
-      <FileText
-        className="w-3.5 h-3.5 text-rose-500/85 dark:text-rose-400/80 shrink-0"
-        strokeWidth={1.5}
+      <img
+        src="/artcraft/pdfcraft/pdfcraft.png"
+        alt="PdfCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
       />
     );
   }
 
-  // Presentations / Slides (Soft Ochre / Muted Amber)
+  // Presentations / Slides (DeckCraft)
   if (["pptx", "ppt", "key"].includes(ext)) {
     return (
-      <FileText
-        className="w-3.5 h-3.5 text-amber-500/85 dark:text-amber-400/80 shrink-0"
-        strokeWidth={1.5}
+      <img
+        src="/artcraft/deckcraft/deckcraft.png"
+        alt="DeckCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
       />
     );
   }

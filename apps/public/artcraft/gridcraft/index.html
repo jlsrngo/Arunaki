@@ -27,14 +27,18 @@ window.addEventListener("message", (event) => {
   if (!data || typeof data !== "object") return;
   if (data.type && (data.type === "gridcraft:open" || data.type.endsWith(":open")) && data.bytes) {
     try {
-      const blob = new Blob([data.bytes], { type: "application/octet-stream" });
-      const file = new File([blob], data.name || "Spreadsheet.xlsx", { type: "application/octet-stream" });
+      const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      const blob = new Blob([data.bytes], { type: mime });
+      const file = new File([blob], data.name || "Spreadsheet.xlsx", { type: mime });
       const dt = new DataTransfer();
       dt.items.add(file);
       const canvas = document.getElementById("gridcraft_canvas") || document.querySelector("canvas");
-      const target = canvas || window;
-      target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
-      target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      const targets = [canvas, document, window].filter(Boolean);
+      for (const target of targets) {
+        target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
+        target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+        target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      }
     } catch (err) {
       console.warn("[GridCraft] Drop dispatch error:", err);
     }

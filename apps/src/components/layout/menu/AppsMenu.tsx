@@ -1,10 +1,4 @@
 import { memo } from "react";
-import {
-  FileSpreadsheet,
-  FileText,
-  FileSearch,
-  Presentation,
-} from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 import { BaseMenuProps } from "./types";
@@ -53,7 +47,13 @@ export const AppsMenu = memo(function AppsMenu({
           </div>
 
           <MenuItem
-            icon={FileSpreadsheet}
+            icon={
+              <img
+                src="/artcraft/gridcraft/gridcraft.png"
+                alt="GridCraft"
+                className="w-4 h-4 rounded-xs object-contain shrink-0"
+              />
+            }
             label="GridCraft"
             rightBadge={
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
@@ -67,7 +67,13 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
-            icon={FileText}
+            icon={
+              <img
+                src="/artcraft/wordcraft/wordcraft.png"
+                alt="WordCraft"
+                className="w-4 h-4 rounded-xs object-contain shrink-0"
+              />
+            }
             label="WordCraft"
             rightBadge={
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
@@ -81,7 +87,13 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
-            icon={FileSearch}
+            icon={
+              <img
+                src="/artcraft/pdfcraft/pdfcraft.png"
+                alt="PdfCraft"
+                className="w-4 h-4 rounded-xs object-contain shrink-0"
+              />
+            }
             label="PdfCraft"
             rightBadge={
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
@@ -95,7 +107,13 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
-            icon={Presentation}
+            icon={
+              <img
+                src="/artcraft/deckcraft/deckcraft.png"
+                alt="DeckCraft"
+                className="w-4 h-4 rounded-xs object-contain shrink-0"
+              />
+            }
             label="DeckCraft"
             rightBadge={
               <span className="text-[10px] text-[var(--text-muted)] font-mono">

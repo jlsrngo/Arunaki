@@ -247,14 +247,32 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+    let is_binary = matches!(
+        ext.as_str(),
+        "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "xlsx" | "xls" | "docx" | "doc" | "pptx" | "ppt" | "zip"
+    );
+
     if content.starts_with("data:") && content.contains(";base64,") {
         if let Some((_, b64)) = content.split_once(";base64,") {
-            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64) {
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
                 return match std::fs::write(path, bytes) {
                     Ok(_) => Json(json!({ "success": true })).into_response(),
                     Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
                 };
             }
+        }
+    } else if is_binary || content.starts_with("UEsDB") || content.starts_with("JVBER") {
+        // "UEsDB" = PK\x03\x04 (zip/xlsx/docx/pptx), "JVBER" = %PDF
+        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(content.trim()) {
+            return match std::fs::write(path, bytes) {
+                Ok(_) => Json(json!({ "success": true })).into_response(),
+                Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+            };
         }
     }
     match std::fs::write(path, content) {

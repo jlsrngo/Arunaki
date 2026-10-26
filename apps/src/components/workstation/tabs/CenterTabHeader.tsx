@@ -1,5 +1,5 @@
 import { memo, type ReactNode, useCallback } from "react";
-import { X, Copy, Check, Download, Save, FileText, FileSpreadsheet, FileSearch, Presentation, Maximize2, Minimize2 } from "lucide-react";
+import { X, Copy, Check, Download, Save, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { CenterTab } from "./types";
@@ -9,16 +9,16 @@ import { usePanels, setPanel } from "../../../lib/panels";
 /** Returns the correct icon for ArtCraft app-type tabs, or falls back to file-extension icon */
 function getTabIcon(tab: CenterTab): ReactNode {
   if (tab.type === "app") {
-    const iconClass = "w-3.5 h-3.5 shrink-0";
+    const iconClass = "w-3.5 h-3.5 shrink-0 object-contain rounded-xs";
     switch (tab.fileType) {
       case "wordcraft-app":
-        return <FileText className={`${iconClass} text-sky-600/85 dark:text-sky-400/80`} strokeWidth={1.5} />;
+        return <img src="/artcraft/wordcraft/wordcraft.png" alt="WordCraft" className={iconClass} />;
       case "gridcraft-app":
-        return <FileSpreadsheet className={`${iconClass} text-emerald-600/85 dark:text-emerald-400/80`} strokeWidth={1.5} />;
+        return <img src="/artcraft/gridcraft/gridcraft.png" alt="GridCraft" className={iconClass} />;
       case "pdfcraft-app":
-        return <FileSearch className={`${iconClass} text-rose-500/85 dark:text-rose-400/80`} strokeWidth={1.5} />;
+        return <img src="/artcraft/pdfcraft/pdfcraft.png" alt="PdfCraft" className={iconClass} />;
       case "deckcraft-app":
-        return <Presentation className={`${iconClass} text-amber-500/85 dark:text-amber-400/80`} strokeWidth={1.5} />;
+        return <img src="/artcraft/deckcraft/deckcraft.png" alt="DeckCraft" className={iconClass} />;
     }
   }
   return getFileIcon(tab.path || tab.title);

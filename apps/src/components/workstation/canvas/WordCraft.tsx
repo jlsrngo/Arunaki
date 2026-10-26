@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { apiFetch } from "../../../lib/api";
 
 export interface WordCraftProps {
   content: string;
@@ -58,29 +59,72 @@ export const WordCraft = memo(function WordCraft({
 
   // Send document payload to WordCraft Web via the official host postMessage bridge
   const sendDocumentToWordCraft = useCallback(
-    (textPayload: string, docName: string) => {
+    async (textPayload: string, docName: string) => {
       const iframe = iframeRef.current;
       if (!iframe || !iframe.contentWindow) return;
 
       try {
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(textPayload);
-        const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        let buffer: ArrayBuffer | null = null;
 
-        iframe.contentWindow.postMessage(
-          {
-            type: "wordcraft:open",
-            name: docName || "Document.docx",
-            bytes: buffer,
-          },
-          "*"
-        );
-        lastSentContentRef.current = textPayload;
+        // 1. If physical file exists on disk, read binary bytes via /api/desktop/read-file
+        if (filePath && (/\.(docx|doc|odt|rtf)$/i).test(filePath)) {
+          try {
+            const res = await apiFetch("/api/desktop/read-file", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ filePath }),
+            });
+            const json = await res.json();
+            if (json?.content) {
+              const b64 = json.content.trim();
+              const binaryStr = atob(b64);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+              }
+              buffer = bytes.buffer;
+            }
+          } catch (err) {
+            console.warn("[WordCraft] Binary read fallback:", err);
+          }
+        }
+
+        // 2. If payload is base64 (e.g. starts with UEsDB for zip/docx or data URL)
+        if (!buffer && textPayload) {
+          const trimmed = textPayload.trim();
+          if (trimmed.startsWith("UEsDB") || trimmed.includes(";base64,")) {
+            try {
+              const rawB64 = trimmed.includes(";base64,") ? trimmed.split(";base64,")[1] : trimmed;
+              const binaryStr = atob(rawB64.trim());
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+              }
+              buffer = bytes.buffer;
+            } catch {}
+          } else {
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(textPayload);
+            buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          }
+        }
+
+        if (buffer) {
+          iframe.contentWindow.postMessage(
+            {
+              type: "wordcraft:open",
+              name: docName || "Document.docx",
+              bytes: buffer,
+            },
+            "*"
+          );
+          lastSentContentRef.current = textPayload;
+        }
       } catch (err) {
         console.warn("[WordCraft] Failed to send document buffer:", err);
       }
     },
-    []
+    [filePath]
   );
 
   // Listen for official WordCraft host bridge events (?host=parent)
