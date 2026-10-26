@@ -13,21 +13,21 @@ pub async fn pick_folder() -> Result<Option<String>, String> {
     tokio::task::spawn_blocking(|| {
         #[cfg(windows)]
         {
-            let script = r#"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = "Select Active Project Folder"
-$dialog.ShowNewFolderButton = $true
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $dialog.SelectedPath
-}
-"#;
+            let script = include_str!("../../scripts/pick-folder.ps1");
             let mut cmd = std::process::Command::new("powershell");
-            cmd.args(["-NoProfile", "-Command", script]);
+            cmd.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "-"]);
+            cmd.stdin(std::process::Stdio::piped());
+            cmd.stdout(std::process::Stdio::piped());
+            cmd.stderr(std::process::Stdio::piped());
             cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
-            let output = cmd.output().map_err(|e| format!("Failed to open folder dialog: {}", e))?;
+            let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn folder picker: {}", e))?;
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                let _ = stdin.write_all(script.as_bytes());
+            }
+
+            let output = child.wait_with_output().map_err(|e| format!("Failed to run folder picker: {}", e))?;
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if path.is_empty() {
                 Ok(None)

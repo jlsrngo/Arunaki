@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from "react";
-import { Folder, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw } from "lucide-react";
+import { Folder, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
 import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
@@ -46,6 +46,9 @@ function WorkstationLeftExplorerComponent({
     handleRefresh,
     handleRenamePath,
     handleDeletePath,
+    deleteTarget,
+    setDeleteTarget,
+    confirmDelete,
     handleCreateFile,
     handleCreateFolder,
   } = useNativeFileTree({
@@ -194,6 +197,45 @@ function WorkstationLeftExplorerComponent({
         onToggle={() => setIsCanvasSectionOpen(!isCanvasSectionOpen)}
         onOpenCanvasTab={onOpenCanvasTab}
       />
+
+      {/* Custom Confirmation Modal replacing native browser confirm */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)] shadow-2xl">
+            <div className="flex items-start gap-3.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-white tracking-tight">
+                  Delete Item
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                  Are you sure you want to delete <strong className="text-white">"{deleteTarget.name}"</strong>? This will permanently delete this item from your filesystem.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

@@ -401,6 +401,9 @@ function WorkstationCenterPanelComponent({
                 title={activeTab.title}
                 onContentChange={(newContent) => handleTextChange(newContent)}
                 onSave={handleSave}
+                onDirtyChange={(dirty) => {
+                  setUnsavedTabs((prev) => ({ ...prev, [activeTab.id]: dirty }));
+                }}
               />
             </Suspense>
           ) : (

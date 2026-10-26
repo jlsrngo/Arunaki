@@ -166,14 +166,16 @@ export const CenterTabHeader = memo(function CenterTabHeader({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={onCopyContent}
-            className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title="Copy Content"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-[var(--text-primary)]" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
+          {activeTab.type !== "app" && (
+            <button
+              type="button"
+              onClick={onCopyContent}
+              className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              title="Copy Content"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-[var(--text-primary)]" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          )}
 
           {activeTab.type === "canvas" && (
             <button

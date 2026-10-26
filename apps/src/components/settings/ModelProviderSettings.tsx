@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Loader2, Cpu, Info, Terminal } from "lucide-react";
+import { Plus, Loader2, Cpu, Info, Terminal, Trash2 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
 import { useI18n } from "../../lib/i18n";
@@ -131,6 +131,7 @@ export function ModelProviderSettings({
   });
 
   const [formAvailableModels, setFormAvailableModels] = useState<string[]>(DEFAULT_MODELS["9router"] || []);
+  const [providerToDelete, setProviderToDelete] = useState<string | null>(null);
 
   const resetForm = () => {
     setForm({
@@ -279,8 +280,11 @@ export function ModelProviderSettings({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this provider configuration?")) return;
+  const handleDelete = (id: string) => {
+    setProviderToDelete(id);
+  };
+
+  const executeDelete = async (id: string) => {
     setInternalProviders((prev) => prev.filter((p) => p.id !== id));
     if (onUpdateProviders) onUpdateProviders((prev) => prev.filter((p) => p.id !== id));
     try {
@@ -752,6 +756,49 @@ export function ModelProviderSettings({
               onDelete={handleDelete}
             />
           ))}
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal replacing native browser confirm */}
+      {providerToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)] shadow-2xl">
+            <div className="flex items-start gap-3.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-white tracking-tight">
+                  Delete Provider Configuration
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                  Are you sure you want to delete this provider configuration? This will remove the API key and stored settings for this provider.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
+              <button
+                type="button"
+                onClick={() => setProviderToDelete(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = providerToDelete;
+                  setProviderToDelete(null);
+                  executeDelete(id);
+                }}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

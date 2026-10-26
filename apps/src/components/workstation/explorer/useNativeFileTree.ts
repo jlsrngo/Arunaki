@@ -116,26 +116,31 @@ export function useNativeFileTree({
     [handleRefresh]
   );
 
-  const handleDeletePath = useCallback(
-    async (targetPath: string, targetName: string) => {
-      if (!confirm(`Are you sure you want to delete "${targetName}"?`)) return;
-      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-      if (desktop?.deletePath) {
-        try {
-          const res = await desktop.deletePath(targetPath);
-          if (res?.success) {
-            toast.success(`Deleted "${targetName}"`);
-            handleRefresh();
-          } else {
-            toast.error(res?.error || "Failed to delete");
-          }
-        } catch (err: any) {
-          toast.error(`Delete failed: ${err.message}`);
+  const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null);
+
+  const handleDeletePath = useCallback((targetPath: string, targetName: string) => {
+    setDeleteTarget({ path: targetPath, name: targetName });
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const { path: targetPath, name: targetName } = deleteTarget;
+    setDeleteTarget(null);
+    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+    if (desktop?.deletePath) {
+      try {
+        const res = await desktop.deletePath(targetPath);
+        if (res?.success) {
+          toast.success(`Deleted "${targetName}"`);
+          handleRefresh();
+        } else {
+          toast.error(res?.error || "Failed to delete");
         }
+      } catch (err: any) {
+        toast.error(`Delete failed: ${err.message}`);
       }
-    },
-    [handleRefresh]
-  );
+    }
+  }, [deleteTarget, handleRefresh]);
 
   const handleCreateFile = useCallback(
     async (fileName: string) => {
@@ -197,6 +202,9 @@ export function useNativeFileTree({
     handleRefresh,
     handleRenamePath,
     handleDeletePath,
+    deleteTarget,
+    setDeleteTarget,
+    confirmDelete,
     handleCreateFile,
     handleCreateFolder,
   };

@@ -8,6 +8,7 @@ export interface WordCraftProps {
   title: string;
   onContentChange?: (newContent: string) => void;
   onSave?: () => Promise<void> | void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -23,21 +24,23 @@ export const WordCraft = memo(function WordCraft({
   title,
   onContentChange,
   onSave,
+  onDirtyChange,
 }: WordCraftProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
   const [forceWebGL, setForceWebGL] = useState(false);
 
   // Keep latest callbacks in ref to avoid re-subscribing message listener
   const onContentChangeRef = useRef(onContentChange);
   const onSaveRef = useRef(onSave);
+  const onDirtyChangeRef = useRef(onDirtyChange);
   useEffect(() => {
     onContentChangeRef.current = onContentChange;
     onSaveRef.current = onSave;
-  }, [onContentChange, onSave]);
+    onDirtyChangeRef.current = onDirtyChange;
+  }, [onContentChange, onSave, onDirtyChange]);
 
   const lastSentContentRef = useRef<string | null>(null);
 
@@ -113,7 +116,9 @@ export const WordCraft = memo(function WordCraft({
               onSaveRef.current();
             }
           }
-          setIsDirty(false);
+          if (onDirtyChangeRef.current) {
+            onDirtyChangeRef.current(false);
+          }
         } catch (err) {
           console.warn("[WordCraft] Failed to process saved document bytes:", err);
         }
@@ -121,7 +126,9 @@ export const WordCraft = memo(function WordCraft({
 
       // 3. Document dirty status changes
       else if (data.type === "wordcraft:dirty") {
-        setIsDirty(Boolean(data.dirty));
+        if (onDirtyChangeRef.current) {
+          onDirtyChangeRef.current(Boolean(data.dirty));
+        }
       }
 
       // 4. Failed to start (e.g. GPU WebGL context lost)
@@ -208,16 +215,7 @@ export const WordCraft = memo(function WordCraft({
         </div>
       )}
 
-      {/* 3. Unsaved state indicator */}
-      <div className="absolute top-2 right-3 z-30 flex items-center gap-2 pointer-events-auto">
-        {isDirty && (
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20 backdrop-blur-xs">
-            Unsaved Changes
-          </span>
-        )}
-      </div>
-
-      {/* 4. Official WordCraft Pure-Rust WebAssembly Canvas */}
+      {/* 3. Official WordCraft Pure-Rust WebAssembly Canvas */}
       <iframe
         ref={iframeRef}
         src={iframeSrc}

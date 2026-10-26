@@ -36,6 +36,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
   const [city, setCity] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -189,7 +190,6 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this node?')) return;
     try {
       const res = await apiFetch(`${API_BASE}/knowledge/${nodeId}`, {
         method: 'DELETE',
@@ -396,13 +396,37 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
 
           {/* Footer Actions */}
           <div className="p-4 border-t border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-panel)] shrink-0">
-            <button
-              onClick={handleDelete}
-              className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-              title="Delete Node"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-rose-400 font-medium">Delete node?</span>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-white rounded transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    handleDelete();
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
+                >
+                  Delete
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Delete Node"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             
             <button
               onClick={handleSave}

@@ -230,6 +230,25 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 144: Modern Windows Explorer Folder Picker & Custom Modal System ✅ DONE
+**Goal:** Menggantikan dialog folder lama WinForms dengan dialog modern Windows 10/11 Explorer (`IFileOpenDialog`), menghapus overlay floating di WordCraft yang menimpa toolbar, menyembunyikan tombol copy pada tab aplikasi, dan mengganti seluruh `window.confirm()` dengan modal custom monokrom gelap.
+
+#### 144.1 Modern Windows Explorer Common Item Dialog (`IFileOpenDialog`)
+- [x] Implementasi skrip `scripts/pick-folder.ps1` yang memanggil COM Interface `IFileOpenDialog` (Vista/Win10/Win11) dengan opsi `FOS_PICKFOLDERS`.
+- [x] Sematkan skrip langsung ke dalam binary `dialog.rs` via `include_str!` dengan transmisi stdin pipeline aman tanpa batasan panjang command line.
+- [x] Tombol "Open Folder" kini membuka jendela Windows Explorer modern yang lengkap dengan panel navigasi, breadcrumb address bar, dan tombol "Select Folder" seperti pada VS Code.
+
+#### 144.2 WordCraft Canvas Overlay Elimination & Tab Hygiene
+- [x] Hapus floating overlay badge `Unsaved Changes` yang sebelumnya menimpa tombol bawaan WordCraft WASM di pojok kanan atas.
+- [x] Salurkan event `wordcraft:dirty` langsung ke tab header bar Arunaki sehingga tanda belum disimpan muncul sebagai titik putih bersih pada tab.
+- [x] Sembunyikan tombol copy konten di header tab jika tab yang aktif adalah tab aplikasi (`type === "app"`), menjaga tab header tetap ringkas dan tidak ambigu.
+
+#### 144.3 Custom Dark Monochrome Confirmation Modals
+- [x] Hilangkan seluruh popup bawaan browser `window.confirm()` bertuliskan `tauri.localhost says` di `ModelProviderSettings.tsx`, `WorkstationLeftExplorer.tsx`, dan `KnowledgeNodePanel.tsx`.
+- [x] Ganti dengan modal konfirmasi custom Arunaki bertema monokrom gelap dengan aksen rose, backdrop blur, dan tombol konfirmasi yang terintegrasi rapi dengan antarmuka desktop.
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
