@@ -8,14 +8,19 @@
   
 <script type="module">
 import init, * as bindings from './wordcraft-web-9e321acdac2ac7dc.js';
-const wasm = await init({ module_or_path: './wordcraft-web-9e321acdac2ac7dc_bg.wasm' });
-
-
-window.wasmBindings = bindings;
-
-
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
-
+try {
+  const wasm = await init({ module_or_path: './wordcraft-web-9e321acdac2ac7dc_bg.wasm' });
+  window.wasmBindings = bindings;
+  dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: "wordcraft:ready" }, "*");
+  }
+} catch (err) {
+  console.error("WordCraft WASM init error:", err);
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: "wordcraft:failed", error: String(err) }, "*");
+  }
+}
 </script>
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e6e6e6; }

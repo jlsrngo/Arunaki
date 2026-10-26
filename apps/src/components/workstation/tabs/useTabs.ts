@@ -81,43 +81,108 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
   useEffect(() => {
     const handleOpenAppEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ app: string; title?: string; content?: string }>;
+      const customEvent = e as CustomEvent<{ app: string; title?: string; path?: string; content?: string }>;
       const app = customEvent.detail?.app?.toLowerCase();
       if (!app) return;
 
+      const rawTitle = (customEvent.detail?.title || "").trim();
+      const rawPath = (customEvent.detail?.path || "").trim();
+
       if (app === "gridcraft" || app === "grid" || app === "spreadsheet") {
-        const title = customEvent.detail?.title || "GridCraft";
-        const id = `app-gridcraft-${Date.now()}`;
+        let docTitle = rawTitle;
+        let docPath = rawPath;
+        if (!docTitle && !docPath) {
+          docTitle = "Spreadsheet 1.xlsx";
+          docPath = "Spreadsheet 1.xlsx";
+        } else if (!docPath) {
+          if (docTitle.toLowerCase() === "gridcraft") {
+            docTitle = "GridCraft";
+            docPath = "GridCraft.xlsx";
+          } else {
+            docPath = docTitle.includes(".") ? docTitle : `${docTitle}.xlsx`;
+            if (!docTitle.includes(".")) docTitle = `${docTitle}.xlsx`;
+          }
+        } else if (!docTitle) {
+          docTitle = docPath;
+        }
+
         const content =
           customEvent.detail?.content ||
           "Item,Category,Quantity,Unit Price,Total\nProduct A,Electronics,2,150000,=C2*D2\nProduct B,Stationery,5,25000,=C3*D3\nTotal,,,,=SUM(E2:E3)\n";
-        const newTab: CenterTab = {
-          id,
-          type: "file",
-          title,
-          path: "GridCraft.xlsx",
-          fileType: "xlsx",
-          content,
-        };
-        setTabs((prev) => [...prev, newTab]);
-        setActiveTabId(id);
+
+        setTabs((prev) => {
+          const existing = prev.find((t) => (t.path && t.path === docPath) || t.title === docTitle);
+          if (existing) {
+            return prev.map((t) => (t.id === existing.id ? { ...t, content: content || t.content, path: docPath } : t));
+          }
+          const id = `app-gridcraft-${Date.now()}`;
+          const newTab: CenterTab = {
+            id,
+            type: "file",
+            title: docTitle,
+            path: docPath,
+            fileType: "xlsx",
+            content,
+          };
+          return [...prev, newTab];
+        });
+
+        setTimeout(() => {
+          setTabs((latest) => {
+            const found = latest.find((t) => (t.path && t.path === docPath) || t.title === docTitle);
+            if (found) setActiveTabId(found.id);
+            return latest;
+          });
+        }, 10);
       } else if (app === "wordcraft" || app === "word" || app === "document") {
-        const title = customEvent.detail?.title || "WordCraft";
-        const id = `app-wordcraft-${Date.now()}`;
+        let docTitle = rawTitle;
+        let docPath = rawPath;
+        if (!docTitle && !docPath) {
+          docTitle = "Document 1.docx";
+          docPath = "Document 1.docx";
+        } else if (!docPath) {
+          if (docTitle.toLowerCase() === "wordcraft") {
+            docTitle = "WordCraft";
+            docPath = "WordCraft.docx";
+          } else {
+            docPath = docTitle.includes(".") ? docTitle : `${docTitle}.docx`;
+            if (!docTitle.includes(".")) docTitle = `${docTitle}.docx`;
+          }
+        } else if (!docTitle) {
+          docTitle = docPath;
+        }
+
         const content =
           customEvent.detail?.content ||
           "# Document Title\n\nOfficial document canvas for reports, briefs, and notes.\n\n## Section 1: Executive Summary\nType your content here or use Arunaki AI to draft sections automatically.\n";
-        const newTab: CenterTab = {
-          id,
-          type: "app",
-          title,
-          fileType: "wordcraft-app",
-          content,
-        };
-        setTabs((prev) => [...prev, newTab]);
-        setActiveTabId(id);
+
+        setTabs((prev) => {
+          const existing = prev.find((t) => (t.path && t.path === docPath) || t.title === docTitle);
+          if (existing) {
+            return prev.map((t) => (t.id === existing.id ? { ...t, content: content || t.content, path: docPath } : t));
+          }
+          const id = `app-wordcraft-${Date.now()}`;
+          const newTab: CenterTab = {
+            id,
+            type: "app",
+            title: docTitle,
+            path: docPath,
+            fileType: "wordcraft-app",
+            content,
+          };
+          return [...prev, newTab];
+        });
+
+        setTimeout(() => {
+          setTabs((latest) => {
+            const found = latest.find((t) => (t.path && t.path === docPath) || t.title === docTitle);
+            if (found) setActiveTabId(found.id);
+            return latest;
+          });
+        }, 10);
       } else if (app === "pdfcraft" || app === "pdf") {
-        const title = customEvent.detail?.title || "PdfCraft";
+        const title = rawTitle || "PdfCraft";
+        const path = rawPath || (title.includes(".") ? title : `${title}.pdf`);
         const id = `app-pdfcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -126,14 +191,15 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: "PdfCraft.pdf",
+          path,
           fileType: "pdf",
           content,
         };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabId(id);
       } else if (app === "deckcraft" || app === "deck" || app === "slides") {
-        const title = customEvent.detail?.title || "DeckCraft";
+        const title = rawTitle || "DeckCraft";
+        const path = rawPath || (title.includes(".") ? title : `${title}.pptx`);
         const id = `app-deckcraft-${Date.now()}`;
         const content =
           customEvent.detail?.content ||
@@ -142,7 +208,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           id,
           type: "file",
           title,
-          path: "DeckCraft.pptx",
+          path,
           fileType: "pptx",
           content,
         };
@@ -358,7 +424,12 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
     async (tabId: string, newContent: string) => {
       const targetTab = tabs.find((t) => t.id === tabId);
       if (!targetTab) return;
-      const filePath = targetTab.path || targetTab.title;
+      let filePath = targetTab.path || targetTab.title;
+      if (targetTab.fileType === "wordcraft-app" && !filePath.includes(".")) {
+        filePath = `${filePath}.docx`;
+      } else if (targetTab.fileType === "gridcraft-app" && !filePath.includes(".")) {
+        filePath = `${filePath}.xlsx`;
+      }
       const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
       if (desktop?.writeFile) {
         const fullPath = (filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\"))
@@ -369,7 +440,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           if (res?.success) {
             toast.success(`Saved ${targetTab.title}`);
             setTabs((prev) =>
-              prev.map((t) => (t.id === tabId ? { ...t, content: newContent } : t))
+              prev.map((t) => (t.id === tabId ? { ...t, content: newContent, path: filePath } : t))
             );
             refetchFiles?.();
             return;

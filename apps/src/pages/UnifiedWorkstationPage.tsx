@@ -55,7 +55,7 @@ export function UnifiedWorkstationPage() {
   // Save active document tab callback for top menubar Ctrl+S / File -> Save
   const handleSaveActiveTab = useCallback(() => {
     const activeTab = tabs.tabs.find((t) => t.id === tabs.activeTabId);
-    if (activeTab && activeTab.type === "file") {
+    if (activeTab && (activeTab.type === "file" || activeTab.type === "app")) {
       tabs.handleSaveFileTab(activeTab.id, activeTab.content || "");
       return;
     }

@@ -1,6 +1,7 @@
 //! Document App Launch Tool — opens in-app document applications in Arunaki Center Panel.
 //! Supports WordCraft, GridCraft, PdfCraft, and DeckCraft.
 
+use std::path::Path;
 use serde_json::{json, Value};
 use crate::session::message::emit_event;
 
@@ -20,7 +21,11 @@ pub fn open_app_tool_definition() -> Value {
                     },
                     "title": {
                         "type": "string",
-                        "description": "Optional title for the document tab (e.g. 'WordCraft', 'Laporan Keuangan', 'Project Proposal')."
+                        "description": "Optional title/document name (e.g. 'Kata-Kata Hari Ini', 'Laporan Keuangan', 'Project Proposal')."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Optional relative file path inside active project folder (e.g. 'kata_kata_hari_ini.docx', 'laporan.xlsx'). If provided, the document is linked to this file."
                     },
                     "content": {
                         "type": "string",
@@ -58,23 +63,92 @@ pub fn execute_open_app(session_id: &str, workspace_dir: &str, arguments: &Value
         _ => "Document",
     };
 
-    let title = arguments
+    let default_ext = match app {
+        "wordcraft" => "docx",
+        "gridcraft" => "xlsx",
+        "pdfcraft" => "pdf",
+        "deckcraft" => "pptx",
+        _ => "txt",
+    };
+
+    let raw_title = arguments
         .get("title")
         .and_then(|v| v.as_str())
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(default_title);
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    let raw_path = arguments
+        .get("path")
+        .or_else(|| arguments.get("filePath"))
+        .or_else(|| arguments.get("file"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    let (final_title, final_path) = match (raw_path, raw_title) {
+        (Some(p), Some(t)) => {
+            let title_with_ext = if t.contains('.') {
+                t.to_string()
+            } else {
+                format!("{}.{}", t, default_ext)
+            };
+            (title_with_ext, p.to_string())
+        }
+        (Some(p), None) => {
+            let fname = Path::new(p)
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or(p);
+            (fname.to_string(), p.to_string())
+        }
+        (None, Some(t)) if !t.eq_ignore_ascii_case(default_title) => {
+            let with_ext = if t.contains('.') {
+                t.to_string()
+            } else {
+                format!("{}.{}", t, default_ext)
+            };
+            (with_ext.clone(), with_ext)
+        }
+        _ => (
+            default_title.to_string(),
+            format!("{}.{}", default_title, default_ext),
+        ),
+    };
 
     let content = arguments
         .get("content")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
+    // If workspace_dir is valid and content or a specific document file is specified,
+    // write the file to the workspace folder so it physically exists in File Explorer!
+    if !workspace_dir.trim().is_empty() && (!content.trim().is_empty() || final_title != default_title) {
+        let target_file_path = Path::new(workspace_dir).join(&final_path);
+        if let Some(parent) = target_file_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if !target_file_path.exists() {
+            let initial_bytes = if content.is_empty() {
+                format!("# {}\n\nCreated with Arunaki.\n", final_title)
+            } else {
+                content.to_string()
+            };
+            let _ = std::fs::write(&target_file_path, initial_bytes);
+            emit_event(
+                workspace_dir,
+                "file.edited",
+                json!({ "file": final_path, "sessionID": session_id }),
+            );
+        }
+    }
+
     emit_event(
         workspace_dir,
         "open_document_app",
         json!({
             "app": app,
-            "title": title,
+            "title": final_title,
+            "path": final_path,
             "content": content,
             "sessionID": session_id,
         }),
@@ -83,7 +157,8 @@ pub fn execute_open_app(session_id: &str, workspace_dir: &str, arguments: &Value
     json!({
         "ok": true,
         "app": app,
-        "title": title,
-        "message": format!("Successfully launched {} in the Center Panel Workstation.", default_title)
+        "title": final_title,
+        "path": final_path,
+        "message": format!("Successfully launched {} in the Center Panel Workstation.", final_title)
     })
 }

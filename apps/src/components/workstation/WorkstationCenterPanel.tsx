@@ -334,7 +334,23 @@ function WorkstationCenterPanelComponent({
       />
 
       {/* 2. BREADCRUMBS BAR */}
-      {activeTab && <CenterBreadcrumbs folderName={folderName} tabTitle={activeTab.title} />}
+      {activeTab && (
+        <CenterBreadcrumbs
+          folderName={folderName}
+          tabTitle={activeTab.title}
+          appName={
+            activeTab.fileType === "wordcraft-app"
+              ? "WordCraft"
+              : activeTab.fileType === "gridcraft-app"
+              ? "GridCraft"
+              : activeTab.fileType === "pdfcraft-app"
+              ? "PdfCraft"
+              : activeTab.fileType === "deckcraft-app"
+              ? "DeckCraft"
+              : undefined
+          }
+        />
+      )}
 
       {/* 3. DYNAMIC CONTENT BODY (GRIDCRAFT / WORDCRAFT / DECKCRAFT / FILE EDITOR) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">

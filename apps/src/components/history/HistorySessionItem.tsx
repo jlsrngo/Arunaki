@@ -70,7 +70,14 @@ export const HistorySessionItem = memo(function HistorySessionItem({
             {folderName && (
               <>
                 <span>•</span>
-                <span className="flex items-center gap-1 text-[var(--text-muted)] font-medium truncate" title={session.directory}>
+                <span
+                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-white font-medium truncate transition-colors cursor-pointer"
+                  title={`Open folder: ${session.directory}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClick();
+                  }}
+                >
                   <Folder className="w-3 h-3 shrink-0" strokeWidth={1.5} />
                   <span className="truncate">{folderName}</span>
                 </span>

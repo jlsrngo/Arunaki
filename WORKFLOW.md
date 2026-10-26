@@ -249,6 +249,25 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 145: WordCraft Document Persistence, Breadcrumb Hierarchy & Redundant File Prevention ✅ DONE
+**Goal:** Memastikan setiap dokumen yang dibuat AI di WordCraft langsung ditulis sebagai file fisik `.docx` di folder proyek aktif, memperjelas hirarki Tab & Breadcrumbs (`[Folder] > WordCraft > [Dokumen.docx]`), mengaktifkan auto-save & Ctrl+S ke harddisk, mencegah AI membuat file duplikat berulang, serta mendukung pembukaan folder langsung dari kartu riwayat percakapan.
+
+#### 145.1 WordCraft Physical File Persistence & Open App Tool Extension
+- [x] Perluas tool Rust `open_document_app` (`open_app.rs`) dengan parameter `path`.
+- [x] Jika AI membuat dokumen (misal *"kata kata hari ini"*), sistem otomatis menormalisasi nama file (`kata kata hari ini.docx`), menulis isi awal ke disk aktif di `workspace_dir`, dan memancarkan event `file.edited` agar file seketika muncul di File Explorer sebelah kiri.
+- [x] Pembaruan system prompt `core/arunaki-engine/src/session/prompt/default.txt`: instruksi wajib mengecek file yang sudah ada (`read`, `glob`) dan memperbarui file eksisting dengan `edit` / `write` tanpa membuat file duplikat baru (misal `laporan_1.xlsx` atau `kata_kata_baru.docx`).
+
+#### 145.2 Clear Breadcrumb Hierarchy & Tab Hygiene
+- [x] Perbarui [`CenterBreadcrumbs.tsx`](file:///E:/ARUNAKI/apps/src/components/workstation/tabs/CenterBreadcrumbs.tsx) untuk menampilkan alur hirarkis: `[Nama Folder] > [Nama App] > [Nama Dokumen]` (contoh: `workspace > WordCraft > kata kata hari ini.docx`).
+- [x] Tab Header menampilkan nama dokumen nyata dengan icon WordCraft, dan deduplikasi tab mencegah tab ganda untuk file dokumen yang sama.
+- [x] Dukungan penyimpanan file app di [`useTabs.ts`](file:///E:/ARUNAKI/apps/src/components/workstation/tabs/useTabs.ts) dan [`UnifiedWorkstationPage.tsx`](file:///E:/ARUNAKI/apps/src/pages/UnifiedWorkstationPage.tsx) untuk menyimpan perubahan WordCraft (`wordcraft-app`) langsung ke file disk fisik via `desktop.writeFile`.
+- [x] Frame WordCraft `apps/public/artcraft/wordcraft/index.html` memancarkan `wordcraft:ready` saat WebAssembly boot, dan iframe `onLoad` membersihkan spinner seketika.
+
+#### 145.3 History Session Folder Navigation
+- [x] Badge folder pada kartu riwayat di [`HistorySessionItem.tsx`](file:///E:/ARUNAKI/apps/src/components/history/HistorySessionItem.tsx) kini interaktif (hover efek dan klik langsung) untuk membuka folder proyek dan melanjutkan percakapan terkait.
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:

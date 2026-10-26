@@ -220,6 +220,9 @@ export const WordCraft = memo(function WordCraft({
         ref={iframeRef}
         src={iframeSrc}
         title="ArtCraft WordCraft Suite"
+        onLoad={() => {
+          setIsLoading(false);
+        }}
         className={cn(
           "w-full h-full border-0 block flex-1 transition-opacity duration-200",
           isLoading ? "opacity-0" : "opacity-100"
