@@ -287,16 +287,18 @@ function WorkstationCenterPanelComponent({
   const isSpreadsheet = activeTab
     ? Boolean(
         !isPdf &&
-        (["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
-          (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title) ||
-          (activeTab.type === "canvas" && Boolean(activeTab.content && activeTab.content.includes("|") && activeTab.content.includes("\n"))))
+        activeTab.type !== "canvas" &&
+        (activeTab.fileType === "gridcraft-app" ||
+          ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(activeTab.fileType?.toLowerCase() || "") ||
+          (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(activeTab.title))
       )
     : false;
 
   const isDeck = activeTab
     ? Boolean(
         !isPdf &&
-        (["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
+        (activeTab.fileType === "deckcraft-app" ||
+          ["pptx", "ppt", "odp"].includes(activeTab.fileType?.toLowerCase() || "") ||
           (/\.(pptx|ppt|odp)$/i).test(activeTab.title) ||
           (activeTab.type === "canvas" && (activeTab.title.toLowerCase().includes("slide") || activeTab.title.toLowerCase().includes("deck") || activeTab.title.toLowerCase().includes("presentasi"))))
       )
@@ -308,7 +310,7 @@ function WorkstationCenterPanelComponent({
         (activeTab.fileType === "wordcraft-app" ||
           ["docx", "doc", "odt", "rtf"].includes(activeTab.fileType?.toLowerCase() || "") ||
           (/\.(docx|doc|odt|rtf)$/i).test(activeTab.title) ||
-          (activeTab.type === "canvas" && !isSpreadsheet && !isDeck))
+          (activeTab.type === "canvas" && !isDeck))
       )
     : false;
 
@@ -358,13 +360,7 @@ function WorkstationCenterPanelComponent({
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative overflow-hidden bg-[var(--bg-card)]">
         {activeTab ? (
           isPdf ? (
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-                  Loading PdfCraft...
-                </div>
-              }
-            >
+            <Suspense fallback={null}>
               <PdfCraft
                 content={currentContent}
                 filePath={activeTab.path}
@@ -374,13 +370,7 @@ function WorkstationCenterPanelComponent({
               />
             </Suspense>
           ) : isSpreadsheet ? (
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-                  Loading GridCraft...
-                </div>
-              }
-            >
+            <Suspense fallback={null}>
               <SpreadsheetViewer
                 content={currentContent}
                 filePath={activeTab.path}
@@ -390,13 +380,7 @@ function WorkstationCenterPanelComponent({
               />
             </Suspense>
           ) : isDeck ? (
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-                  Loading DeckCraft...
-                </div>
-              }
-            >
+            <Suspense fallback={null}>
               <DeckCraft
                 content={currentContent}
                 filePath={activeTab.path}
@@ -406,13 +390,7 @@ function WorkstationCenterPanelComponent({
               />
             </Suspense>
           ) : isWordDoc ? (
-            <Suspense
-              fallback={
-                <div className="flex-1 flex items-center justify-center text-xs text-[var(--text-muted)] font-mono">
-                  Loading WordCraft...
-                </div>
-              }
-            >
+            <Suspense fallback={null}>
               <WordCraft
                 content={currentContent}
                 filePath={activeTab.path}
