@@ -29,3 +29,4 @@ bytes = "1.6"
 tao = "0.37"
 wry = "0.57"
 mime_guess = "2.0"
+tower = { version = "0.5", features = ["util"] }

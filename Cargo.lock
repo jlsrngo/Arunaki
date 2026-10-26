@@ -107,6 +107,7 @@ dependencies = [
  "tao",
  "tokio",
  "tokio-stream",
+ "tower",
  "wry",
 ]
 
