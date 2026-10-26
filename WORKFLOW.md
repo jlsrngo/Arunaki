@@ -284,6 +284,39 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 147: Native Modern File Explorer Dialog (`rfd`), Desktop Bridge IPC & Engine Console Subsystem ✅ DONE
+**Goal:** Mengganti dialog pemilih folder pohon WinForms dengan Modern Windows File Explorer asli (`rfd`), menghubungkan `desktopBridge.ts` via Native Tauri IPC Direct Memory (`apiFetch`), serta mengaktifkan konsol terminal pada executable daemon `arunaki-engine.exe`.
+
+#### 147.1 Modern Windows File Explorer Picker via `rfd`
+- [x] Integrasikan crate `rfd` ("Rust File Dialog") pada [`src-tauri`](file:///E:/JS/Arunika/src-tauri/Cargo.toml) dan perbarui [`src-tauri/src/dialog.rs`](file:///E:/JS/Arunika/src-tauri/src/dialog.rs).
+- [x] Menghilangkan subprocess PowerShell pembuat dialog pohon lama; memanggil Win32 COM `IFileOpenDialog` modern secara langsung di level native Rust (0 latency, tampilan full File Explorer dengan Quick Access, address bar, dan tombol *Select Folder*).
+
+#### 147.2 Desktop Bridge Native Tauri IPC
+- [x] Buat [`desktopBridge.ts`](file:///E:/JS/Arunika/apps/src/lib/desktopBridge.ts) dan inisialisasi pada [`main.tsx`](file:///E:/JS/Arunika/apps/src/main.tsx) saat aplikasi boot.
+- [x] Seluruh pemanggilan `window.arunakiDesktop` (folder-tree, read-file, write-file, native Office) dialihkan melalui `apiFetch` yang secara otomatis menggunakan `tauri_engine_fetch` (Zero Network / Direct Memory IPC).
+
+#### 147.3 Console Subsystem for Engine Daemon
+- [x] Hapus atribut `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` dari [`core/arunaki-engine/src/main.rs`](file:///E:/JS/Arunika/core/arunaki-engine/src/main.rs).
+- [x] `arunaki-engine.exe` kini membuka jendela konsol terminal interaktif lengkap dengan banner ASCII dan live logs saat dijalankan secara mandiri.
+
+---
+
+### Phase 148: Pure ArtCraft 4-Core Document Suite (Zero Custom UI Clutter & Pure-WASM In-App Integration) ✅ DONE
+**Goal:** Menghilangkan seluruh toolbar buatan, custom formula bar, dan kontrol tiruan di Panel Tengah; menggantikannya 100% dengan aplikasi WebAssembly murni dari suite resmi ArtCraft (**GridCraft**, **WordCraft**, **PdfCraft**, dan **DeckCraft**).
+
+#### 148.1 Zero Custom UI Clutter Across 4 Core Document Canvases
+- [x] Rombak `GridCraft.tsx`: hapus 1000 baris custom spreadsheet grid & formula bar tiruan; embed kanvas WebAssembly resmi ArtCraft GridCraft murni (`/artcraft/gridcraft/index.html?host=parent`).
+- [x] Rombak `PdfCraft.tsx`: hapus 750 baris custom table extraction view & manual pagination; embed kanvas WebAssembly resmi ArtCraft PdfCraft murni (`/artcraft/pdfcraft/index.html?host=parent`).
+- [x] Rombak `DeckCraft.tsx`: hapus 670 baris custom slide preview & thumbnail viewer; embed kanvas WebAssembly resmi ArtCraft DeckCraft murni (`/artcraft/deckcraft/index.html?host=parent`).
+- [x] Standarisasi `WordCraft.tsx`: kanvas WebAssembly murni ArtCraft WordCraft (`/artcraft/wordcraft/index.html?host=parent`).
+
+#### 148.2 Document Byte Transport & Canvas Drop Dispatcher
+- [x] Tambahkan message handler di `index.html` masing-masing aplikasi (`apps/public/artcraft/*/index.html`) yang menyintesiskan `DragEvent("drop")` berstandar W3C DataTransfer ke elemen `<canvas>` egui-winit saat dokumen dikirim dari host.
+- [x] Pembacaan binary dokumen fisik (`.xlsx`, `.pdf`, `.pptx`, `.docx`) melalui endpoint `/api/desktop/read-binary` disalurkan secara aman ke kanvas ArtCraft.
+- [x] Pertahankan Dual-Mode Office Companion (*"Open in Native Excel"*, *"Open in Native Word"*, *"Open in Native PowerPoint"*, *"Open in Native Reader"*) saat file fisik tersedia.
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
@@ -291,4 +324,5 @@ Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
 2. `npm run build -w apps`: 0 error TypeScript, build produksi Vite sukses.
 3. `git status --porcelain`: Direktori kerja Git bersih (tidak ada file sisa/untracked).
 4. Dev-log dicatat di `docs/dev-logs/dev-log-YYYY-MM-DD-[task-name].md`.
+
 

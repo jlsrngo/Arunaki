@@ -21,6 +21,25 @@ try {
     window.parent.postMessage({ type: "wordcraft:failed", error: String(err) }, "*");
   }
 }
+
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+  if (data.type && (data.type === "wordcraft:open" || data.type.endsWith(":open")) && data.bytes) {
+    try {
+      const blob = new Blob([data.bytes], { type: "application/octet-stream" });
+      const file = new File([blob], data.name || "Document.docx", { type: "application/octet-stream" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
+      const target = canvas || window;
+      target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    } catch (err) {
+      console.warn("[WordCraft] Drop dispatch error:", err);
+    }
+  }
+});
 </script>
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e6e6e6; }

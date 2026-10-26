@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { applyTheme, getStoredTheme } from './lib/theme'
+import { initDesktopBridge } from './lib/desktopBridge'
 
-// Initial theme application on boot
+// Initial desktop bridge & theme application on boot
+initDesktopBridge();
 applyTheme(getStoredTheme());
 
 // Disable default browser context menu (Back, Forward, Reload, Save as, Print, Inspect)

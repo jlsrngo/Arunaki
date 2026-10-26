@@ -12,6 +12,7 @@ import { useWorkstationSession } from "../components/workstation/hooks/useWorkst
 import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstationFiles";
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { tauriPickFolder } from "../lib/api";
 
 export function UnifiedWorkstationPage() {
   const location = useLocation();
@@ -79,7 +80,6 @@ export function UnifiedWorkstationPage() {
     handleToggleLeft,
     handleToggleRight,
     showFolderModal,
-    handleOpenFolderModal,
     handleCloseFolderModal,
     showSearchSectionModal,
     handleOpenSearchModal,
@@ -89,6 +89,19 @@ export function UnifiedWorkstationPage() {
     onSaveActiveTab: handleSaveActiveTab,
     onOpenCanvas: handleOpenCanvas,
   });
+
+  // Directly open native OS folder picker (VS Code / Antigravity IDE parity — NO intermediate popup!)
+  const handleDirectPickFolder = useCallback(async () => {
+    try {
+      const selected = await tauriPickFolder();
+      if (selected) {
+        openFolder(selected);
+        toast.success(`Folder opened: ${selected}`);
+      }
+    } catch (err: any) {
+      toast.error(`Gagal membuka folder: ${err?.message || err}`);
+    }
+  }, [openFolder]);
 
   return (
     <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
@@ -104,7 +117,7 @@ export function UnifiedWorkstationPage() {
           activeWorkspace={activeWorkspace}
           workspaceFiles={workspaceFiles}
           onOpenFileTab={tabs.handleOpenFileTab}
-          onOpenFolderModal={handleOpenFolderModal}
+          onOpenFolderModal={handleDirectPickFolder}
           onCloseFolder={handleCloseFolderAction}
           width="var(--left-panel-width)"
           onNativeFilesChange={setNativeFileNames}
@@ -127,7 +140,7 @@ export function UnifiedWorkstationPage() {
           onCloseTab={tabs.handleCloseTab}
           onUpdateTabContent={tabs.handleUpdateTabContent}
           onSaveTabContent={tabs.handleSaveFileTab}
-          onOpenFolder={handleOpenFolderModal}
+          onOpenFolder={handleDirectPickFolder}
         />
 
         {!rightCollapsed && (

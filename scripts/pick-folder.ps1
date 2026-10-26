@@ -85,11 +85,17 @@ public class ModernFolderPicker {
 
         int hr = dialog.Show(IntPtr.Zero);
         if (hr == 0) {
-            IShellItem item;
-            dialog.GetResult(out item);
-            string path;
-            item.GetDisplayName(0x80058000 /* SIGDN_FILESYSPATH */, out path);
-            return path;
+            try {
+                IShellItem item;
+                dialog.GetResult(out item);
+                if (item != null) {
+                    string path;
+                    item.GetDisplayName(0x80058000 /* SIGDN_FILESYSPATH */, out path);
+                    if (!string.IsNullOrEmpty(path)) {
+                        return path;
+                    }
+                }
+            } catch {}
         }
         return null;
     }
@@ -102,7 +108,30 @@ try {
     # If type is already loaded in the runspace, ignore error
 }
 
-$selected = [ModernFolderPicker]::ShowDialog($Title, $InitialPath)
+$selected = $null
+try {
+    $selected = [ModernFolderPicker]::ShowDialog($Title, $InitialPath)
+} catch {
+    # COM failure, proceed to fallback
+}
+
+# Fallback to standard WinForms FolderBrowserDialog if COM picker was empty or failed
+if ([string]::IsNullOrWhiteSpace($selected)) {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+        $fbd.Description = $Title
+        $fbd.ShowNewFolderButton = $true
+        if (![string]::IsNullOrEmpty($InitialPath) -and (Test-Path $InitialPath)) {
+            $fbd.SelectedPath = $InitialPath
+        }
+        if ($fbd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $selected = $fbd.SelectedPath
+        }
+    } catch {}
+}
+
 if ($selected) {
-    Write-Output $selected
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    Write-Output $selected.Trim()
 }
