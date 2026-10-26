@@ -127,6 +127,7 @@ export function UnifiedWorkstationPage() {
           onCloseTab={tabs.handleCloseTab}
           onUpdateTabContent={tabs.handleUpdateTabContent}
           onSaveTabContent={tabs.handleSaveFileTab}
+          onOpenFolder={handleOpenFolderModal}
         />
 
         {!rightCollapsed && (

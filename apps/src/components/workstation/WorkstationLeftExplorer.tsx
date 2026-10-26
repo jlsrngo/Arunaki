@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from "react";
-import { Folder, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
+import { Folder, FolderOpen, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
 import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
@@ -30,6 +30,7 @@ function WorkstationLeftExplorerComponent({
   activeWorkspace,
   workspaceFiles,
   onOpenFileTab,
+  onOpenFolderModal,
   width = 256,
   onNativeFilesChange,
   recentCanvases = [],
@@ -109,26 +110,39 @@ function WorkstationLeftExplorerComponent({
           {t("explorer", "Explorer")}
         </span>
         <div className="flex items-center gap-0.5">
-          {activeWorkspace?.rootPath && (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className={`text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer ${isRefreshing ? "animate-spin" : ""}`}
-              title={t("refreshExplorer", "Refresh Explorer")}
-              disabled={isRefreshing}
-            >
-              <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
-            </button>
-          )}
-          {activeWorkspace?.rootPath && onCloseFolder && (
-            <button
-              type="button"
-              onClick={onCloseFolder}
-              className="text-[var(--text-muted)] hover:text-red-500 p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-              title={t("closeFolderTooltip", "Close Folder")}
-            >
-              <FolderX className="w-4 h-4" strokeWidth={1.5} />
-            </button>
+          {activeWorkspace?.rootPath ? (
+            <>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className={`text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer ${isRefreshing ? "animate-spin" : ""}`}
+                title={t("refreshExplorer", "Refresh Explorer")}
+                disabled={isRefreshing}
+              >
+                <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+              {onCloseFolder && (
+                <button
+                  type="button"
+                  onClick={onCloseFolder}
+                  className="text-[var(--text-muted)] hover:text-red-500 p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                  title={t("closeFolderTooltip", "Close Folder")}
+                >
+                  <FolderX className="w-4 h-4" strokeWidth={1.5} />
+                </button>
+              )}
+            </>
+          ) : (
+            onOpenFolderModal && (
+              <button
+                type="button"
+                onClick={onOpenFolderModal}
+                className="text-[var(--text-muted)] hover:text-white p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                title={t("openFolder", "Open Folder...")}
+              >
+                <FolderOpen className="w-3.5 h-3.5" strokeWidth={1.5} />
+              </button>
+            )
           )}
           <button
             type="button"
@@ -184,9 +198,24 @@ function WorkstationLeftExplorerComponent({
           )}
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <Folder className="w-8 h-8 text-[var(--text-muted)] opacity-35 mb-2 stroke-[1.5]" />
-          <p className="text-xs text-[var(--text-dim)] font-normal">{t("noFolderOpened", "No folder opened")}</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
+          <Folder className="w-9 h-9 text-[var(--text-muted)] opacity-35 mb-3 stroke-[1.5]" />
+          <p className="text-xs font-semibold text-white mb-1">
+            {t("noFolderOpened", "No folder opened")}
+          </p>
+          <p className="text-[11px] text-[var(--text-muted)] max-w-[200px] leading-relaxed mb-4">
+            {t("openFolderDescription", "Open a project folder to inspect documents and start working with Arunaki.")}
+          </p>
+          {onOpenFolderModal && (
+            <button
+              type="button"
+              onClick={onOpenFolderModal}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-white transition-all shadow-xs cursor-pointer active:scale-95"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-white" strokeWidth={1.5} />
+              <span>{t("openFolder", "Open Folder...")}</span>
+            </button>
+          )}
         </div>
       )}
 

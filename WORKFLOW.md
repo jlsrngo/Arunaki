@@ -268,6 +268,22 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 146: Active Folder Opening Reliability, Bidirectional URL Sync & VS Code Parity Explorer Actions ✅ DONE
+**Goal:** Memperbaiki bug pembukaan folder aktif yang menyebabkan status tetap "No folder opened" akibat race condition dua arah antara URL searchParams dan React state, sinkronisasi event rekursif, serta menyediakan tombol "Open Folder" langsung di Explorer, Center Panel, dan Footer pill.
+
+#### 146.1 URL vs State Bidirectional Synchronization Guard
+- [x] Perbaiki race condition di [`useWorkstationSession.ts`](file:///E:/JS/Arunika/apps/src/components/workstation/hooks/useWorkstationSession.ts): Effect 2 (State -> URL) tidak lagi menghapus parameter query `folder` yang baru dimasukkan melalui navigasi/history sebelum Effect 3 (URL -> State) sempat membacanya.
+- [x] Tambahkan sinkronisasi ref (`activeFolderRef`, `activeChatIdRef`) untuk mencegah badai rekursi sinkron pada listener event `arunaki-folder-change`.
+- [x] Perbarui IPC folder picker di [`api.ts`](file:///E:/JS/Arunika/apps/src/lib/api.ts) untuk memanggil `@tauri-apps/api/core` invoke dengan argumen objek `{}` yang benar.
+
+#### 146.2 VS Code Parity Explorer & Center Empty State Actions
+- [x] Tambahkan tombol interaktif "Open Folder..." (`FolderOpen`) langsung di empty state [`WorkstationLeftExplorer.tsx`](file:///E:/JS/Arunika/apps/src/components/workstation/WorkstationLeftExplorer.tsx) lengkap dengan deskripsi dan tombol header saat belum ada folder terbuka.
+- [x] Tambahkan tombol "Open Folder..." pada [`CenterEmptyState.tsx`](file:///E:/JS/Arunika/apps/src/components/workstation/tabs/CenterEmptyState.tsx) di panel tengah saat ruang kerja kosong.
+- [x] Jadikan pill folder di [`AppFooter.tsx`](file:///E:/JS/Arunika/apps/src/components/layout/AppFooter.tsx) interaktif (dapat diklik langsung untuk membuka folder atau mengganti folder aktif).
+- [x] Daftarkan string `openFolderDescription` pada kamus multibahasa di [`i18n.ts`](file:///E:/JS/Arunika/apps/src/lib/i18n.ts).
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
@@ -275,3 +291,4 @@ Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
 2. `npm run build -w apps`: 0 error TypeScript, build produksi Vite sukses.
 3. `git status --porcelain`: Direktori kerja Git bersih (tidak ada file sisa/untracked).
 4. Dev-log dicatat di `docs/dev-logs/dev-log-YYYY-MM-DD-[task-name].md`.
+

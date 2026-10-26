@@ -104,6 +104,11 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
     };
   }, [activeChatId, activeFolder]);
 
+  const activeFolderRef = useRef(activeFolder);
+  activeFolderRef.current = activeFolder;
+  const activeChatIdRef = useRef(activeChatId);
+  activeChatIdRef.current = activeChatId;
+
   const isUpdatingUrlFromStateRef = useRef(false);
 
   // 1. Open / Switch Active Folder with complete workspace isolation (Antigravity Parity)
@@ -112,6 +117,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       const cleanPath = (folderPath || "").trim();
       if (!cleanPath) return;
 
+      activeFolderRef.current = cleanPath;
       setActiveFolder(cleanPath);
       localStorage.setItem("arunaki_active_folder", cleanPath);
 
@@ -125,6 +131,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
           ? savedFolderSession
           : "";
 
+      activeChatIdRef.current = nextChatId;
       setActiveChatId(nextChatId);
       if (nextChatId) {
         localStorage.setItem("arunaki_active_chat_id", nextChatId);
@@ -143,12 +150,16 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
           } else {
             next.delete("chatId");
           }
+          if (next.has("openFolder")) {
+            next.delete("openFolder");
+          }
           return next;
         },
         { replace: true }
       );
 
       window.dispatchEvent(new Event("arunaki-folder-change"));
+      window.dispatchEvent(new Event("arunaki-session-change"));
     },
     [setSearchParams]
   );
@@ -178,8 +189,14 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       }
     }
 
-    const currentUrlFolder = searchParams.get("folder") || "";
+    const currentUrlFolder = searchParams.get("folder") || searchParams.get("openFolder") || "";
     const currentUrlChatId = searchParams.get("chatId") || "";
+
+    // CRITICAL GUARD: If incoming URL carries a folder that hasn't synced into activeFolder state yet,
+    // DO NOT wipe it out! Let Effect 3 (URL -> State) process it into state first.
+    if (currentUrlFolder && currentUrlFolder !== activeFolder) {
+      return;
+    }
 
     const targetFolder = activeFolder || "";
     const targetChatId = activeChatId && activeChatId.startsWith("ses_") ? activeChatId : "";
@@ -198,6 +215,8 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         if (targetChatId) next.set("chatId", targetChatId);
         else next.delete("chatId");
 
+        if (next.has("openFolder")) next.delete("openFolder");
+
         if (next.toString() === prev.toString()) return prev;
         return next;
       },
@@ -213,30 +232,33 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       return;
     }
 
-    const targetFolder = searchParams.get("folder") || "";
+    const targetFolder = searchParams.get("folder") || searchParams.get("openFolder") || "";
     const targetChatId = searchParams.get("chatId") || "";
 
-    if (targetFolder && targetFolder !== activeFolder) {
+    if (targetFolder && targetFolder !== activeFolderRef.current) {
       openFolder(targetFolder, targetChatId);
-    } else if (targetChatId !== activeChatId) {
+    } else if (targetChatId !== activeChatIdRef.current) {
       if (!targetChatId || targetChatId.startsWith("ses_")) {
+        activeChatIdRef.current = targetChatId;
         setActiveChatId(targetChatId);
       }
     }
-  }, [isWorkstationRoute, searchParams, activeFolder, activeChatId, openFolder]);
+  }, [isWorkstationRoute, searchParams, openFolder]);
 
   // 4. External window event listeners for folder and session changes
   useEffect(() => {
     function handleFolderChange() {
       const saved = localStorage.getItem("arunaki_active_folder") || "";
-      if (saved && saved !== activeFolder) {
+      // CRITICAL: Compare with activeFolderRef.current to prevent synchronous recursion storm!
+      if (saved && saved !== activeFolderRef.current) {
         const savedSession = localStorage.getItem("arunaki_active_chat_id") || "";
         openFolder(saved, savedSession);
       }
     }
     function handleSessionChange() {
       const saved = localStorage.getItem("arunaki_active_chat_id") || "";
-      if (saved !== activeChatId && (!saved || saved.startsWith("ses_"))) {
+      if (saved !== activeChatIdRef.current && (!saved || saved.startsWith("ses_"))) {
+        activeChatIdRef.current = saved;
         setActiveChatId(saved);
       }
     }
@@ -246,25 +268,22 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
       window.removeEventListener("arunaki-folder-change", handleFolderChange);
       window.removeEventListener("arunaki-session-change", handleSessionChange);
     };
-  }, [activeFolder, activeChatId, openFolder]);
-
-  const openFolderParam = searchParams.get("openFolder");
-  useEffect(() => {
-    if (openFolderParam && openFolderParam !== activeFolder) {
-      openFolder(openFolderParam);
-    }
-  }, [openFolderParam, activeFolder, openFolder]);
+  }, [openFolder]);
 
   const handleCloseFolderAction = useCallback(() => {
     localStorage.removeItem("arunaki_active_folder");
     localStorage.removeItem("arunaki_active_chat_id");
+    activeFolderRef.current = "";
+    activeChatIdRef.current = "";
     setActiveFolder("");
     setActiveChatId("");
+    isUpdatingUrlFromStateRef.current = true;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         next.delete("folder");
         next.delete("chatId");
+        next.delete("openFolder");
         return next;
       },
       { replace: true }

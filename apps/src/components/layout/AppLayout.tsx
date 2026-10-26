@@ -78,7 +78,11 @@ export function AppLayout() {
       </main>
 
       {/* 3. Footer Bar */}
-      <AppFooter activeFolder={activeFolder} isOnline={isOnline} />
+      <AppFooter
+        activeFolder={activeFolder}
+        isOnline={isOnline}
+        onOpenFolder={handleOpenFolder}
+      />
     </div>
   );
 }

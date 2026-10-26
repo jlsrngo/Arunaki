@@ -298,10 +298,19 @@ export async function tauriCliStatus(): Promise<any> {
  * Native Tauri folder picker dialog.
  */
 export async function tauriPickFolder(): Promise<string | null> {
+  if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const res = await invoke<string | null>("pick_folder", {});
+      return res || null;
+    } catch (e) {
+      console.warn("[tauriPickFolder] @tauri-apps/api/core invoke failed, trying fallback:", e);
+    }
+  }
   const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
   if (tauri?.invoke) {
     try {
-      const res = await tauri.invoke("pick_folder");
+      const res = await tauri.invoke("pick_folder", {});
       return (res as string) || null;
     } catch (e) {
       console.error("[tauriPickFolder] Error:", e);
@@ -319,6 +328,15 @@ export async function tauriPickFolder(): Promise<string | null> {
  * Native Tauri file picker dialog.
  */
 export async function tauriPickFile(filter?: string): Promise<string | null> {
+  if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const res = await invoke<string | null>("pick_file", { filter });
+      return res || null;
+    } catch (e) {
+      console.warn("[tauriPickFile] @tauri-apps/api/core invoke failed, trying fallback:", e);
+    }
+  }
   const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
   if (tauri?.invoke) {
     try {
@@ -335,6 +353,15 @@ export async function tauriPickFile(filter?: string): Promise<string | null> {
  * Reveal path in Windows Explorer.
  */
 export async function tauriShowInExplorer(path: string): Promise<void> {
+  if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("show_in_explorer", { path });
+      return;
+    } catch (e) {
+      console.warn("[tauriShowInExplorer] @tauri-apps/api/core invoke failed, trying fallback:", e);
+    }
+  }
   const tauri = typeof window !== "undefined" ? ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__) : undefined;
   if (tauri?.invoke) {
     try {

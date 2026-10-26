@@ -16,6 +16,7 @@ export const translations = {
     // File Menu
     newSession: "New Session",
     openFolder: "Open Folder...",
+    openFolderDescription: "Open a project folder to inspect documents and start working with Arunaki.",
     saveDocument: "Save Document",
     backupWorkspace: "Backup Workspace",
     closeFolder: "Close Folder",
@@ -401,6 +402,7 @@ export const translations = {
     // File Menu
     newSession: "Sesi Baru",
     openFolder: "Buka Folder...",
+    openFolderDescription: "Buka folder proyek untuk memeriksa dokumen dan mulai bekerja dengan Arunaki.",
     saveDocument: "Simpan Dokumen",
     backupWorkspace: "Cadangkan Ruang Kerja",
     closeFolder: "Tutup Folder",

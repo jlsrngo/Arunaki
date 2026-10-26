@@ -15,11 +15,13 @@ import { useI18n } from "../../lib/i18n";
 interface AppFooterProps {
   activeFolder: string;
   isOnline: boolean;
+  onOpenFolder?: () => void;
 }
 
 export const AppFooter = memo(function AppFooter({
   activeFolder,
   isOnline,
+  onOpenFolder,
 }: AppFooterProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,15 +48,19 @@ export const AppFooter = memo(function AppFooter({
 
   return (
     <footer className="h-12 bg-[var(--bg-header)] px-4 flex items-center justify-between shrink-0 border-t border-[var(--border-color)] transition-colors duration-150 text-xs">
-      {/* Left: Active Folder Display (Read-Only Info) */}
+      {/* Left: Active Folder Display (Click to open/switch folder) */}
       <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[380px]">
-        <div
+        <button
+          type="button"
+          onClick={onOpenFolder}
           title={
             activeFolder
-              ? `Active Folder: ${activeFolder}`
-              : t("noFolderOpened", "No folder opened")
+              ? `Active Folder: ${activeFolder} (Click to switch)`
+              : `${t("noFolderOpened", "No folder opened")} (${t("openFolder", "Open Folder...")})`
           }
-          className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] truncate max-w-full"
+          className={cn(
+            "flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] truncate max-w-full transition-colors cursor-pointer hover:border-[var(--border-strong)] hover:text-white"
+          )}
         >
           <Folder className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
           <span className="text-[11px] truncate text-[var(--text-primary)]">
@@ -62,7 +68,7 @@ export const AppFooter = memo(function AppFooter({
               ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || activeFolder
               : t("noFolderOpened", "No folder opened")}
           </span>
-        </div>
+        </button>
       </div>
 
       {/* Center: Main Navigation Floating Capsule (Spacious & Modern) */}

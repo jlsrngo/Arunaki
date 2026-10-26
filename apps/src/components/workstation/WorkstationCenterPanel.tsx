@@ -33,6 +33,7 @@ export interface WorkstationCenterPanelProps {
   onCloseTab: (tabId: string) => void;
   onUpdateTabContent?: (tabId: string, newContent: string) => void;
   onSaveTabContent?: (tabId: string, content: string) => Promise<void> | void;
+  onOpenFolder?: () => void;
 }
 
 function WorkstationCenterPanelComponent({
@@ -43,6 +44,7 @@ function WorkstationCenterPanelComponent({
   onCloseTab,
   onUpdateTabContent,
   onSaveTabContent,
+  onOpenFolder,
 }: WorkstationCenterPanelProps) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -437,7 +439,10 @@ function WorkstationCenterPanelComponent({
             />
           )
         ) : (
-          <CenterEmptyState />
+          <CenterEmptyState
+            onOpenFolder={onOpenFolder}
+            hasOpenFolder={!!activeFolder}
+          />
         )}
       </div>
 
