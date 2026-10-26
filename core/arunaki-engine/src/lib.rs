@@ -103,7 +103,11 @@ pub async fn init_engine_and_bind(
 }
 
 pub async fn run_axum_server(listener: tokio::net::TcpListener, _actual_port: u16) {
-    let app = Router::new()
+    axum::serve(listener, build_router()).await.unwrap();
+}
+
+pub fn build_router() -> Router {
+    Router::new()
         .route("/api/health", get(handle_health))
         .route("/global/health", get(handle_health))
         .route("/health", get(handle_health))
@@ -119,9 +123,60 @@ pub async fn run_axum_server(listener: tokio::net::TcpListener, _actual_port: u1
         .merge(question::router())
         .merge(permission::router())
         .fallback(handle_fallback)
-        .layer(middleware::from_fn(cors_and_auth_middleware));
+        .layer(middleware::from_fn(cors_and_auth_middleware))
+}
 
-    axum::serve(listener, app).await.unwrap();
+/// Same router, built once, so in-process dispatch does not re-register routes per call.
+fn shared_router() -> &'static Router {
+    static ROUTER: std::sync::OnceLock<Router> = std::sync::OnceLock::new();
+    ROUTER.get_or_init(build_router)
+}
+
+/// Dispatches a request through the same router the Axum server uses, without touching a socket.
+/// The desktop shell uses this so the UI never depends on the local HTTP port; third-party
+/// integrations still speak HTTP on 127.0.0.1:4096.
+pub async fn handle_local_request(
+    method: &str,
+    path: &str,
+    headers: Vec<(String, String)>,
+    body: Option<Vec<u8>>,
+) -> (u16, Vec<(String, String)>, Vec<u8>) {
+    use tower::ServiceExt;
+
+    let m = Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET);
+    let mut builder = Request::builder().method(m).uri(path);
+    if let Some(hs) = builder.headers_mut() {
+        for (k, v) in headers {
+            if let (Ok(name), Ok(val)) = (
+                header::HeaderName::from_bytes(k.as_bytes()),
+                header::HeaderValue::from_str(&v),
+            ) {
+                hs.append(name, val);
+            }
+        }
+    }
+    let req = builder.body(Body::from(body.unwrap_or_default()));
+    let req = match req {
+        Ok(r) => r,
+        Err(e) => return (400, vec![], format!("Bad request: {e}").into_bytes()),
+    };
+
+    match shared_router().clone().oneshot(req).await {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let headers: Vec<(String, String)> = resp
+                .headers()
+                .iter()
+                .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
+                .collect();
+            let bytes = axum::body::to_bytes(resp.into_body(), 64 * 1024 * 1024)
+                .await
+                .map(|b| b.to_vec())
+                .unwrap_or_default();
+            (status, headers, bytes)
+        }
+        Err(e) => (500, vec![], format!("Engine dispatch failed: {e}").into_bytes()),
+    }
 }
 
 pub async fn handle_health() -> impl IntoResponse {
@@ -369,5 +424,24 @@ mod origin_tests {
         ] {
             assert!(!is_allowed_origin(origin), "{origin} should be blocked");
         }
+    }
+
+    #[tokio::test]
+    async fn local_dispatch_reaches_router_without_socket() {
+        let (status, _, body) = super::handle_local_request("GET", "/api/health", vec![], None).await;
+        assert_eq!(status, 200);
+        assert!(String::from_utf8_lossy(&body).contains("\"healthy\":true"));
+    }
+
+    #[tokio::test]
+    async fn local_dispatch_still_blocks_web_origins() {
+        let (status, _, _) = super::handle_local_request(
+            "GET",
+            "/api/health",
+            vec![("origin".to_string(), "https://evil.com".to_string())],
+            None,
+        )
+        .await;
+        assert_eq!(status, 403);
     }
 }

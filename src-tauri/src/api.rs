@@ -56,70 +56,37 @@ pub fn window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
-/// Direct loopback dispatcher for Arunaki Axum engine routes.
-/// Completely bypasses browser socket and CORS barriers.
+/// Dispatches an engine API call inside this process through the engine's Axum router.
+/// No loopback socket is involved; the HTTP port stays available for third-party clients.
 #[tauri::command]
 pub async fn tauri_engine_fetch(req: TauriEngineRequest) -> Result<TauriEngineResponse, String> {
-    let port = 4096;
     let method_str = req.method.unwrap_or_else(|| "GET".to_string()).to_uppercase();
     let path = if req.path.starts_with('/') {
         req.path
     } else {
         format!("/{}", req.path)
     };
-    let url = format!("http://127.0.0.1:{}{}", port, path);
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let headers: Vec<(String, String)> = req.headers.unwrap_or_default().into_iter().collect();
+    let (status, resp_headers, body) = arunaki_engine::handle_local_request(
+        &method_str,
+        &path,
+        headers,
+        req.body.map(String::into_bytes),
+    )
+    .await;
 
-    let req_method = match method_str.as_str() {
-        "POST" => reqwest::Method::POST,
-        "PUT" => reqwest::Method::PUT,
-        "DELETE" => reqwest::Method::DELETE,
-        "PATCH" => reqwest::Method::PATCH,
-        _ => reqwest::Method::GET,
-    };
-
-    let mut req_builder = client.request(req_method, &url);
-    if let Some(headers) = req.headers {
-        for (k, v) in headers {
-            if let (Ok(name), Ok(val)) = (
-                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
-                reqwest::header::HeaderValue::from_str(&v),
-            ) {
-                req_builder = req_builder.header(name, val);
-            }
-        }
-    }
-
-    if let Some(body) = req.body {
-        req_builder = req_builder.body(body);
-    }
-
-    match req_builder.send().await {
-        Ok(resp) => {
-            let status = resp.status().as_u16();
-            let ok = resp.status().is_success();
-            let status_text = resp.status().canonical_reason().unwrap_or("").to_string();
-            let mut res_headers = HashMap::new();
-            for (k, v) in resp.headers() {
-                if let Ok(val) = v.to_str() {
-                    res_headers.insert(k.as_str().to_string(), val.to_string());
-                }
-            }
-            let body = resp.text().await.unwrap_or_default();
-            Ok(TauriEngineResponse {
-                status,
-                status_text,
-                headers: res_headers,
-                body,
-                ok,
-            })
-        }
-        Err(e) => Err(format!("Engine request failed: {}", e)),
-    }
+    Ok(TauriEngineResponse {
+        status,
+        status_text: reqwest::StatusCode::from_u16(status)
+            .ok()
+            .and_then(|s| s.canonical_reason())
+            .unwrap_or("")
+            .to_string(),
+        headers: resp_headers.into_iter().collect(),
+        body: String::from_utf8_lossy(&body).into_owned(),
+        ok: (200..300).contains(&status),
+    })
 }
 
 /// Spawns native terminal windows or clears credentials for CLI providers.

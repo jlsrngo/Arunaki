@@ -6,7 +6,7 @@ pub mod system;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -76,6 +76,22 @@ pub fn run() {
             system::system_ping
         ])
         .setup(|app| {
+            // Bridge engine events to the webview over Tauri IPC, so the UI never needs SSE over
+            // the local HTTP port. Third-party clients still use GET /api/event on :4096.
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut rx = arunaki_engine::session::get_event_sender().subscribe();
+                loop {
+                    match rx.recv().await {
+                        Ok(event) => {
+                            let _ = handle.emit("arunaki-event", event);
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => break,
+                    }
+                }
+            });
+
             // Setup System Tray Icon with Open & Quit menu items
             let show_i = MenuItem::with_id(app, "show", "Open Arunaki", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit Arunaki", true, None::<&str>)?;

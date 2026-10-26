@@ -289,6 +289,39 @@ export function subscribeEvents(
 
   const d = typeof globalThis !== "undefined" ? (globalThis as any).arunakiDesktop : undefined;
 
+  // In Tauri the engine runs in-process, so events arrive as Tauri IPC events, not SSE.
+  const tauriInternals =
+    typeof window !== "undefined" ? (window as any).__TAURI_INTERNALS__ : undefined;
+  if (tauriInternals) {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen("arunaki-event", (event: any) => {
+          if (!finalSignal.aborted) onEvent(event.payload);
+        }),
+      )
+      .then((un) => {
+        unlisten = un;
+        if (disposed || finalSignal.aborted) un();
+      })
+      .catch((err) => console.warn("[tauri-event] subscribe failed:", err));
+
+    const cleanup = () => {
+      disposed = true;
+      try {
+        unlisten?.();
+      } catch {}
+    };
+    if (finalSignal.aborted) {
+      cleanup();
+    } else {
+      finalSignal.addEventListener("abort", cleanup, { once: true });
+    }
+
+    return controller;
+  }
+
   // In Electron desktop, route SSE events through the main process IPC relay
   if (d?.startEngineSSE && d?.onEngineSSE) {
     const channel = `sse_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

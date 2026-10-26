@@ -3,8 +3,8 @@
 // Electron (production): all requests are relayed through IPC. The main process
 // handles auth headers and proxies to the engine's localhost port.
 //
-// Tauri v2 (production/desktop): all requests are relayed through Native Tauri IPC
-// (tauri_engine_fetch) directly across the native OS bridge without browser network sockets.
+// Tauri v2 (production/desktop): requests are dispatched inside the Rust process through the
+// engine's own Axum router (tauri_engine_fetch) — no browser socket, no local HTTP port.
 //
 // Dev browser (no desktop shell): the Vite proxy forwards /api to the engine on :4096,
 // so a relative path is correct and requests go over HTTP as before.
