@@ -3,7 +3,7 @@ import { Cpu, User, Sliders, MessageSquare, Terminal, Store } from "lucide-react
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { ModelProviderSettings, Provider } from "../components/settings/ModelProviderSettings";
+import { ModelProviderSettings, Provider, isCliProvider } from "../components/settings/ModelProviderSettings";
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
 import { SettingsAppConnectionsTab } from "../components/settings/SettingsAppConnectionsTab";
 import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
@@ -65,8 +65,8 @@ export function SettingsPage() {
 
         if (rawProviders.length > 0) {
           const savedActiveId = localStorage.getItem("arunaki_active_provider");
-          const CLI_PROVIDER_IDS = ["claude-code", "codex", "gemini", "opencode", "9router", "kiro"];
-          const isCliActive = savedActiveId && CLI_PROVIDER_IDS.includes(savedActiveId);
+          const activeRawP = rawProviders.find((p: any) => p.id === savedActiveId);
+          const isCliActive = savedActiveId ? isCliProvider({ id: savedActiveId, baseUrl: activeRawP?.baseUrl || "", name: activeRawP?.name || "", apiKey: activeRawP?.apiKey || "", type: activeRawP?.type || "", model: "", active: true, priority: 0 }) : false;
 
           const activeId = isCliActive
             ? null

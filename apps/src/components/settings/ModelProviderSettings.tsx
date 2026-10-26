@@ -10,13 +10,52 @@ import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
 
 export type { Provider };
 
-const CLI_PROVIDER_IDS = ["claude-code", "opencode", "codex", "9router", "gemini-cli", "antigravity", "kiro"];
+const CLI_PROVIDER_IDS = [
+  "claude-code",
+  "claude-cli",
+  "claude",
+  "opencode",
+  "opencode-zen",
+  "codex",
+  "codex-cli",
+  "9router",
+  "gemini",
+  "gemini-cli",
+  "antigravity",
+  "antigravity-local",
+  "kiro",
+  "kiro-cli",
+  "local-cli",
+];
 
 export const isCliProvider = (p: Provider): boolean => {
   if (CLI_PROVIDER_IDS.includes(p.id)) return true;
+  if (p.id.endsWith("-cli") || p.id.includes("local-cli")) return true;
+  // Dedicated Local-CLI Bridge port (default 20188, fallback ports 20189, etc.)
+  if (
+    p.baseUrl &&
+    (p.baseUrl.includes(":20188") ||
+      p.baseUrl.includes(":20189") ||
+      p.baseUrl.includes("localhost:20188") ||
+      p.baseUrl.includes("127.0.0.1:20188"))
+  ) {
+    return true;
+  }
   if (
     (p.id === "gemini" || p.id === "gemini-cli") &&
-    (p.apiKey === "antigravity-active" || p.apiKey === "gemini-local-session" || p.name?.toLowerCase().includes("antigravity") || p.name?.toLowerCase().includes("gemini cli"))
+    (p.apiKey === "antigravity-active" ||
+      p.apiKey === "gemini-local-session" ||
+      p.name?.toLowerCase().includes("antigravity") ||
+      p.name?.toLowerCase().includes("gemini cli"))
+  ) {
+    return true;
+  }
+  if (
+    p.name?.toLowerCase().includes("(chatgpt subscription)") ||
+    p.name?.toLowerCase().includes("(aws codewhisperer)") ||
+    p.name?.toLowerCase().includes("(local subscription)") ||
+    p.name?.toLowerCase().includes("(local cli)") ||
+    p.name?.toLowerCase().includes("(local account)")
   ) {
     return true;
   }
