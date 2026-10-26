@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
-import { ExternalLink, RefreshCw, AlertCircle, Save, FileText, Check } from "lucide-react";
+import { ExternalLink, RefreshCw, AlertCircle, Save, FileText, Check, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
@@ -280,6 +280,17 @@ export const WordCraft = memo(function WordCraft({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              iframeRef.current?.contentWindow?.postMessage({ type: "wordcraft:exit-backstage" }, "*");
+            }}
+            title="Exit backstage and show the document layout canvas"
+            className="h-7 px-2.5 rounded bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] text-xs text-neutral-200 font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Show Document</span>
+          </button>
+
           <button
             onClick={handleTriggerSave}
             disabled={isSavingDisk}

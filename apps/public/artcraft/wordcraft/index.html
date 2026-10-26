@@ -25,6 +25,31 @@ try {
 window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
+
+  function exitBackstage() {
+    const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
+    const targets = [canvas, window, document].filter(Boolean);
+    const escOpts = { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true };
+    for (const target of targets) {
+      try {
+        target.dispatchEvent(new KeyboardEvent("keydown", escOpts));
+        target.dispatchEvent(new KeyboardEvent("keyup", escOpts));
+      } catch (_) {}
+    }
+    // Also dispatch click on "<" button (approx x=28, y=28)
+    if (canvas) {
+      try {
+        const backClick = new MouseEvent("click", { clientX: 28, clientY: 28, bubbles: true, cancelable: true });
+        canvas.dispatchEvent(backClick);
+      } catch (_) {}
+    }
+  }
+
+  if (data.type === "wordcraft:exit-backstage") {
+    exitBackstage();
+    return;
+  }
+
   if (data.type && (data.type === "wordcraft:open" || data.type.endsWith(":open")) && data.bytes) {
     try {
       const mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -33,21 +58,21 @@ window.addEventListener("message", (event) => {
       const dt = new DataTransfer();
       dt.items.add(file);
 
+      const midX = Math.floor(window.innerWidth / 2) || 400;
+      const midY = Math.floor(window.innerHeight / 2) || 300;
+
       function dispatchDrop() {
         const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
-        const targets = [canvas, window, document].filter(Boolean);
+        const targets = [canvas, document, window].filter(Boolean);
         for (const target of targets) {
           try {
-            const dragEnter = new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt });
-            try { Object.defineProperty(dragEnter, "dataTransfer", { value: dt }); } catch (_) {}
+            const dragEnter = new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
             target.dispatchEvent(dragEnter);
 
-            const dragOver = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt });
-            try { Object.defineProperty(dragOver, "dataTransfer", { value: dt }); } catch (_) {}
+            const dragOver = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
             target.dispatchEvent(dragOver);
 
-            const dropEvt = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt });
-            try { Object.defineProperty(dropEvt, "dataTransfer", { value: dt }); } catch (_) {}
+            const dropEvt = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
             target.dispatchEvent(dropEvt);
           } catch (e) {
             console.warn("[WordCraft] drop dispatch error:", e);
@@ -55,9 +80,15 @@ window.addEventListener("message", (event) => {
         }
       }
 
+      // 1. Dispatch drop into canvas center
       dispatchDrop();
-      setTimeout(dispatchDrop, 250);
-      setTimeout(dispatchDrop, 750);
+      setTimeout(dispatchDrop, 150);
+      setTimeout(dispatchDrop, 400);
+
+      // 2. Automatically exit Backstage so document view is immediately visible
+      setTimeout(exitBackstage, 250);
+      setTimeout(exitBackstage, 600);
+      setTimeout(exitBackstage, 1200);
     } catch (err) {
       console.warn("[WordCraft] Drop packaging error:", err);
     }
