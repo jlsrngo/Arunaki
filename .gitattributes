@@ -15,6 +15,10 @@ packages/arunaki-tools/test/** linguist-vendored
 **/*.test.tsx linguist-vendored
 **/*.spec.ts linguist-vendored
 
+# Vendored ArtCraft bundles ship Subresource Integrity hashes over their exact bytes.
+# Any EOL conversion on checkout breaks SRI and the WASM app never boots.
+apps/public/artcraft/** -text
+
 # Generated SDK & External Agent Runtime Assets
 packages/engine/sdk/** linguist-vendored
 .opencode/** linguist-vendored

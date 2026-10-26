@@ -41,6 +41,18 @@ export const WordCraft = memo(function WordCraft({
 
   const lastSentContentRef = useRef<string | null>(null);
 
+  // Never leave the user staring at a spinner: if the WASM app does not boot, show the error state.
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setLoadError(
+        "WordCraft engine did not start within 30 seconds (bundled WebAssembly blocked or crashed)."
+      );
+    }, 30_000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   // Send document payload to WordCraft Web via the official host postMessage bridge
   const sendDocumentToWordCraft = useCallback(
     (textPayload: string, docName: string) => {
