@@ -94,9 +94,7 @@ async function main() {
     const tauriDesktopExe = path.join(targetReleaseDir, 'arunaki-desktop.exe');
     if (fs.existsSync(tauriDesktopExe)) {
       fs.copyFileSync(tauriDesktopExe, desktopExePath);
-      // arunaki.exe is the Desktop GUI (Subsystem = 2) with the brand delta logo
-      setPeSubsystem(desktopExePath, 2);
-      injectIcon(desktopExePath, mainIco);
+      // tauriDesktopExe is already built with Windows GUI subsystem and embedded Tauri icon
     } else if (fs.existsSync(engineExePath)) {
       fs.copyFileSync(engineExePath, desktopExePath);
       setPeSubsystem(desktopExePath, 2);
@@ -155,8 +153,6 @@ async function main() {
     }
 
     safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
-    setPeSubsystem(path.join(portableDir, 'arunaki.exe'), 2);
-    injectIcon(path.join(portableDir, 'arunaki.exe'), mainIco);
 
     if (fs.existsSync(engineExePath)) {
       safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));
