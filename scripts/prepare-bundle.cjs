@@ -169,6 +169,7 @@ async function main() {
       injectIcon(path.join(portableDir, 'arunaki-docs.exe'), docsIco);
     }
     const portableWebDir = path.join(portableDir, 'web');
+    fs.rmSync(portableWebDir, { recursive: true, force: true });
     fs.cpSync(webDistDir, portableWebDir, { recursive: true });
 
     // Refresh Windows Shell icon cache so Explorer updates instantly
