@@ -59,17 +59,24 @@ pub fn router() -> Router {
         .route("/api/desktop/quit", post(handle_quit))
 }
 
-fn check_allowed_path(target: &Path) -> Result<(), String> {
+fn check_allowed_path(target: &Path) -> Result<PathBuf, String> {
     if let Some(root) = get_active_workspace_root() {
         let root_path = Path::new(&root);
-        if !contains_path(root_path, target) {
+        let resolved = if target.is_relative() {
+            root_path.join(target)
+        } else {
+            target.to_path_buf()
+        };
+        if !contains_path(root_path, &resolved) {
             return Err(format!(
                 "Security: Access denied for path outside active workspace: {}",
                 target.display()
             ));
         }
+        Ok(resolved)
+    } else {
+        Ok(target.to_path_buf())
     }
-    Ok(())
 }
 
 async fn handle_pick_folder() -> Response {
@@ -204,10 +211,10 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -218,7 +225,7 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
         "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "xlsx" | "xls" | "docx" | "doc" | "pptx" | "ppt" | "zip"
     );
     if is_binary {
-        match std::fs::read(path) {
+        match std::fs::read(&path) {
             Ok(bytes) => {
                 let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 Json(json!({ "content": b64, "encoding": "base64" })).into_response()
@@ -226,7 +233,7 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
             Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
         }
     } else {
-        match std::fs::read_to_string(path) {
+        match std::fs::read_to_string(&path) {
             Ok(txt) => Json(json!({ "content": txt, "encoding": "utf-8" })).into_response(),
             Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
         }
@@ -240,10 +247,10 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let content = body.get("content").and_then(|v| v.as_str()).unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -287,11 +294,11 @@ async fn handle_create_folder(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match std::fs::create_dir_all(path) {
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::create_dir_all(&path) {
         Ok(_) => Json(json!({ "success": true })).into_response(),
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
     }
@@ -342,14 +349,14 @@ async fn handle_delete_path(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(tp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
+    let path = match check_allowed_path(Path::new(tp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     let res = if path.is_dir() {
-        std::fs::remove_dir_all(path)
+        std::fs::remove_dir_all(&path)
     } else {
-        std::fs::remove_file(path)
+        std::fs::remove_file(&path)
     };
     match res {
         Ok(_) => Json(json!({ "success": true })).into_response(),
@@ -360,15 +367,15 @@ async fn handle_delete_path(Json(body): Json<Value>) -> Response {
 async fn handle_rename_path(Json(body): Json<Value>) -> Response {
     let old_p = body.get("oldPath").and_then(|v| v.as_str()).unwrap_or("");
     let new_p = body.get("newPath").and_then(|v| v.as_str()).unwrap_or("");
-    let old_path = Path::new(old_p);
-    let new_path = Path::new(new_p);
-    if let Err(e) = check_allowed_path(old_path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    if let Err(e) = check_allowed_path(new_path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match std::fs::rename(old_path, new_path) {
+    let old_path = match check_allowed_path(Path::new(old_p)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    let new_path = match check_allowed_path(Path::new(new_p)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::rename(&old_path, &new_path) {
         Ok(_) => Json(json!({ "success": true })).into_response(),
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
     }
@@ -380,9 +387,13 @@ async fn handle_open_path(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("explorer.exe").arg(fp).spawn();
+        let _ = std::process::Command::new("explorer.exe").arg(&path).spawn();
     }
     Json(json!({ "success": true })).into_response()
 }
@@ -394,10 +405,14 @@ async fn handle_open_excel(Json(body): Json<Value>) -> Response {
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let resolved_fp = match check_allowed_path(Path::new(&fp)) {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     let res = tokio::task::spawn_blocking(move || {
         let params = arunaki_docs::ExcelComParams {
             action: "open".to_string(),
-            file_path: Some(fp),
+            file_path: Some(resolved_fp),
             sheet_name: None,
             cell: None,
             value: None,
@@ -429,10 +444,14 @@ async fn handle_open_word(Json(body): Json<Value>) -> Response {
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
+    let resolved_fp = match check_allowed_path(Path::new(&fp)) {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     let res = tokio::task::spawn_blocking(move || {
         let params = arunaki_docs::WordComParams {
             action: "open".to_string(),
-            file_path: Some(fp),
+            file_path: Some(resolved_fp),
             text: None,
             paragraph_index: None,
             find_text: None,
@@ -489,11 +508,11 @@ async fn handle_parse_ppt(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match arunaki_docs::build_ppt_map(fp) {
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match arunaki_docs::build_ppt_map(&path.to_string_lossy()) {
         Ok(json_str) => {
             let parsed: Value = serde_json::from_str(&json_str).unwrap_or_else(|_| json!({}));
             Json(json!({
@@ -512,12 +531,12 @@ async fn handle_parse_pdf(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
     let max_pages = body.get("maxPages").and_then(|v| v.as_u64()).map(|n| n as usize);
-    match arunaki_docs::build_pdf_map(fp, max_pages) {
+    match arunaki_docs::build_pdf_map(&path.to_string_lossy(), max_pages) {
         Ok(json_str) => {
             let parsed: Value = serde_json::from_str(&json_str).unwrap_or_else(|_| json!({}));
             Json(json!({
@@ -536,11 +555,11 @@ async fn handle_parse_word(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match arunaki_docs::build_word_map(fp) {
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match arunaki_docs::build_word_map(&path.to_string_lossy()) {
         Ok(json_str) => {
             let parsed: Value = serde_json::from_str(&json_str).unwrap_or_else(|_| json!({}));
             Json(json!({
@@ -559,11 +578,11 @@ async fn handle_parse_excel(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match arunaki_docs::build_excel_map(fp) {
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match arunaki_docs::build_excel_map(&path.to_string_lossy()) {
         Ok(json_str) => {
             let parsed: Value = serde_json::from_str(&json_str).unwrap_or_else(|_| json!({}));
             let mut sheets = serde_json::Map::new();
@@ -716,11 +735,11 @@ async fn handle_read_binary(Json(body): Json<Value>) -> Response {
         .or_else(|| body.get("path"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let path = Path::new(fp);
-    if let Err(e) = check_allowed_path(path) {
-        return Json(json!({ "error": e })).into_response();
-    }
-    match std::fs::read(path) {
+    let path = match check_allowed_path(Path::new(fp)) {
+        Ok(p) => p,
+        Err(e) => return Json(json!({ "error": e })).into_response(),
+    };
+    match std::fs::read(&path) {
         Ok(bytes) => {
             let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
             Json(json!({ "success": true, "base64": b64 })).into_response()

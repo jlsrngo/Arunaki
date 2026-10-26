@@ -29,18 +29,37 @@ window.addEventListener("message", (event) => {
     try {
       const mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       const blob = new Blob([data.bytes], { type: mime });
-      const file = new File([blob], data.name || "Document.docx", { type: mime });
+      const file = new File([blob], data.name || "Document.docx", { type: mime, lastModified: Date.now() });
       const dt = new DataTransfer();
       dt.items.add(file);
-      const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
-      const targets = [canvas, document, window].filter(Boolean);
-      for (const target of targets) {
-        target.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
-        target.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
-        target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+
+      function dispatchDrop() {
+        const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
+        const targets = [canvas, window, document].filter(Boolean);
+        for (const target of targets) {
+          try {
+            const dragEnter = new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt });
+            try { Object.defineProperty(dragEnter, "dataTransfer", { value: dt }); } catch (_) {}
+            target.dispatchEvent(dragEnter);
+
+            const dragOver = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt });
+            try { Object.defineProperty(dragOver, "dataTransfer", { value: dt }); } catch (_) {}
+            target.dispatchEvent(dragOver);
+
+            const dropEvt = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt });
+            try { Object.defineProperty(dropEvt, "dataTransfer", { value: dt }); } catch (_) {}
+            target.dispatchEvent(dropEvt);
+          } catch (e) {
+            console.warn("[WordCraft] drop dispatch error:", e);
+          }
+        }
       }
+
+      dispatchDrop();
+      setTimeout(dispatchDrop, 250);
+      setTimeout(dispatchDrop, 750);
     } catch (err) {
-      console.warn("[WordCraft] Drop dispatch error:", err);
+      console.warn("[WordCraft] Drop packaging error:", err);
     }
   }
 });

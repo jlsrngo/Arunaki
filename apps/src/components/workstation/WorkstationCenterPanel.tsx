@@ -24,6 +24,10 @@ const PdfCraft = lazy(() =>
   import("./canvas/PdfCraft").then((m) => ({ default: m.PdfCraft }))
 );
 
+const CanvasView = lazy(() =>
+  import("./canvas/CanvasView").then((m) => ({ default: m.CanvasView }))
+);
+
 export type { CenterTab };
 
 export interface WorkstationCenterPanelProps {
@@ -357,34 +361,38 @@ function WorkstationCenterPanelComponent({
             const isActive = tab.id === activeTabId;
             const tabContent = editedContents[tab.id] ?? tab.content ?? "";
 
+            const isTabCanvas = tab.type === "canvas";
+
             const isTabPdf = Boolean(
-              ["pdf"].includes(tab.fileType?.toLowerCase() || "") ||
-              (/\.pdf$/i).test(tab.title) ||
-              (tab.type === "canvas" && (tab.title.toLowerCase().includes("pdf") || tab.title.toLowerCase().includes("invoice") || tab.title.toLowerCase().includes("faktur")))
+              !isTabCanvas &&
+                (["pdf"].includes(tab.fileType?.toLowerCase() || "") || (/\.pdf$/i).test(tab.title))
             );
 
             const isTabSpreadsheet = Boolean(
-              !isTabPdf &&
-              (tab.fileType === "gridcraft-app" ||
-                ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(tab.fileType?.toLowerCase() || "") ||
-                (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(tab.title) ||
-                (tab.type === "canvas" && Boolean(tabContent && tabContent.includes("|") && (tabContent.includes("\n") || tabContent.includes("||")))))
+              !isTabCanvas &&
+                !isTabPdf &&
+                (tab.fileType === "gridcraft-app" ||
+                  ["xlsx", "xls", "xlsm", "xlsb", "csv", "tsv"].includes(tab.fileType?.toLowerCase() || "") ||
+                  (/\.(xlsx|xls|xlsm|xlsb|csv|tsv)$/i).test(tab.title))
             );
 
             const isTabDeck = Boolean(
-              !isTabPdf &&
-              (tab.fileType === "deckcraft-app" ||
-                ["pptx", "ppt", "odp"].includes(tab.fileType?.toLowerCase() || "") ||
-                (/\.(pptx|ppt|odp)$/i).test(tab.title) ||
-                (tab.type === "canvas" && (tab.title.toLowerCase().includes("slide") || tab.title.toLowerCase().includes("deck") || tab.title.toLowerCase().includes("presentasi"))))
+              !isTabCanvas &&
+                !isTabPdf &&
+                !isTabSpreadsheet &&
+                (tab.fileType === "deckcraft-app" ||
+                  ["pptx", "ppt", "odp"].includes(tab.fileType?.toLowerCase() || "") ||
+                  (/\.(pptx|ppt|odp)$/i).test(tab.title))
             );
 
             const isTabWordDoc = Boolean(
-              !isTabPdf &&
-              (tab.fileType === "wordcraft-app" ||
-                ["docx", "doc", "odt", "rtf"].includes(tab.fileType?.toLowerCase() || "") ||
-                (/\.(docx|doc|odt|rtf)$/i).test(tab.title) ||
-                (tab.type === "canvas" && !isTabSpreadsheet && !isTabDeck))
+              !isTabCanvas &&
+                !isTabPdf &&
+                !isTabSpreadsheet &&
+                !isTabDeck &&
+                (tab.fileType === "wordcraft-app" ||
+                  ["docx", "doc", "odt", "rtf"].includes(tab.fileType?.toLowerCase() || "") ||
+                  (/\.(docx|doc|odt|rtf)$/i).test(tab.title))
             );
 
             return (
@@ -393,7 +401,19 @@ function WorkstationCenterPanelComponent({
                 className={cn("w-full h-full flex flex-col flex-1", !isActive && "hidden")}
                 style={{ display: isActive ? "flex" : "none" }}
               >
-                {isTabPdf ? (
+                {isTabCanvas ? (
+                  <Suspense fallback={null}>
+                    <CanvasView
+                      content={tabContent}
+                      title={tab.title}
+                      tabId={tab.id}
+                      timeStr={tab.timeStr}
+                      createdAt={tab.createdAt}
+                      onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
+                      onSave={() => handleSaveForTab(tab.id)}
+                    />
+                  </Suspense>
+                ) : isTabPdf ? (
                   <Suspense fallback={null}>
                     <PdfCraft
                       content={tabContent}

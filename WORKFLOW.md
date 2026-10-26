@@ -322,6 +322,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+### Phase 149: Native Canvas Workspace & Direct Local Disk .docx Synchronization ✅ DONE
+**Goal:** Memisahkan kanvas AI/catatan dari grid spreadsheet GridCraft dan membangun antarmuka mandiri `CanvasView.tsx`; menyinkronkan pembacaan & penyimpanan dokumen `.docx` langsung ke harddisk lokal (`E:\REKAPAN\Document 1.docx`) dengan dukungan Dual-Mode "Open in Word (Desktop)".
+
+#### 149.1 Native Canvas Workspace UI (`CanvasView.tsx`)
+- [x] Bangun komponen `CanvasView.tsx` murni React dengan antarmuka modern khas Cursor/Antigravity tanpa ketergantungan iframe WASM.
+- [x] Render tabel data markdown dengan sticky header, penomoran urut baris `#`, perataan angka otomatis (tabular font-mono), dan filter pencarian baris instan.
+- [x] Sediakan tombol cepat "Copy Canvas / Table", "Export as CSV", dan "Export as Markdown (.md)".
+- [x] Pisahkan routing `tab.type === "canvas"` di `WorkstationCenterPanel.tsx` agar tidak lagi dipaksa masuk ke GridCraft atau WordCraft.
+
+#### 149.2 Direct Local Disk .docx Sync & Relative Path Resolution
+- [x] Perbaiki fungsi keamanan `check_allowed_path` di `core/arunaki-engine/src/desktop.rs` agar otomatis menggabungkan path relatif dengan folder aktif workspace (`E:\REKAPAN`).
+- [x] Perbaiki pembacaan binary `/api/desktop/read-file` dan penulisan binary `/api/desktop/write-file` untuk seluruh format dokumen (.docx, .xlsx, .pptx, .pdf).
+- [x] Perbarui `WordCraft.tsx`: tangkap event `wordcraft:save` dan simpan byte biner asli `.docx` secara langsung ke file fisik di disk komputer pengguna.
+- [x] Sediakan toolbar Dual-Mode di `WordCraft.tsx` dengan tombol cepat "Open in Word" (Microsoft Word Desktop Companion) dan "Save to Disk".
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:

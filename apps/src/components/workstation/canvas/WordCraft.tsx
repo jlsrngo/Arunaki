@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
-import { ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
+import { ExternalLink, RefreshCw, AlertCircle, Save, FileText, Check } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
 
@@ -14,10 +15,10 @@ export interface WordCraftProps {
 
 /**
  * WordCraft — Official ArtCraft Pure-Rust Document Suite (WASM Embedded Engine)
+ * Dual-Mode Architecture: In-App WASM Suite + Native Desktop Microsoft Word Companion.
  *
- * Runs the authentic open-source WordCraft application (storytold/wordcraft)
- * with complete Office Ribbon, Interactive Margin Ruler, Document Navigation Outline,
- * and GPU-accelerated A4 Page Canvas directly inside the Workstation Center Panel.
+ * Ensures all documents (.docx/.doc) are directly read from and written to
+ * the local project folder on the user's computer hard disk.
  */
 export const WordCraft = memo(function WordCraft({
   content,
@@ -32,6 +33,8 @@ export const WordCraft = memo(function WordCraft({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [forceWebGL, setForceWebGL] = useState(false);
+  const [isSavingDisk, setIsSavingDisk] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   // Keep latest callbacks in ref to avoid re-subscribing message listener
   const onContentChangeRef = useRef(onContentChange);
@@ -44,6 +47,7 @@ export const WordCraft = memo(function WordCraft({
   }, [onContentChange, onSave, onDirtyChange]);
 
   const lastSentContentRef = useRef<string | null>(null);
+  const lastSentPathRef = useRef<string | null>(null);
 
   // Never leave the user staring at a spinner: if the WASM app does not boot, show the error state.
   useEffect(() => {
@@ -67,7 +71,7 @@ export const WordCraft = memo(function WordCraft({
         let buffer: ArrayBuffer | null = null;
 
         // 1. If physical file exists on disk, read binary bytes via /api/desktop/read-file
-        if (filePath && (/\.(docx|doc|odt|rtf)$/i).test(filePath)) {
+        if (filePath && /\.(docx|doc|odt|rtf)$/i.test(filePath)) {
           try {
             const res = await apiFetch("/api/desktop/read-file", {
               method: "POST",
@@ -119,6 +123,7 @@ export const WordCraft = memo(function WordCraft({
             "*"
           );
           lastSentContentRef.current = textPayload;
+          lastSentPathRef.current = filePath || null;
         }
       } catch (err) {
         console.warn("[WordCraft] Failed to send document buffer:", err);
@@ -129,7 +134,7 @@ export const WordCraft = memo(function WordCraft({
 
   // Listen for official WordCraft host bridge events (?host=parent)
   useEffect(() => {
-    function handleMessage(event: MessageEvent) {
+    async function handleMessage(event: MessageEvent) {
       const data = event.data;
       if (!data || typeof data !== "object") return;
 
@@ -139,10 +144,8 @@ export const WordCraft = memo(function WordCraft({
         setIsLoading(false);
         setLoadError(null);
 
-        // Immediately send current document content
-        if (content) {
-          sendDocumentToWordCraft(content, title);
-        }
+        // Immediately send current document content / read file from disk
+        sendDocumentToWordCraft(content || "", title);
       }
 
       // 2. User clicked Save (Ctrl+S or File > Save)
@@ -150,14 +153,36 @@ export const WordCraft = memo(function WordCraft({
         try {
           if (data.bytes) {
             const rawBytes = new Uint8Array(data.bytes);
-            const decoder = new TextDecoder("utf-8", { fatal: false });
-            const decodedText = decoder.decode(rawBytes);
 
-            if (onContentChangeRef.current) {
-              onContentChangeRef.current(decodedText);
+            // SAVE DIRECTLY TO USER'S HARD DISK AS REAL .DOCX BINARY FILE!
+            if (filePath) {
+              try {
+                let binaryStr = "";
+                const chunkSize = 8192;
+                for (let i = 0; i < rawBytes.length; i += chunkSize) {
+                  const chunk = rawBytes.subarray(i, i + chunkSize);
+                  binaryStr += String.fromCharCode.apply(null, chunk as any);
+                }
+                const b64 = btoa(binaryStr);
+                await apiFetch("/api/desktop/write-file", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    filePath,
+                    content: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64," + b64,
+                  }),
+                });
+                setJustSaved(true);
+                toast.success(`Saved ${title} to local disk`);
+                setTimeout(() => setJustSaved(false), 2000);
+              } catch (err) {
+                console.error("[WordCraft] Failed to write binary file to disk:", err);
+                toast.error("Failed to save .docx to computer disk");
+              }
             }
+
             if (onSaveRef.current) {
-              onSaveRef.current();
+              await onSaveRef.current();
             }
           }
           if (onDirtyChangeRef.current) {
@@ -186,25 +211,53 @@ export const WordCraft = memo(function WordCraft({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [content, title, sendDocumentToWordCraft]);
+  }, [content, title, filePath, sendDocumentToWordCraft]);
 
-  // Sync external content updates from AI to WordCraft if modified externally
+  // Sync external content or path updates
   useEffect(() => {
-    if (isReady && content && content !== lastSentContentRef.current) {
-      sendDocumentToWordCraft(content, title);
+    if (isReady && (content !== lastSentContentRef.current || filePath !== lastSentPathRef.current)) {
+      sendDocumentToWordCraft(content || "", title);
     }
-  }, [content, isReady, title, sendDocumentToWordCraft]);
+  }, [content, filePath, isReady, title, sendDocumentToWordCraft]);
 
   // Open native Microsoft Word companion (Dual-Mode Architecture)
   const handleOpenNativeWord = useCallback(async () => {
     if (!filePath) return;
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-    if (desktop?.openWordNative) {
-      await desktop.openWordNative(filePath);
-    } else if (desktop?.openPath) {
-      await desktop.openPath(filePath);
+    try {
+      const res = await apiFetch("/api/desktop/open-word", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath }),
+      });
+      const data = await res.json();
+      if (data?.error) {
+        // Fallback to general open-path
+        await apiFetch("/api/desktop/open-path", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filePath }),
+        });
+      }
+      toast.success(`Opened ${title} in Microsoft Word`);
+    } catch {
+      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+      if (desktop?.openWordNative) {
+        await desktop.openWordNative(filePath);
+      } else if (desktop?.openPath) {
+        await desktop.openPath(filePath);
+      }
     }
-  }, [filePath]);
+  }, [filePath, title]);
+
+  // Trigger Save in WordCraft iframe
+  const handleTriggerSave = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      setIsSavingDisk(true);
+      iframe.contentWindow.postMessage({ type: "wordcraft:trigger-save" }, "*");
+      setTimeout(() => setIsSavingDisk(false), 1000);
+    }
+  }, []);
 
   const iframeSrc = forceWebGL
     ? "/artcraft/wordcraft/index.html?host=parent&webgl"
@@ -212,6 +265,58 @@ export const WordCraft = memo(function WordCraft({
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#e6e6e6] overflow-hidden select-none">
+      {/* DUAL-MODE HEADER TOOLBAR */}
+      <div className="h-10 px-4 bg-[var(--bg-panel)] border-b border-[var(--border)] flex items-center justify-between shrink-0 z-10 select-none">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-5 h-5 rounded bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+            <FileText className="w-3 h-3 text-blue-400" />
+          </div>
+          <span className="text-xs font-semibold text-[var(--text-primary)] truncate max-w-[200px]">
+            {title}
+          </span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--bg-hover)] text-neutral-300 border border-[var(--border)] shrink-0">
+            Local Disk
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleTriggerSave}
+            disabled={isSavingDisk}
+            title="Save changes to your computer disk"
+            className="h-7 px-2.5 rounded bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] text-xs text-white font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {justSaved ? <Check className="w-3.5 h-3.5 text-white" /> : <Save className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{justSaved ? "Saved" : "Save to Disk"}</span>
+          </button>
+
+          {filePath && (
+            <button
+              onClick={handleOpenNativeWord}
+              title="Open document in Microsoft Word / LibreOffice on Windows"
+              className="h-7 px-2.5 rounded bg-white text-black hover:bg-neutral-200 transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Open in Word</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setIsLoading(true);
+              setLoadError(null);
+              if (iframeRef.current) {
+                iframeRef.current.src = iframeSrc;
+              }
+            }}
+            title="Reload WordCraft Suite"
+            className="h-7 w-7 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-neutral-300 flex items-center justify-center cursor-pointer transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
       {/* 1. Loading State */}
       {isLoading && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#f3f2f1] dark:bg-[#18181b] text-neutral-600 dark:text-neutral-400 gap-3">
@@ -222,7 +327,7 @@ export const WordCraft = memo(function WordCraft({
             </span>
           </div>
           <p className="text-xs text-neutral-500 font-mono">
-            Initializing Pure-Rust WebAssembly engine & GPU canvas
+            Reading document bytes from local disk & initializing engine
           </p>
         </div>
       )}
@@ -232,7 +337,7 @@ export const WordCraft = memo(function WordCraft({
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#f3f2f1] dark:bg-[#18181b] p-6 text-center">
           <AlertCircle className="w-10 h-10 text-rose-500 mb-3" />
           <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
-            Unable to Launch WordCraft Canvas
+            Unable to Launch In-App WordCraft Canvas
           </h3>
           <p className="text-xs text-neutral-500 max-w-md mb-4">{loadError}</p>
           <div className="flex items-center gap-2">
