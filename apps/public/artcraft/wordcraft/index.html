@@ -8,6 +8,78 @@
   
 <script type="module">
 import init, * as bindings from './wordcraft-web-9e321acdac2ac7dc.js';
+
+let pendingFile = null;
+let hasLoadedDocument = false;
+
+// 1. Intercept Rust File Dialog (rfd) file input to immediately feed pending document without browser popup
+const origInputClick = HTMLInputElement.prototype.click;
+HTMLInputElement.prototype.click = function() {
+  if (this.type === "file" && pendingFile) {
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(pendingFile);
+      Object.defineProperty(this, "files", { value: dt.files, configurable: true, writable: true });
+      this.dispatchEvent(new Event("change", { bubbles: true }));
+      this.dispatchEvent(new Event("input", { bubbles: true }));
+      hasLoadedDocument = true;
+      console.log("[WordCraft Host] Successfully injected document into rfd input:", pendingFile.name);
+      return;
+    } catch (e) {
+      console.warn("[WordCraft Host] Failed to inject file into input:", e);
+    }
+  }
+  return origInputClick.apply(this, arguments);
+};
+
+// 2. Intercept Document Save (showSaveFilePicker & anchor download) to save directly to local hard disk
+if (window.showSaveFilePicker) {
+  window.showSaveFilePicker = async function() {
+    throw new Error("fallback to anchor download");
+  };
+}
+
+const origAnchorClick = HTMLAnchorElement.prototype.click;
+HTMLAnchorElement.prototype.click = function() {
+  if (this.download && this.href && (this.href.startsWith("blob:") || this.href.startsWith("data:"))) {
+    const filename = this.download;
+    const blobUrl = this.href;
+    fetch(blobUrl)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(
+            {
+              type: "wordcraft:save",
+              name: filename,
+              bytes: buf,
+            },
+            "*"
+          );
+        }
+      })
+      .catch((err) => console.warn("[WordCraft Host] Save export error:", err));
+    return;
+  }
+  return origAnchorClick.apply(this, arguments);
+};
+
+// Helper: synthetic click on egui canvas
+function clickCanvas(x, y) {
+  const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const clientX = rect.left + x;
+  const clientY = rect.top + y;
+  const downOpts = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0, buttons: 1 };
+  canvas.dispatchEvent(new PointerEvent("pointerdown", downOpts));
+  canvas.dispatchEvent(new MouseEvent("mousedown", downOpts));
+  const upOpts = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0, buttons: 0 };
+  canvas.dispatchEvent(new PointerEvent("pointerup", upOpts));
+  canvas.dispatchEvent(new MouseEvent("mouseup", upOpts));
+  canvas.dispatchEvent(new MouseEvent("click", upOpts));
+}
+
 try {
   const wasm = await init({ module_or_path: './wordcraft-web-9e321acdac2ac7dc_bg.wasm' });
   window.wasmBindings = bindings;
@@ -26,71 +98,63 @@ window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
 
-  function exitBackstage() {
+  if (data.type === "wordcraft:trigger-save") {
     const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
-    const targets = [canvas, window, document].filter(Boolean);
-    const escOpts = { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true };
-    for (const target of targets) {
-      try {
-        target.dispatchEvent(new KeyboardEvent("keydown", escOpts));
-        target.dispatchEvent(new KeyboardEvent("keyup", escOpts));
-      } catch (_) {}
-    }
-    // Also dispatch click on "<" button (approx x=28, y=28)
     if (canvas) {
-      try {
-        const backClick = new MouseEvent("click", { clientX: 28, clientY: 28, bubbles: true, cancelable: true });
-        canvas.dispatchEvent(backClick);
-      } catch (_) {}
+      const sOpts = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
+      canvas.dispatchEvent(new KeyboardEvent("keydown", sOpts));
+      canvas.dispatchEvent(new KeyboardEvent("keyup", sOpts));
     }
-  }
-
-  if (data.type === "wordcraft:exit-backstage") {
-    exitBackstage();
     return;
   }
 
-  if (data.type && (data.type === "wordcraft:open" || data.type.endsWith(":open")) && data.bytes) {
-    try {
-      const mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      const blob = new Blob([data.bytes], { type: mime });
-      const file = new File([blob], data.name || "Document.docx", { type: mime, lastModified: Date.now() });
-      const dt = new DataTransfer();
-      dt.items.add(file);
+  if (data.type === "wordcraft:exit-backstage") {
+    // If user clicks "Show Document", click back button '<' or Blank Document
+    clickCanvas(20, 25);
+    setTimeout(() => clickCanvas(147, 170), 100);
+    return;
+  }
 
-      const midX = Math.floor(window.innerWidth / 2) || 400;
-      const midY = Math.floor(window.innerHeight / 2) || 300;
+  if (data.type && (data.type === "wordcraft:open" || data.type.endsWith(":open"))) {
+    const docName = data.name || "Document.docx";
+    const bytes = data.bytes;
 
-      function dispatchDrop() {
-        const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
-        const targets = [canvas, document, window].filter(Boolean);
-        for (const target of targets) {
-          try {
-            const dragEnter = new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
-            target.dispatchEvent(dragEnter);
+    if (bytes && bytes.byteLength > 0) {
+      const ext = docName.split(".").pop()?.toLowerCase() || "docx";
+      const mime = ext === "md" || ext === "txt"
+        ? "text/plain"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-            const dragOver = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
-            target.dispatchEvent(dragOver);
+      pendingFile = new File([bytes], docName, { type: mime, lastModified: Date.now() });
+      hasLoadedDocument = false;
 
-            const dropEvt = new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: midX, clientY: midY });
-            target.dispatchEvent(dropEvt);
-          } catch (e) {
-            console.warn("[WordCraft] drop dispatch error:", e);
-          }
-        }
+      function triggerOpenSequence() {
+        if (hasLoadedDocument) return;
+        // 1. If currently in canvas, click File (x=16, y=48) to open Backstage
+        clickCanvas(16, 48);
+        setTimeout(() => {
+          if (hasLoadedDocument) return;
+          // 2. In Backstage sidebar, click Open (x=40, y=154)
+          clickCanvas(40, 154);
+          setTimeout(() => {
+            if (hasLoadedDocument) return;
+            // 3. On Open view, click Browse... (x=135, y=88) -> triggers rfd -> intercepted by our hook!
+            clickCanvas(135, 88);
+          }, 120);
+        }, 100);
       }
 
-      // 1. Dispatch drop into canvas center
-      dispatchDrop();
-      setTimeout(dispatchDrop, 150);
-      setTimeout(dispatchDrop, 400);
-
-      // 2. Automatically exit Backstage so document view is immediately visible
-      setTimeout(exitBackstage, 250);
-      setTimeout(exitBackstage, 600);
-      setTimeout(exitBackstage, 1200);
-    } catch (err) {
-      console.warn("[WordCraft] Drop packaging error:", err);
+      setTimeout(triggerOpenSequence, 350);
+      setTimeout(triggerOpenSequence, 900);
+      setTimeout(triggerOpenSequence, 1800);
+    } else {
+      // New / Blank Document -> Click Blank document card at (x=147, y=170)
+      function triggerBlankSequence() {
+        if (hasLoadedDocument) return;
+        clickCanvas(147, 170);
+      }
+      setTimeout(triggerBlankSequence, 350);
+      setTimeout(triggerBlankSequence, 900);
     }
   }
 });

@@ -113,18 +113,16 @@ export const WordCraft = memo(function WordCraft({
           }
         }
 
-        if (buffer) {
-          iframe.contentWindow.postMessage(
-            {
-              type: "wordcraft:open",
-              name: docName || "Document.docx",
-              bytes: buffer,
-            },
-            "*"
-          );
-          lastSentContentRef.current = textPayload;
-          lastSentPathRef.current = filePath || null;
-        }
+        iframe.contentWindow.postMessage(
+          {
+            type: "wordcraft:open",
+            name: docName || "Document.docx",
+            bytes: buffer,
+          },
+          "*"
+        );
+        lastSentContentRef.current = textPayload;
+        lastSentPathRef.current = filePath || null;
       } catch (err) {
         console.warn("[WordCraft] Failed to send document buffer:", err);
       }
