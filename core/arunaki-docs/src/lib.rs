@@ -44,6 +44,21 @@ mod tests {
     }
 
     #[test]
+    fn create_docx_from_markdown_generates_valid_docx() {
+        let md = "# Sales Report\n\nExecutive summary for Q3.\n\n| Item | Revenue |\n| --- | --- |\n| Shoes | $500 |\n";
+        let docx_bytes = create_docx_from_markdown(md).expect("failed to generate docx");
+        assert!(!docx_bytes.is_empty());
+        assert_eq!(&docx_bytes[0..2], b"PK");
+
+        // Verify valid zip containing word/document.xml
+        let cursor = std::io::Cursor::new(docx_bytes);
+        let mut archive = zip::ZipArchive::new(cursor).expect("invalid zip archive");
+        assert!(archive.by_name("word/document.xml").is_ok());
+        assert!(archive.by_name("[Content_Types].xml").is_ok());
+        assert!(archive.by_name("_rels/.rels").is_ok());
+    }
+
+    #[test]
     fn csv_excel_map_extracts_cells_and_range() {
         let csv = "Item,Qty\nShirt M,15\n";
         let out = build_csv_excel_map("order.csv", csv);

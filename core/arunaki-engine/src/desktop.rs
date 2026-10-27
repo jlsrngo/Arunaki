@@ -282,6 +282,14 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
             };
         }
     }
+    if ext == "docx" {
+        if let Ok(docx_bytes) = arunaki_docs::create_docx_from_markdown(content) {
+            return match std::fs::write(path, docx_bytes) {
+                Ok(_) => Json(json!({ "success": true })).into_response(),
+                Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
+            };
+        }
+    }
     match std::fs::write(path, content) {
         Ok(_) => Json(json!({ "success": true })).into_response(),
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
