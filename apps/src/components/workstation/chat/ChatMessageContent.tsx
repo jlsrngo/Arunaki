@@ -192,7 +192,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
           return (
             <div
               key={bIdx}
-              className="my-2 max-w-full overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] select-text shadow-xs"
+              className="my-2 max-w-full overflow-hidden rounded-none border border-[var(--border-color)] bg-[var(--bg-panel)] select-text shadow-none"
             >
               <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)] select-none">
                 <span className="font-medium text-[11px] text-[var(--text-secondary)]">
@@ -213,10 +213,10 @@ export const ChatMessageContent = memo(function ChatMessageContent({
                     );
                     toast.success(t("tableOpenedInCanvas", "Table opened in Canvas panel"));
                   }}
-                  className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
                   title={t("openInCanvasTooltip", "Open this table in Center Canvas Panel")}
                 >
-                  <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                  <FileSpreadsheet className="w-3 h-3 text-neutral-400" />
                   <span>{t("openInCanvas", "Open in Canvas")}</span>
                 </button>
               </div>

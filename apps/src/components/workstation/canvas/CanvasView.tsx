@@ -219,48 +219,48 @@ export function CanvasView({
   return (
     <div className="w-full h-full flex flex-col bg-[var(--bg-card)] select-text text-[var(--text-primary)] overflow-hidden font-sans">
       {/* 1. TOP TOOLBAR */}
-      <div className="h-11 px-4 border-b border-[var(--border)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 gap-3 select-none">
+      <div className="h-10 px-4 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 gap-3 select-none">
         {/* Left: Icon, Title, and Stats Badge */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-6 h-6 rounded-md bg-[var(--bg-hover)] border border-[var(--border-strong)] flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded-none bg-[var(--bg-panel-sub)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
             {stats.hasTable ? (
-              <TableIcon className="w-3.5 h-3.5 text-white" />
+              <TableIcon className="w-3 h-3 text-neutral-300" />
             ) : (
-              <FileText className="w-3.5 h-3.5 text-white" />
+              <FileText className="w-3 h-3 text-neutral-300" />
             )}
           </div>
           <span className="text-xs font-semibold tracking-tight text-[var(--text-primary)] truncate max-w-[240px]">
             {title}
           </span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[var(--bg-hover)] text-neutral-300 border border-[var(--border)] shrink-0">
+          <span className="px-2 py-0.5 rounded-none text-[10px] font-mono font-medium bg-[var(--bg-panel-sub)] text-neutral-400 border border-[var(--border-color)] shrink-0">
             {stats.hasTable
               ? `${stats.totalRows} rows · ${stats.totalCols} cols`
               : `${stats.words} words`}
           </span>
           {timeStr && (
-            <span className="text-[10px] font-mono text-neutral-400 hidden sm:inline shrink-0">
+            <span className="text-[10px] font-mono text-neutral-500 hidden sm:inline shrink-0">
               {timeStr}
             </span>
           )}
         </div>
 
-        {/* Right: Search, Mode Switcher & Actions */}
+        {/* Right: Search, Mode Switcher & Proportional Action Icons */}
         <div className="flex items-center gap-2 shrink-0">
           {viewMode === "visual" && stats.hasTable && (
             <div className="relative flex items-center">
-              <Search className="w-3 h-3 text-neutral-400 absolute left-2 pointer-events-none" />
+              <Search className="w-3 h-3 text-neutral-500 absolute left-2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Filter rows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-32 sm:w-44 h-7 pl-6 pr-2 rounded bg-[var(--bg-card)] border border-[var(--border)] text-[11px] text-[var(--text-primary)] placeholder-neutral-500 focus:outline-hidden focus:border-white transition-colors"
+                className="w-32 sm:w-44 h-7 pl-6 pr-2 rounded-none bg-[var(--bg-panel-sub)] border border-[var(--border-color)] text-[11px] text-[var(--text-primary)] placeholder-neutral-500 focus:outline-hidden focus:border-neutral-500 transition-colors"
               />
             </div>
           )}
 
           {/* Mode Switcher */}
-          <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border)] rounded p-0.5">
+          <div className="flex items-center bg-[var(--bg-panel-sub)] border border-[var(--border-color)] rounded-none p-0.5">
             <button
               onClick={() => {
                 if (viewMode === "edit" && onContentChange) {
@@ -270,7 +270,7 @@ export function CanvasView({
               }}
               title="Visual Canvas View"
               className={cn(
-                "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
+                "px-2 py-0.5 rounded-none text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
                 viewMode === "visual"
                   ? "bg-[var(--bg-hover)] text-white shadow-xs"
                   : "text-neutral-400 hover:text-white"
@@ -286,7 +286,7 @@ export function CanvasView({
               }}
               title="Markdown / Raw Editor"
               className={cn(
-                "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
+                "px-2 py-0.5 rounded-none text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
                 viewMode === "edit"
                   ? "bg-[var(--bg-hover)] text-white shadow-xs"
                   : "text-neutral-400 hover:text-white"
@@ -297,47 +297,44 @@ export function CanvasView({
             </button>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Icons (Minimalist, Proportional, Matching CenterTabHeader) */}
           {viewMode === "edit" ? (
             <button
               onClick={handleManualSave}
               disabled={isSaving}
-              className="h-7 px-2.5 rounded bg-white text-black hover:bg-neutral-200 transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              className="h-7 px-2.5 rounded-none border border-[var(--border-color)] bg-[var(--bg-panel-sub)] hover:bg-[var(--bg-hover)] text-white transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Save className="w-3 h-3" />
               <span>Save</span>
             </button>
           ) : (
-            <>
+            <div className="flex items-center gap-1">
               {stats.hasTable && (
                 <button
                   onClick={handleExportCsv}
-                  title="Export Table to CSV"
-                  className="h-7 px-2 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[11px] text-neutral-300 font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Export Table as CSV"
+                  className="p-1.5 rounded-none text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-3 h-3 text-neutral-400" />
-                  <span className="hidden lg:inline">CSV</span>
+                  <FileSpreadsheet className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </button>
               )}
 
               <button
                 onClick={handleExportMarkdown}
-                title="Export as Markdown (.md)"
-                className="h-7 px-2 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[11px] text-neutral-300 font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                title="Download as Markdown"
+                className="p-1.5 rounded-none text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
               >
-                <Download className="w-3 h-3 text-neutral-400" />
-                <span className="hidden lg:inline">MD</span>
+                <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
 
               <button
                 onClick={handleCopy}
-                title="Copy Canvas"
-                className="h-7 px-2.5 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[11px] text-white font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                title="Copy Canvas Content"
+                className="p-1.5 rounded-none text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
               >
-                {copied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
-                <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+                {copied ? <Check className="w-3.5 h-3.5 text-white" strokeWidth={1.5} /> : <Copy className="w-3.5 h-3.5" strokeWidth={1.5} />}
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -356,10 +353,10 @@ export function CanvasView({
               return (
                 <div
                   key={`table-${idx}`}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--bg-panel)] overflow-hidden shadow-xs flex flex-col"
+                  className="rounded-none border border-[var(--border-color)] bg-[var(--bg-panel)] overflow-hidden shadow-none flex flex-col"
                 >
                   {/* Table Header Bar */}
-                  <div className="px-3.5 py-2.5 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between gap-3 text-xs">
+                  <div className="px-3.5 py-2 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] flex items-center justify-between gap-3 text-xs select-none">
                     <div className="flex items-center gap-2">
                       <TableIcon className="w-3.5 h-3.5 text-neutral-400" />
                       <span className="font-semibold text-neutral-200">
@@ -376,7 +373,7 @@ export function CanvasView({
                         await navigator.clipboard.writeText(rawMarkdown);
                         toast.success("Table copied as Markdown");
                       }}
-                      className="text-[11px] text-neutral-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Copy className="w-3 h-3" />
                       <span>Copy Table</span>
@@ -387,14 +384,14 @@ export function CanvasView({
                   <div className="overflow-x-auto max-h-[560px]">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="border-b border-[var(--border)] bg-[var(--bg-card)] sticky top-0 z-10">
-                          <th className="py-2 px-3 text-[10px] font-mono font-medium text-neutral-400 border-r border-[var(--border)] w-10 text-center select-none">
+                        <tr className="border-b border-[var(--border-color)] bg-[var(--bg-panel-sub)] sticky top-0 z-10">
+                          <th className="py-2 px-3 text-[10px] font-mono font-medium text-neutral-400 border-r border-[var(--border-color)] w-10 text-center select-none">
                             #
                           </th>
                           {headers.map((h, hIdx) => (
                             <th
                               key={hIdx}
-                              className="py-2 px-3 text-[11px] font-semibold text-neutral-200 border-r border-[var(--border)] last:border-r-0 whitespace-nowrap"
+                              className="py-2 px-3 text-[11px] font-semibold text-neutral-200 border-r border-[var(--border-color)] last:border-r-0 whitespace-nowrap"
                             >
                               {h}
                             </th>
@@ -406,9 +403,9 @@ export function CanvasView({
                           filteredRows.map((row, rIdx) => (
                             <tr
                               key={rIdx}
-                              className="border-b border-[var(--border)]/60 hover:bg-[var(--bg-hover)]/70 transition-colors last:border-b-0"
+                              className="border-b border-[var(--border-color)] hover:bg-[var(--bg-hover)]/50 transition-colors last:border-b-0"
                             >
-                              <td className="py-2 px-2.5 text-[10px] font-mono text-neutral-500 border-r border-[var(--border)] text-center select-none">
+                              <td className="py-2 px-2.5 text-[10px] font-mono text-neutral-500 border-r border-[var(--border-color)] text-center select-none">
                                 {rIdx + 1}
                               </td>
                               {row.map((cell, cIdx) => {
@@ -417,7 +414,7 @@ export function CanvasView({
                                   <td
                                     key={cIdx}
                                     className={cn(
-                                      "py-2 px-3 text-[11px] text-neutral-300 border-r border-[var(--border)] last:border-r-0 break-words",
+                                      "py-2 px-3 text-[11px] text-neutral-300 border-r border-[var(--border-color)] last:border-r-0 break-words",
                                       isNumber && "text-right font-mono text-neutral-200"
                                     )}
                                   >

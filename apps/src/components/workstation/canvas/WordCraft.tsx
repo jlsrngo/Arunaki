@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
-import { ExternalLink, RefreshCw, AlertCircle, Save, FileText, Check, Eye } from "lucide-react";
+import { ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
@@ -33,8 +33,6 @@ export const WordCraft = memo(function WordCraft({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [forceWebGL, setForceWebGL] = useState(false);
-  const [isSavingDisk, setIsSavingDisk] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
 
   // Keep latest callbacks in ref to avoid re-subscribing message listener
   const onContentChangeRef = useRef(onContentChange);
@@ -139,11 +137,13 @@ export const WordCraft = memo(function WordCraft({
       // 1. App is up and ready for files
       if (data.type === "wordcraft:ready") {
         setIsReady(true);
-        setIsLoading(false);
         setLoadError(null);
 
         // Immediately send current document content / read file from disk
         sendDocumentToWordCraft(content || "", title);
+      }
+      else if (data.type === "wordcraft:document-ready") {
+        setIsLoading(false);
       }
 
       // 2. User clicked Save (Ctrl+S or File > Save)
@@ -170,9 +170,7 @@ export const WordCraft = memo(function WordCraft({
                     content: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64," + b64,
                   }),
                 });
-                setJustSaved(true);
                 toast.success(`Saved ${title} to local disk`);
-                setTimeout(() => setJustSaved(false), 2000);
               } catch (err) {
                 console.error("[WordCraft] Failed to write binary file to disk:", err);
                 toast.error("Failed to save .docx to computer disk");
@@ -247,15 +245,7 @@ export const WordCraft = memo(function WordCraft({
     }
   }, [filePath, title]);
 
-  // Trigger Save in WordCraft iframe
-  const handleTriggerSave = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (iframe?.contentWindow) {
-      setIsSavingDisk(true);
-      iframe.contentWindow.postMessage({ type: "wordcraft:trigger-save" }, "*");
-      setTimeout(() => setIsSavingDisk(false), 1000);
-    }
-  }, []);
+
 
   const iframeSrc = forceWebGL
     ? "/artcraft/wordcraft/index.html?host=parent&webgl"
@@ -263,69 +253,6 @@ export const WordCraft = memo(function WordCraft({
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#e6e6e6] overflow-hidden select-none">
-      {/* DUAL-MODE HEADER TOOLBAR */}
-      <div className="h-10 px-4 bg-[var(--bg-panel)] border-b border-[var(--border)] flex items-center justify-between shrink-0 z-10 select-none">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-5 h-5 rounded bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
-            <FileText className="w-3 h-3 text-blue-400" />
-          </div>
-          <span className="text-xs font-semibold text-[var(--text-primary)] truncate max-w-[200px]">
-            {title}
-          </span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--bg-hover)] text-neutral-300 border border-[var(--border)] shrink-0">
-            Local Disk
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              iframeRef.current?.contentWindow?.postMessage({ type: "wordcraft:exit-backstage" }, "*");
-            }}
-            title="Exit backstage and show the document layout canvas"
-            className="h-7 px-2.5 rounded bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] text-xs text-neutral-200 font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Show Document</span>
-          </button>
-
-          <button
-            onClick={handleTriggerSave}
-            disabled={isSavingDisk}
-            title="Save changes to your computer disk"
-            className="h-7 px-2.5 rounded bg-[var(--bg-card)] border border-[var(--border)] hover:bg-[var(--bg-hover)] text-xs text-white font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            {justSaved ? <Check className="w-3.5 h-3.5 text-white" /> : <Save className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{justSaved ? "Saved" : "Save to Disk"}</span>
-          </button>
-
-          {filePath && (
-            <button
-              onClick={handleOpenNativeWord}
-              title="Open document in Microsoft Word / LibreOffice on Windows"
-              className="h-7 px-2.5 rounded bg-white text-black hover:bg-neutral-200 transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Open in Word</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              setIsLoading(true);
-              setLoadError(null);
-              if (iframeRef.current) {
-                iframeRef.current.src = iframeSrc;
-              }
-            }}
-            title="Reload WordCraft Suite"
-            className="h-7 w-7 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-neutral-300 flex items-center justify-center cursor-pointer transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-
       {/* 1. Loading State */}
       {isLoading && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#f3f2f1] dark:bg-[#18181b] text-neutral-600 dark:text-neutral-400 gap-3">
@@ -379,7 +306,8 @@ export const WordCraft = memo(function WordCraft({
         src={iframeSrc}
         title="ArtCraft WordCraft Suite"
         onLoad={() => {
-          setIsLoading(false);
+          // Fallback safety timeout in case wordcraft:document-ready is delayed
+          setTimeout(() => setIsLoading(false), 2500);
         }}
         className={cn(
           "w-full h-full border-0 block flex-1 transition-opacity duration-200",

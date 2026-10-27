@@ -24,6 +24,7 @@
     --bg-card: #1C1C20;
     --bg-hover: #26262B;
     --bg-input: #121215;
+    --border: #222226;
     --border-color: #222226;
     --border-strong: #2E2E35;
     --text-primary: #FFFFFF;
@@ -43,6 +44,7 @@
     --bg-card: #FFFFFF;
     --bg-hover: #E2E8F0;
     --bg-input: #FFFFFF;
+    --border: #E2E8F0;
     --border-color: #E2E8F0;
     --border-strong: #CBD5E1;
     --text-primary: #0F172A;
