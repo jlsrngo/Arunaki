@@ -507,6 +507,8 @@ export function CanvasView({
             onKeyDown={(e) => {
               if ((e.ctrlKey || e.metaKey) && e.key === "s") {
                 e.preventDefault();
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
                 handleManualSave();
               }
             }}

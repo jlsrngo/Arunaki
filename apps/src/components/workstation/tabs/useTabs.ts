@@ -31,6 +31,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
   });
 
   const openingTabsRef = useRef<Set<string>>(new Set());
+  const savingTabsRef = useRef<Set<string>>(new Set());
   const prevFolderRef = useRef<string>(activeFolder);
   const prevChatIdRef = useRef<string>(activeChatId || "");
 
@@ -425,6 +426,14 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
 
   const handleSaveFileTab = useCallback(
     async (tabId: string, newContent: string) => {
+      if (savingTabsRef.current.has(tabId)) {
+        return;
+      }
+      savingTabsRef.current.add(tabId);
+      setTimeout(() => {
+        savingTabsRef.current.delete(tabId);
+      }, 600);
+
       const targetTab = tabs.find((t) => t.id === tabId);
       if (!targetTab) return;
       let filePath = targetTab.path || targetTab.title;
@@ -441,7 +450,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
         try {
           const res = await desktop.writeFile(fullPath, newContent);
           if (res?.success) {
-            toast.success(`Saved ${targetTab.title}`);
+            toast.success(`Saved ${targetTab.title}`, { id: `save-${targetTab.title}` });
             setTabs((prev) =>
               prev.map((t) =>
                 t.id === tabId

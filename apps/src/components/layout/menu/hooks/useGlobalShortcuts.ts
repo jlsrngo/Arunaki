@@ -46,6 +46,7 @@ export function useGlobalShortcuts({
         commands.openFolder?.();
       } else if (matchesShortcut(e, getEffectiveShortcut("save-file"))) {
         e.preventDefault();
+        if (target.tagName === 'TEXTAREA' || target.isContentEditable) { return; }
         commands.saveFile();
       } else if (matchesShortcut(e, getEffectiveShortcut("new-session"))) {
         e.preventDefault();

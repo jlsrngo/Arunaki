@@ -223,6 +223,8 @@ function WorkstationCenterPanelComponent({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
       e.preventDefault();
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
       handleSave();
     }
     if (e.key === "Tab") {

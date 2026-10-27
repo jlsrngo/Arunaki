@@ -179,7 +179,7 @@ export const WordCraft = memo(function WordCraft({
                     content: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64," + b64,
                   }),
                 });
-                toast.success(`Saved ${title} to local disk`);
+                toast.success(`Saved ${title} to local disk`, { id: `save-${title}` });
               } catch (err) {
                 console.error("[WordCraft] Failed to write binary file to disk:", err);
                 toast.error("Failed to save .docx to computer disk");
