@@ -404,7 +404,9 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
             setTabs((latest) =>
               latest.map((t) => {
                 const u = updates.find((item) => item.tabId === t.id);
-                return u && u.content !== t.content ? { ...t, content: u.content } : t;
+                return u && u.content !== t.content
+                  ? { ...t, content: u.content, originalContent: t.originalContent ?? u.content }
+                  : t;
               })
             );
           }

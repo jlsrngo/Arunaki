@@ -163,7 +163,7 @@ function WorkstationCenterPanelComponent({
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
           onUpdateTabContent(activeTab.id, newText);
-        }, 500);
+        }, 150);
       }
     },
     [activeTab?.id, onUpdateTabContent]
@@ -192,7 +192,7 @@ function WorkstationCenterPanelComponent({
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
           onUpdateTabContent(tabId, newText);
-        }, 500);
+        }, 150);
       }
     },
     [onUpdateTabContent]
