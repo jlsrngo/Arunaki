@@ -137,6 +137,7 @@ export const WordCraft = memo(function WordCraft({
       // 1. App is up and ready for files
       if (data.type === "wordcraft:ready") {
         setIsReady(true);
+        setIsLoading(false);
         setLoadError(null);
 
         // Immediately send current document content / read file from disk
@@ -306,8 +307,7 @@ export const WordCraft = memo(function WordCraft({
         src={iframeSrc}
         title="ArtCraft WordCraft Suite"
         onLoad={() => {
-          // Fallback safety timeout in case wordcraft:document-ready is delayed
-          setTimeout(() => setIsLoading(false), 2500);
+          setIsLoading(false);
         }}
         className={cn(
           "w-full h-full border-0 block flex-1 transition-opacity duration-200",

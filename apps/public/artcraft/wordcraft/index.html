@@ -139,49 +139,43 @@ window.addEventListener("message", (event) => {
 
       function triggerOpenSequence() {
         if (hasLoadedDocument) return;
-        // 1. In Backstage or Canvas, navigate to Open -> Browse...
+        // In Backstage: click Open (40, 154). In Document: click File (16, 48) then Open
+        clickCanvas(40, 154);
         clickCanvas(16, 48);
         setTimeout(() => {
           if (hasLoadedDocument) return;
           clickCanvas(40, 154);
           setTimeout(() => {
             if (hasLoadedDocument) return;
-            clickCanvas(135, 88);
-          }, 90);
-        }, 90);
+            clickCanvas(135, 88); // Browse...
+          }, 120);
+        }, 120);
       }
 
-      setTimeout(triggerOpenSequence, 280);
+      // Allow WASM egui runtime to complete first render before clicking
+      setTimeout(triggerOpenSequence, 400);
       setTimeout(() => {
         if (!hasLoadedDocument) triggerOpenSequence();
-      }, 950);
+      }, 1200);
     } else {
       // New / Blank Document -> Click Blank document card at (x=147, y=170)
       function triggerBlankSequence() {
         if (hasLoadedDocument) return;
         clickCanvas(147, 170);
         hasLoadedDocument = true;
-        setTimeout(() => {
-          const canvas = document.getElementById("wordcraft_canvas");
-          if (canvas) canvas.classList.add("ready");
-          const loading = document.getElementById("wordcraft_loading");
-          if (loading) loading.style.display = "none";
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: "wordcraft:document-ready" }, "*");
-          }
-        }, 150);
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: "wordcraft:document-ready" }, "*");
+        }
       }
-      setTimeout(triggerBlankSequence, 280);
+      setTimeout(triggerBlankSequence, 400);
     }
   }
 });
 </script>
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e6e6e6; }
-    #wordcraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity 0.25s ease-in; }
-    #wordcraft_canvas.ready { opacity: 1; }
-    #wordcraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      color: #666; font: 13px system-ui, sans-serif; pointer-events: none; }
+    #wordcraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #wordcraft_loading { display: none; }
   </style>
 <link rel="modulepreload" href="./wordcraft-web-9e321acdac2ac7dc.js" crossorigin="anonymous" integrity="sha384-WI5Sf1J2izS//U2p4CpSInvDHOKtUdltA3wyTR15B9DFUnjT/LLb5xBsaIhduMOP"><link rel="preload" href="./wordcraft-web-9e321acdac2ac7dc_bg.wasm" crossorigin="anonymous" integrity="sha384-cyZtd13dLos9BjlXaCIPFk9T7XqvyeLAkIgI3ms3zV+erj6PyDEueNl8LIo/YOD2" as="fetch" type="application/wasm"></head>
 <body>
