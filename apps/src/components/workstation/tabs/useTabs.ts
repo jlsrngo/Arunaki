@@ -311,6 +311,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           path: filePath,
           fileType: cleanName.split(".").pop() || "txt",
           content: fileContent || "Empty document...",
+          originalContent: fileContent || "",
         };
 
         setTabs((prev) => {
@@ -440,8 +441,23 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
           if (res?.success) {
             toast.success(`Saved ${targetTab.title}`);
             setTabs((prev) =>
-              prev.map((t) => (t.id === tabId ? { ...t, content: newContent, path: filePath } : t))
+              prev.map((t) =>
+                t.id === tabId
+                  ? { ...t, content: newContent, originalContent: newContent, path: filePath }
+                  : t
+              )
             );
+            // Accept change on backend to clean baseline
+            try {
+              engineFetch(
+                `/api/file/accept?directory=${encodeURIComponent(activeFolder)}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ path: filePath }),
+                }
+              );
+            } catch {}
             refetchFiles?.();
             return;
           } else if (res?.error) {

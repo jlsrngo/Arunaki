@@ -47,6 +47,7 @@ export function UnifiedWorkstationPage() {
   // 3b. Source Control & Working Tree Document Changes Management
   const docChanges = useDocumentChanges({
     activeFolder,
+    tabs: tabs.tabs,
     onOpenDiffTab: tabs.handleOpenDiffTab,
     refetchFiles,
   });

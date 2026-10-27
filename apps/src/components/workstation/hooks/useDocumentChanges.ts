@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { engineFetch } from "../../../lib/engine";
 import { computeLineDiff } from "../tabs/diffUtils";
 import { DocumentChangeItem } from "../explorer/ExplorerSourceControl";
+import { CenterTab } from "../tabs/types";
 
 interface UseDocumentChangesOptions {
   activeFolder: string;
+  tabs?: CenterTab[];
   onOpenDiffTab?: (file: { path: string; name: string; beforeContent: string; afterContent: string }) => void;
   onFileReverted?: (filePath: string, restoredContent: string) => void;
   refetchFiles?: () => void;
@@ -13,6 +15,7 @@ interface UseDocumentChangesOptions {
 
 export function useDocumentChanges({
   activeFolder,
+  tabs,
   onOpenDiffTab,
   onFileReverted,
   refetchFiles,
@@ -71,6 +74,46 @@ export function useDocumentChanges({
     window.addEventListener("arunaki:file.edited", handleFileEdited);
     return () => window.removeEventListener("arunaki:file.edited", handleFileEdited);
   }, [fetchChanges]);
+
+  // Live buffer integration: merge in-memory edited tabs with disk changes
+  const combinedChanges = useMemo(() => {
+    const list = [...changes];
+    if (tabs && tabs.length > 0) {
+      for (const tab of tabs) {
+        if (
+          tab.type === "file" &&
+          tab.originalContent !== undefined &&
+          tab.content !== undefined &&
+          tab.content !== tab.originalContent
+        ) {
+          const filePath = tab.path || tab.title;
+          const diffLines = computeLineDiff(tab.originalContent, tab.content);
+          const added = diffLines.filter((l) => l.type === "added").length;
+          const deleted = diffLines.filter((l) => l.type === "deleted").length;
+          if (added > 0 || deleted > 0) {
+            const existingIdx = list.findIndex(
+              (c) => c.filePath === filePath || c.fileName === tab.title
+            );
+            const liveItem: DocumentChangeItem = {
+              filePath,
+              fileName: tab.title,
+              beforeContent: tab.originalContent,
+              afterContent: tab.content,
+              addedCount: added,
+              deletedCount: deleted,
+              status: "modified",
+            };
+            if (existingIdx >= 0) {
+              list[existingIdx] = liveItem;
+            } else {
+              list.unshift(liveItem);
+            }
+          }
+        }
+      }
+    }
+    return list;
+  }, [changes, tabs]);
 
   const handleOpenDiff = useCallback(
     (item: DocumentChangeItem) => {
@@ -149,7 +192,7 @@ export function useDocumentChanges({
 
   const handleRevertDiff = useCallback(
     async (filePath: string) => {
-      const item = changes.find((c) => c.filePath === filePath);
+      const item = combinedChanges.find((c) => c.filePath === filePath);
       if (item) {
         await handleRevertChange(item);
       } else {
@@ -163,12 +206,12 @@ export function useDocumentChanges({
         });
       }
     },
-    [changes, handleRevertChange]
+    [combinedChanges, handleRevertChange]
   );
 
   const handleAcceptDiff = useCallback(
     async (filePath: string) => {
-      const item = changes.find((c) => c.filePath === filePath);
+      const item = combinedChanges.find((c) => c.filePath === filePath);
       if (item) {
         await handleAcceptChange(item);
       } else {
@@ -182,11 +225,11 @@ export function useDocumentChanges({
         });
       }
     },
-    [changes, handleAcceptChange]
+    [combinedChanges, handleAcceptChange]
   );
 
   return {
-    changes,
+    changes: combinedChanges,
     fetchChanges,
     handleOpenDiff,
     handleRevertChange,

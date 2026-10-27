@@ -5,6 +5,7 @@ export interface CenterTab {
   path?: string;
   fileType?: string;
   content?: string;
+  originalContent?: string;
   beforeContent?: string;
   afterContent?: string;
   createdAt?: string;

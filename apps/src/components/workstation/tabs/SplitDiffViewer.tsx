@@ -2,6 +2,7 @@ import { useMemo, useRef, memo } from "react";
 import { GitCompare, RotateCcw, Check, FileText } from "lucide-react";
 import { computeSideBySideDiff } from "./diffUtils";
 import { cn } from "../../../lib/utils";
+import { useI18n } from "../../../lib/i18n";
 
 interface SplitDiffViewerProps {
   fileName: string;
@@ -23,6 +24,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
   onRevert,
   onAccept,
 }: SplitDiffViewerProps) {
+  const { t } = useI18n();
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
@@ -97,10 +99,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
               type="button"
               onClick={onRevert}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Discard working changes and restore last saved version on disk"
+              title={t("discardChanges", "Discard Changes")}
             >
               <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-              <span>Discard Changes</span>
+              <span>{t("discardChanges", "Discard Changes")}</span>
             </button>
           )}
 
@@ -109,10 +111,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
               type="button"
               onClick={onAccept}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Save working changes to disk"
+              title={t("saveToDisk", "Save to Disk")}
             >
               <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
-              <span>Save to Disk</span>
+              <span>{t("saveToDisk", "Save to Disk")}</span>
             </button>
           )}
         </div>

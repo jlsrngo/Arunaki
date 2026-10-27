@@ -22,6 +22,14 @@ export const translations = {
     closeFolder: "Close Folder",
     preferencesSettings: "Preferences / Settings",
     exitWindow: "Exit Window",
+    documentChanges: "Document Changes",
+    changesTitle: "Changes",
+    noChangesDetected: "No changes detected",
+    workingTreeClean: "All documents are up to date with disk.",
+    discardChanges: "Discard Changes",
+    saveToDisk: "Save to Disk",
+    revertSuccess: "Restored last saved version",
+    saveSuccess: "Saved changes to disk",
 
     // Edit Menu
     undo: "Undo",
@@ -408,6 +416,14 @@ export const translations = {
     closeFolder: "Tutup Folder",
     preferencesSettings: "Pengaturan / Preferensi",
     exitWindow: "Keluar",
+    documentChanges: "Perubahan Dokumen",
+    changesTitle: "Daftar Perubahan",
+    noChangesDetected: "Tidak ada perubahan",
+    workingTreeClean: "Semua dokumen telah tersimpan sesuai disk.",
+    discardChanges: "Kembalikan Perubahan",
+    saveToDisk: "Simpan ke Disk",
+    revertSuccess: "Berhasil mengembalikan versi tersimpan",
+    saveSuccess: "Berhasil menyimpan ke disk",
 
     // Edit Menu
     undo: "Urungkan",

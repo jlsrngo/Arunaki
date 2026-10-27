@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { Files, GitBranch, Search, Settings } from "lucide-react";
+import { Files, GitCompare, Search, Settings } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { useI18n } from "../../../lib/i18n";
 
 export type SidebarView = "explorer" | "source-control" | "search";
 
@@ -19,6 +20,7 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
   changesCount = 0,
   onOpenSettings,
 }: WorkstationActivityBarProps) {
+  const { t } = useI18n();
   const isTabActive = (view: SidebarView) => !isCollapsed && activeView === view;
 
   return (
@@ -47,7 +49,7 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           <Files className="w-5 h-5 stroke-[1.6]" />
         </button>
 
-        {/* Source Control Button */}
+        {/* Document Changes Button */}
         <button
           type="button"
           onClick={() => onSelectView("source-control")}
@@ -57,13 +59,13 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
               ? "text-white bg-[var(--bg-hover)] shadow-xs"
               : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
           )}
-          title="Source Control"
-          aria-label="Source Control"
+          title={t("documentChanges", "Document Changes")}
+          aria-label={t("documentChanges", "Document Changes")}
         >
           {isTabActive("source-control") && (
             <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
           )}
-          <GitBranch className="w-5 h-5 stroke-[1.6]" />
+          <GitCompare className="w-5 h-5 stroke-[1.6]" />
           {changesCount > 0 && (
             <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold font-mono flex items-center justify-center shadow-xs pointer-events-none">
               {changesCount > 99 ? "99+" : changesCount}
