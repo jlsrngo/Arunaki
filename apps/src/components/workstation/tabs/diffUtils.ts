@@ -5,8 +5,20 @@ export interface DiffLine {
   content: string;
 }
 
+export interface SideBySideDiffCell {
+  lineNumber?: number;
+  content: string;
+  type: "unchanged" | "added" | "deleted" | "empty";
+}
+
+export interface SideBySideDiffRow {
+  id: string;
+  left: SideBySideDiffCell;
+  right: SideBySideDiffCell;
+}
+
 /**
- * Line-by-line diff algorithm (LCS-based) for VSCode-style gutter change indicators
+ * Line-by-line diff algorithm (LCS-based) for gutter change indicators
  */
 export function computeLineDiff(oldText: string, newText: string): DiffLine[] {
   const oldLines = oldText ? oldText.split("\n") : [];
@@ -59,4 +71,81 @@ export function computeLineDiff(oldText: string, newText: string): DiffLine[] {
   }
 
   return result;
+}
+
+/**
+ * Computes paired side-by-side rows (Left: Before, Right: After) for visual split comparison
+ */
+export function computeSideBySideDiff(oldText: string, newText: string): SideBySideDiffRow[] {
+  const lines = computeLineDiff(oldText, newText);
+  const rows: SideBySideDiffRow[] = [];
+  let rowIdx = 0;
+
+  let k = 0;
+  while (k < lines.length) {
+    const cur = lines[k];
+
+    if (cur.type === "unchanged") {
+      rows.push({
+        id: `row-${rowIdx++}`,
+        left: {
+          lineNumber: cur.oldLineNumber,
+          content: cur.content,
+          type: "unchanged",
+        },
+        right: {
+          lineNumber: cur.newLineNumber,
+          content: cur.content,
+          type: "unchanged",
+        },
+      });
+      k++;
+      continue;
+    }
+
+    // Collect consecutive deleted and added chunks
+    const deletedChunk: DiffLine[] = [];
+    const addedChunk: DiffLine[] = [];
+
+    while (k < lines.length && lines[k].type === "deleted") {
+      deletedChunk.push(lines[k]);
+      k++;
+    }
+    while (k < lines.length && lines[k].type === "added") {
+      addedChunk.push(lines[k]);
+      k++;
+    }
+
+    const maxLen = Math.max(deletedChunk.length, addedChunk.length);
+    for (let m = 0; m < maxLen; m++) {
+      const delLine = deletedChunk[m];
+      const addLine = addedChunk[m];
+
+      rows.push({
+        id: `row-${rowIdx++}`,
+        left: delLine
+          ? {
+              lineNumber: delLine.oldLineNumber,
+              content: delLine.content,
+              type: "deleted",
+            }
+          : {
+              content: "",
+              type: "empty",
+            },
+        right: addLine
+          ? {
+              lineNumber: addLine.newLineNumber,
+              content: addLine.content,
+              type: "added",
+            }
+          : {
+              content: "",
+              type: "empty",
+            },
+      });
+    }
+  }
+
+  return rows;
 }

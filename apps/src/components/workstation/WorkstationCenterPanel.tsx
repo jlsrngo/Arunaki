@@ -28,6 +28,8 @@ const CanvasView = lazy(() =>
   import("./canvas/CanvasView").then((m) => ({ default: m.CanvasView }))
 );
 
+import { SplitDiffViewer } from "./tabs/SplitDiffViewer";
+
 export type { CenterTab };
 
 export interface WorkstationCenterPanelProps {
@@ -39,6 +41,8 @@ export interface WorkstationCenterPanelProps {
   onUpdateTabContent?: (tabId: string, newContent: string) => void;
   onSaveTabContent?: (tabId: string, content: string) => Promise<void> | void;
   onOpenFolder?: () => void;
+  onRevertDiff?: (filePath: string) => void;
+  onAcceptDiff?: (filePath: string) => void;
 }
 
 function WorkstationCenterPanelComponent({
@@ -50,6 +54,8 @@ function WorkstationCenterPanelComponent({
   onUpdateTabContent,
   onSaveTabContent,
   onOpenFolder,
+  onRevertDiff,
+  onAcceptDiff,
 }: WorkstationCenterPanelProps) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -443,6 +449,25 @@ function WorkstationCenterPanelComponent({
                       onSave={() => handleSaveForTab(tab.id)}
                     />
                   </Suspense>
+                ) : tab.type === "diff" ? (
+                  <SplitDiffViewer
+                    fileName={tab.title.replace(" (Working Tree)", "")}
+                    filePath={tab.path}
+                    beforeContent={tab.beforeContent || ""}
+                    afterContent={tab.afterContent || tab.content || ""}
+                    onRevert={() => {
+                      if (tab.path && onRevertDiff) {
+                        onRevertDiff(tab.path);
+                      }
+                      onCloseTab(tab.id);
+                    }}
+                    onAccept={() => {
+                      if (tab.path && onAcceptDiff) {
+                        onAcceptDiff(tab.path);
+                      }
+                      onCloseTab(tab.id);
+                    }}
+                  />
                 ) : isTabWordDoc ? (
                   <Suspense fallback={null}>
                     <WordCraft

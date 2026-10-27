@@ -517,6 +517,37 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
     }
   }, []);
 
+  const handleOpenDiffTab = useCallback(
+    (file: { path: string; name: string; beforeContent: string; afterContent: string }) => {
+      const tabId = `diff-${file.path}`;
+      setTabs((prev) => {
+        const existing = prev.find((t) => t.id === tabId);
+        if (existing) {
+          return prev.map((t) =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  beforeContent: file.beforeContent,
+                  afterContent: file.afterContent,
+                }
+              : t
+          );
+        }
+        const newTab: CenterTab = {
+          id: tabId,
+          type: "diff",
+          title: `${file.name} (Working Tree)`,
+          path: file.path,
+          beforeContent: file.beforeContent,
+          afterContent: file.afterContent,
+        };
+        return [...prev, newTab];
+      });
+      setActiveTabId(tabId);
+    },
+    []
+  );
+
   return {
     tabs,
     setTabs,
@@ -526,6 +557,7 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
     setRecentCanvases,
     handleOpenCanvasTab,
     handleOpenFileTab,
+    handleOpenDiffTab,
     handleCloseTab,
     reloadOpenTabsContent,
     handleUpdateTabContent,

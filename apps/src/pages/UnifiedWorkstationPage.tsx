@@ -11,6 +11,7 @@ import { useWorkstationChat } from "../components/workstation/chat/useWorkstatio
 import { useWorkstationSession } from "../components/workstation/hooks/useWorkstationSession";
 import { useWorkstationFiles } from "../components/workstation/hooks/useWorkstationFiles";
 import { useWorkstationLayout } from "../components/workstation/hooks/useWorkstationLayout";
+import { useDocumentChanges } from "../components/workstation/hooks/useDocumentChanges";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { tauriPickFolder } from "../lib/api";
 
@@ -40,6 +41,13 @@ export function UnifiedWorkstationPage() {
 
   // 3. Document Tabs Management
   const tabs = useTabs({ activeFolder, activeChatId, refetchFiles });
+
+  // 3b. Source Control & Working Tree Document Changes Management
+  const docChanges = useDocumentChanges({
+    activeFolder,
+    onOpenDiffTab: tabs.handleOpenDiffTab,
+    refetchFiles,
+  });
 
   // 4. Workstation Chat Engine
   const chat = useWorkstationChat({
@@ -99,7 +107,7 @@ export function UnifiedWorkstationPage() {
         toast.success(`Folder opened: ${selected}`);
       }
     } catch (err: any) {
-      toast.error(`Gagal membuka folder: ${err?.message || err}`);
+      toast.error(`Failed to open folder: ${err?.message || err}`);
     }
   }, [openFolder]);
 
@@ -123,6 +131,10 @@ export function UnifiedWorkstationPage() {
           onNativeFilesChange={setNativeFileNames}
           recentCanvases={tabs.recentCanvases}
           onOpenCanvasTab={tabs.handleOpenCanvasTab}
+          changes={docChanges.changes}
+          onOpenDiffTab={docChanges.handleOpenDiff}
+          onRevertChange={docChanges.handleRevertChange}
+          onAcceptChange={docChanges.handleAcceptChange}
         />
 
         {!leftCollapsed && (
@@ -141,6 +153,8 @@ export function UnifiedWorkstationPage() {
           onUpdateTabContent={tabs.handleUpdateTabContent}
           onSaveTabContent={tabs.handleSaveFileTab}
           onOpenFolder={handleDirectPickFolder}
+          onRevertDiff={docChanges.handleRevertDiff}
+          onAcceptDiff={docChanges.handleAcceptDiff}
         />
 
         {!rightCollapsed && (

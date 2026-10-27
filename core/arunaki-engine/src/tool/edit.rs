@@ -63,12 +63,18 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                 }
                 let count = content.matches(target).count();
                 let updated = content.replace(target, replacement);
-                match std::fs::write(&p, updated) {
+                crate::files::record_document_change(fp, &content, &updated);
+                match std::fs::write(&p, &updated) {
                     Ok(_) => {
                         emit_event(
                             workspace_dir,
                             "file.edited",
-                            json!({ "file": fp, "sessionID": session_id }),
+                            json!({
+                                "file": fp,
+                                "sessionID": session_id,
+                                "before": content,
+                                "after": updated
+                            }),
                         );
                         json!({ "ok": true, "occurrencesReplaced": count })
                     }

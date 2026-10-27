@@ -39,15 +39,24 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
 
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => {
+            let before_content = std::fs::read_to_string(&p).unwrap_or_default();
             if let Some(parent) = p.parent() {
                 let _ = std::fs::create_dir_all(parent);
+            }
+            if !before_content.is_empty() {
+                crate::files::record_document_change(fp, &before_content, content);
             }
             match std::fs::write(&p, content) {
                 Ok(_) => {
                     emit_event(
                         workspace_dir,
                         "file.edited",
-                        json!({ "file": fp, "sessionID": session_id }),
+                        json!({
+                            "file": fp,
+                            "sessionID": session_id,
+                            "before": before_content,
+                            "after": content
+                        }),
                     );
                     json!({ "ok": true, "bytesWritten": content.len() })
                 }

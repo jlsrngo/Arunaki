@@ -1,0 +1,195 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
+import { engineFetch } from "../../../lib/engine";
+import { computeLineDiff } from "../tabs/diffUtils";
+import { DocumentChangeItem } from "../explorer/ExplorerSourceControl";
+
+interface UseDocumentChangesOptions {
+  activeFolder: string;
+  onOpenDiffTab?: (file: { path: string; name: string; beforeContent: string; afterContent: string }) => void;
+  onFileReverted?: (filePath: string, restoredContent: string) => void;
+  refetchFiles?: () => void;
+}
+
+export function useDocumentChanges({
+  activeFolder,
+  onOpenDiffTab,
+  onFileReverted,
+  refetchFiles,
+}: UseDocumentChangesOptions) {
+  const [changes, setChanges] = useState<DocumentChangeItem[]>([]);
+  const isRefreshingRef = useRef(false);
+
+  const fetchChanges = useCallback(async () => {
+    if (!activeFolder || isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+    try {
+      const res = await engineFetch(`/api/file/status?directory=${encodeURIComponent(activeFolder)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const rawItems: any[] = json.data || [];
+        const mapped: DocumentChangeItem[] = rawItems.map((item: any) => {
+          const before = item.before_content || "";
+          const after = item.after_content || "";
+          const diffLines = computeLineDiff(before, after);
+          const added = diffLines.filter((l) => l.type === "added").length;
+          const deleted = diffLines.filter((l) => l.type === "deleted").length;
+
+          return {
+            filePath: item.path,
+            fileName: item.name,
+            beforeContent: before,
+            afterContent: after,
+            addedCount: added,
+            deletedCount: deleted,
+            status: item.status || "modified",
+          };
+        });
+        setChanges(mapped);
+      }
+    } catch {
+      // Ignore background status polling errors
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [activeFolder]);
+
+  // Initial load and periodic refresh
+  useEffect(() => {
+    fetchChanges();
+    const interval = setInterval(fetchChanges, 3000);
+    return () => clearInterval(interval);
+  }, [fetchChanges]);
+
+  // Handle SSE file.edited events
+  useEffect(() => {
+    const handleFileEdited = () => {
+      fetchChanges();
+    };
+    window.addEventListener("arunaki:file.edited", handleFileEdited);
+    return () => window.removeEventListener("arunaki:file.edited", handleFileEdited);
+  }, [fetchChanges]);
+
+  const handleOpenDiff = useCallback(
+    (item: DocumentChangeItem) => {
+      if (onOpenDiffTab) {
+        onOpenDiffTab({
+          path: item.filePath,
+          name: item.fileName,
+          beforeContent: item.beforeContent,
+          afterContent: item.afterContent,
+        });
+      }
+    },
+    [onOpenDiffTab]
+  );
+
+  const handleRevertChange = useCallback(
+    async (item: DocumentChangeItem) => {
+      try {
+        const res = await engineFetch(
+          `/api/file/revert?directory=${encodeURIComponent(activeFolder)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: item.filePath }),
+          }
+        );
+
+        if (res.ok) {
+          toast.success(`Reverted ${item.fileName} to last saved version`);
+          onFileReverted?.(item.filePath, item.beforeContent);
+          setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+          refetchFiles?.();
+        } else {
+          // Fallback to desktop direct write if available
+          const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
+          if (desktop?.writeFile) {
+            const fullPath = item.filePath.includes(":") || item.filePath.startsWith("/") || item.filePath.startsWith("\\")
+              ? item.filePath
+              : `${activeFolder}\\${item.filePath}`;
+            await desktop.writeFile(fullPath, item.beforeContent);
+            toast.success(`Reverted ${item.fileName} to last saved version`);
+            onFileReverted?.(item.filePath, item.beforeContent);
+            setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+            refetchFiles?.();
+          } else {
+            toast.error(`Failed to revert ${item.fileName}`);
+          }
+        }
+      } catch (err: any) {
+        toast.error(`Failed to revert: ${err?.message || err}`);
+      }
+    },
+    [activeFolder, onFileReverted, refetchFiles]
+  );
+
+  const handleAcceptChange = useCallback(
+    async (item: DocumentChangeItem) => {
+      try {
+        await engineFetch(
+          `/api/file/accept?directory=${encodeURIComponent(activeFolder)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: item.filePath }),
+          }
+        );
+        toast.success(`Saved changes for ${item.fileName}`);
+        setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+        refetchFiles?.();
+      } catch (err: any) {
+        toast.error(`Failed to save: ${err?.message || err}`);
+      }
+    },
+    [activeFolder, refetchFiles]
+  );
+
+  const handleRevertDiff = useCallback(
+    async (filePath: string) => {
+      const item = changes.find((c) => c.filePath === filePath);
+      if (item) {
+        await handleRevertChange(item);
+      } else {
+        await handleRevertChange({
+          filePath,
+          fileName: filePath.split(/[/\\]/).pop() || filePath,
+          beforeContent: "",
+          afterContent: "",
+          addedCount: 0,
+          deletedCount: 0,
+        });
+      }
+    },
+    [changes, handleRevertChange]
+  );
+
+  const handleAcceptDiff = useCallback(
+    async (filePath: string) => {
+      const item = changes.find((c) => c.filePath === filePath);
+      if (item) {
+        await handleAcceptChange(item);
+      } else {
+        await handleAcceptChange({
+          filePath,
+          fileName: filePath.split(/[/\\]/).pop() || filePath,
+          beforeContent: "",
+          afterContent: "",
+          addedCount: 0,
+          deletedCount: 0,
+        });
+      }
+    },
+    [changes, handleAcceptChange]
+  );
+
+  return {
+    changes,
+    fetchChanges,
+    handleOpenDiff,
+    handleRevertChange,
+    handleAcceptChange,
+    handleRevertDiff,
+    handleAcceptDiff,
+  };
+}

@@ -3,7 +3,7 @@ use axum::{
     extract::Query,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use base64::Engine as _;
@@ -25,6 +25,10 @@ pub fn router() -> Router {
         )
         .route("/file/status", get(handle_status))
         .route("/api/file/status", get(handle_status))
+        .route("/file/revert", post(handle_revert))
+        .route("/api/file/revert", post(handle_revert))
+        .route("/file/accept", post(handle_accept))
+        .route("/api/file/accept", post(handle_accept))
         .route("/find", get(handle_find_text))
         .route("/api/find", get(handle_find_text))
         .route("/find/file", get(handle_find_file))
@@ -291,8 +295,179 @@ async fn handle_write_content(
     .into_response()
 }
 
-async fn handle_status() -> Response {
-    Json(json!([])).into_response()
+use std::sync::{Mutex, OnceLock};
+
+pub static DOCUMENT_CHANGES: OnceLock<Mutex<HashMap<String, (String, String, u64)>>> =
+    OnceLock::new();
+
+pub fn record_document_change(file: &str, before: &str, after: &str) {
+    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(mut lock) = store.lock() {
+        lock.insert(
+            file.to_string(),
+            (
+                before.to_string(),
+                after.to_string(),
+                crate::paths::now_ms(),
+            ),
+        );
+    }
+}
+
+pub fn remove_document_change(file: &str) {
+    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(mut lock) = store.lock() {
+        lock.remove(file);
+    }
+}
+
+async fn handle_status(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> Response {
+    let base_dir = resolve_base_dir(&q, &headers);
+    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut items = Vec::new();
+
+    if let Ok(lock) = store.lock() {
+        for (file, (before, after, ts)) in lock.iter() {
+            let file_name = Path::new(file)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| file.clone());
+            items.push(json!({
+                "path": file,
+                "name": file_name,
+                "status": "modified",
+                "before": before,
+                "after": after,
+                "timestamp": ts,
+            }));
+        }
+    }
+
+    // Also scan for any existing .bak files in the active workspace (e.g. ORDER.txt.bak vs ORDER.txt)
+    if let Ok(entries) = std::fs::read_dir(&base_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if let Some(ext) = p.extension() {
+                if ext == "bak" {
+                    let orig_name = p.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                    let orig_path = base_dir.join(orig_name);
+                    if orig_path.exists() {
+                        let rel_name = orig_name.to_string();
+                        if !items.iter().any(|it| it.get("path").and_then(|v| v.as_str()) == Some(&rel_name)) {
+                            let before = std::fs::read_to_string(&p).unwrap_or_default();
+                            let after = std::fs::read_to_string(&orig_path).unwrap_or_default();
+                            if before != after {
+                                items.push(json!({
+                                    "path": rel_name,
+                                    "name": rel_name,
+                                    "status": "modified",
+                                    "before": before,
+                                    "after": after,
+                                    "timestamp": crate::paths::now_ms(),
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Json(json!({ "data": items })).into_response()
+}
+
+async fn handle_revert(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    let base_dir = resolve_base_dir(&q, &headers);
+    let req_path = body
+        .get("path")
+        .or_else(|| body.get("filePath"))
+        .or_else(|| body.get("file"))
+        .and_then(|v| v.as_str())
+        .or_else(|| q.get("path").map(|s| s.as_str()));
+
+    let Some(file_rel) = req_path else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "path is required" })),
+        )
+            .into_response();
+    };
+
+    let target_file = base_dir.join(file_rel);
+    let bak_file = base_dir.join(format!("{}.bak", file_rel));
+
+    // 1. Look up before content from store
+    let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
+    let before_from_store = if let Ok(lock) = store.lock() {
+        lock.get(file_rel).map(|(b, _, _)| b.clone())
+    } else {
+        None
+    };
+
+    let restored_content = if let Some(b) = before_from_store {
+        Some(b)
+    } else if bak_file.exists() {
+        std::fs::read_to_string(&bak_file).ok()
+    } else {
+        None
+    };
+
+    if let Some(content) = restored_content {
+        let _ = std::fs::write(&target_file, &content);
+        if bak_file.exists() {
+            let _ = std::fs::remove_file(&bak_file);
+        }
+        remove_document_change(file_rel);
+        crate::session::message::emit_event(
+            &base_dir.to_string_lossy(),
+            "file.edited",
+            json!({ "file": file_rel, "reverted": true }),
+        );
+        Json(json!({ "success": true, "path": file_rel })).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "No baseline snapshot found for file" })),
+        )
+            .into_response()
+    }
+}
+
+async fn handle_accept(
+    Query(q): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    let base_dir = resolve_base_dir(&q, &headers);
+    let req_path = body
+        .get("path")
+        .or_else(|| body.get("filePath"))
+        .or_else(|| body.get("file"))
+        .and_then(|v| v.as_str())
+        .or_else(|| q.get("path").map(|s| s.as_str()));
+
+    let Some(file_rel) = req_path else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "path is required" })),
+        )
+            .into_response();
+    };
+
+    let bak_file = base_dir.join(format!("{}.bak", file_rel));
+    if bak_file.exists() {
+        let _ = std::fs::remove_file(&bak_file);
+    }
+    remove_document_change(file_rel);
+
+    Json(json!({ "success": true, "path": file_rel })).into_response()
 }
 
 pub fn collect_files_recursive(dir: &Path, base: &Path, out: &mut Vec<PathBuf>, max_files: usize) {
