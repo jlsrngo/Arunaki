@@ -11,6 +11,7 @@ import init, * as bindings from './wordcraft-web-9e321acdac2ac7dc.js';
 
 let pendingFile = null;
 let hasLoadedDocument = false;
+let isInDocument = false;
 
 // 1. Intercept Rust File Dialog (rfd) file input to immediately feed pending document without browser popup
 const origInputClick = HTMLInputElement.prototype.click;
@@ -23,6 +24,7 @@ HTMLInputElement.prototype.click = function() {
       this.dispatchEvent(new Event("change", { bubbles: true }));
       this.dispatchEvent(new Event("input", { bubbles: true }));
       hasLoadedDocument = true;
+      isInDocument = true;
       console.log("[WordCraft Host] Successfully injected document into rfd input:", pendingFile.name);
       setTimeout(() => {
         const canvas = document.getElementById("wordcraft_canvas");
@@ -139,24 +141,33 @@ window.addEventListener("message", (event) => {
 
       function triggerOpenSequence() {
         if (hasLoadedDocument) return;
-        // In Backstage: click Open (40, 154). In Document: click File (16, 48) then Open
-        clickCanvas(40, 154);
-        clickCanvas(16, 48);
-        setTimeout(() => {
-          if (hasLoadedDocument) return;
+
+        if (isInDocument) {
+          // If already inside an open document, click File ribbon tab (16, 48) to switch to Backstage
+          clickCanvas(16, 48);
+          setTimeout(() => {
+            if (hasLoadedDocument) return;
+            clickCanvas(40, 154); // Open sidebar
+            setTimeout(() => {
+              if (hasLoadedDocument) return;
+              clickCanvas(135, 88); // Browse... button
+            }, 100);
+          }, 100);
+        } else {
+          // Fresh launch starting on Backstage: directly click Open (40, 154) -> Browse (135, 88)
           clickCanvas(40, 154);
           setTimeout(() => {
             if (hasLoadedDocument) return;
-            clickCanvas(135, 88); // Browse...
-          }, 120);
-        }, 120);
+            clickCanvas(135, 88); // Browse... button
+          }, 100);
+        }
       }
 
       // Allow WASM egui runtime to complete first render before clicking
-      setTimeout(triggerOpenSequence, 400);
+      setTimeout(triggerOpenSequence, 350);
       setTimeout(() => {
         if (!hasLoadedDocument) triggerOpenSequence();
-      }, 1200);
+      }, 1100);
     } else {
       // New / Blank Document -> Click Blank document card at (x=147, y=170)
       function triggerBlankSequence() {

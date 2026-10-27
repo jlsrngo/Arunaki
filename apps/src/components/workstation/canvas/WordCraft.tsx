@@ -139,9 +139,6 @@ export const WordCraft = memo(function WordCraft({
         setIsReady(true);
         setIsLoading(false);
         setLoadError(null);
-
-        // Immediately send current document content / read file from disk
-        sendDocumentToWordCraft(content || "", title);
       }
       else if (data.type === "wordcraft:document-ready") {
         setIsLoading(false);
@@ -213,6 +210,8 @@ export const WordCraft = memo(function WordCraft({
   // Sync external content or path updates
   useEffect(() => {
     if (isReady && (content !== lastSentContentRef.current || filePath !== lastSentPathRef.current)) {
+      lastSentContentRef.current = content;
+      lastSentPathRef.current = filePath || null;
       sendDocumentToWordCraft(content || "", title);
     }
   }, [content, filePath, isReady, title, sendDocumentToWordCraft]);
