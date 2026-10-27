@@ -63,7 +63,7 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
                 }
                 let count = content.matches(target).count();
                 let updated = content.replace(target, replacement);
-                crate::files::record_document_change(fp, &content, &updated);
+                crate::files::record_document_change(workspace_dir, fp, &content, &updated);
                 match std::fs::write(&p, &updated) {
                     Ok(_) => {
                         emit_event(

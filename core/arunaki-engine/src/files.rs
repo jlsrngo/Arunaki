@@ -300,7 +300,7 @@ use std::sync::{Mutex, OnceLock};
 pub static DOCUMENT_CHANGES: OnceLock<Mutex<HashMap<String, (String, String, u64)>>> =
     OnceLock::new();
 
-pub fn record_document_change(file: &str, before: &str, after: &str) {
+pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, after: &str) {
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
     if let Ok(mut lock) = store.lock() {
         lock.insert(
@@ -311,6 +311,18 @@ pub fn record_document_change(file: &str, before: &str, after: &str) {
                 crate::paths::now_ms(),
             ),
         );
+    }
+
+    // Persist baseline snapshot in .arunaki/baseline/<file>
+    if !workspace_dir.trim().is_empty() {
+        let base = Path::new(workspace_dir);
+        let baseline_file = base.join(".arunaki").join("baseline").join(file);
+        if !baseline_file.exists() {
+            if let Some(parent) = baseline_file.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(&baseline_file, before);
+        }
     }
 }
 
@@ -329,8 +341,51 @@ async fn handle_status(
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
     let mut items = Vec::new();
 
+    // 1. Scan persistent baseline directory .arunaki/baseline/
+    let baseline_dir = base_dir.join(".arunaki").join("baseline");
+    if baseline_dir.exists() {
+        let mut baseline_files = Vec::new();
+        collect_files_recursive(&baseline_dir, &baseline_dir, &mut baseline_files, 200);
+        for bf in baseline_files {
+            if let Ok(rel) = bf.strip_prefix(&baseline_dir) {
+                let rel_str = rel.to_string_lossy().replace('\\', "/");
+                let current_file = base_dir.join(&rel);
+                if current_file.exists() {
+                    let before = std::fs::read_to_string(&bf).unwrap_or_default();
+                    let after = std::fs::read_to_string(&current_file).unwrap_or_default();
+                    if before != after {
+                        let file_name = rel
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| rel_str.clone());
+                        items.push(json!({
+                            "path": rel_str,
+                            "name": file_name,
+                            "status": "modified",
+                            "before": before,
+                            "after": after,
+                            "before_content": before,
+                            "after_content": after,
+                            "timestamp": crate::paths::now_ms(),
+                        }));
+                    } else {
+                        // Working copy matches baseline; clean up snapshot
+                        let _ = std::fs::remove_file(&bf);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Supplement with active in-memory edits
     if let Ok(lock) = store.lock() {
         for (file, (before, after, ts)) in lock.iter() {
+            if before == after {
+                continue;
+            }
+            if items.iter().any(|it| it.get("path").and_then(|v| v.as_str()) == Some(file)) {
+                continue;
+            }
             let file_name = Path::new(file)
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
@@ -341,12 +396,14 @@ async fn handle_status(
                 "status": "modified",
                 "before": before,
                 "after": after,
+                "before_content": before,
+                "after_content": after,
                 "timestamp": ts,
             }));
         }
     }
 
-    // Also scan for any existing .bak files in the active workspace (e.g. ORDER.txt.bak vs ORDER.txt)
+    // 3. Scan for any existing .bak files in the active workspace
     if let Ok(entries) = std::fs::read_dir(&base_dir) {
         for entry in entries.flatten() {
             let p = entry.path();
@@ -366,6 +423,8 @@ async fn handle_status(
                                     "status": "modified",
                                     "before": before,
                                     "after": after,
+                                    "before_content": before,
+                                    "after_content": after,
                                     "timestamp": crate::paths::now_ms(),
                                 }));
                             }
@@ -401,9 +460,10 @@ async fn handle_revert(
     };
 
     let target_file = base_dir.join(file_rel);
+    let baseline_file = base_dir.join(".arunaki").join("baseline").join(file_rel);
     let bak_file = base_dir.join(format!("{}.bak", file_rel));
 
-    // 1. Look up before content from store
+    // 1. Look up before content from baseline file, memory store, or .bak
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
     let before_from_store = if let Ok(lock) = store.lock() {
         lock.get(file_rel).map(|(b, _, _)| b.clone())
@@ -411,7 +471,9 @@ async fn handle_revert(
         None
     };
 
-    let restored_content = if let Some(b) = before_from_store {
+    let restored_content = if baseline_file.exists() {
+        std::fs::read_to_string(&baseline_file).ok()
+    } else if let Some(b) = before_from_store {
         Some(b)
     } else if bak_file.exists() {
         std::fs::read_to_string(&bak_file).ok()
@@ -421,6 +483,9 @@ async fn handle_revert(
 
     if let Some(content) = restored_content {
         let _ = std::fs::write(&target_file, &content);
+        if baseline_file.exists() {
+            let _ = std::fs::remove_file(&baseline_file);
+        }
         if bak_file.exists() {
             let _ = std::fs::remove_file(&bak_file);
         }
@@ -461,6 +526,10 @@ async fn handle_accept(
             .into_response();
     };
 
+    let baseline_file = base_dir.join(".arunaki").join("baseline").join(file_rel);
+    if baseline_file.exists() {
+        let _ = std::fs::remove_file(&baseline_file);
+    }
     let bak_file = base_dir.join(format!("{}.bak", file_rel));
     if bak_file.exists() {
         let _ = std::fs::remove_file(&bak_file);

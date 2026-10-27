@@ -43,9 +43,7 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
             if let Some(parent) = p.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
-            if !before_content.is_empty() {
-                crate::files::record_document_change(fp, &before_content, content);
-            }
+            crate::files::record_document_change(workspace_dir, fp, &before_content, content);
             match std::fs::write(&p, content) {
                 Ok(_) => {
                     emit_event(

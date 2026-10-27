@@ -67,24 +67,25 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full bg-[#181818] text-[#cccccc] select-text overflow-hidden">
+    <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] select-text overflow-hidden">
       {/* Top Diff Action & Info Bar */}
-      <div className="h-9 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between shrink-0 select-none">
-        <div className="flex items-center gap-2 min-w-0">
-          <GitCompare className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={1.5} />
-          <span className="text-xs font-medium text-white truncate flex items-center gap-1.5 font-mono">
-            <FileText className="w-3.5 h-3.5 text-[#858585]" />
+      <div className="h-10 px-4 bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-center justify-between shrink-0 select-none">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <GitCompare className="w-4 h-4 text-white shrink-0" strokeWidth={1.6} />
+          <span className="text-xs font-semibold text-white truncate flex items-center gap-1.5 font-mono">
+            <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{fileName}</span>
-            <span className="text-[#858585] font-normal">(Working Tree)</span>
-            <span className="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+            <span className="text-[var(--text-muted)] font-normal text-[11px]">(Working Tree)</span>
+            {/* Solid Orange M Badge */}
+            <span className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none">
               M
             </span>
           </span>
           <div className="flex items-center gap-1.5 ml-2">
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#2ea043]/20 text-[#3fb950] border border-[#2ea043]/30">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
               +{stats.added}
             </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#f85149]/20 text-[#f85149] border border-[#f85149]/30">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
               -{stats.deleted}
             </span>
           </div>
@@ -95,10 +96,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <button
               type="button"
               onClick={onRevert}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-[#cccccc] hover:text-white hover:bg-[#2a2a2a] border border-[#3c3c3c] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer shadow-xs active:scale-95"
               title="Discard working changes and restore last saved version on disk"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#f85149]" />
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
               <span>Discard Changes</span>
             </button>
           )}
@@ -107,7 +108,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <button
               type="button"
               onClick={onAccept}
-              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold bg-[#0e639c] text-white hover:bg-[#1177bb] transition-colors shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-xs active:scale-95"
               title="Save working changes to disk"
             >
               <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -118,7 +119,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
       </div>
 
       {/* Subheader: File path & Breadcrumbs */}
-      <div className="h-6 px-3 bg-[#1e1e1e]/60 border-b border-[#2d2d2d] flex items-center justify-between text-[11px] text-[#858585] font-mono shrink-0 select-none">
+      <div className="h-7 px-4 bg-[var(--bg-panel)]/40 border-b border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono shrink-0 select-none">
         <div className="truncate">
           {filePath || fileName}
         </div>

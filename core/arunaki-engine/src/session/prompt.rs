@@ -620,15 +620,41 @@ pub async fn run_agent_turn(
                 || lower_msg.contains("file has been saved")
                 || lower_msg.contains("data has been inserted")
                 || lower_msg.contains("changes are saved")
-                || lower_msg.contains("in progress")
-                || lower_msg.contains("processing")
+                || lower_msg.contains("sudah tersimpan")
+                || lower_msg.contains("sudah diupdate")
+                || lower_msg.contains("sudah dirubah")
+                || lower_msg.contains("sudah dimasukkan")
+                || lower_msg.contains("sudah saya update")
+                || lower_msg.contains("sudah saya simpan")
+                || lower_msg.contains("data tersinkronisasi")
+                || lower_msg.contains("sekarang saya update")
+                || lower_msg.contains("sedang proses")
+                || lower_msg.contains("tunggu sebentar")
                 || lower_msg.contains("updating now")
                 || (read_tool_executed && !mutation_tool_executed && _step == 1 && msg_text.lines().count() > 3);
 
-            if claims_mutation && !mutation_tool_executed && _step < 3 {
+            let lower_prompt = prompt_text.to_lowercase();
+            let user_requested_mutation = lower_prompt.contains("update")
+                || lower_prompt.contains("rekap")
+                || lower_prompt.contains("masukkan")
+                || lower_prompt.contains("tambahkan")
+                || lower_prompt.contains("simpan")
+                || lower_prompt.contains("catat")
+                || lower_prompt.contains("ubah")
+                || lower_prompt.contains("edit")
+                || lower_prompt.contains("write")
+                || lower_prompt.contains("save")
+                || lower_prompt.contains("insert")
+                || lower_prompt.contains("add");
+
+            let should_intercept = (claims_mutation || (user_requested_mutation && read_tool_executed))
+                && !mutation_tool_executed
+                && _step < 4;
+
+            if should_intercept {
                 crate::paths::log_engine(
                     "ai",
-                    "🛡️ Guardrail triggered: Model concluded turn without calling mutation tools. Reprompting with mutation requirement.",
+                    "🛡️ Guardrail triggered: Model attempted to conclude without calling mutation tools. Intercepting turn.",
                 );
                 chat_messages.push(json!({
                     "role": "assistant",
@@ -636,7 +662,7 @@ pub async fn run_agent_turn(
                 }));
                 chat_messages.push(json!({
                     "role": "user",
-                    "content": "CRITICAL SYSTEM GUARD: You stated that the file was updated/saved or stopped without modifying the requested document, but NO mutation tool (`edit`, `write`, `excel_com`, `word_com`, `ppt_com`) has been executed in this turn! No changes were written to disk. You MUST invoke the appropriate mutation tool (`edit`, `write`, or `excel_com`) NOW to apply the modifications before concluding."
+                    "content": "CRITICAL SYSTEM GUARD: You generated a text response claiming or implying files were updated, but NO mutation tool (`edit`, `write`, `excel_com`, `word_com`, `ppt_com`) was executed! The files on disk are UNCHANGED. You MUST explicitly call the mutation tool (`edit`, `write`, or `excel_com`) RIGHT NOW with the exact file path and data to commit changes to disk."
                 }));
                 continue;
             }

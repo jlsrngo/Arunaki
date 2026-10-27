@@ -1,7 +1,9 @@
-import { useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
+import { SourceControlPanel } from "../components/workstation/source-control/SourceControlPanel";
+import { WorkstationActivityBar, SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
@@ -111,6 +113,23 @@ export function UnifiedWorkstationPage() {
     }
   }, [openFolder]);
 
+  // Activity Bar Sidebar View State (Explorer / Source Control / Search)
+  const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("explorer");
+
+  const handleSelectSidebarView = useCallback(
+    (view: SidebarView) => {
+      if (leftCollapsed) {
+        setActiveSidebarView(view);
+        handleToggleLeft();
+      } else if (activeSidebarView === view) {
+        handleToggleLeft();
+      } else {
+        setActiveSidebarView(view);
+      }
+    },
+    [leftCollapsed, activeSidebarView, handleToggleLeft]
+  );
+
   return (
     <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
       <div
@@ -118,24 +137,63 @@ export function UnifiedWorkstationPage() {
         className="flex-1 flex overflow-hidden relative"
         style={{ "--left-panel-width": "256px", "--right-panel-width": "320px" } as React.CSSProperties}
       >
-        <WorkstationLeftExplorer
-          collapsed={leftCollapsed}
-          onClose={handleCloseLeft}
-          onToggle={handleToggleLeft}
-          activeWorkspace={activeWorkspace}
-          workspaceFiles={workspaceFiles}
-          onOpenFileTab={tabs.handleOpenFileTab}
-          onOpenFolderModal={handleDirectPickFolder}
-          onCloseFolder={handleCloseFolderAction}
-          width="var(--left-panel-width)"
-          onNativeFilesChange={setNativeFileNames}
-          recentCanvases={tabs.recentCanvases}
-          onOpenCanvasTab={tabs.handleOpenCanvasTab}
-          changes={docChanges.changes}
-          onOpenDiffTab={docChanges.handleOpenDiff}
-          onRevertChange={docChanges.handleRevertChange}
-          onAcceptChange={docChanges.handleAcceptChange}
+        {/* Activity Bar on far left (VS Code Parity) */}
+        <WorkstationActivityBar
+          activeView={activeSidebarView}
+          isCollapsed={leftCollapsed}
+          onSelectView={handleSelectSidebarView}
+          changesCount={docChanges.changes.length}
         />
+
+        {/* Primary Sidebar Panel */}
+        {!leftCollapsed && (
+          <>
+            {activeSidebarView === "explorer" && (
+              <WorkstationLeftExplorer
+                collapsed={false}
+                onClose={handleCloseLeft}
+                onToggle={handleToggleLeft}
+                activeWorkspace={activeWorkspace}
+                workspaceFiles={workspaceFiles}
+                onOpenFileTab={tabs.handleOpenFileTab}
+                onOpenFolderModal={handleDirectPickFolder}
+                onCloseFolder={handleCloseFolderAction}
+                width="var(--left-panel-width)"
+                onNativeFilesChange={setNativeFileNames}
+                recentCanvases={tabs.recentCanvases}
+                onOpenCanvasTab={tabs.handleOpenCanvasTab}
+              />
+            )}
+
+            {activeSidebarView === "source-control" && (
+              <SourceControlPanel
+                changes={docChanges.changes}
+                onOpenDiffTab={docChanges.handleOpenDiff}
+                onRevertChange={docChanges.handleRevertChange}
+                onAcceptChange={docChanges.handleAcceptChange}
+                onRefresh={docChanges.fetchChanges}
+                width="var(--left-panel-width)"
+              />
+            )}
+
+            {activeSidebarView === "search" && (
+              <WorkstationLeftExplorer
+                collapsed={false}
+                onClose={handleCloseLeft}
+                onToggle={handleToggleLeft}
+                activeWorkspace={activeWorkspace}
+                workspaceFiles={workspaceFiles}
+                onOpenFileTab={tabs.handleOpenFileTab}
+                onOpenFolderModal={handleDirectPickFolder}
+                onCloseFolder={handleCloseFolderAction}
+                width="var(--left-panel-width)"
+                onNativeFilesChange={setNativeFileNames}
+                recentCanvases={tabs.recentCanvases}
+                onOpenCanvasTab={tabs.handleOpenCanvasTab}
+              />
+            )}
+          </>
+        )}
 
         {!leftCollapsed && (
           <div

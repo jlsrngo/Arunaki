@@ -28,23 +28,25 @@ export function useDocumentChanges({
       if (res.ok) {
         const json = await res.json();
         const rawItems: any[] = json.data || [];
-        const mapped: DocumentChangeItem[] = rawItems.map((item: any) => {
-          const before = item.before_content || "";
-          const after = item.after_content || "";
-          const diffLines = computeLineDiff(before, after);
-          const added = diffLines.filter((l) => l.type === "added").length;
-          const deleted = diffLines.filter((l) => l.type === "deleted").length;
+        const mapped: DocumentChangeItem[] = rawItems
+          .map((item: any) => {
+            const before = item.before ?? item.before_content ?? "";
+            const after = item.after ?? item.after_content ?? "";
+            const diffLines = computeLineDiff(before, after);
+            const added = diffLines.filter((l) => l.type === "added").length;
+            const deleted = diffLines.filter((l) => l.type === "deleted").length;
 
-          return {
-            filePath: item.path,
-            fileName: item.name,
-            beforeContent: before,
-            afterContent: after,
-            addedCount: added,
-            deletedCount: deleted,
-            status: item.status || "modified",
-          };
-        });
+            return {
+              filePath: item.path,
+              fileName: item.name,
+              beforeContent: before,
+              afterContent: after,
+              addedCount: added,
+              deletedCount: deleted,
+              status: item.status || "modified",
+            };
+          })
+          .filter((item) => item.beforeContent !== item.afterContent && (item.addedCount > 0 || item.deletedCount > 0));
         setChanges(mapped);
       }
     } catch {

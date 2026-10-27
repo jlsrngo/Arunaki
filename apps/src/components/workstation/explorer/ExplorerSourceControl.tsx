@@ -41,11 +41,11 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
       >
         <span className="flex items-center gap-1.5">
           <GitCompare className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={1.5} />
-          <span className="text-[11px] uppercase tracking-wider font-semibold text-white">
+          <span className="text-xs font-semibold text-white">
             Changes
           </span>
           {count > 0 && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white">
               {count}
             </span>
           )}
@@ -76,7 +76,7 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                   <span className="text-white truncate font-medium">{item.fileName}</span>
-                  <span className="px-1 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/20 text-[9px] font-bold">
+                  <span className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none">
                     M
                   </span>
                 </div>

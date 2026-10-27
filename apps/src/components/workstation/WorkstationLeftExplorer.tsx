@@ -4,10 +4,9 @@ import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
 import { ExplorerRecentCanvases } from "./explorer/ExplorerRecentCanvases";
-import { ExplorerSourceControl, DocumentChangeItem } from "./explorer/ExplorerSourceControl";
 import { useI18n } from "../../lib/i18n";
 
-export type { CanvasItem, WorkspaceFile, Workspace, DocumentChangeItem };
+export type { CanvasItem, WorkspaceFile, Workspace };
 
 interface WorkstationLeftExplorerProps {
   collapsed: boolean;
@@ -22,10 +21,6 @@ interface WorkstationLeftExplorerProps {
   onNativeFilesChange?: (names: string[]) => void;
   recentCanvases?: CanvasItem[];
   onOpenCanvasTab?: (item: CanvasItem) => void;
-  changes?: DocumentChangeItem[];
-  onOpenDiffTab?: (item: DocumentChangeItem) => void;
-  onRevertChange?: (item: DocumentChangeItem) => void;
-  onAcceptChange?: (item: DocumentChangeItem) => void;
 }
 
 function WorkstationLeftExplorerComponent({
@@ -41,14 +36,9 @@ function WorkstationLeftExplorerComponent({
   recentCanvases = [],
   onOpenCanvasTab,
   onCloseFolder,
-  changes = [],
-  onOpenDiffTab,
-  onRevertChange,
-  onAcceptChange,
 }: WorkstationLeftExplorerProps) {
   const { t } = useI18n();
   const [isCanvasSectionOpen, setIsCanvasSectionOpen] = useState(true);
-  const [isSourceControlOpen, setIsSourceControlOpen] = useState(true);
 
   const {
     nativeTree,
@@ -228,16 +218,6 @@ function WorkstationLeftExplorerComponent({
           )}
         </div>
       )}
-
-      {/* Source Control / Changes Section */}
-      <ExplorerSourceControl
-        changes={changes}
-        isOpen={isSourceControlOpen}
-        onToggle={() => setIsSourceControlOpen(!isSourceControlOpen)}
-        onOpenDiffTab={onOpenDiffTab || (() => {})}
-        onRevertChange={onRevertChange}
-        onAcceptChange={onAcceptChange}
-      />
 
       {/* Outline / Recent Canvases Section */}
       <ExplorerRecentCanvases
