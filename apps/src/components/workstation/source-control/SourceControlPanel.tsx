@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { GitCompare, RotateCcw, Check, FileText, RotateCw } from "lucide-react";
+import { GitBranch, RotateCcw, Check, FileText, RotateCw } from "lucide-react";
 import { DocumentChangeItem } from "../explorer/ExplorerSourceControl";
 import { useI18n } from "../../../lib/i18n";
 
@@ -32,7 +32,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
       {/* Top Header */}
       <div className="h-10 px-3.5 border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-app)]">
         <div className="flex items-center gap-2">
-          <GitCompare className="w-4 h-4 text-white" strokeWidth={1.8} />
+          <GitBranch className="w-4 h-4 text-white" strokeWidth={1.8} />
           <span className="text-xs font-semibold text-white tracking-wide">
             {t("documentChanges", "Document Changes")}
           </span>
@@ -70,7 +70,7 @@ export const SourceControlPanel = memo(function SourceControlPanel({
       <div className="flex-1 overflow-y-auto py-1">
         {count === 0 ? (
           <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--text-muted)]">
-            <GitCompare className="w-8 h-8 opacity-30 mb-2 stroke-[1.5]" />
+            <GitBranch className="w-8 h-8 opacity-30 mb-2 stroke-[1.5]" />
             <p className="text-xs font-semibold text-white mb-1">
               {t("noChangesDetected", "No changes detected")}
             </p>

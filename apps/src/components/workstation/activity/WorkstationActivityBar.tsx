@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Files, GitCompare, Search, Settings } from "lucide-react";
+import { Files, GitBranch, Search, Settings } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 
@@ -65,10 +65,12 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           {isTabActive("source-control") && (
             <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
           )}
-          <GitCompare className="w-5 h-5 stroke-[1.6]" />
+          <GitBranch className="w-5 h-5 stroke-[1.6]" />
           {changesCount > 0 && (
-            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] font-bold font-mono flex items-center justify-center shadow-xs pointer-events-none">
-              {changesCount > 99 ? "99+" : changesCount}
+            <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#0078d4] text-white text-[10px] font-bold leading-none flex items-center justify-center text-center shadow-xs pointer-events-none select-none">
+              <span className="inline-block transform -translate-y-[0.5px]">
+                {changesCount > 99 ? "99+" : changesCount}
+              </span>
             </span>
           )}
         </button>
