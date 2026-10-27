@@ -46,6 +46,7 @@ export const WordCraft = memo(function WordCraft({
 
   const lastSentContentRef = useRef<string | null>(null);
   const lastSentPathRef = useRef<string | null>(null);
+  const isDispatchingRef = useRef(false);
 
   // Never leave the user staring at a spinner: if the WASM app does not boot, show the error state.
   useEffect(() => {
@@ -64,6 +65,8 @@ export const WordCraft = memo(function WordCraft({
     async (textPayload: string, docName: string) => {
       const iframe = iframeRef.current;
       if (!iframe || !iframe.contentWindow) return;
+      if (isDispatchingRef.current) return;
+      isDispatchingRef.current = true;
       lastSentContentRef.current = textPayload;
       lastSentPathRef.current = filePath || null;
 
@@ -125,6 +128,8 @@ export const WordCraft = memo(function WordCraft({
         lastSentPathRef.current = filePath || null;
       } catch (err) {
         console.warn("[WordCraft] Failed to send document buffer:", err);
+      } finally {
+        isDispatchingRef.current = false;
       }
     },
     [filePath]
@@ -141,6 +146,9 @@ export const WordCraft = memo(function WordCraft({
         setIsReady(true);
         setIsLoading(false);
         setLoadError(null);
+        // Synchronously record refs before re-render so secondary useEffect will not duplicate dispatch
+        lastSentContentRef.current = content || "";
+        lastSentPathRef.current = filePath || null;
         sendDocumentToWordCraft(content || "", title);
       }
       else if (data.type === "wordcraft:document-ready") {

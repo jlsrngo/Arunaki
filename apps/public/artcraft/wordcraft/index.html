@@ -140,6 +140,12 @@ window.addEventListener("message", (event) => {
         ? "text/plain"
         : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
+      // If document with the exact same name & size is ALREADY loaded and active in the editor, skip duplicate sequence!
+      if (hasLoadedDocument && isInDocument && pendingFile && pendingFile.name === docName && pendingFile.size === bytes.byteLength) {
+        console.log("[WordCraft Host] Document already active in editor, skipping redundant open sequence:", docName);
+        return;
+      }
+
       pendingFile = new File([bytes], docName, { type: mime, lastModified: Date.now() });
       hasLoadedDocument = false;
 
@@ -148,18 +154,28 @@ window.addEventListener("message", (event) => {
 
       function triggerOpenSequence() {
         if (hasLoadedDocument) return;
-        // 1. If currently in canvas, click File (x=16, y=48) to open Backstage
-        clickCanvas(16, 48);
-        setTimeout(() => {
-          if (hasLoadedDocument) return;
-          // 2. In Backstage sidebar, click Open (x=40, y=154)
+
+        if (isInDocument) {
+          // If already inside an open document, click File ribbon tab (16, 48) to switch to Backstage
+          clickCanvas(16, 48);
+          setTimeout(() => {
+            if (hasLoadedDocument) return;
+            clickCanvas(40, 154); // Open sidebar item
+            setTimeout(() => {
+              if (hasLoadedDocument) return;
+              clickCanvas(135, 88); // Browse... button
+            }, 120);
+          }, 100);
+        } else {
+          // Fresh launch starting on Backstage:
+          // Directly click Open (40, 154) -> Browse (135, 88).
+          // Do NOT click File (16, 48) because on Backstage (16, 48) is not the ribbon tab!
           clickCanvas(40, 154);
           setTimeout(() => {
             if (hasLoadedDocument) return;
-            // 3. On Open view, click Browse... (x=135, y=88) -> triggers rfd -> intercepted by our hook!
-            clickCanvas(135, 88);
+            clickCanvas(135, 88); // Browse... button
           }, 120);
-        }, 100);
+        }
       }
 
       openSeqTimer = setTimeout(triggerOpenSequence, 350);
@@ -172,6 +188,7 @@ window.addEventListener("message", (event) => {
         if (hasLoadedDocument) return;
         clickCanvas(147, 170);
         hasLoadedDocument = true;
+        isInDocument = true;
         if (window.parent && window.parent !== window) {
           window.parent.postMessage({ type: "wordcraft:document-ready" }, "*");
         }
