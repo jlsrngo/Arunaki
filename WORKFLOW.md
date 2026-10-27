@@ -2,7 +2,7 @@
 
 **Product:** Arunaki — Autonomous Document Operating System & Desktop Computer Use Agent  
 **Architecture:** Tauri v2 Native Desktop Shell + Axum Tokio Pure-Rust Engine + Native Win32 COM Sidecar  
-**Last Updated:** 2026-10-26  
+**Last Updated:** 2026-10-27  
 
 ---
 
@@ -336,6 +336,20 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 - [x] Perbaiki pembacaan binary `/api/desktop/read-file` dan penulisan binary `/api/desktop/write-file` untuk seluruh format dokumen (.docx, .xlsx, .pptx, .pdf).
 - [x] Perbarui `WordCraft.tsx`: tangkap event `wordcraft:save` dan simpan byte biner asli `.docx` secara langsung ke file fisik di disk komputer pengguna.
 - [x] Sediakan toolbar Dual-Mode di `WordCraft.tsx` dengan tombol cepat "Open in Word" (Microsoft Word Desktop Companion) dan "Save to Disk".
+
+---
+
+### Phase 150: WordCraft Direct Document Ingestion & Backstage Bypass ✅ DONE
+**Goal:** Memperbaiki kanvas WordCraft WASM agar langsung membuka dokumen ke editor kanvas aktif (beserta ribbon, ruler, dan font Aptos) tanpa terjebak pada layar Backstage / Recent files atau memunculkan pesan error `files are opened through the browser on the web`.
+
+#### 150.1 Automated RFD File Input Interception
+- [x] Hook `HTMLInputElement.prototype.click` di `apps/public/artcraft/wordcraft/index.html` untuk mencegat dialog file bawaan Rust (`rfd`) dan langsung menginjeksi dokumen `pendingFile` via W3C DataTransfer.
+- [x] Jalankan urutan klik otomatis yang bersih (`File` -> `Open` -> `Browse...`) untuk memicu `rfd` tanpa popup native browser.
+- [x] Bersihkan timer sequence saat dokumen berhasil diinjeksi untuk menghindari loop klik ganda.
+
+#### 150.2 Host-Side Immediate Document Dispatch & Blank Sequence
+- [x] Perbarui `WordCraft.tsx` agar selalu memancarkan payload dokumen begitu frame WebAssembly siap (`wordcraft:ready`).
+- [x] Tangani pembuatan dokumen baru / dokumen kosong secara mulus dengan pemilihan kartu template blank secara otomatis.
 
 ---
 

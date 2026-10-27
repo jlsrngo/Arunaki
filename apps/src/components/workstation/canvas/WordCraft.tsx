@@ -64,6 +64,8 @@ export const WordCraft = memo(function WordCraft({
     async (textPayload: string, docName: string) => {
       const iframe = iframeRef.current;
       if (!iframe || !iframe.contentWindow) return;
+      lastSentContentRef.current = textPayload;
+      lastSentPathRef.current = filePath || null;
 
       try {
         let buffer: ArrayBuffer | null = null;
@@ -139,6 +141,7 @@ export const WordCraft = memo(function WordCraft({
         setIsReady(true);
         setIsLoading(false);
         setLoadError(null);
+        sendDocumentToWordCraft(content || "", title);
       }
       else if (data.type === "wordcraft:document-ready") {
         setIsLoading(false);
