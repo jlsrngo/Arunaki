@@ -1,0 +1,4 @@
+Extract printed or handwritten text and table contents from an image file (.png, .jpg, .jpeg, .webp, .bmp) using the native high-speed Windows OCR engine.
+Use this tool whenever you need to read receipts, invoices, screenshots, or document scans.
+Parameters:
+- `file`: Path to the image file relative to the active workspace or scratch directory.

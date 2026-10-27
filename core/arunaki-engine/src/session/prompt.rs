@@ -123,6 +123,12 @@ pub async fn handle_prompt(
         .unwrap_or("")
         .to_string();
 
+    let files_val = body
+        .get("prompt")
+        .and_then(|p| p.get("files"))
+        .or_else(|| body.get("files"))
+        .cloned();
+
     let session_val = with_store(|store| store.sessions.get(&session_id).cloned());
     let Some(session) = session_val else {
         return (
@@ -146,7 +152,7 @@ pub async fn handle_prompt(
 
     let user_msg_id = gen_id("msg");
     let created_ms = now_ms();
-    let user_msg = json!({
+    let mut user_msg = json!({
         "id": user_msg_id,
         "type": "user",
         "role": "user",
@@ -159,6 +165,9 @@ pub async fn handle_prompt(
         "content": [{ "type": "text", "text": prompt_text }],
         "time": { "created": created_ms }
     });
+    if let Some(ref f) = files_val {
+        user_msg["files"] = f.clone();
+    }
 
     let mut updated_title: Option<String> = None;
     let history = with_store(|store| {
@@ -226,8 +235,18 @@ pub async fn handle_prompt(
         &format!("🎯 Routing request to Model: '{}' (Provider: '{}')", model_id, provider_id),
     );
 
+    let files_c = files_val.clone();
     tokio::spawn(async move {
-        run_agent_turn(&sid_c, &ws_c, &pid_c, &mid_c, &history, &ptxt_c).await;
+        run_agent_turn(
+            &sid_c,
+            &ws_c,
+            &pid_c,
+            &mid_c,
+            &history,
+            &ptxt_c,
+            files_c.as_ref(),
+        )
+        .await;
     });
 
     Json(json!({
@@ -253,6 +272,7 @@ pub async fn run_agent_turn(
     model_id: &str,
     history: &[Value],
     prompt_text: &str,
+    files: Option<&Value>,
 ) {
     let assistant_msg_id = gen_id("msg");
     let started_ms = now_ms();
@@ -389,7 +409,107 @@ pub async fn run_agent_turn(
             }
         }
     }
-    chat_messages.push(json!({ "role": "user", "content": prompt_text }));
+    // Process attached files (especially images) for OCR & Multimodal vision
+    let mut ocr_transcriptions: Vec<String> = Vec::new();
+    let mut image_urls: Vec<String> = Vec::new();
+
+    if let Some(files_arr) = files.and_then(|f| f.as_array()) {
+        for file_item in files_arr {
+            let file_name = file_item
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("attached_image.png");
+            let uri = file_item
+                .get("uri")
+                .or_else(|| file_item.get("url"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if uri.starts_with("data:image/") {
+                image_urls.push(uri.to_string());
+                if let Some(comma_pos) = uri.find(',') {
+                    let b64_data = &uri[comma_pos + 1..];
+                    use base64::prelude::*;
+                    if let Ok(bytes) = BASE64_STANDARD.decode(b64_data.trim()) {
+                        let scratch_dir = crate::paths::arunaki_dot_dir().join("scratch");
+                        let _ = std::fs::create_dir_all(&scratch_dir);
+                        let clean_name = file_name.replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
+                        let img_path = scratch_dir.join(format!("attached_{}_{}", now_ms(), clean_name));
+                        if std::fs::write(&img_path, &bytes).is_ok() {
+                            crate::paths::log_engine(
+                                "ocr",
+                                &format!("📸 Processing attached image '{}' via Windows native OCR", img_path.display()),
+                            );
+                            match crate::tool::image_ocr::run_native_ocr(&img_path) {
+                                Ok(text) if !text.trim().is_empty() => {
+                                    crate::paths::log_engine(
+                                        "ocr",
+                                        &format!("🔍 OCR recognized {} chars from '{}'", text.len(), file_name),
+                                    );
+                                    ocr_transcriptions.push(format!(
+                                        "[Attached Image: {} (Native OCR Transcribed Content)]:\n\"\"\"\n{}\n\"\"\"",
+                                        file_name,
+                                        text.trim()
+                                    ));
+                                }
+                                Ok(_) => {
+                                    crate::paths::log_engine(
+                                        "ocr",
+                                        &format!("ℹ️ OCR completed for '{}' (no text detected)", file_name),
+                                    );
+                                }
+                                Err(err) => {
+                                    crate::paths::log_engine(
+                                        "ocr",
+                                        &format!("⚠️ OCR failed for '{}': {}", file_name, err),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if !uri.is_empty() {
+                let candidate = std::path::Path::new(workspace_dir).join(uri);
+                if candidate.exists() {
+                    let is_img = uri.ends_with(".png")
+                        || uri.ends_with(".jpg")
+                        || uri.ends_with(".jpeg")
+                        || uri.ends_with(".webp")
+                        || uri.ends_with(".bmp");
+                    if is_img {
+                        if let Ok(text) = crate::tool::image_ocr::run_native_ocr(&candidate) {
+                            if !text.trim().is_empty() {
+                                ocr_transcriptions.push(format!(
+                                    "[Attached Image: {} (Native OCR Transcribed Content)]:\n\"\"\"\n{}\n\"\"\"",
+                                    file_name,
+                                    text.trim()
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let enriched_user_text = if !ocr_transcriptions.is_empty() {
+        format!("{}\n\n{}", prompt_text, ocr_transcriptions.join("\n\n"))
+    } else {
+        prompt_text.to_string()
+    };
+
+    if !image_urls.is_empty() {
+        let mut user_parts = vec![json!({ "type": "text", "text": enriched_user_text })];
+        for img_url in &image_urls {
+            user_parts.push(json!({
+                "type": "image_url",
+                "image_url": { "url": img_url }
+            }));
+        }
+        chat_messages.push(json!({ "role": "user", "content": user_parts }));
+    } else {
+        chat_messages.push(json!({ "role": "user", "content": enriched_user_text }));
+    }
 
     // Determine target base URL & API key
     let cfg = read_arunaki_config();
@@ -419,6 +539,8 @@ pub async fn run_agent_turn(
 
     let mut content_parts: Vec<Value> = Vec::new();
     let mut final_text = String::new();
+    let mut read_tool_executed = false;
+    let mut mutation_tool_executed = false;
 
     for _step in 0..25 {
         let step_start = now_ms();
@@ -488,6 +610,37 @@ pub async fn run_agent_turn(
         );
 
         if tool_calls.is_empty() {
+            let lower_msg = msg_text.to_lowercase();
+            let claims_mutation = lower_msg.contains("has been updated")
+                || lower_msg.contains("have updated")
+                || lower_msg.contains("have saved")
+                || lower_msg.contains("has been saved")
+                || lower_msg.contains("file is updated")
+                || lower_msg.contains("file has been updated")
+                || lower_msg.contains("file has been saved")
+                || lower_msg.contains("data has been inserted")
+                || lower_msg.contains("changes are saved")
+                || lower_msg.contains("in progress")
+                || lower_msg.contains("processing")
+                || lower_msg.contains("updating now")
+                || (read_tool_executed && !mutation_tool_executed && _step == 1 && msg_text.lines().count() > 3);
+
+            if claims_mutation && !mutation_tool_executed && _step < 3 {
+                crate::paths::log_engine(
+                    "ai",
+                    "🛡️ Guardrail triggered: Model concluded turn without calling mutation tools. Reprompting with mutation requirement.",
+                );
+                chat_messages.push(json!({
+                    "role": "assistant",
+                    "content": msg_text
+                }));
+                chat_messages.push(json!({
+                    "role": "user",
+                    "content": "CRITICAL SYSTEM GUARD: You stated that the file was updated/saved or stopped without modifying the requested document, but NO mutation tool (`edit`, `write`, `excel_com`, `word_com`, `ppt_com`) has been executed in this turn! No changes were written to disk. You MUST invoke the appropriate mutation tool (`edit`, `write`, or `excel_com`) NOW to apply the modifications before concluding."
+                }));
+                continue;
+            }
+
             final_text = msg_text;
             break;
         }
@@ -539,6 +692,22 @@ pub async fn run_agent_turn(
                 workspace_dir,
             )
             .await;
+
+            let fn_lower = fn_name.to_lowercase();
+            if matches!(
+                fn_lower.as_str(),
+                "read" | "read_file" | "excel_read" | "word_read" | "ppt_read" | "pdf_read" | "image_ocr" | "ocr" | "grep" | "glob"
+            ) {
+                read_tool_executed = true;
+            }
+            if matches!(
+                fn_lower.as_str(),
+                "edit" | "edit_file" | "apply_patch" | "write" | "write_file" | "create_file" | "excel_com" | "word_com" | "ppt_com" | "bash" | "shell" | "terminal"
+            ) {
+                if tool_out.get("error").is_none() {
+                    mutation_tool_executed = true;
+                }
+            }
             let tool_out_str =
                 serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
             let tool_end = now_ms();
@@ -736,7 +905,7 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
         .unwrap_or("kiro/auto")
         .to_string();
 
-    run_agent_turn(&session_id, &dir, &provider_id, &model_id, &[], prompt_text).await;
+    run_agent_turn(&session_id, &dir, &provider_id, &model_id, &[], prompt_text, None).await;
 
     with_store(|store| {
         store

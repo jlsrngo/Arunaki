@@ -7,6 +7,7 @@ pub mod doc_read;
 pub mod edit;
 pub mod glob;
 pub mod grep;
+pub mod image_ocr;
 pub mod zen;
 #[allow(unused_imports)]
 pub mod open_app;
@@ -42,6 +43,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
         bash::bash_tool_definition(),
     ];
     defs.extend(doc_read::doc_read_tool_definitions());
+    defs.push(image_ocr::image_ocr_tool_definition());
     defs.extend(doc_com::doc_com_tool_definitions());
     defs.extend(zen::zen_tool_definitions());
     defs
@@ -101,6 +103,9 @@ pub async fn execute_tool_call(
         "word_read" => doc_read::execute_word_read(workspace_dir, arguments),
         "ppt_read" => doc_read::execute_ppt_read(workspace_dir, arguments),
         "pdf_read" => doc_read::execute_pdf_read(workspace_dir, arguments),
+        "image_ocr" | "ocr" | "ocr_image" => {
+            image_ocr::execute_image_ocr(workspace_dir, arguments)
+        }
         "excel_com" | "word_com" | "ppt_com" => {
             doc_com::execute_doc_com(name, workspace_dir, arguments).await
         }
