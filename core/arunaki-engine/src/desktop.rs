@@ -1458,6 +1458,8 @@ async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse 
                     $xml = New-Object Windows.Data.Xml.Dom.XmlDocument\n\
                     $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text><image placement=\"appLogoOverride\" src=\"{}\"/></binding></visual></toast>')\n\
                     $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\n\
+                    $toast.Tag = 'arunaki-status'\n\
+                    $toast.Group = 'arunaki'\n\
                     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Arunaki').Show($toast)\n\
                 }} catch {{}}",
                 icon_win_escaped, t_xml, b_xml, icon_uri_escaped

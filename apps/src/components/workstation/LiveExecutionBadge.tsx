@@ -125,7 +125,18 @@ export function formatToolStepLabel(
       return isFinished ? `Voided sales order` : `Voiding sales order`;
     }
 
-    // C. Sales Order Creation
+    // C. Edit / Revise Sales Order
+    if (
+      (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) &&
+      (t.includes("edit") || t.includes("ubah") || t.includes("revisi"))
+    ) {
+      if (invoiceNo) {
+        return isFinished ? `Edited sales order: ${invoiceNo}` : `Editing sales order: ${invoiceNo}`;
+      }
+      return isFinished ? `Edited sales order` : `Editing sales order`;
+    }
+
+    // D. Sales Order Creation
     if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
       if (batchCount > 0) {
         return isFinished ? `Created sales order (${batchCount} items)` : `Creating sales order (${batchCount} items)`;

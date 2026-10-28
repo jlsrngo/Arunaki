@@ -807,7 +807,11 @@ export function useWorkstationChat({
     const notifyOnce = (toolsCount = 0) => {
       if (hasDispatchedNotification) return;
       hasDispatchedNotification = true;
-      dispatchCompletionNotification(toolsCount);
+      dispatchCompletionNotification({
+        toolsCount,
+        steps: accumulatedSteps,
+        responseText: accumulatedResponseText,
+      });
     };
 
     const abortCtrl = new AbortController();

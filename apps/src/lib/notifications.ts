@@ -7,7 +7,7 @@ import { apiFetch } from "./api";
 
 // Global cooldown guard: trailing engine events (step.ended / session.idle / session.status idle)
 // must never produce repeated (looping) OS notifications for the same turn.
-const NOTIFICATION_COOLDOWN_MS = 4000;
+const NOTIFICATION_COOLDOWN_MS = 2500;
 let lastNotificationAt = 0;
 let lastNotificationKey = "";
 

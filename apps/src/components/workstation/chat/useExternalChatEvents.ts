@@ -242,7 +242,11 @@ export function useExternalChatEvents({
             (extText.trim().length > 0 || extSteps.length > 0)
           ) {
             const toolsCount = extSteps.filter((s) => s.iconType === "tool").length;
-            dispatchCompletionNotification(toolsCount);
+            dispatchCompletionNotification({
+              toolsCount,
+              steps: extSteps,
+              responseText: extText,
+            });
           }
           setStreamingState(false);
           setLiveStatus(null);
