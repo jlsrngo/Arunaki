@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Wand2,
+  GripVertical,
   ShieldCheck,
   ShieldAlert,
   Scale,
@@ -59,6 +60,8 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
   const [executing, setExecuting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // Editable form state
   const [title, setTitle] = useState(parsedInitial?.title || "");
@@ -153,7 +156,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
     }
     try {
       setGenerating(true);
-      toast.info("Scanning workspace documents to generate SOP Playbooks...");
+      toast.info("Scanning workspace documents to generate Playbooks...");
       const response = await apiFetch("/api/sop/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -208,6 +211,64 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
         target_file: "recap_summary.xlsx",
       },
     ]);
+  };
+
+  const persistPlaybookStepsOrder = async (
+    pb: SopPlaybookDef,
+    reorderedSteps: Array<{ title: string; description: string; target_file: string }>
+  ) => {
+    if (!activeFolder) return;
+    try {
+      const response = await apiFetch("/api/sop/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_dir: activeFolder,
+          id: pb.id,
+          title: pb.title,
+          category: pb.category,
+          description: pb.description,
+          steps: reorderedSteps,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.playbook) {
+          setPlaybook(data.playbook);
+        }
+        window.dispatchEvent(new CustomEvent("arunaki:playbooks-updated"));
+      }
+    } catch {
+      // ignore transient error
+    }
+  };
+
+  const handleReorderSteps = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    setSteps((prev) => {
+      if (fromIndex >= prev.length || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      if (!isEditing && playbook) {
+        const updatedPb: SopPlaybookDef = {
+          ...playbook,
+          steps: next.map((s, idx) => ({
+            step_index: idx + 1,
+            title: s.title,
+            description: s.description,
+            target_file: s.target_file,
+            app: s.target_file.toLowerCase().endsWith(".xlsx") ||
+              s.target_file.toLowerCase().endsWith(".csv")
+              ? "gridcraft"
+              : "wordcraft",
+          })),
+        };
+        setPlaybook(updatedPb);
+        persistPlaybookStepsOrder(updatedPb, next);
+      }
+      return next;
+    });
   };
 
   const handleSavePlaybook = async () => {
@@ -280,50 +341,39 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
     }
   };
 
-  const handleRunPlaybook = async () => {
+  // Directly connected to the real Arunaki LLM Chat Agent!
+  const handleRunPlaybookWithLLM = async () => {
     if (!activeFolder || !playbook) {
       toast.error("Please open a project folder first.");
       return;
     }
+    setExecuting(true);
     try {
-      setExecuting(true);
-      toast.info(`Executing SOP: ${playbook.title}...`);
+      const orderedSteps = playbook.steps
+        .map(
+          (s, idx) =>
+            `${idx + 1}. ${s.title} (Target file: \`${s.target_file}\`) — ${s.description}`
+        )
+        .join("\n");
 
-      const response = await apiFetch("/api/sop/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playbook_id: playbook.id,
-          workspace_dir: activeFolder,
-          session_id: "sop_center_exec",
-          params: {
-            cashier_name: "ADMIN",
-            notes: "Executed via Center Panel Playbook Studio",
+      const llmPrompt = [
+        `Execute Playbook: **${playbook.title}**`,
+        `Follow these exact steps in order using your document tools on the active workspace files:`,
+        orderedSteps,
+        `Read the actual source file content, write the real extracted data/calculations into the target spreadsheet or Word document (do not use placeholder text), and open the resulting updated document in the Center Panel.`,
+      ].join("\n\n");
+
+      window.dispatchEvent(
+        new CustomEvent("arunaki:run-playbook-llm", {
+          detail: {
+            prompt: llmPrompt,
+            playbookTitle: playbook.title,
           },
-        }),
-      });
-
-      if (response.ok) {
-        const res = await response.json();
-        if (res && res.status === "success") {
-          toast.success(`SOP Completed: ${playbook.title}`);
-          window.dispatchEvent(new CustomEvent("arunaki:files-updated"));
-          if (playbook.steps && playbook.steps.length > 0 && onOpenFileTab) {
-            const mainTarget = playbook.steps[playbook.steps.length - 1].target_file;
-            setTimeout(() => {
-              onOpenFileTab(mainTarget);
-            }, 250);
-          }
-        } else {
-          toast.error(res?.message || "Failed to execute SOP playbook");
-        }
-      } else {
-        toast.error(`SOP failed with status ${response.status}`);
-      }
-    } catch (err: any) {
-      toast.error(`Execution error: ${err?.message || "Unknown error"}`);
+        })
+      );
+      toast.info(`Sent "${playbook.title}" to Arunaki AI Agent...`);
     } finally {
-      setExecuting(false);
+      setTimeout(() => setExecuting(false), 1200);
     }
   };
 
@@ -380,7 +430,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           workspace_dir: activeFolder,
           session_id: "executive_center_exec",
           period: execPeriod,
-          prepared_by: "Arunaki Administration Manager",
+          prepared_by: "Arunaki Document Agent",
         }),
       });
       if (response.ok) {
@@ -455,14 +505,14 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 type="button"
                 disabled={auditing}
                 onClick={handleRunReconciliation}
-                className="px-4 py-2 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shrink-0"
+                title="Run 3-Way Audit"
+                className="w-9 h-9 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
               >
                 {auditing ? (
                   <RotateCw className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Scale className="w-4 h-4" />
+                  <Play className="w-4 h-4 fill-current" />
                 )}
-                <span>{auditing ? "Auditing Records..." : "Run 3-Way Audit"}</span>
               </button>
             </div>
 
@@ -656,14 +706,14 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   type="button"
                   disabled={synthesizing}
                   onClick={handleSynthesizeExecutive}
-                  className="h-9 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shrink-0"
+                  title="Generate Brief & Deck"
+                  className="w-9 h-9 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
                 >
                   {synthesizing ? (
                     <RotateCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Presentation className="w-4 h-4" />
+                    <Play className="w-4 h-4 fill-current" />
                   )}
-                  <span>{synthesizing ? "Synthesizing..." : "Generate Brief & Deck"}</span>
                 </button>
               </div>
             </div>
@@ -750,12 +800,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
   return (
     <div className="flex-1 overflow-y-auto p-6 bg-[var(--bg-app)]">
       <div className="max-w-3xl mx-auto space-y-5">
-        {/* Top Studio Toolbar (Auto-Generate & + New Playbook live here in Center Panel) */}
+        {/* Top Studio Toolbar (Icon-only Generate & Add buttons) */}
         <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-xs font-semibold text-white">
-              Admin Playbooks Studio
-            </h3>
+            <h3 className="text-xs font-semibold text-white">Playbook Studio</h3>
             <p className="text-[11px] text-[var(--text-muted)] truncate">
               Generate workflows from your active folder documents or build a custom SOP routine.
             </p>
@@ -796,21 +844,6 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           </div>
         </div>
 
-        {/* Empty State if no Playbook is selected and not editing */}
-        {!isEditing && !playbook && (
-          <div className="p-6 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-3 text-center">
-            <div className="w-10 h-10 rounded-xl bg-[#cf6613]/15 border border-[#cf6613]/40 flex items-center justify-center mx-auto">
-              <ClipboardCheck className="w-5 h-5 text-[#cf6613]" />
-            </div>
-            <h3 className="text-sm font-semibold text-white">
-              Select or Generate an Admin Playbook
-            </h3>
-            <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
-              Click <strong className="text-white">Auto-Generate from Folder</strong> above to scan the documents in your workspace and build tailored SOP workflows, or click <strong className="text-white">New Playbook</strong> to create one manually.
-            </p>
-          </div>
-        )}
-
         {/* Selected Playbook Header Card */}
         {(isEditing || playbook) && (
           <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
@@ -831,44 +864,44 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   </div>
                   <h2 className="text-base font-semibold text-white leading-snug">
                     {isEditing
-                      ? title || "New Custom SOP Playbook"
-                      : playbook?.title || "SOP Playbook"}
+                      ? title || "New Custom Playbook"
+                      : playbook?.title || "Playbook"}
                   </h2>
                 </div>
               </div>
 
-              {/* Action Toolbar */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Icon-Only Action Toolbar (Edit, Delete, Run with AI Agent) */}
+              <div className="flex items-center gap-1.5 shrink-0">
                 {!isEditing && playbook && (
                   <>
                     <button
                       type="button"
                       onClick={() => setIsEditing(true)}
-                      className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Edit Playbook"
+                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5 text-[#cf6613]" />
-                      <span>Edit</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleDeletePlaybook}
-                      className="h-8 px-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
                       title="Delete Playbook"
+                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
                       disabled={executing}
-                      onClick={handleRunPlaybook}
-                      className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      onClick={handleRunPlaybookWithLLM}
+                      title="Run Playbook with Arunaki AI Agent"
+                      className="w-8 h-8 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
                       {executing ? (
                         <RotateCw className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <Play className="w-3.5 h-3.5 fill-current" />
                       )}
-                      <span>{executing ? "Running SOP..." : "Run SOP Playbook"}</span>
                     </button>
                   </>
                 )}
@@ -878,10 +911,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       type="button"
                       disabled={saving}
                       onClick={handleSavePlaybook}
-                      className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Save Playbook"
+                      className="w-8 h-8 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{saving ? "Saving..." : "Save Playbook"}</span>
+                      <Check className="w-4 h-4" />
                     </button>
                     {playbook && (
                       <button
@@ -899,10 +932,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                             }))
                           );
                         }}
-                        className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Cancel Editing"
+                        className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white flex items-center justify-center transition-colors cursor-pointer"
                       >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Cancel</span>
+                        <X className="w-4 h-4" />
                       </button>
                     )}
                   </>
@@ -918,7 +951,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           </div>
         )}
 
-        {/* EDIT / CREATE MODE IN CENTER PANEL */}
+        {/* EDIT / CREATE MODE IN CENTER PANEL (WITH DRAG & DROP REORDERING) */}
         {isEditing ? (
           <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
             <h3 className="text-sm font-semibold text-white border-b border-[var(--border-color)] pb-2.5">
@@ -967,9 +1000,14 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-white">
-                  Execution Pipeline Steps ({steps.length})
-                </label>
+                <div>
+                  <label className="text-xs font-semibold text-white">
+                    Execution Pipeline Steps ({steps.length})
+                  </label>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    Drag any step card up or down to reorder the execution sequence.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -982,10 +1020,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       },
                     ])
                   }
-                  className="px-3 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  title="Add Step"
+                  className="w-8 h-8 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Step</span>
+                  <Plus className="w-4 h-4" />
                 </button>
               </div>
 
@@ -993,10 +1031,34 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 {steps.map((st, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] space-y-3"
+                    draggable
+                    onDragStart={() => setDraggedIdx(idx)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverIdx(idx);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedIdx !== null && draggedIdx !== idx) {
+                        handleReorderSteps(draggedIdx, idx);
+                      }
+                      setDraggedIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    className={cn(
+                      "p-4 rounded-lg bg-[var(--bg-app)] border space-y-3 transition-all",
+                      dragOverIdx === idx
+                        ? "border-[#cf6613] bg-[var(--bg-hover)]/40"
+                        : "border-[var(--border-color)]"
+                    )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white flex items-center gap-2">
+                      <span className="text-xs font-semibold text-white flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                        <GripVertical className="w-4 h-4 text-[var(--text-muted)] hover:text-white" />
                         <span className="w-5 h-5 rounded-full bg-[#cf6613] text-white text-[11px] font-bold flex items-center justify-center">
                           {idx + 1}
                         </span>
@@ -1008,10 +1070,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                           onClick={() =>
                             setSteps((prev) => prev.filter((_, i) => i !== idx))
                           }
-                          className="h-6 px-2 rounded border border-[var(--border-strong)] text-[11px] text-white/80 hover:text-white hover:bg-rose-600 hover:border-rose-500 flex items-center gap-1 cursor-pointer"
+                          title="Remove Step"
+                          className="w-7 h-7 rounded border border-[var(--border-strong)] text-white/80 hover:text-white hover:bg-rose-600 hover:border-rose-500 flex items-center justify-center cursor-pointer"
                         >
-                          <Trash2 className="w-3 h-3" />
-                          <span>Remove</span>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
@@ -1082,7 +1144,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
             </div>
           </div>
         ) : (
-          /* VIEW MODE: SPACIOUS STEP PIPELINE IN CENTER PANEL */
+          /* VIEW MODE: DRAGGABLE STEP PIPELINE IN CENTER PANEL */
           playbook && (
             <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
@@ -1090,19 +1152,43 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   Execution Pipeline ({playbook.steps.length} Steps)
                 </h3>
                 <span className="text-xs text-[var(--text-muted)]">
-                  Click any target file below to inspect it in a tab
+                  Drag steps to reorder · Click target file to open
                 </span>
               </div>
 
               <div className="space-y-3">
-                {playbook.steps.map((st) => (
+                {playbook.steps.map((st, idx) => (
                   <div
-                    key={st.step_index}
-                    className="p-4 rounded-xl bg-[var(--bg-app)] border border-[var(--border-color)] flex items-start justify-between gap-4 hover:border-[var(--border-strong)] transition-colors"
+                    key={`${st.step_index}-${st.title}`}
+                    draggable
+                    onDragStart={() => setDraggedIdx(idx)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverIdx(idx);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedIdx !== null && draggedIdx !== idx) {
+                        handleReorderSteps(draggedIdx, idx);
+                      }
+                      setDraggedIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    className={cn(
+                      "p-4 rounded-xl bg-[var(--bg-app)] border flex items-start justify-between gap-4 transition-all cursor-grab active:cursor-grabbing",
+                      dragOverIdx === idx
+                        ? "border-[#cf6613] bg-[var(--bg-hover)]/40"
+                        : "border-[var(--border-color)] hover:border-[var(--border-strong)]"
+                    )}
                   >
-                    <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <GripVertical className="w-4 h-4 text-[var(--text-muted)] shrink-0 mt-1" />
                       <div className="w-6 h-6 rounded-full bg-[#cf6613] text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                        {st.step_index}
+                        {idx + 1}
                       </div>
                       <div className="space-y-1 min-w-0">
                         <div className="text-sm font-semibold text-white">
@@ -1116,7 +1202,10 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
 
                     <button
                       type="button"
-                      onClick={() => onOpenFileTab?.(st.target_file)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenFileTab?.(st.target_file);
+                      }}
                       className="px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-xs font-mono text-[#cf6613] flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
                       title="Open target file in Center Panel"
                     >

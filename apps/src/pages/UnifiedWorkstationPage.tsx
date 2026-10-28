@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
@@ -65,6 +65,21 @@ export function UnifiedWorkstationPage() {
     upsertCanvasTab: tabs.upsertCanvasTab,
     setRecentCanvases: tabs.setRecentCanvases,
   });
+
+  // Connect Playbook "Run" button directly to the real LLM Chat Agent
+  useEffect(() => {
+    const handleRunPlaybookLlm = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt?: string }>;
+      const prompt = customEvent.detail?.prompt;
+      if (prompt) {
+        chat.handleSendMessage(prompt);
+      }
+    };
+    window.addEventListener("arunaki:run-playbook-llm", handleRunPlaybookLlm);
+    return () => {
+      window.removeEventListener("arunaki:run-playbook-llm", handleRunPlaybookLlm);
+    };
+  }, [chat]);
 
   // Save active document tab callback for top menubar Ctrl+S / File -> Save
   const handleSaveActiveTab = useCallback(() => {
