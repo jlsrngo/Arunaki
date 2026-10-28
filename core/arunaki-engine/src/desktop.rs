@@ -58,6 +58,7 @@ pub fn router() -> Router {
         .route("/api/pos/status", get(handle_pos_status))
         .route("/api/sop/playbooks", get(handle_list_sop_playbooks))
         .route("/api/sop/execute", post(handle_execute_sop_playbook))
+        .route("/api/reconcile/audit", post(handle_reconcile_audit))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -1247,5 +1248,20 @@ async fn handle_execute_sop_playbook(Json(payload): Json<Value>) -> impl IntoRes
         .unwrap_or("sop_session");
 
     let res = crate::tool::sop::execute_sop_playbook(session_id, &workspace, &payload);
+    Json(res)
+}
+
+async fn handle_reconcile_audit(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    
+    let session_id = payload.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("reconcile_session");
+
+    let res = crate::tool::reconcile::execute_audit_reconciliation(session_id, &workspace, &payload);
     Json(res)
 }

@@ -9,7 +9,10 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldCheck,
+  ShieldAlert,
+  Scale,
   AlertCircle,
+  AlertTriangle,
   X,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
@@ -32,6 +35,50 @@ export interface SopPlaybookDef {
   description: string;
   estimated_minutes: number;
   steps: SopStepDef[];
+}
+
+export interface ReconcileAnomaly {
+  code: string;
+  severity: string;
+  title: string;
+  description: string;
+  variance_amount: number;
+  recommendation: string;
+}
+
+export interface ReconcileLineItem {
+  reference_id: string;
+  description: string;
+  source_a: number;
+  source_b: number;
+  source_c: number;
+  variance: number;
+  status: string;
+}
+
+export interface ReconcileAuditResult {
+  status: string;
+  audit_status: "BALANCED" | "DISCREPANCY_DETECTED";
+  mode: string;
+  period: string;
+  labels: {
+    source_a: string;
+    source_b: string;
+    source_c: string;
+  };
+  totals: {
+    source_a: number;
+    source_b: number;
+    source_c: number;
+    net_variance: number;
+    absolute_variance: number;
+  };
+  matched_count: number;
+  mismatch_count: number;
+  anomalies_count: number;
+  anomalies: ReconcileAnomaly[];
+  line_items: ReconcileLineItem[];
+  deliverables: string[];
 }
 
 interface SopPlaybookPanelProps {
@@ -139,11 +186,17 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   width = "var(--left-panel-width)",
 }: SopPlaybookPanelProps) {
   const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState<"playbooks" | "reconcile">("playbooks");
   const [playbooks, setPlaybooks] = useState<SopPlaybookDef[]>(DEFAULT_PLAYBOOKS);
   const [loading, setLoading] = useState(false);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>("daily_cash_closing");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  // 3-Way Reconciliation State
+  const [auditMode, setAuditMode] = useState<"cash_and_bank" | "procurement_three_way">("cash_and_bank");
+  const [auditing, setAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<ReconcileAuditResult | null>(null);
 
   const fetchPlaybooks = useCallback(async () => {
     try {
@@ -198,7 +251,6 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
           toast.success(`SOP Completed: ${playbook.title}`);
           refetchFiles?.();
 
-          // Open the primary resulting file if available
           if (playbook.steps && playbook.steps.length > 0 && onOpenFileTab) {
             const mainTarget = playbook.steps[playbook.steps.length - 1].target_file;
             setTimeout(() => {
@@ -218,6 +270,59 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     }
   };
 
+  const handleRunReconciliation = async () => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first before running a 3-Way Audit.");
+      return;
+    }
+
+    try {
+      setAuditing(true);
+      toast.info("Running 3-Way Reconciliation & Anomaly Guard...");
+
+      const payload = {
+        mode: auditMode,
+        workspace_dir: activeFolder,
+        session_id: "reconcile_manual_exec",
+        period: "October 28, 2026",
+      };
+
+      const response = await apiFetch("/api/reconcile/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const res: ReconcileAuditResult = await response.json();
+        if (res && res.status === "success") {
+          setAuditResult(res);
+          refetchFiles?.();
+          if (res.audit_status === "BALANCED") {
+            toast.success("3-Way Reconciliation Passed: Zero variance detected.");
+          } else {
+            toast.warning(
+              `Discrepancy Detected: ${res.anomalies_count} anomaly finding(s) flagged.`
+            );
+          }
+          if (onOpenFileTab) {
+            setTimeout(() => {
+              onOpenFileTab("reconciliation_discrepancy_memo.docx");
+            }, 300);
+          }
+        } else {
+          toast.error("Failed to complete reconciliation audit.");
+        }
+      } else {
+        toast.error(`Audit failed with status ${response.status}`);
+      }
+    } catch (err: any) {
+      toast.error(`Audit error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setAuditing(false);
+    }
+  };
+
   const filteredPlaybooks = playbooks.filter((p) => {
     if (categoryFilter === "all") return true;
     return p.category.toLowerCase().includes(categoryFilter.toLowerCase());
@@ -233,10 +338,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         <div className="flex items-center gap-2 min-w-0">
           <ClipboardCheck className="w-4 h-4 text-[#cf6613] shrink-0" />
           <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)] truncate">
-            {t("sopPlaybooks", "SOP Playbooks")}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-strong)]">
-            Manager
+            {t("sopPlaybooks", "Admin Manager")}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -245,7 +347,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
             onClick={fetchPlaybooks}
             disabled={loading}
             className="w-5 h-5 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title="Refresh Playbooks"
+            title="Refresh"
           >
             <RotateCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           </button>
@@ -262,148 +364,376 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         </div>
       </div>
 
-      {/* Category Filter Pills */}
-      <div className="p-2 border-b border-[var(--border-color)] flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
-        {["all", "Finance", "Procurement", "Governance"].map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setCategoryFilter(cat)}
-            className={cn(
-              "px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap",
-              categoryFilter === cat
-                ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
-                : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/50"
-            )}
-          >
-            {cat === "all" ? "All" : cat}
-          </button>
-        ))}
+      {/* Mode Switcher Tabs: SOP Playbooks vs 3-Way Audit */}
+      <div className="grid grid-cols-2 p-1.5 gap-1 border-b border-[var(--border-color)] bg-[var(--bg-app)] shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab("playbooks")}
+          className={cn(
+            "py-1 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+            activeTab === "playbooks"
+              ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
+              : "text-[var(--text-muted)] hover:text-white"
+          )}
+        >
+          <ClipboardCheck className="w-3 h-3" />
+          <span>SOP Playbooks</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("reconcile")}
+          className={cn(
+            "py-1 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+            activeTab === "reconcile"
+              ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
+              : "text-[var(--text-muted)] hover:text-white"
+          )}
+        >
+          <Scale className="w-3 h-3" />
+          <span>3-Way Audit</span>
+        </button>
       </div>
 
-      {/* Content List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {!activeFolder && (
-          <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)]/50 text-xs text-[var(--text-muted)] flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
-            <span>Open an active workspace folder to execute SOP deliverables directly to disk.</span>
-          </div>
-        )}
-
-        {filteredPlaybooks.map((pb) => {
-          const isExpanded = expandedId === pb.id;
-          const isRunning = executingId === pb.id;
-
-          return (
-            <div
-              key={pb.id}
-              className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] overflow-hidden transition-all duration-150"
-            >
-              {/* Card Header */}
-              <div
-                onClick={() => setExpandedId(isExpanded ? null : pb.id)}
-                className="p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[var(--bg-hover)]/40 transition-colors"
+      {activeTab === "playbooks" ? (
+        <>
+          {/* Category Filter Pills */}
+          <div className="p-2 border-b border-[var(--border-color)] flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
+            {["all", "Finance", "Procurement", "Governance"].map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategoryFilter(cat)}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap",
+                  categoryFilter === cat
+                    ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
+                    : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/50"
+                )}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)]">
-                      {pb.category}
-                    </span>
-                    <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-0.5">
-                      <Clock className="w-2.5 h-2.5" />
-                      ~{pb.estimated_minutes}m
-                    </span>
+                {cat === "all" ? "All" : cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Playbook List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {!activeFolder && (
+              <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
+                <span>Open an active workspace folder to execute SOP deliverables directly to disk.</span>
+              </div>
+            )}
+
+            {filteredPlaybooks.map((pb) => {
+              const isExpanded = expandedId === pb.id;
+              const isRunning = executingId === pb.id;
+
+              return (
+                <div
+                  key={pb.id}
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] overflow-hidden transition-all duration-150"
+                >
+                  <div
+                    onClick={() => setExpandedId(isExpanded ? null : pb.id)}
+                    className="p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[var(--bg-hover)]/40 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)]">
+                          {pb.category}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" />
+                          ~{pb.estimated_minutes}m
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
+                        {pb.title}
+                      </h4>
+                    </div>
+                    <div className="text-[var(--text-muted)] shrink-0 pt-0.5">
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </div>
                   </div>
-                  <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
-                    {pb.title}
-                  </h4>
+
+                  {isExpanded && (
+                    <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)] space-y-2.5 bg-[var(--bg-panel)]">
+                      <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                        {pb.description}
+                      </p>
+
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-semibold text-[var(--text-dim)] uppercase tracking-wider">
+                          Automated Steps ({pb.steps.length})
+                        </div>
+                        {pb.steps.map((st) => (
+                          <div
+                            key={st.step_index}
+                            className="p-1.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] flex items-start gap-2"
+                          >
+                            <span className="w-4 h-4 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                              {st.step_index}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-[var(--text-primary)]">{st.title}</div>
+                              <div className="text-[10px] text-[var(--text-muted)] leading-snug">
+                                {st.description}
+                              </div>
+                              <div className="mt-1 flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-dim)]">
+                                {st.app === "gridcraft" ? (
+                                  <FileSpreadsheet className="w-3 h-3 text-[#107c41]" />
+                                ) : (
+                                  <FileText className="w-3 h-3 text-[#2b579a]" />
+                                )}
+                                <span className="truncate">{st.target_file}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isRunning || !activeFolder}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRunPlaybook(pb);
+                        }}
+                        className={cn(
+                          "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
+                          isRunning
+                            ? "bg-[#cf6613]/80 text-white cursor-wait"
+                            : !activeFolder
+                            ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                            : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
+                        )}
+                      >
+                        {isRunning ? (
+                          <>
+                            <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Executing SOP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Run Playbook</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="text-[var(--text-muted)] shrink-0 pt-0.5">
-                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        /* 3-Way Reconciliation & Anomaly Guard View */
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-3">
+          {!activeFolder && (
+            <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
+              <span>Open an active workspace folder to run 3-way reconciliation audits.</span>
+            </div>
+          )}
+
+          {/* Mode Selection Card */}
+          <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2.5">
+            <div className="text-[11px] font-semibold text-[var(--text-primary)] uppercase tracking-wider">
+              Select 3-Way Matching Mode
+            </div>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => setAuditMode("cash_and_bank")}
+                className={cn(
+                  "w-full p-2 rounded border text-left transition-all cursor-pointer",
+                  auditMode === "cash_and_bank"
+                    ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-white"
+                    : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                <div className="text-xs font-semibold">Cash & Bank 3-Way Match</div>
+                <div className="text-[10px] text-[var(--text-dim)] mt-0.5">
+                  POS Register &harr; Cash Ledger &harr; Bank Deposit
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAuditMode("procurement_three_way")}
+                className={cn(
+                  "w-full p-2 rounded border text-left transition-all cursor-pointer",
+                  auditMode === "procurement_three_way"
+                    ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-white"
+                    : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                <div className="text-xs font-semibold">Procurement 3-Way Match</div>
+                <div className="text-[10px] text-[var(--text-dim)] mt-0.5">
+                  Purchase Order &harr; Delivery Receipt &harr; Vendor Invoice
+                </div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              disabled={auditing || !activeFolder}
+              onClick={handleRunReconciliation}
+              className={cn(
+                "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
+                auditing
+                  ? "bg-[#cf6613]/80 text-white cursor-wait"
+                  : !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                  : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
+              )}
+            >
+              {auditing ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Auditing Records...</span>
+                </>
+              ) : (
+                <>
+                  <Scale className="w-3.5 h-3.5" />
+                  <span>Run 3-Way Reconciliation</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Manager Audit Alert Card */}
+          {auditResult && (
+            <div className="rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] overflow-hidden space-y-2.5 p-2.5">
+              {/* Status Banner */}
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--border-color)]">
+                <div className="flex items-center gap-1.5">
+                  {auditResult.audit_status === "BALANCED" ? (
+                    <ShieldCheck className="w-4 h-4 text-white shrink-0" />
+                  ) : (
+                    <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+                  )}
+                  <span className="text-xs font-bold text-white">
+                    {auditResult.audit_status === "BALANCED"
+                      ? "AUDIT BALANCED"
+                      : "DISCREPANCY DETECTED"}
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                    auditResult.audit_status === "BALANCED"
+                      ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
+                      : "bg-rose-600 text-white"
+                  )}
+                >
+                  {auditResult.anomalies_count} Alert(s)
+                </span>
+              </div>
+
+              {/* Totals Summary */}
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                <div className="p-1.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <div className="text-[10px] text-[var(--text-dim)] truncate">
+                    {auditResult.labels.source_a}
+                  </div>
+                  <div className="font-mono font-semibold text-white">
+                    ${auditResult.totals.source_a.toFixed(2)}
+                  </div>
+                </div>
+                <div className="p-1.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <div className="text-[10px] text-[var(--text-dim)] truncate">
+                    {auditResult.labels.source_c}
+                  </div>
+                  <div className="font-mono font-semibold text-white">
+                    ${auditResult.totals.source_c.toFixed(2)}
+                  </div>
                 </div>
               </div>
 
-              {/* Expanded Details */}
-              {isExpanded && (
-                <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)] space-y-2.5 bg-[var(--bg-panel)]">
-                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                    {pb.description}
-                  </p>
+              <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
+                <span className="text-[var(--text-muted)]">Total Absolute Variance:</span>
+                <span
+                  className={cn(
+                    "font-mono font-bold",
+                    auditResult.totals.absolute_variance > 0.01 ? "text-rose-500" : "text-white"
+                  )}
+                >
+                  ${auditResult.totals.absolute_variance.toFixed(2)}
+                </span>
+              </div>
 
-                  {/* Steps Checklist */}
-                  <div className="space-y-1.5">
-                    <div className="text-[10px] font-semibold text-[var(--text-dim)] uppercase tracking-wider">
-                      Automated Steps ({pb.steps.length})
-                    </div>
-                    {pb.steps.map((st) => (
-                      <div
-                        key={st.step_index}
-                        className="p-1.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] flex items-start gap-2"
-                      >
-                        <span className="w-4 h-4 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
-                          {st.step_index}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-[var(--text-primary)]">{st.title}</div>
-                          <div className="text-[10px] text-[var(--text-muted)] leading-snug">
-                            {st.description}
-                          </div>
-                          <div className="mt-1 flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-dim)]">
-                            {st.app === "gridcraft" ? (
-                              <FileSpreadsheet className="w-3 h-3 text-[#107c41]" />
-                            ) : (
-                              <FileText className="w-3 h-3 text-[#2b579a]" />
-                            )}
-                            <span className="truncate">{st.target_file}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+              {/* Detected Anomalies Breakdown */}
+              {auditResult.anomalies.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                    Manager Anomaly Findings
                   </div>
-
-                  {/* Action Button */}
-                  <button
-                    type="button"
-                    disabled={isRunning || !activeFolder}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRunPlaybook(pb);
-                    }}
-                    className={cn(
-                      "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
-                      isRunning
-                        ? "bg-[#cf6613]/80 text-white cursor-wait"
-                        : !activeFolder
-                        ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
-                        : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
-                    )}
-                  >
-                    {isRunning ? (
-                      <>
-                        <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Executing SOP...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Run Playbook</span>
-                      </>
-                    )}
-                  </button>
+                  {auditResult.anomalies.map((anom, idx) => (
+                    <div
+                      key={`${anom.code}-${idx}`}
+                      className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] space-y-1 text-[11px]"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-white flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                          <span>{anom.title}</span>
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold px-1 py-0.2 rounded shrink-0",
+                            anom.severity === "HIGH"
+                              ? "bg-rose-600 text-white"
+                              : "bg-[#cf6613] text-white"
+                          )}
+                        >
+                          {anom.severity}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] leading-snug">
+                        {anom.description}
+                      </p>
+                      <div className="text-[10px] text-white pt-1 border-t border-[var(--border-color)]">
+                        <span className="font-semibold text-[#cf6613]">Recommendation: </span>
+                        {anom.recommendation}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {/* Deliverable Quick Links */}
+              <div className="pt-1 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenFileTab?.("reconciliation_audit_report.xlsx")}
+                  className="flex-1 py-1 px-2 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3 h-3" />
+                  <span>Audit Sheet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenFileTab?.("reconciliation_discrepancy_memo.docx")}
+                  className="flex-1 py-1 px-2 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span>Audit Memo</span>
+                </button>
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="p-2 border-t border-[var(--border-color)] bg-[var(--bg-app)] shrink-0 flex items-center justify-between text-[10px] text-[var(--text-dim)]">
         <span className="flex items-center gap-1">
           <ShieldCheck className="w-3 h-3 text-white" />
-          <span>SOP Compliance v1.0</span>
+          <span>SOP & 3-Way Audit Engine</span>
         </span>
-        <span>Auto-Audit Enabled</span>
+        <span>v1.2</span>
       </div>
     </div>
   );

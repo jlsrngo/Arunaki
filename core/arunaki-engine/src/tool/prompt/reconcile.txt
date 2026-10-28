@@ -1,0 +1,14 @@
+Perform a 3-Way Reconciliation and Administrative Anomaly/Fraud Audit across workspace documents or provided financial records.
+As an Administration Manager, use this tool to cross-verify records, detect financial discrepancies, identify duplicate invoices, and validate mathematical totals.
+
+Supported reconciliation modes (`mode`):
+- `cash_and_bank`: Reconciles POS Register Sales <-> Daily Cash Ledger <-> Bank Statement / Vault Deposit.
+- `procurement_three_way`: Matches Purchase Order (PO) <-> Delivery Receipt (GRN) <-> Vendor Invoice.
+
+Anomaly & Fraud checks performed automatically:
+1. Nominal Variance Detection: Identifies exact monetary discrepancies between sources.
+2. Duplicate Invoice / Transaction Guard: Flags repeated invoice numbers or duplicate billing amounts.
+3. Calculation Integrity: Validates that line items, taxes, and discounts sum accurately to the stated grand total.
+4. Price Deviation Alert: Detects unit price spikes compared to baseline purchase orders.
+
+Generates `reconciliation_audit_report.xlsx` and `reconciliation_discrepancy_memo.docx` in the active workspace and opens them in the Center Panel.

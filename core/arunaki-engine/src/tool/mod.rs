@@ -13,6 +13,7 @@ pub mod zen;
 pub mod open_app;
 pub mod question;
 pub mod read;
+pub mod reconcile;
 pub mod sop;
 pub mod todo;
 pub mod websearch;
@@ -25,7 +26,7 @@ use crate::paths::contains_path;
 
 pub fn should_attach_document_tools(_prompt_text: &str, _history: &[Value]) -> bool {
     // In Arunaki desktop document agent, tools are ALWAYS attached
-    // so any concise user instruction (e.g. "rekap ke excel", "pengeluaran bensin 100rb")
+    // so any concise user instruction (e.g. "recap to excel", "fuel expense 100")
     // can autonomously discover, read, calculate, and modify workspace documents.
     true
 }
@@ -48,6 +49,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.extend(doc_com::doc_com_tool_definitions());
     defs.extend(zen::zen_tool_definitions());
     defs.extend(sop::sop_tool_definitions());
+    defs.extend(reconcile::reconcile_tool_definitions());
     defs
 }
 
@@ -137,6 +139,9 @@ pub async fn execute_tool_call(
         }
         "execute_sop_playbook" | "run_sop" | "run_sop_playbook" => {
             sop::execute_sop_playbook(session_id, workspace_dir, arguments)
+        }
+        "audit_reconciliation" | "three_way_match" | "reconcile_audit" => {
+            reconcile::execute_audit_reconciliation(session_id, workspace_dir, arguments)
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
