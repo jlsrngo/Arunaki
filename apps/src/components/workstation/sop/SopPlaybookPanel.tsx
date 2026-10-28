@@ -448,9 +448,11 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
       {/* Header */}
       <div className="h-9 px-3 border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <ClipboardCheck className="w-4 h-4 text-[#cf6613] shrink-0" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)] truncate">
-            {t("sopPlaybooks", "Admin Manager")}
+          <div className="w-5 h-5 rounded bg-[#cf6613] flex items-center justify-center shrink-0">
+            <ClipboardCheck className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className="text-xs font-semibold tracking-wide text-white truncate">
+            {t("sopPlaybooks", "Admin Playbooks")}
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -593,7 +595,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
 
                       {/* Steps Chain */}
                       <div className="space-y-1.5">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                        <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
                           Execution Pipeline ({pb.steps.length} Steps)
                         </div>
                         {pb.steps.map((st) => (
@@ -673,7 +675,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
 
           {/* Mode Selector */}
           <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+            <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
               Reconciliation Audit Mode
             </div>
             <div className="space-y-1.5">
@@ -749,8 +751,8 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                   )}
                   <span className="text-xs font-bold text-white">
                     {auditResult.audit_status === "BALANCED"
-                      ? "AUDIT BALANCED"
-                      : "DISCREPANCY DETECTED"}
+                      ? "Audit Balanced"
+                      : "Discrepancy Detected"}
                   </span>
                 </div>
                 <span
@@ -800,7 +802,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               {/* Detected Anomalies Breakdown */}
               {auditResult.anomalies.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                  <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
                     Manager Anomaly Findings
                   </div>
                   {auditResult.anomalies.map((anom, idx) => (
@@ -887,7 +889,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
           )}
 
           <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+            <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
               Multi-Format Executive Synthesis
             </div>
             <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
@@ -961,7 +963,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               </div>
 
               <div className="space-y-1">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
                   Strategic Recommendations
                 </div>
                 {execKpi.recommendations.map((rec, i) => (

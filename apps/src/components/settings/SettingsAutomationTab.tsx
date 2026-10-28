@@ -44,13 +44,20 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         </p>
       </div>
 
-      {/* Interactive Setting Cards (Monochrome) */}
+      {/* Interactive Setting Cards */}
       <div className="w-full space-y-4">
         {/* 1. Launch Microsoft Office on Edit */}
         <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-              <Layers className="w-4 h-4 text-[var(--text-muted)]" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+                autoOpenOffice
+                  ? "bg-[#cf6613] border-[#cf6613] text-white"
+                  : "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-muted)]"
+              )}
+            >
+              <Layers className={cn("w-4 h-4", autoOpenOffice ? "text-white" : "text-[var(--text-muted)]")} />
             </div>
             <div>
               <h4 className="text-xs font-bold text-[var(--text-primary)]">
@@ -88,11 +95,18 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           </button>
         </div>
 
-        {/* 2. Auto-Backup Dokumen Sebelum Dimodifikasi */}
+        {/* 2. Automatic Snapshot Backup Before Modifications */}
         <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-              <ShieldCheck className="w-4 h-4 text-[var(--text-muted)]" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+                autoBackup
+                  ? "bg-[#cf6613] border-[#cf6613] text-white"
+                  : "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-muted)]"
+              )}
+            >
+              <ShieldCheck className={cn("w-4 h-4", autoBackup ? "text-white" : "text-[var(--text-muted)]")} />
             </div>
             <div>
               <h4 className="text-xs font-bold text-[var(--text-primary)]">
@@ -125,11 +139,18 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           </button>
         </div>
 
-        {/* 3. Notifikasi Panel Windows */}
+        {/* 3. Desktop OS Notifications */}
         <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-              <Bell className="w-4 h-4 text-[var(--text-muted)]" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+                desktopNotification
+                  ? "bg-[#cf6613] border-[#cf6613] text-white"
+                  : "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-muted)]"
+              )}
+            >
+              <Bell className={cn("w-4 h-4", desktopNotification ? "text-white" : "text-[var(--text-muted)]")} />
             </div>
             <div>
               <h4 className="text-xs font-bold text-[var(--text-primary)]">
@@ -155,7 +176,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <Bell className="w-3 h-3 text-[var(--text-muted)]" />
+                    <Bell className="w-3 h-3 text-white" />
                     <span>{t("testDesktopNotification")}</span>
                   </button>
                 </div>
@@ -197,8 +218,15 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         {/* 4. Smart Context Compaction & Token Pruning */}
         <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-              <Sparkles className="w-4 h-4 text-[#cf6613]" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+                smartCompaction
+                  ? "bg-[#cf6613] border-[#cf6613] text-white"
+                  : "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-muted)]"
+              )}
+            >
+              <Sparkles className={cn("w-4 h-4", smartCompaction ? "text-white" : "text-[var(--text-muted)]")} />
             </div>
             <div>
               <h4 className="text-xs font-bold text-[var(--text-primary)]">
@@ -236,7 +264,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <Sparkles className="w-3 h-3 text-[#cf6613]" />
+                    <Sparkles className="w-3 h-3 text-white" />
                     <span>{isCompacting ? "Compacting..." : t("compactActiveSessionNow")}</span>
                   </button>
                 </div>
@@ -272,11 +300,18 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         </div>
       </div>
 
-      {/* Electron Diagnostic Bridge Status */}
+      {/* Desktop Diagnostic Bridge Status */}
       <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
         <div className="flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-            <Monitor className="w-4 h-4 text-[var(--text-muted)]" />
+          <div
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
+              isDesktop
+                ? "bg-[#cf6613] border-[#cf6613] text-white"
+                : "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-muted)]"
+            )}
+          >
+            <Monitor className={cn("w-4 h-4", isDesktop ? "text-white" : "text-[var(--text-muted)]")} />
           </div>
           <div>
             <h4 className="text-xs font-semibold text-[var(--text-primary)]">
