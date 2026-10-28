@@ -15,6 +15,7 @@ pub mod question;
 pub mod read;
 pub mod reconcile;
 pub mod sop;
+pub mod synthesize;
 pub mod todo;
 pub mod websearch;
 pub mod write;
@@ -50,6 +51,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.extend(zen::zen_tool_definitions());
     defs.extend(sop::sop_tool_definitions());
     defs.extend(reconcile::reconcile_tool_definitions());
+    defs.extend(synthesize::synthesize_tool_definitions());
     defs
 }
 
@@ -142,6 +144,9 @@ pub async fn execute_tool_call(
         }
         "audit_reconciliation" | "three_way_match" | "reconcile_audit" => {
             reconcile::execute_audit_reconciliation(session_id, workspace_dir, arguments)
+        }
+        "generate_executive_summary" | "executive_summary" | "synthesize_executive" => {
+            synthesize::execute_generate_executive_summary(session_id, workspace_dir, arguments)
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await

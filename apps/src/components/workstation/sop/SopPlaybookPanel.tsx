@@ -6,6 +6,7 @@ import {
   Clock,
   FileSpreadsheet,
   FileText,
+  Presentation,
   ChevronDown,
   ChevronRight,
   ShieldCheck,
@@ -79,6 +80,21 @@ export interface ReconcileAuditResult {
   anomalies: ReconcileAnomaly[];
   line_items: ReconcileLineItem[];
   deliverables: string[];
+}
+
+export interface ExecutiveKpiResult {
+  period: string;
+  prepared_by: string;
+  gross_revenue: number;
+  operating_expenses: number;
+  net_operating_income: number;
+  operating_margin_pct: number;
+  accounts_payable_total: number;
+  top_revenue_channel: string;
+  top_cost_driver: string;
+  audit_health_status: string;
+  highlights: string[];
+  recommendations: string[];
 }
 
 interface SopPlaybookPanelProps {
@@ -186,7 +202,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   width = "var(--left-panel-width)",
 }: SopPlaybookPanelProps) {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<"playbooks" | "reconcile">("playbooks");
+  const [activeTab, setActiveTab] = useState<"playbooks" | "reconcile" | "executive">("playbooks");
   const [playbooks, setPlaybooks] = useState<SopPlaybookDef[]>(DEFAULT_PLAYBOOKS);
   const [loading, setLoading] = useState(false);
   const [executingId, setExecutingId] = useState<string | null>(null);
@@ -197,6 +213,11 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   const [auditMode, setAuditMode] = useState<"cash_and_bank" | "procurement_three_way">("cash_and_bank");
   const [auditing, setAuditing] = useState(false);
   const [auditResult, setAuditResult] = useState<ReconcileAuditResult | null>(null);
+
+  // Executive Synthesis State
+  const [execPeriod, setExecPeriod] = useState("October 2026");
+  const [synthesizing, setSynthesizing] = useState(false);
+  const [execKpi, setExecKpi] = useState<ExecutiveKpiResult | null>(null);
 
   const fetchPlaybooks = useCallback(async () => {
     try {
@@ -323,6 +344,54 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     }
   };
 
+  const handleSynthesizeExecutive = async () => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first before synthesizing an Executive Brief.");
+      return;
+    }
+
+    try {
+      setSynthesizing(true);
+      toast.info("Synthesizing Executive Memo (WordCraft) & Slide Deck (DeckCraft)...");
+
+      const response = await apiFetch("/api/executive/synthesize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_dir: activeFolder,
+          session_id: "executive_manual_exec",
+          period: execPeriod,
+          prepared_by: "Arunaki Administration Manager",
+        }),
+      });
+
+      if (response.ok) {
+        const res = await response.json();
+        if (res && res.status === "success" && res.kpi) {
+          setExecKpi(res.kpi);
+          refetchFiles?.();
+          toast.success(
+            "Executive Summary & Presentation Deck generated and opened in Center Panel."
+          );
+          if (onOpenFileTab) {
+            setTimeout(() => {
+              onOpenFileTab("executive_summary_memo.docx");
+              onOpenFileTab("executive_presentation_deck.pptx");
+            }, 250);
+          }
+        } else {
+          toast.error("Failed to synthesize executive summary.");
+        }
+      } else {
+        toast.error(`Synthesis failed with status ${response.status}`);
+      }
+    } catch (err: any) {
+      toast.error(`Synthesis error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setSynthesizing(false);
+    }
+  };
+
   const filteredPlaybooks = playbooks.filter((p) => {
     if (categoryFilter === "all") return true;
     return p.category.toLowerCase().includes(categoryFilter.toLowerCase());
@@ -364,37 +433,50 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         </div>
       </div>
 
-      {/* Mode Switcher Tabs: SOP Playbooks vs 3-Way Audit */}
-      <div className="grid grid-cols-2 p-1.5 gap-1 border-b border-[var(--border-color)] bg-[var(--bg-app)] shrink-0">
+      {/* Mode Switcher Tabs: SOP Playbooks | 3-Way Audit | Exec Brief */}
+      <div className="grid grid-cols-3 p-1.5 gap-1 border-b border-[var(--border-color)] bg-[var(--bg-app)] shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab("playbooks")}
           className={cn(
-            "py-1 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+            "py-1 px-1.5 rounded text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer truncate",
             activeTab === "playbooks"
               ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
               : "text-[var(--text-muted)] hover:text-white"
           )}
         >
-          <ClipboardCheck className="w-3 h-3" />
-          <span>SOP Playbooks</span>
+          <ClipboardCheck className="w-3 h-3 shrink-0" />
+          <span className="truncate">Playbooks</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("reconcile")}
           className={cn(
-            "py-1 px-2 rounded text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+            "py-1 px-1.5 rounded text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer truncate",
             activeTab === "reconcile"
               ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
               : "text-[var(--text-muted)] hover:text-white"
           )}
         >
-          <Scale className="w-3 h-3" />
-          <span>3-Way Audit</span>
+          <Scale className="w-3 h-3 shrink-0" />
+          <span className="truncate">3-Way Audit</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("executive")}
+          className={cn(
+            "py-1 px-1.5 rounded text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer truncate",
+            activeTab === "executive"
+              ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
+              : "text-[var(--text-muted)] hover:text-white"
+          )}
+        >
+          <Presentation className="w-3 h-3 shrink-0" />
+          <span className="truncate">Exec Brief</span>
         </button>
       </div>
 
-      {activeTab === "playbooks" ? (
+      {activeTab === "playbooks" && (
         <>
           {/* Category Filter Pills */}
           <div className="p-2 border-b border-[var(--border-color)] flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
@@ -439,51 +521,58 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)]">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
                           {pb.category}
                         </span>
-                        <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-0.5">
-                          <Clock className="w-2.5 h-2.5" />
-                          ~{pb.estimated_minutes}m
+                        <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {pb.estimated_minutes}m
                         </span>
                       </div>
                       <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
                         {pb.title}
                       </h4>
                     </div>
-                    <div className="text-[var(--text-muted)] shrink-0 pt-0.5">
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    <div className="mt-1 text-[var(--text-muted)]">
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)] space-y-2.5 bg-[var(--bg-panel)]">
+                    <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)]/60 space-y-2.5">
                       <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
                         {pb.description}
                       </p>
 
+                      {/* Steps Chain */}
                       <div className="space-y-1.5">
-                        <div className="text-[10px] font-semibold text-[var(--text-dim)] uppercase tracking-wider">
-                          Automated Steps ({pb.steps.length})
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                          Execution Pipeline ({pb.steps.length} Steps)
                         </div>
                         {pb.steps.map((st) => (
                           <div
                             key={st.step_index}
-                            className="p-1.5 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] flex items-start gap-2"
+                            className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-start gap-2"
                           >
-                            <span className="w-4 h-4 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                            <div className="w-4 h-4 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-bold text-white flex items-center justify-center shrink-0 mt-0.5">
                               {st.step_index}
-                            </span>
+                            </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-[var(--text-primary)]">{st.title}</div>
-                              <div className="text-[10px] text-[var(--text-muted)] leading-snug">
+                              <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">
+                                {st.title}
+                              </div>
+                              <div className="text-[10px] text-[var(--text-muted)] leading-snug mt-0.5">
                                 {st.description}
                               </div>
-                              <div className="mt-1 flex items-center gap-1.5 text-[10px] font-mono text-[var(--text-dim)]">
+                              <div className="mt-1 flex items-center gap-1 text-[10px] text-[#cf6613] font-mono truncate">
                                 {st.app === "gridcraft" ? (
-                                  <FileSpreadsheet className="w-3 h-3 text-[#107c41]" />
+                                  <FileSpreadsheet className="w-3 h-3 shrink-0" />
                                 ) : (
-                                  <FileText className="w-3 h-3 text-[#2b579a]" />
+                                  <FileText className="w-3 h-3 shrink-0" />
                                 )}
                                 <span className="truncate">{st.target_file}</span>
                               </div>
@@ -492,6 +581,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                         ))}
                       </div>
 
+                      {/* Execute Button */}
                       <button
                         type="button"
                         disabled={isRunning || !activeFolder}
@@ -516,7 +606,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                         ) : (
                           <>
                             <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Run Playbook</span>
+                            <span>Run SOP Playbook</span>
                           </>
                         )}
                       </button>
@@ -527,27 +617,28 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
             })}
           </div>
         </>
-      ) : (
-        /* 3-Way Reconciliation & Anomaly Guard View */
+      )}
+
+      {activeTab === "reconcile" && (
         <div className="flex-1 overflow-y-auto p-2.5 space-y-3">
           {!activeFolder && (
             <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
-              <span>Open an active workspace folder to run 3-way reconciliation audits.</span>
+              <span>Open an active workspace folder to run 3-Way Reconciliation.</span>
             </div>
           )}
 
-          {/* Mode Selection Card */}
+          {/* Mode Selector */}
           <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2.5">
-            <div className="text-[11px] font-semibold text-[var(--text-primary)] uppercase tracking-wider">
-              Select 3-Way Matching Mode
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+              Reconciliation Audit Mode
             </div>
             <div className="space-y-1.5">
               <button
                 type="button"
                 onClick={() => setAuditMode("cash_and_bank")}
                 className={cn(
-                  "w-full p-2 rounded border text-left transition-all cursor-pointer",
+                  "w-full p-2 rounded border text-left transition-colors cursor-pointer",
                   auditMode === "cash_and_bank"
                     ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-white"
                     : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
@@ -555,15 +646,14 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               >
                 <div className="text-xs font-semibold">Cash & Bank 3-Way Match</div>
                 <div className="text-[10px] text-[var(--text-dim)] mt-0.5">
-                  POS Register &harr; Cash Ledger &harr; Bank Deposit
+                  Excel Cashbook ↔ POS Shift Register ↔ Bank Statement
                 </div>
               </button>
-
               <button
                 type="button"
                 onClick={() => setAuditMode("procurement_three_way")}
                 className={cn(
-                  "w-full p-2 rounded border text-left transition-all cursor-pointer",
+                  "w-full p-2 rounded border text-left transition-colors cursor-pointer",
                   auditMode === "procurement_three_way"
                     ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-white"
                     : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
@@ -571,7 +661,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               >
                 <div className="text-xs font-semibold">Procurement 3-Way Match</div>
                 <div className="text-[10px] text-[var(--text-dim)] mt-0.5">
-                  Purchase Order &harr; Delivery Receipt &harr; Vendor Invoice
+                  Purchase Order ↔ Goods Receipt ↔ Supplier Invoice
                 </div>
               </button>
             </div>
@@ -727,13 +817,133 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         </div>
       )}
 
+      {activeTab === "executive" && (
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-3">
+          {!activeFolder && (
+            <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
+              <span>Open an active workspace folder to synthesize executive deliverables.</span>
+            </div>
+          )}
+
+          <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+              Multi-Format Executive Synthesis
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              Transforms workspace ledgers into a 1-page A4 Executive Memorandum in{" "}
+              <strong className="text-white">WordCraft</strong> and a 16:9 Presentation Slide Deck in{" "}
+              <strong className="text-white">DeckCraft</strong>.
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-[var(--text-dim)] font-medium">
+                Reporting Period
+              </label>
+              <input
+                type="text"
+                value={execPeriod}
+                onChange={(e) => setExecPeriod(e.target.value)}
+                className="w-full h-7 px-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[var(--border-strong)]"
+                placeholder="October 2026"
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={synthesizing || !activeFolder}
+              onClick={handleSynthesizeExecutive}
+              className={cn(
+                "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
+                synthesizing
+                  ? "bg-[#cf6613]/80 text-white cursor-wait"
+                  : !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                  : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
+              )}
+            >
+              {synthesizing ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Synthesizing Brief & Slides...</span>
+                </>
+              ) : (
+                <>
+                  <Presentation className="w-3.5 h-3.5" />
+                  <span>Synthesize Memo & Slide Deck</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {execKpi && (
+            <div className="rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] p-2.5 space-y-2.5">
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
+                <span className="text-xs font-bold text-white">{execKpi.period}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+                  Margin: {execKpi.operating_margin_pct.toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                <div className="p-1.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <div className="text-[10px] text-[var(--text-dim)]">Gross Revenue</div>
+                  <div className="font-mono font-semibold text-white">
+                    {execKpi.gross_revenue.toLocaleString()}
+                  </div>
+                </div>
+                <div className="p-1.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <div className="text-[10px] text-[var(--text-dim)]">Net Operating Income</div>
+                  <div className="font-mono font-semibold text-white">
+                    {execKpi.net_operating_income.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)]">
+                  Strategic Recommendations
+                </div>
+                {execKpi.recommendations.map((rec, i) => (
+                  <div
+                    key={i}
+                    className="p-1.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[10px] text-[var(--text-secondary)] leading-snug"
+                  >
+                    {i + 1}. {rec}
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-1 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenFileTab?.("executive_summary_memo.docx")}
+                  className="flex-1 py-1 px-2 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3 h-3" />
+                  <span>A4 Memo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenFileTab?.("executive_presentation_deck.pptx")}
+                  className="flex-1 py-1 px-2 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Presentation className="w-3 h-3" />
+                  <span>Slide Deck</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Footer Info */}
       <div className="p-2 border-t border-[var(--border-color)] bg-[var(--bg-app)] shrink-0 flex items-center justify-between text-[10px] text-[var(--text-dim)]">
         <span className="flex items-center gap-1">
           <ShieldCheck className="w-3 h-3 text-white" />
-          <span>SOP & 3-Way Audit Engine</span>
+          <span>SOP, Audit & Executive Engine</span>
         </span>
-        <span>v1.2</span>
+        <span>v1.3</span>
       </div>
     </div>
   );

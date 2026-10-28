@@ -1,0 +1,11 @@
+Use this tool to synthesize raw spreadsheet ledgers, cash recaps, and audit reports in the active project folder into two executive-ready deliverables:
+1. A formal 1-page A4 Executive Memorandum in WordCraft (`executive_summary_memo.docx`).
+2. A 16:9 Executive Presentation Slide Deck in DeckCraft (`executive_presentation_deck.pptx`).
+
+As an Administration Manager, use `generate_executive_summary` when the Business Owner or Director requests an executive overview, board presentation, financial briefing, or monthly management summary.
+
+Capabilities:
+- Aggregates gross revenue, operating expenses, accounts payable obligations, and net operating margin (%).
+- Identifies top revenue streams, primary cost drivers, and audit discrepancy status.
+- Formulates actionable managerial recommendations.
+- Automatically opens both the WordCraft memorandum and the DeckCraft slide presentation in the Center Panel.

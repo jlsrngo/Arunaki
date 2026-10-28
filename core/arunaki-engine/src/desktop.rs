@@ -60,6 +60,7 @@ pub fn router() -> Router {
         .route("/api/sop/playbooks", get(handle_list_sop_playbooks))
         .route("/api/sop/execute", post(handle_execute_sop_playbook))
         .route("/api/reconcile/audit", post(handle_reconcile_audit))
+        .route("/api/executive/synthesize", post(handle_executive_synthesize))
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/quit", post(handle_quit))
@@ -1290,5 +1291,17 @@ async fn handle_folder_watch_ack(Json(payload): Json<Value>) -> impl IntoRespons
         .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<String>>());
     let res = crate::session::watcher::acknowledge_detected_documents(&workspace, filenames);
+    Json(res)
+}
+async fn handle_executive_synthesize(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let session_id = payload.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("executive_session");
+    let res = crate::tool::synthesize::execute_generate_executive_summary(session_id, &workspace, &payload);
     Json(res)
 }
