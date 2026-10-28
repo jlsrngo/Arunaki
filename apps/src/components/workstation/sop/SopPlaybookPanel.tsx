@@ -8,6 +8,11 @@ import {
   FileText,
   Presentation,
   Send,
+  Plus,
+  Pencil,
+  Trash2,
+  Sparkles,
+  HelpCircle,
   ChevronDown,
   ChevronRight,
   ShieldCheck,
@@ -106,95 +111,6 @@ interface SopPlaybookPanelProps {
   width?: string;
 }
 
-const DEFAULT_PLAYBOOKS: SopPlaybookDef[] = [
-  {
-    id: "daily_cash_closing",
-    title: "Daily Register Closing & Cash Reconciliation",
-    category: "Finance & POS",
-    description:
-      "Reconcile cashier register sales, QRIS/card receipts, update daily cash ledger in GridCraft, and generate an official sign-off memo in WordCraft.",
-    estimated_minutes: 2,
-    steps: [
-      {
-        step_index: 1,
-        title: "Cashier Shift Sales Synchronization",
-        description: "Pull register transactions from ArunakiZen POS or local transaction log.",
-        target_file: "cashier_shift_report.txt",
-        app: "wordcraft",
-      },
-      {
-        step_index: 2,
-        title: "Update Daily Cash Ledger (GridCraft)",
-        description: "Record cash, QRIS, debit, expense deductions, and drawer balance.",
-        target_file: "daily_cash_recap.xlsx",
-        app: "gridcraft",
-      },
-      {
-        step_index: 3,
-        title: "Generate Official Closing Memo (WordCraft)",
-        description: "Produce formal A4 memorandum for cashier and manager sign-off.",
-        target_file: "daily_cash_closing_memo.docx",
-        app: "wordcraft",
-      },
-    ],
-  },
-  {
-    id: "supplier_invoice_verification",
-    title: "Supplier Invoice Verification & AP Ledger",
-    category: "Procurement & AP",
-    description:
-      "Verify incoming supplier invoices in active folder, record payment due dates to Accounts Payable, and draft disbursement vouchers.",
-    estimated_minutes: 3,
-    steps: [
-      {
-        step_index: 1,
-        title: "Scan & Extract Invoices",
-        description: "Identify supplier invoice documents in active project folder.",
-        target_file: "supplier_invoice_index.txt",
-        app: "pdfcraft",
-      },
-      {
-        step_index: 2,
-        title: "Record Accounts Payable Ledger (GridCraft)",
-        description: "Record invoice numbers, vendors, due dates, and payable amounts.",
-        target_file: "accounts_payable_ledger.xlsx",
-        app: "gridcraft",
-      },
-      {
-        step_index: 3,
-        title: "Draft Payment Approval Voucher (WordCraft)",
-        description: "Create official manager disbursement voucher ready for management approval.",
-        target_file: "payment_approval_voucher.docx",
-        app: "wordcraft",
-      },
-    ],
-  },
-  {
-    id: "monthly_administrative_archive",
-    title: "Monthly Administration Archive & Governance",
-    category: "Office Governance",
-    description:
-      "Audit project documents, verify file integrity, and build a consolidated document archive index.",
-    estimated_minutes: 2,
-    steps: [
-      {
-        step_index: 1,
-        title: "Audit & Inventory Project Files",
-        description: "Scan all office files and compile integrity checklist.",
-        target_file: "document_archive_index.xlsx",
-        app: "gridcraft",
-      },
-      {
-        step_index: 2,
-        title: "Compile Executive Monthly Summary",
-        description: "Synthesize operational indicators into formal archive summary report.",
-        target_file: "monthly_governance_report.docx",
-        app: "wordcraft",
-      },
-    ],
-  },
-];
-
 export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   activeFolder,
   onOpenFileTab,
@@ -204,11 +120,26 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
 }: SopPlaybookPanelProps) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"playbooks" | "reconcile" | "executive">("playbooks");
-  const [playbooks, setPlaybooks] = useState<SopPlaybookDef[]>(DEFAULT_PLAYBOOKS);
+  const [playbooks, setPlaybooks] = useState<SopPlaybookDef[]>([]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [executingId, setExecutingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>("daily_cash_closing");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Manual / Editable Playbook Form State
+  const [newTitle, setNewTitle] = useState("");
+  const [newCategory, setNewCategory] = useState("Operations");
+  const [newDesc, setNewDesc] = useState("");
+  const [newSteps, setNewSteps] = useState<Array<{ title: string; description: string; target_file: string }>>([
+    {
+      title: "Read & Recap Source Data",
+      description: "Update target spreadsheet or document in workspace.",
+      target_file: "recap_summary.xlsx",
+    },
+  ]);
 
   // 3-Way Reconciliation State
   const [auditMode, setAuditMode] = useState<"cash_and_bank" | "procurement_three_way">("cash_and_bank");
@@ -221,67 +152,180 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   const [execKpi, setExecKpi] = useState<ExecutiveKpiResult | null>(null);
   const [dispatchingTg, setDispatchingTg] = useState(false);
 
-  const handleDispatchTelegram = async (
-    kind: "report" | "alert",
-    title: string,
-    filePath?: string,
-    details?: string
-  ) => {
+  const fetchPlaybooks = useCallback(async () => {
+    if (!activeFolder) {
+      setPlaybooks([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await apiFetch("/api/sop/playbooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_dir: activeFolder }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.playbooks)) {
+          setPlaybooks(data.playbooks);
+          if (data.playbooks.length > 0 && !expandedId) {
+            setExpandedId(data.playbooks[0].id);
+          }
+        }
+      }
+    } catch {
+      // Keep current list on transient error
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFolder, expandedId]);
+
+  useEffect(() => {
+    fetchPlaybooks();
+  }, [fetchPlaybooks]);
+
+  const handleGenerateFromFolder = async () => {
     if (!activeFolder) {
       toast.error("Please open a project folder first.");
       return;
     }
     try {
-      setDispatchingTg(true);
-      const response = await apiFetch("/api/telegram/dispatch", {
+      setGenerating(true);
+      toast.info("Scanning workspace files to generate tailored SOP Playbooks...");
+      const response = await apiFetch("/api/sop/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind,
-          workspace_dir: activeFolder,
-          title,
-          file_path: filePath,
-          details,
-          severity: kind === "alert" ? "HIGH" : "INFO",
-        }),
+        body: JSON.stringify({ workspace_dir: activeFolder }),
       });
       if (response.ok) {
-        const res = await response.json();
-        if (res?.delivered_live) {
-          toast.success(`Delivered to Telegram Bot (${res.dispatch_id})`);
-        } else {
-          toast.success(`Logged in Telegram Dispatch Queue (${res?.dispatch_id || "OK"})`);
+        const data = await response.json();
+        if (data && Array.isArray(data.playbooks)) {
+          setPlaybooks(data.playbooks);
+          if (data.playbooks.length > 0) {
+            setExpandedId(data.playbooks[0].id);
+          }
+          toast.success(`Generated ${data.playbooks.length} playbook(s) from your workspace files.`);
         }
       } else {
-        toast.error("Failed to dispatch Telegram notification.");
+        toast.error("Failed to generate playbooks from folder.");
       }
     } catch (err: any) {
-      toast.error(`Telegram dispatch error: ${err?.message || "Unknown error"}`);
+      toast.error(`Generation error: ${err?.message || "Unknown error"}`);
     } finally {
-      setDispatchingTg(false);
+      setGenerating(false);
     }
   };
 
-  const fetchPlaybooks = useCallback(async () => {
+  const handleStartNewPlaybook = () => {
+    setEditingId(null);
+    setNewTitle("");
+    setNewCategory("Operations");
+    setNewDesc("");
+    setNewSteps([
+      {
+        title: "Read & Recap Source Data",
+        description: "Update target spreadsheet or document in workspace.",
+        target_file: "recap_summary.xlsx",
+      },
+    ]);
+    setShowCreateForm(true);
+  };
+
+  const handleStartEditPlaybook = (pb: SopPlaybookDef) => {
+    setEditingId(pb.id);
+    setNewTitle(pb.title);
+    setNewCategory(pb.category || "Operations");
+    setNewDesc(pb.description || "");
+    setNewSteps(
+      pb.steps && pb.steps.length > 0
+        ? pb.steps.map((s) => ({
+            title: s.title,
+            description: s.description || "",
+            target_file: s.target_file,
+          }))
+        : [
+            {
+              title: "Read & Recap Source Data",
+              description: "Update target spreadsheet or document in workspace.",
+              target_file: "recap_summary.xlsx",
+            },
+          ]
+    );
+    setShowCreateForm(true);
+  };
+
+  const handleSaveManualPlaybook = async () => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first.");
+      return;
+    }
+    if (!newTitle.trim()) {
+      toast.error("Please enter a Playbook title.");
+      return;
+    }
     try {
-      setLoading(true);
-      const response = await apiFetch("/api/sop/playbooks");
+      const response = await apiFetch("/api/sop/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_dir: activeFolder,
+          id: editingId || undefined,
+          title: newTitle.trim(),
+          category: newCategory.trim() || "Operations",
+          description:
+            newDesc.trim() || "Custom workflow configured for this workspace.",
+          steps: newSteps.filter((s) => s.title.trim() && s.target_file.trim()),
+        }),
+      });
       if (response.ok) {
         const data = await response.json();
-        if (data && data.status === "success" && Array.isArray(data.playbooks) && data.playbooks.length > 0) {
+        if (data && Array.isArray(data.playbooks)) {
           setPlaybooks(data.playbooks);
+          if (data.playbook?.id) {
+            setExpandedId(data.playbook.id);
+          }
+          const wasEditing = Boolean(editingId);
+          setShowCreateForm(false);
+          setEditingId(null);
+          setNewTitle("");
+          setNewDesc("");
+          toast.success(
+            wasEditing
+              ? "Playbook changes saved to workspace."
+              : "Custom SOP Playbook saved to workspace."
+          );
+        }
+      } else {
+        toast.error("Failed to save playbook.");
+      }
+    } catch (err: any) {
+      toast.error(`Save error: ${err?.message || "Unknown error"}`);
+    }
+  };
+
+  const handleDeletePlaybook = async (id: string, title: string) => {
+    if (!activeFolder) return;
+    try {
+      const response = await apiFetch("/api/sop/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_dir: activeFolder, playbook_id: id, id }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.playbooks)) {
+          setPlaybooks(data.playbooks);
+          if (editingId === id) {
+            setShowCreateForm(false);
+            setEditingId(null);
+          }
+          toast.success(`Removed playbook: ${title}`);
         }
       }
     } catch {
-      // Fallback to default playbooks
-    } finally {
-      setLoading(false);
+      toast.error("Failed to delete playbook.");
     }
-  }, []);
-
-  useEffect(() => {
-    fetchPlaybooks();
-  }, [fetchPlaybooks]);
+  };
 
   const handleRunPlaybook = async (playbook: SopPlaybookDef) => {
     if (!activeFolder) {
@@ -299,7 +343,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         session_id: "sop_manual_exec",
         params: {
           cashier_name: "CANDANA",
-          notes: "Executed via Administration Manager Playbook Drawer",
+          notes: "Executed via Admin Playbooks Panel",
         },
       };
 
@@ -319,7 +363,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
             const mainTarget = playbook.steps[playbook.steps.length - 1].target_file;
             setTimeout(() => {
               onOpenFileTab(mainTarget);
-            }, 300);
+            }, 250);
           }
         } else {
           toast.error(res?.message || "Failed to execute SOP playbook");
@@ -435,10 +479,46 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     }
   };
 
-  const filteredPlaybooks = playbooks.filter((p) => {
-    if (categoryFilter === "all") return true;
-    return p.category.toLowerCase().includes(categoryFilter.toLowerCase());
-  });
+  const handleDispatchTelegram = async (
+    kind: "report" | "alert",
+    title: string,
+    filePath?: string,
+    details?: string
+  ) => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first.");
+      return;
+    }
+    try {
+      setDispatchingTg(true);
+      const response = await apiFetch("/api/telegram/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          workspace_dir: activeFolder,
+          title,
+          file_path: filePath,
+          details,
+          severity: kind === "alert" ? "HIGH" : "INFO",
+        }),
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res?.delivered_live) {
+          toast.success(`Delivered to Telegram Bot (${res.dispatch_id})`);
+        } else {
+          toast.success(`Logged in Telegram Dispatch Queue (${res?.dispatch_id || "OK"})`);
+        }
+      } else {
+        toast.error("Failed to dispatch Telegram notification.");
+      }
+    } catch (err: any) {
+      toast.error(`Telegram dispatch error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setDispatchingTg(false);
+    }
+  };
 
   return (
     <div
@@ -456,6 +536,39 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowGuide((v) => !v)}
+            className={cn(
+              "w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer",
+              showGuide
+                ? "bg-[#cf6613] text-white"
+                : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]"
+            )}
+            title="Playbook Guide"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("playbooks");
+              if (showCreateForm && !editingId) {
+                setShowCreateForm(false);
+              } else {
+                handleStartNewPlaybook();
+              }
+            }}
+            className={cn(
+              "w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer",
+              showCreateForm && !editingId
+                ? "bg-[#cf6613] text-white"
+                : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]"
+            )}
+            title="Add Custom Playbook"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
           <button
             type="button"
             onClick={fetchPlaybooks}
@@ -478,7 +591,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         </div>
       </div>
 
-      {/* Mode Switcher Tabs: SOP Playbooks | 3-Way Audit | Exec Brief */}
+      {/* Mode Switcher Tabs: Playbooks | 3-Way Audit | Exec Brief */}
       <div className="grid grid-cols-3 p-1.5 gap-1 border-b border-[var(--border-color)] bg-[var(--bg-app)] shrink-0">
         <button
           type="button"
@@ -522,146 +635,390 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
       </div>
 
       {activeTab === "playbooks" && (
-        <>
-          {/* Category Filter Pills */}
-          <div className="p-2 border-b border-[var(--border-color)] flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
-            {["all", "Finance", "Procurement", "Governance"].map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={cn(
-                  "px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap",
-                  categoryFilter === cat
-                    ? "bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]"
-                    : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/50"
-                )}
-              >
-                {cat === "all" ? "All" : cat}
-              </button>
-            ))}
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+          {/* Quick Action Buttons: Generate from Folder & Add Playbook */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              disabled={!activeFolder || generating}
+              onClick={handleGenerateFromFolder}
+              className={cn(
+                "py-1.5 px-2 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                  : "bg-[#cf6613] hover:bg-[#b8580f] text-white"
+              )}
+              title="Scan files in active folder and build tailored SOP Playbooks"
+            >
+              {generating ? (
+                <RotateCw className="w-3 h-3 animate-spin shrink-0" />
+              ) : (
+                <Sparkles className="w-3 h-3 shrink-0" />
+              )}
+              <span className="truncate">Generate from Folder</span>
+            </button>
+            <button
+              type="button"
+              disabled={!activeFolder}
+              onClick={() => {
+                if (showCreateForm && !editingId) {
+                  setShowCreateForm(false);
+                } else {
+                  handleStartNewPlaybook();
+                }
+              }}
+              className={cn(
+                "py-1.5 px-2 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-all border cursor-pointer",
+                !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border-color)] cursor-not-allowed"
+                  : "bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              )}
+            >
+              <Plus className="w-3 h-3 shrink-0" />
+              <span className="truncate">New Playbook</span>
+            </button>
           </div>
 
-          {/* Playbook List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {!activeFolder && (
-              <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
-                <span>Open an active workspace folder to execute SOP deliverables directly to disk.</span>
-              </div>
-            )}
+          {!activeFolder && (
+            <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
+              <span>Open a project folder first to generate or create SOP Playbooks for your files.</span>
+            </div>
+          )}
 
-            {filteredPlaybooks.map((pb) => {
-              const isExpanded = expandedId === pb.id;
-              const isRunning = executingId === pb.id;
-
-              return (
-                <div
-                  key={pb.id}
-                  className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] overflow-hidden transition-all duration-150"
-                >
-                  <div
-                    onClick={() => setExpandedId(isExpanded ? null : pb.id)}
-                    className="p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[var(--bg-hover)]/40 transition-colors"
+          {/* Collapsible Guide / Empty State Onboarding */}
+          {(showGuide || (activeFolder && playbooks.length === 0 && !showCreateForm)) && (
+            <div className="p-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 text-[#cf6613]" />
+                  <span>How Admin Playbooks Work</span>
+                </span>
+                {showGuide && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGuide(false)}
+                    className="text-[var(--text-muted)] hover:text-white cursor-pointer"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
-                          {pb.category}
-                        </span>
-                        <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {pb.estimated_minutes}m
-                        </span>
-                      </div>
-                      <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
-                        {pb.title}
-                      </h4>
-                    </div>
-                    <div className="mt-1 text-[var(--text-muted)]">
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                Playbooks automate multi-step document routines specific to your folder (no generic preset files).
+              </p>
+              <div className="space-y-1.5 text-[11px] text-[var(--text-secondary)]">
+                <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <strong className="text-white">1. Generate from Folder:</strong> Reads the actual content, table headers, and topics inside your documents (<code className="text-[#cf6613]">.xlsx</code>, <code className="text-[#cf6613]">.docx</code>, <code className="text-[#cf6613]">.pdf</code>, <code className="text-[#cf6613]">.csv</code>, <code className="text-[#cf6613]">.txt</code>) to build tailored SOP workflows.
+                </div>
+                <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <strong className="text-white">2. Edit or Add Playbook:</strong> Click the <strong className="text-white">Edit (Pencil)</strong> icon on any generated playbook to customize its title, steps, or target files, or click <strong className="text-white">New Playbook</strong> to build one from scratch.
+                </div>
+                <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
+                  <strong className="text-white">3. Run Playbook:</strong> Executes the steps in sequence and opens the resulting document in the Center Panel.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Manual / Edit Playbook Form */}
+          {showCreateForm && (
+            <div className="p-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white">
+                  {editingId ? "Edit Playbook" : "Create Custom Playbook"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setEditingId(null);
+                  }}
+                  className="text-[var(--text-muted)] hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--text-dim)] font-medium">Playbook Title</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Daily Report to Excel Recap"
+                  className="w-full h-7 px-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[var(--border-strong)]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--text-dim)] font-medium">Category</label>
+                <input
+                  type="text"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="e.g. Operations, Finance, HR"
+                  className="w-full h-7 px-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[var(--border-strong)]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--text-dim)] font-medium">Description</label>
+                <input
+                  type="text"
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="Short summary of what this SOP does"
+                  className="w-full h-7 px-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[var(--border-strong)]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-[var(--text-dim)] font-medium">
+                    Workflow Steps ({newSteps.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewSteps((prev) => [
+                        ...prev,
+                        {
+                          title: `Step ${prev.length + 1}`,
+                          description: "Process target file",
+                          target_file: "summary_report.docx",
+                        },
+                      ])
+                    }
+                    className="text-[10px] text-[#cf6613] hover:underline font-medium cursor-pointer"
+                  >
+                    + Add Step
+                  </button>
+                </div>
+
+                {newSteps.map((st, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-white">Step {idx + 1}</span>
+                      {newSteps.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNewSteps((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                          className="text-[var(--text-muted)] hover:text-rose-500 cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
+                    <input
+                      type="text"
+                      value={st.title}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewSteps((prev) =>
+                          prev.map((item, i) => (i === idx ? { ...item, title: val } : item))
+                        );
+                      }}
+                      placeholder="Step title (e.g. Update Recap Table)"
+                      className="w-full h-6 px-2 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] text-white focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={st.description}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewSteps((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? { ...item, description: val } : item
+                          )
+                        );
+                      }}
+                      placeholder="Step instruction / description"
+                      className="w-full h-6 px-2 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={st.target_file}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewSteps((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? { ...item, target_file: val } : item
+                          )
+                        );
+                      }}
+                      placeholder="Target file (e.g. REKAP-2026.xlsx)"
+                      className="w-full h-6 px-2 rounded bg-[var(--bg-app)] border border-[var(--border-color)] text-[11px] font-mono text-[#cf6613] focus:outline-none"
+                    />
                   </div>
+                ))}
+              </div>
 
-                  {isExpanded && (
-                    <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)]/60 space-y-2.5">
-                      <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                        {pb.description}
-                      </p>
+              <div className="flex items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveManualPlaybook}
+                  className="flex-1 py-1.5 px-3 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {editingId ? "Save Changes" : "Save Playbook"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setEditingId(null);
+                  }}
+                  className="py-1.5 px-3 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white text-xs font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
-                      {/* Steps Chain */}
-                      <div className="space-y-1.5">
-                        <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
-                          Execution Pipeline ({pb.steps.length} Steps)
-                        </div>
-                        {pb.steps.map((st) => (
-                          <div
-                            key={st.step_index}
-                            className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-start gap-2"
-                          >
-                            <div className="w-4 h-4 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-bold text-white flex items-center justify-center shrink-0 mt-0.5">
-                              {st.step_index}
+          {/* Playbook Cards List */}
+          {playbooks.map((pb) => {
+            const isExpanded = expandedId === pb.id;
+            const isRunning = executingId === pb.id;
+
+            return (
+              <div
+                key={pb.id}
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] overflow-hidden transition-all duration-150"
+              >
+                <div
+                  onClick={() => setExpandedId(isExpanded ? null : pb.id)}
+                  className="p-2.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-[var(--bg-hover)]/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+                        {pb.category}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {pb.estimated_minutes}m
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
+                      {pb.title}
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5 text-[var(--text-muted)]">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartEditPlaybook(pb);
+                      }}
+                      className={cn(
+                        "w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer",
+                        editingId === pb.id
+                          ? "bg-[#cf6613] text-white"
+                          : "text-[var(--text-dim)] hover:text-white hover:bg-[var(--bg-hover)]"
+                      )}
+                      title="Edit Playbook"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePlaybook(pb.id, pb.title);
+                      }}
+                      className="w-5 h-5 rounded flex items-center justify-center text-[var(--text-dim)] hover:text-rose-500 hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                      title="Delete Playbook"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="px-2.5 pb-2.5 pt-1 border-t border-[var(--border-color)]/60 space-y-2.5">
+                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                      {pb.description}
+                    </p>
+
+                    {/* Steps Chain */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                        Execution Pipeline ({pb.steps.length} Steps)
+                      </div>
+                      {pb.steps.map((st) => (
+                        <div
+                          key={st.step_index}
+                          className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-start gap-2"
+                        >
+                          <div className="w-4 h-4 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-bold text-white flex items-center justify-center shrink-0 mt-0.5">
+                            {st.step_index}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">
+                              {st.title}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">
-                                {st.title}
-                              </div>
-                              <div className="text-[10px] text-[var(--text-muted)] leading-snug mt-0.5">
-                                {st.description}
-                              </div>
-                              <div className="mt-1 flex items-center gap-1 text-[10px] text-[#cf6613] font-mono truncate">
-                                {st.app === "gridcraft" ? (
-                                  <FileSpreadsheet className="w-3 h-3 shrink-0" />
-                                ) : (
-                                  <FileText className="w-3 h-3 shrink-0" />
-                                )}
-                                <span className="truncate">{st.target_file}</span>
-                              </div>
+                            <div className="text-[10px] text-[var(--text-muted)] leading-snug mt-0.5">
+                              {st.description}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1 text-[10px] text-[#cf6613] font-mono truncate">
+                              {st.app === "gridcraft" ? (
+                                <FileSpreadsheet className="w-3 h-3 shrink-0" />
+                              ) : (
+                                <FileText className="w-3 h-3 shrink-0" />
+                              )}
+                              <span className="truncate">{st.target_file}</span>
                             </div>
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Execute Button */}
-                      <button
-                        type="button"
-                        disabled={isRunning || !activeFolder}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRunPlaybook(pb);
-                        }}
-                        className={cn(
-                          "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
-                          isRunning
-                            ? "bg-[#cf6613]/80 text-white cursor-wait"
-                            : !activeFolder
-                            ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
-                            : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
-                        )}
-                      >
-                        {isRunning ? (
-                          <>
-                            <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Executing SOP...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Run SOP Playbook</span>
-                          </>
-                        )}
-                      </button>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
+
+                    {/* Execute Button */}
+                    <button
+                      type="button"
+                      disabled={isRunning || !activeFolder}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRunPlaybook(pb);
+                      }}
+                      className={cn(
+                        "w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer",
+                        isRunning
+                          ? "bg-[#cf6613]/80 text-white cursor-wait"
+                          : !activeFolder
+                          ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                          : "bg-[#cf6613] hover:bg-[#b8580f] text-white active:scale-[0.98]"
+                      )}
+                    >
+                      {isRunning ? (
+                        <>
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Executing SOP...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Run SOP Playbook</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {activeTab === "reconcile" && (
@@ -1021,7 +1378,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
           <ShieldCheck className="w-3 h-3 text-white" />
           <span>SOP, Audit & Executive Engine</span>
         </span>
-        <span>v1.3</span>
+        <span>v1.4</span>
       </div>
     </div>
   );

@@ -57,7 +57,10 @@ pub fn router() -> Router {
         .route("/api/desktop/engine-info", get(handle_engine_info))
         .route("/api/desktop/pos-config", get(handle_get_pos_config).post(handle_save_pos_config))
         .route("/api/pos/status", get(handle_pos_status))
-        .route("/api/sop/playbooks", get(handle_list_sop_playbooks))
+        .route("/api/sop/playbooks", get(handle_list_sop_playbooks).post(handle_list_sop_playbooks_post))
+        .route("/api/sop/generate", post(handle_generate_sop_playbooks))
+        .route("/api/sop/save", post(handle_save_sop_playbook))
+        .route("/api/sop/delete", post(handle_delete_sop_playbook))
         .route("/api/sop/execute", post(handle_execute_sop_playbook))
         .route("/api/reconcile/audit", post(handle_reconcile_audit))
         .route("/api/executive/synthesize", post(handle_executive_synthesize))
@@ -1238,7 +1241,63 @@ pub fn launch_desktop_window(url: &str) {
 }
 
 async fn handle_list_sop_playbooks() -> impl IntoResponse {
-    let res = crate::tool::sop::execute_list_sop_playbooks(&serde_json::json!({ "category": "all" }));
+    let workspace = get_active_workspace_root().unwrap_or_else(|| ".".to_string());
+    let playbooks = crate::tool::sop::load_workspace_playbooks(&workspace);
+    Json(serde_json::json!({
+        "status": "success",
+        "workspace_dir": workspace,
+        "count": playbooks.len(),
+        "playbooks": playbooks
+    }))
+}
+
+async fn handle_list_sop_playbooks_post(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let playbooks = crate::tool::sop::load_workspace_playbooks(&workspace);
+    Json(serde_json::json!({
+        "status": "success",
+        "workspace_dir": workspace,
+        "count": playbooks.len(),
+        "playbooks": playbooks
+    }))
+}
+
+async fn handle_generate_sop_playbooks(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let res = crate::tool::sop::generate_playbooks_from_folder(&workspace);
+    Json(res)
+}
+
+async fn handle_save_sop_playbook(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let res = crate::tool::sop::save_custom_playbook(&workspace, &payload);
+    Json(res)
+}
+
+async fn handle_delete_sop_playbook(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let playbook_id = payload.get("playbook_id").and_then(|v| v.as_str()).unwrap_or("");
+    let res = crate::tool::sop::delete_custom_playbook(&workspace, playbook_id);
     Json(res)
 }
 
