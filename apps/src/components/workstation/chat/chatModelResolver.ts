@@ -123,7 +123,17 @@ export function resolveActiveSingleModel(): { providerID: string; id: string } {
 
 export function getProviderDefaultModels(providerId: string): string[] {
   if (providerId === "kiro") {
-    return ["kiro/auto", "kiro/claude-sonnet-4.5", "kiro/claude-haiku-4.5", "kiro/deepseek-3.2", "kiro/qwen3-coder-next"];
+    return [
+      "kiro/auto",
+      "kiro/claude-opus-4.6",
+      "kiro/claude-sonnet-4.6",
+      "kiro/claude-sonnet-4.5",
+      "kiro/claude-haiku-4.5",
+      "kiro/deepseek-3.2",
+      "kiro/minimax-m2.5",
+      "kiro/glm-5",
+      "kiro/qwen3-coder-next",
+    ];
   }
   if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
     return ["gemini-3.8-flash", "gemini-2.5-pro", "gemini-2.5-flash", "claude-sonnet-4-6"];

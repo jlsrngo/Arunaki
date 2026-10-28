@@ -90,10 +90,22 @@ export const SourceControlPanel = memo(function SourceControlPanel({
                 <span className="text-white truncate font-medium font-mono text-[11px]">
                   {item.fileName}
                 </span>
-                {/* Solid Orange M Badge (100% Opaque, White Bold Text) */}
-                <span className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none">
-                  M
-                </span>
+                {/* Status Badge: N for New, M for Modified */}
+                {item.status === "new" || item.status === "added" || (!item.beforeContent && item.afterContent) ? (
+                  <span
+                    className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                    title={t("newFileBadge", "New")}
+                  >
+                    N
+                  </span>
+                ) : (
+                  <span
+                    className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                    title={t("modifiedBadge", "Modified")}
+                  >
+                    M
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1 shrink-0">

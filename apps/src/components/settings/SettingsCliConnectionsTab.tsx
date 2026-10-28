@@ -138,11 +138,20 @@ export function SettingsCliConnectionsTab({
   // One source for model ids: the engine catalogue first, then the account's live list, then the
   // registry fallback. Nothing is hardcoded, so a provider added to the registry just works.
   const modelsFor = (id: string): string[] => {
-    const catalogued = catalogueModels[id];
-    if (catalogued?.length) return catalogued;
+    const fallbackList = (data.registry?.find((d) => d.id === id) ?? FALLBACK_CLI_REGISTRY.find((d) => d.id === id))?.models ?? [];
     const live = liveModels[id];
-    if (live?.length) return live;
-    return (data.registry?.find((d) => d.id === id) ?? FALLBACK_CLI_REGISTRY.find((d) => d.id === id))?.models ?? [];
+    if (live && live.length > 1) return live;
+    const catalogued = catalogueModels[id] || catalogueModels[`${id}-cli`] || catalogueModels[`${id}-local`];
+    if (catalogued && catalogued.length > 1) {
+      return Array.from(new Set([...catalogued, ...fallbackList]));
+    }
+    if (live && live.length > 0) {
+      return Array.from(new Set([...live, ...fallbackList]));
+    }
+    if (catalogued && catalogued.length > 0) {
+      return Array.from(new Set([...catalogued, ...fallbackList]));
+    }
+    return fallbackList;
   };
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [injectingTarget, setInjectingTarget] = useState<string | null>(null);
@@ -200,7 +209,7 @@ export function SettingsCliConnectionsTab({
     fetchQuota();
     // Ask each provider what it can actually run. Antigravity is the one that matters:
     // its catalogue is account-specific and changes as Google retires tiers.
-    for (const t of ["antigravity", "opencode", "9router"] as const) fetchModels(t);
+    for (const t of ["antigravity", "opencode", "9router", "kiro"] as const) fetchModels(t);
   }, []);
 
   // Rate-limit windows move on their own. Fetching once on mount left every bar showing whatever

@@ -38,6 +38,7 @@ export function useDocumentChanges({
             const diffLines = computeLineDiff(before, after);
             const added = diffLines.filter((l) => l.type === "added").length;
             const deleted = diffLines.filter((l) => l.type === "deleted").length;
+            const isNew = item.status === "new" || item.status === "added" || (!before && after.length > 0);
 
             return {
               filePath: item.path,
@@ -46,7 +47,7 @@ export function useDocumentChanges({
               afterContent: after,
               addedCount: added,
               deletedCount: deleted,
-              status: item.status || "modified",
+              status: isNew ? "new" : (item.status || "modified"),
             };
           })
           .filter((item) => item.beforeContent !== item.afterContent && (item.addedCount > 0 || item.deletedCount > 0));
@@ -94,6 +95,7 @@ export function useDocumentChanges({
             const existingIdx = list.findIndex(
               (c) => c.filePath === filePath || c.fileName === tab.title
             );
+            const isNew = (!tab.originalContent || tab.originalContent.length === 0) && (tab.content?.length ?? 0) > 0;
             const liveItem: DocumentChangeItem = {
               filePath,
               fileName: tab.title,
@@ -101,7 +103,7 @@ export function useDocumentChanges({
               afterContent: tab.content,
               addedCount: added,
               deletedCount: deleted,
-              status: "modified",
+              status: isNew ? "new" : "modified",
             };
             if (existingIdx >= 0) {
               list[existingIdx] = liveItem;

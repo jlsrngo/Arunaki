@@ -14,6 +14,15 @@ export const MODEL_METADATA: Record<string, ModelMeta> = {
   "claude-3-5-sonnet": { label: "Claude 3.5 Sonnet", badge: "Capable", speed: "Fast" },
   "claude-3-5-haiku": { label: "Claude 3.5 Haiku", badge: "Compact", speed: "Fast" },
   "deepseek-r1": { label: "DeepSeek R1", badge: "Reasoning", speed: "Smart" },
+  "kiro/auto": { label: "Auto (Best Available)", badge: "Kiro AI", speed: "Smart Route" },
+  "kiro/claude-opus-4.6": { label: "Claude Opus 4.6", badge: "Kiro Pro", speed: "Deep Think" },
+  "kiro/claude-sonnet-4.6": { label: "Claude Sonnet 4.6", badge: "Kiro Pro", speed: "Fast" },
+  "kiro/claude-sonnet-4.5": { label: "Claude Sonnet 4.5", badge: "Kiro Pro", speed: "Fast" },
+  "kiro/claude-haiku-4.5": { label: "Claude Haiku 4.5", badge: "Kiro Fast", speed: "Instant" },
+  "kiro/deepseek-3.2": { label: "DeepSeek 3.2", badge: "Kiro", speed: "Reasoning" },
+  "kiro/minimax-m2.5": { label: "MiniMax M2.5", badge: "Kiro", speed: "Balanced" },
+  "kiro/glm-5": { label: "GLM-5", badge: "Kiro", speed: "Balanced" },
+  "kiro/qwen3-coder-next": { label: "Qwen3 Coder Next", badge: "Kiro Coder", speed: "Code Specialist" },
 };
 
 export const ACRONYMS: Record<string, string> = {
@@ -28,6 +37,7 @@ export const VENDOR_BADGES: [RegExp, string][] = [
   [/^groq\//, "Groq LPU"],
   [/^(9router|oc|kr|vx|cx)\//, "9Router"],
   [/^opencode\//, "Zen Built-in"],
+  [/^kiro\//, "Kiro"],
 ];
 
 const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);

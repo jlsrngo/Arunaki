@@ -9,7 +9,7 @@ export interface DocumentChangeItem {
   afterContent: string;
   addedCount: number;
   deletedCount: number;
-  status?: "modified" | "added" | "deleted";
+  status?: "modified" | "added" | "new" | "deleted";
 }
 
 interface ExplorerSourceControlProps {
@@ -76,9 +76,21 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                   <span className="text-white truncate font-medium">{item.fileName}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none">
-                    M
-                  </span>
+                  {item.status === "new" || item.status === "added" || (!item.beforeContent && item.afterContent) ? (
+                    <span
+                      className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                      title="New file"
+                    >
+                      N
+                    </span>
+                  ) : (
+                    <span
+                      className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                      title="Modified"
+                    >
+                      M
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">

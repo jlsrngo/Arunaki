@@ -28,6 +28,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
+  const isNew = !beforeContent || beforeContent.length === 0;
 
   const rows = useMemo(
     () => computeSideBySideDiff(beforeContent || "", afterContent || ""),
@@ -78,10 +79,22 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{fileName}</span>
             <span className="text-[var(--text-muted)] font-normal text-[11px]">(Working Tree)</span>
-            {/* Solid Orange M Badge */}
-            <span className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none">
-              M
-            </span>
+            {/* Status Badge: N for New, M for Modified */}
+            {isNew ? (
+              <span
+                className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none select-none shadow-xs"
+                title={t("newFileBadge", "New")}
+              >
+                N
+              </span>
+            ) : (
+              <span
+                className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none shadow-xs"
+                title={t("modifiedBadge", "Modified")}
+              >
+                M
+              </span>
+            )}
           </span>
           <div className="flex items-center gap-1.5 ml-2">
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
@@ -126,7 +139,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
           {filePath || fileName}
         </div>
         <div className="flex items-center gap-6 shrink-0">
-          <span>Original (Last Saved)</span>
+          <span>{isNew ? t("newFileBadge", "New File") : "Original (Last Saved)"}</span>
           <span>Modified (Working Tree)</span>
         </div>
       </div>
@@ -139,7 +152,12 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
           onScroll={handleLeftScroll}
           className="h-full overflow-y-auto overflow-x-auto border-r border-[#2d2d2d] bg-[#1e1e1e] select-text"
         >
-          <div className="min-w-fit py-0.5">
+          {isNew ? (
+            <div className="p-4 text-xs text-[var(--text-muted)] italic font-sans flex items-center gap-2">
+              <span>{t("newFileEmptyOriginal", "New document — no previous version saved on disk.")}</span>
+            </div>
+          ) : (
+            <div className="min-w-fit py-0.5">
             {rows.map((row) => {
               const isDel = row.left.type === "deleted";
               const isEmpty = row.left.type === "empty";
@@ -179,6 +197,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
               );
             })}
           </div>
+          )}
         </div>
 
         {/* Right Pane (After / Current Working Changes) */}

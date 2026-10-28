@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, useEffect, memo } from "react";
 import { Folder, FolderOpen, FolderX, PanelLeftClose, PanelLeftOpen, RotateCw, Trash2 } from "lucide-react";
 import FileTree from "../workspace/FileTree";
 import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
@@ -71,6 +71,21 @@ function WorkstationLeftExplorerComponent({
 
   const handleToggle = onToggle || onClose;
   const hasNative = nativeTree.length > 0;
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const handleModalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDeleteTarget(null);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        confirmDelete();
+      }
+    };
+    window.addEventListener("keydown", handleModalKeyDown);
+    return () => window.removeEventListener("keydown", handleModalKeyDown);
+  }, [deleteTarget, confirmDelete, setDeleteTarget]);
 
   // Collapsed strip
   if (collapsed) {
@@ -229,37 +244,45 @@ function WorkstationLeftExplorerComponent({
 
       {/* Custom Confirmation Modal replacing native browser confirm */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)] shadow-2xl">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteTarget(null);
+          }}
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
+        >
+          <div className="bg-[#18181b] text-neutral-100 rounded-2xl max-w-[390px] w-full p-5 border border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-rose-400" />
+              <div className="w-9 h-9 rounded-xl bg-neutral-800/80 border border-neutral-700/60 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4 text-rose-400" strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-white tracking-tight">
-                  Delete Item
+                <h3 className="text-sm font-semibold text-white tracking-tight">
+                  {t("deleteItemTitle", "Delete File")}
                 </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
-                  Are you sure you want to delete <strong className="text-white">"{deleteTarget.name}"</strong>? This will permanently delete this item from your filesystem.
+                <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
+                  {t("deleteItemDesc", "Are you sure you want to delete")} <span className="font-semibold text-white font-mono px-1 py-0.5 rounded bg-neutral-800/80 border border-neutral-700/50">"{deleteTarget.name}"</span>?
+                </p>
+                <p className="text-[11px] text-neutral-500 mt-1 leading-normal">
+                  {t("deleteItemWarning", "This will permanently delete this item from your filesystem.")}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
+            <div className="flex items-center justify-end gap-2 mt-5 pt-3.5 border-t border-neutral-800/80">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/60 transition-all cursor-pointer shadow-xs active:scale-95"
               >
-                Cancel
+                {t("cancel", "Cancel")}
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
+                <span>{t("deleteItemAction", "Delete")}</span>
               </button>
             </div>
           </div>

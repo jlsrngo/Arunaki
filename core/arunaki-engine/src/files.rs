@@ -358,10 +358,11 @@ async fn handle_status(
                             .file_name()
                             .map(|n| n.to_string_lossy().to_string())
                             .unwrap_or_else(|| rel_str.clone());
+                        let is_new = before.trim().is_empty();
                         items.push(json!({
                             "path": rel_str,
                             "name": file_name,
-                            "status": "modified",
+                            "status": if is_new { "new" } else { "modified" },
                             "before": before,
                             "after": after,
                             "before_content": before,
@@ -390,10 +391,11 @@ async fn handle_status(
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| file.clone());
+            let is_new = before.trim().is_empty();
             items.push(json!({
                 "path": file,
                 "name": file_name,
-                "status": "modified",
+                "status": if is_new { "new" } else { "modified" },
                 "before": before,
                 "after": after,
                 "before_content": before,

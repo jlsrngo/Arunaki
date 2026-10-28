@@ -245,9 +245,13 @@ pub fn build_cli_provider_registry() -> Vec<Value> {
             "quota": "kiro",
             "models": [
                 "kiro/auto",
+                "kiro/claude-opus-4.6",
+                "kiro/claude-sonnet-4.6",
                 "kiro/claude-sonnet-4.5",
                 "kiro/claude-haiku-4.5",
                 "kiro/deepseek-3.2",
+                "kiro/minimax-m2.5",
+                "kiro/glm-5",
                 "kiro/qwen3-coder-next"
             ],
             "requiresCli": false,

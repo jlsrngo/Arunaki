@@ -80,11 +80,11 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           .catch(() => {});
       }
     } catch (e) {
-      console.warn("Failed to read POS config from localStorage:", e);
+      console.warn("Failed to read ArunakiZen config from localStorage:", e);
     }
   }, []);
 
-  // Auto Detect POS Port
+  // Auto Detect ArunakiZen Port
   const handleAutoDetect = useCallback(async () => {
     setAutoDetecting(true);
     let detectedUrl: string | null = null;
@@ -125,7 +125,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         setHostUrl(detectedUrl);
         toast.success(`${t("posToastPortDetected", "ArunakiZen detected at:")} ${detectedUrl}`);
       } else {
-        toast.info(t("posToastPortNotFound", "No active POS port detected automatically. Using default http://127.0.0.1:5000"));
+        toast.info(t("posToastPortNotFound", "No active ArunakiZen port detected automatically. Using default http://127.0.0.1:5000"));
       }
     } finally {
       setAutoDetecting(false);
@@ -187,7 +187,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       }
 
       if (!res || !res.ok || !data?.success) {
-        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : t("posConnectionFailed", "Connection failed or POS server not reachable"));
+        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : t("posConnectionFailed", "Connection failed or ArunakiZen server not reachable"));
         throw new Error(errorMsg);
       }
 
@@ -268,7 +268,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             <span>{t("arunakiZenTitle", "Engine Kasir ArunakiZen")}</span>
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
-            {t("arunakiZenDesc", "Engine kasir dan POS toko offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.")}
+            {t("arunakiZenDesc", "Engine kasir dan sistem retail ArunakiZen offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.")}
           </p>
         </div>
 
@@ -297,10 +297,10 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
       {/* Main Connection Form Card */}
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
-        {/* 1. Host URL Server POS */}
+        {/* 1. Host URL Server ArunakiZen */}
         <div>
           <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-            {t("posHostUrlLabel", "Host URL Server POS")}
+            {t("posHostUrlLabel", "Host URL Server ArunakiZen")}
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -352,7 +352,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             </button>
           </div>
           <p className="text-[11px] text-[var(--text-muted)] mt-1">
-            {t("posApiKeyHelp", "Diambil dari Pengaturan POS > Integrasi & API Key")}
+            {t("posApiKeyHelp", "Diambil dari Pengaturan ArunakiZen > Integrasi & API Key")}
           </p>
         </div>
 
