@@ -717,28 +717,50 @@ pub async fn run_agent_turn(
                 || lower_msg.contains("sudah dimasukkan")
                 || lower_msg.contains("sudah saya update")
                 || lower_msg.contains("sudah saya simpan")
+                || lower_msg.contains("sudah saya edit")
+                || lower_msg.contains("sudah dipindahkan")
+                || lower_msg.contains("sudah dihapus")
+                || lower_msg.contains("sudah ditambahkan")
+                || lower_msg.contains("sudah diganti")
+                || lower_msg.contains("sudah tercatat")
+                || lower_msg.contains("sudah dihitung")
                 || lower_msg.contains("data tersinkronisasi")
                 || lower_msg.contains("sekarang saya update")
+                || lower_msg.contains("saya edit sekarang")
+                || lower_msg.contains("saya eksekusi sekarang")
+                || lower_msg.contains("akan saya edit")
+                || lower_msg.contains("akan saya update")
+                || lower_msg.contains("akan saya eksekusi")
+                || lower_msg.contains("eksekusi sekarang")
                 || lower_msg.contains("sedang proses")
                 || lower_msg.contains("tunggu sebentar")
                 || lower_msg.contains("updating now")
-                || (read_tool_executed && !mutation_tool_executed && _step == 1 && msg_text.lines().count() > 3);
+                || (read_tool_executed && !mutation_tool_executed && _step <= 2 && msg_text.lines().count() > 2);
 
             let lower_prompt = prompt_text.to_lowercase();
             let user_requested_mutation = lower_prompt.contains("update")
                 || lower_prompt.contains("rekap")
                 || lower_prompt.contains("masukkan")
+                || lower_prompt.contains("masukan")
+                || lower_prompt.contains("masukin")
                 || lower_prompt.contains("tambahkan")
+                || lower_prompt.contains("tambah")
                 || lower_prompt.contains("simpan")
                 || lower_prompt.contains("catat")
                 || lower_prompt.contains("ubah")
                 || lower_prompt.contains("edit")
+                || lower_prompt.contains("pindahkan")
+                || lower_prompt.contains("pindah")
+                || lower_prompt.contains("hapus")
+                || lower_prompt.contains("buang")
+                || lower_prompt.contains("hilangkan")
+                || lower_prompt.contains("ganti")
                 || lower_prompt.contains("write")
                 || lower_prompt.contains("save")
                 || lower_prompt.contains("insert")
                 || lower_prompt.contains("add");
 
-            let should_intercept = (claims_mutation || (user_requested_mutation && read_tool_executed))
+            let should_intercept = (claims_mutation || (user_requested_mutation && (_step == 0 || read_tool_executed)))
                 && !mutation_tool_executed
                 && _step < 4;
 
@@ -753,7 +775,7 @@ pub async fn run_agent_turn(
                 }));
                 chat_messages.push(json!({
                     "role": "user",
-                    "content": "CRITICAL SYSTEM GUARD: You generated a text response claiming or implying files were updated, but NO mutation tool (`edit`, `write`, `excel_com`, `word_com`, `ppt_com`) was executed! The files on disk are UNCHANGED. You MUST explicitly call the mutation tool (`edit`, `write`, or `excel_com`) RIGHT NOW with the exact file path and data to commit changes to disk."
+                    "content": "CRITICAL SYSTEM GUARD: You generated conversational text ('saya edit sekarang' / apologies / claiming changes), but NO tool call was executed! Nothing was read or saved to disk. You MUST invoke the `read` or `edit` tool RIGHT NOW. Do NOT output conversational text or promises. Output the tool call directly."
                 }));
                 continue;
             }
