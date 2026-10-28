@@ -1,17 +1,14 @@
 import { memo, useState, useEffect, useCallback } from "react";
 import {
   ClipboardCheck,
-  Play,
   RotateCw,
-  Clock,
   Presentation,
   Plus,
-  Trash2,
-  Sparkles,
-  HelpCircle,
+  Wand2,
   Scale,
-  AlertCircle,
-  X,
+  ChevronDown,
+  ChevronRight,
+  PanelLeftClose,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
@@ -104,8 +101,6 @@ interface SopPlaybookPanelProps {
 
 export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   activeFolder,
-  onOpenFileTab,
-  refetchFiles,
   onClose,
   width = "var(--left-panel-width)",
 }: SopPlaybookPanelProps) {
@@ -114,8 +109,12 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [executingId, setExecutingId] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(false);
+  const [isRootExpanded, setIsRootExpanded] = useState(true);
+  const [isStudiosExpanded, setIsStudiosExpanded] = useState(true);
+
+  const folderName = activeFolder
+    ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || "WORKSPACE"
+    : "WORKSPACE";
 
   const openPlaybookInCenter = useCallback((pb: SopPlaybookDef) => {
     setSelectedId(pb.id);
@@ -202,7 +201,6 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     fetchPlaybooks();
   }, [fetchPlaybooks]);
 
-  // Listen for updates when a playbook is edited/created/deleted in Center Panel
   useEffect(() => {
     const handleUpdated = () => {
       fetchPlaybooks();
@@ -247,321 +245,215 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     }
   };
 
-  const handleDeletePlaybook = async (id: string, title: string) => {
-    if (!activeFolder) return;
-    try {
-      const response = await apiFetch("/api/sop/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_dir: activeFolder, playbook_id: id, id }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data && Array.isArray(data.playbooks)) {
-          setPlaybooks(data.playbooks);
-          toast.success(`Removed playbook: ${title}`);
-        }
-      }
-    } catch {
-      toast.error("Failed to delete playbook.");
-    }
-  };
-
-  const handleQuickRunPlaybook = async (playbook: SopPlaybookDef) => {
-    if (!activeFolder) {
-      toast.error("Please open a project folder first.");
-      return;
-    }
-    try {
-      setExecutingId(playbook.id);
-      toast.info(`Executing SOP: ${playbook.title}...`);
-
-      const response = await apiFetch("/api/sop/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playbook_id: playbook.id,
-          workspace_dir: activeFolder,
-          session_id: "sop_sidebar_exec",
-          params: {
-            cashier_name: "ADMIN",
-            notes: "Executed via Admin Playbooks List",
-          },
-        }),
-      });
-
-      if (response.ok) {
-        const res = await response.json();
-        if (res && res.status === "success") {
-          toast.success(`SOP Completed: ${playbook.title}`);
-          refetchFiles?.();
-          if (playbook.steps && playbook.steps.length > 0 && onOpenFileTab) {
-            const mainTarget = playbook.steps[playbook.steps.length - 1].target_file;
-            setTimeout(() => {
-              onOpenFileTab(mainTarget);
-            }, 250);
-          }
-        } else {
-          toast.error(res?.message || "Failed to execute SOP playbook");
-        }
-      }
-    } catch (err: any) {
-      toast.error(`Execution error: ${err?.message || "Unknown error"}`);
-    } finally {
-      setExecutingId(null);
-    }
-  };
-
   return (
-    <div
+    <aside
       style={{ width }}
-      className="h-full bg-[var(--bg-panel)] border-r border-[var(--border-color)] flex flex-col shrink-0 select-none overflow-hidden"
+      className="bg-[var(--bg-panel)] text-[var(--text-primary)] border-r border-[var(--border-color)] flex flex-col shrink-0 select-none overflow-hidden transition-colors duration-150"
     >
-      {/* Header */}
-      <div className="h-9 px-3 border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-5 h-5 rounded bg-[#cf6613] flex items-center justify-center shrink-0">
-            <ClipboardCheck className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="text-xs font-semibold tracking-wide text-white truncate">
-            {t("sopPlaybooks", "Admin Playbooks")}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowGuide((v) => !v)}
-            className={cn(
-              "w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer",
-              showGuide
-                ? "bg-[#cf6613] text-white"
-                : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]"
-            )}
-            title="How Playbooks Work"
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-          </button>
+      {/* 1. Panel Header (Exact Explorer Parity) */}
+      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
+        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 truncate">
+          <ClipboardCheck className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={2} />
+          {t("sopPlaybooks", "Playbooks")}
+        </span>
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
             onClick={fetchPlaybooks}
             disabled={loading}
-            className="w-5 h-5 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-            title="Refresh List"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            title="Refresh Playbooks"
           >
-            <RotateCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+            <RotateCw
+              className={cn("w-3.5 h-3.5", loading && "animate-spin")}
+              strokeWidth={1.5}
+            />
           </button>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="w-5 h-5 rounded flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-              title="Close Panel"
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              title="Close Playbooks Panel"
             >
-              <X className="w-3.5 h-3.5" />
+              <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Action Buttons: Auto-Generate & + New Playbook */}
-      <div className="p-2 border-b border-[var(--border-color)] grid grid-cols-2 gap-1.5 shrink-0">
+      {/* 2. Project Sub-Header Bar (Exact FileTree Parity: Folder Name on Left + Subtle Icon Actions on Right) */}
+      <div className="flex items-center justify-between px-3 h-8 bg-[var(--bg-panel-sub)] shrink-0 border-b border-[var(--border-color)] transition-colors duration-150">
         <button
           type="button"
-          disabled={!activeFolder || generating}
-          onClick={handleGenerateFromFolder}
-          className={cn(
-            "py-1.5 px-2 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
-            !activeFolder
-              ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
-              : "bg-[#cf6613] hover:bg-[#b8580f] text-white"
-          )}
-          title="Scan documents in active folder and generate SOP Playbooks"
+          onClick={() => setIsRootExpanded((v) => !v)}
+          className="flex items-center gap-1.5 min-w-0 text-left hover:text-[var(--text-primary)] transition-colors cursor-pointer group"
+          title="Toggle Playbooks List"
         >
-          {generating ? (
-            <RotateCw className="w-3 h-3 animate-spin shrink-0" />
-          ) : (
-            <Sparkles className="w-3 h-3 shrink-0" />
-          )}
-          <span className="truncate">Auto-Generate</span>
+          <span className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0">
+            {isRootExpanded ? (
+              <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
+          </span>
+          <span className="text-[var(--text-primary)] font-semibold text-xs tracking-wide truncate">
+            {folderName}
+          </span>
         </button>
-        <button
-          type="button"
-          disabled={!activeFolder}
-          onClick={openNewPlaybookInCenter}
-          className={cn(
-            "py-1.5 px-2 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1 transition-all border cursor-pointer",
-            !activeFolder
-              ? "bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border-color)] cursor-not-allowed"
-              : "bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
-          )}
-          title="Create a new custom Playbook in Center Panel"
-        >
-          <Plus className="w-3 h-3 shrink-0" />
-          <span className="truncate">New Playbook</span>
-        </button>
-      </div>
 
-      {/* Main List Body (Explorer Parity) */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-3">
-        {!activeFolder && (
-          <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] text-xs text-[var(--text-muted)] flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-[#cf6613] shrink-0 mt-0.5" />
-            <span>Open a project folder first to generate or create SOP Playbooks.</span>
-          </div>
-        )}
-
-        {(showGuide || (activeFolder && playbooks.length === 0)) && (
-          <div className="p-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-app)] space-y-1.5 text-[11px] text-[var(--text-muted)]">
-            <div className="font-semibold text-white flex items-center justify-between">
-              <span>Playbook Explorer</span>
-              {showGuide && (
-                <button
-                  type="button"
-                  onClick={() => setShowGuide(false)}
-                  className="text-[var(--text-muted)] hover:text-white cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-            <p className="leading-relaxed">
-              Click <strong className="text-white">Auto-Generate</strong> to scan your folder documents, or <strong className="text-white">New Playbook</strong>. Clicking any playbook opens its full details & editor in the <strong className="text-white">Center Panel</strong>.
-            </p>
-          </div>
-        )}
-
-        {/* Section 1: Workspace Playbooks List */}
-        {playbooks.length > 0 && (
-          <div className="space-y-1">
-            <div className="px-1 text-[11px] font-semibold text-[var(--text-muted)] flex items-center justify-between">
-              <span>Workspace Playbooks</span>
-              <span>{playbooks.length}</span>
-            </div>
-
-            {playbooks.map((pb) => {
-              const isSelected = selectedId === pb.id;
-              const isRunning = executingId === pb.id;
-
-              return (
-                <div
-                  key={pb.id}
-                  onClick={() => openPlaybookInCenter(pb)}
-                  className={cn(
-                    "group px-2.5 py-2 rounded-lg border flex items-start justify-between gap-2 cursor-pointer transition-all",
-                    isSelected
-                      ? "bg-[var(--bg-hover)] border-[#cf6613] text-white"
-                      : "bg-[var(--bg-app)] border-[var(--border-color)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]/50 text-[var(--text-primary)]"
-                  )}
-                >
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <ClipboardCheck
-                      className={cn(
-                        "w-3.5 h-3.5 shrink-0 mt-0.5",
-                        isSelected ? "text-[#cf6613]" : "text-[var(--text-muted)]"
-                      )}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium text-white truncate">
-                        {pb.title}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[var(--text-muted)]">
-                        <span className="truncate">{pb.category}</span>
-                        <span>·</span>
-                        <span>{pb.steps.length} steps</span>
-                        <span>·</span>
-                        <span className="flex items-center gap-0.5">
-                          <Clock className="w-2.5 h-2.5" />
-                          {pb.estimated_minutes}m
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Run & Delete on row */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isRunning}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuickRunPlaybook(pb);
-                      }}
-                      className="w-6 h-6 rounded border border-[var(--border-strong)] bg-[var(--bg-panel)] hover:bg-[#cf6613] hover:border-[#cf6613] text-white flex items-center justify-center transition-colors cursor-pointer"
-                      title="Quick Run Playbook"
-                    >
-                      {isRunning ? (
-                        <RotateCw className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Play className="w-3 h-3 fill-current" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePlaybook(pb.id, pb.title);
-                      }}
-                      className="w-6 h-6 rounded border border-[var(--border-strong)] bg-[var(--bg-panel)] hover:bg-rose-600 hover:border-rose-500 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                      title="Delete Playbook"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Section 2: Audit & Executive Studios (Open in Center Panel) */}
-        <div className="space-y-1 pt-2 border-t border-[var(--border-color)]">
-          <div className="px-1 text-[11px] font-semibold text-[var(--text-muted)]">
-            Audit & Executive Studios
-          </div>
-
+        {/* Icon-Only Actions (Generate, Add Playbook, Refresh) */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={openReconcileInCenter}
-            className={cn(
-              "w-full px-2.5 py-2 rounded-lg border flex items-center gap-2 text-left transition-all cursor-pointer",
-              selectedId === "__reconcile__"
-                ? "bg-[var(--bg-hover)] border-[#cf6613] text-white"
-                : "bg-[var(--bg-app)] border-[var(--border-color)] hover:border-[var(--border-strong)] text-white"
-            )}
+            disabled={!activeFolder || generating}
+            onClick={handleGenerateFromFolder}
+            title="Generate Playbooks from Folder"
+            className="p-1 hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[#cf6613] rounded transition-colors cursor-pointer disabled:opacity-40"
           >
-            <Scale className="w-3.5 h-3.5 text-[#cf6613] shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate">
-                3-Way Reconciliation Audit
-              </div>
-              <div className="text-[10px] text-[var(--text-muted)] truncate">
-                Cross-check POS, Bank & Cash Ledger in Center Panel
-              </div>
-            </div>
+            <Wand2
+              className={cn("w-3.5 h-3.5", generating && "animate-spin text-[#cf6613]")}
+              strokeWidth={1.75}
+            />
           </button>
-
           <button
             type="button"
-            onClick={openExecutiveInCenter}
-            className={cn(
-              "w-full px-2.5 py-2 rounded-lg border flex items-center gap-2 text-left transition-all cursor-pointer",
-              selectedId === "__executive__"
-                ? "bg-[var(--bg-hover)] border-[#cf6613] text-white"
-                : "bg-[var(--bg-app)] border-[var(--border-color)] hover:border-[var(--border-strong)] text-white"
-            )}
+            disabled={!activeFolder}
+            onClick={openNewPlaybookInCenter}
+            title="Add New Playbook"
+            className="p-1 hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded transition-colors cursor-pointer disabled:opacity-40"
           >
-            <Presentation className="w-3.5 h-3.5 text-[#cf6613] shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium truncate">
-                Executive Brief Synthesis
-              </div>
-              <div className="text-[10px] text-[var(--text-muted)] truncate">
-                Generate A4 Memo (.docx) & Slide Deck (.pptx)
-              </div>
-            </div>
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            onClick={fetchPlaybooks}
+            title="Refresh Playbooks"
+            className="p-1 hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded transition-colors cursor-pointer"
+          >
+            <RotateCw className="w-3.5 h-3.5" strokeWidth={1.5} />
           </button>
         </div>
       </div>
-    </div>
+
+      {/* 3. Clean File-Tree Style Playbook Rows (Empty when no playbooks exist) */}
+      <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-1 space-y-0.5">
+        {isRootExpanded &&
+          playbooks.map((pb) => {
+            const isSelected = selectedId === pb.id;
+            return (
+              <button
+                key={pb.id}
+                type="button"
+                onClick={() => openPlaybookInCenter(pb)}
+                className={cn(
+                  "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
+                  isSelected
+                    ? "bg-[var(--bg-hover)] text-white"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                )}
+                title={`${pb.title} (${pb.category})`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-4 h-4 rounded bg-[#cf6613] flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="w-2.5 h-2.5 text-white" />
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate text-xs transition-colors",
+                      isSelected
+                        ? "font-medium text-white"
+                        : "font-normal text-[var(--text-primary)]"
+                    )}
+                  >
+                    {pb.title}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[var(--text-dim)] shrink-0 ml-2 font-mono">
+                  {pb.steps.length} steps
+                </span>
+              </button>
+            );
+          })}
+      </div>
+
+      {/* 4. Bottom Section: Audit & Executive (Exact ExplorerRecentCanvases Parity) */}
+      <div className="border-t border-[var(--border-color)] bg-[var(--bg-panel)] flex flex-col shrink-0">
+        <button
+          type="button"
+          onClick={() => setIsStudiosExpanded((v) => !v)}
+          className="w-full h-7 px-3 flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors select-none cursor-pointer"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <ChevronDown
+              className={cn(
+                "w-3.5 h-3.5 transition-transform text-[var(--text-muted)]",
+                !isStudiosExpanded && "-rotate-90"
+              )}
+            />
+            <Scale className="w-3.5 h-3.5 text-[var(--text-muted)]" strokeWidth={1.5} />
+            <span className="font-semibold text-xs tracking-tight text-[var(--text-primary)]">
+              Audit & Executive
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[var(--bg-card)] text-[var(--text-dim)] border border-[var(--border-color)] font-mono">
+              2
+            </span>
+          </div>
+          <span className="text-[10px] text-[var(--text-dim)] font-mono">tools</span>
+        </button>
+
+        {isStudiosExpanded && (
+          <div className="p-1 space-y-0.5 select-none">
+            <button
+              type="button"
+              onClick={openReconcileInCenter}
+              className={cn(
+                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
+                selectedId === "__reconcile__"
+                  ? "bg-[var(--bg-hover)] text-white"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              )}
+              title="Open 3-Way Reconciliation Audit in Center Panel"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-4 h-4 rounded bg-[#cf6613] flex items-center justify-center shrink-0">
+                  <Scale className="w-2.5 h-2.5 text-white" />
+                </span>
+                <span className="truncate text-[11px] font-normal text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                  3-Way Reconciliation
+                </span>
+              </div>
+              <span className="text-[10px] text-[var(--text-dim)] shrink-0 ml-2 font-mono">
+                audit
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openExecutiveInCenter}
+              className={cn(
+                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
+                selectedId === "__executive__"
+                  ? "bg-[var(--bg-hover)] text-white"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              )}
+              title="Open Executive Brief Synthesis in Center Panel"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-4 h-4 rounded bg-[#cf6613] flex items-center justify-center shrink-0">
+                  <Presentation className="w-2.5 h-2.5 text-white" />
+                </span>
+                <span className="truncate text-[11px] font-normal text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                  Executive Brief
+                </span>
+              </div>
+              <span className="text-[10px] text-[var(--text-dim)] shrink-0 ml-2 font-mono">
+                deck
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 });

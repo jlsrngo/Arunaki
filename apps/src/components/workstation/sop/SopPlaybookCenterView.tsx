@@ -11,6 +11,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Wand2,
   ShieldCheck,
   ShieldAlert,
   Scale,
@@ -56,6 +57,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
   const [playbook, setPlaybook] = useState<SopPlaybookDef | null>(parsedInitial);
   const [isEditing, setIsEditing] = useState<boolean>(mode === "new-playbook");
   const [executing, setExecuting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Editable form state
@@ -125,6 +127,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
       try {
         const pb = JSON.parse(initialContent) as SopPlaybookDef;
         setPlaybook(pb);
+        setIsEditing(false);
         setTitle(pb.title);
         setCategory(pb.category || "Operations");
         setDescription(pb.description || "");
@@ -136,10 +139,76 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           }))
         );
       } catch {
-        // ignore parse error
+        setPlaybook(null);
       }
+    } else {
+      setPlaybook(null);
     }
   }, [mode, playbookId, initialContent]);
+
+  const handleGenerateFromFolder = async () => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first.");
+      return;
+    }
+    try {
+      setGenerating(true);
+      toast.info("Scanning workspace documents to generate SOP Playbooks...");
+      const response = await apiFetch("/api/sop/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_dir: activeFolder }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        window.dispatchEvent(new CustomEvent("arunaki:playbooks-updated"));
+        if (data && Array.isArray(data.playbooks) && data.playbooks.length > 0) {
+          const first = data.playbooks[0] as SopPlaybookDef;
+          setPlaybook(first);
+          setIsEditing(false);
+          setTitle(first.title);
+          setCategory(first.category);
+          setDescription(first.description);
+          setSteps(
+            first.steps.map((s) => ({
+              title: s.title,
+              description: s.description,
+              target_file: s.target_file,
+            }))
+          );
+          toast.success(
+            `Generated ${data.playbooks.length} playbook(s) from your folder.`
+          );
+        }
+      } else {
+        toast.error("Failed to generate playbooks from folder.");
+      }
+    } catch (err: any) {
+      toast.error(`Generation error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleStartNewPlaybook = () => {
+    setPlaybook(null);
+    setIsEditing(true);
+    setTitle("");
+    setCategory("Finance & Sales");
+    setDescription("");
+    setSteps([
+      {
+        title: "Read & Parse Source Document",
+        description: "Extract daily records or notes from source file.",
+        target_file: "LAPORAN-HARIAN.txt",
+      },
+      {
+        title: "Recap Data into Spreadsheet",
+        description: "Update columns and recalculate totals in GridCraft.",
+        target_file: "recap_summary.xlsx",
+      },
+    ]);
+  };
 
   const handleSavePlaybook = async () => {
     if (!activeFolder) {
@@ -676,115 +745,178 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
   }
 
   // ============================================================================
-  // 3. PLAYBOOK STUDIO: VIEW, RUN & EDIT IN CENTER PANEL
+  // 3. PLAYBOOK STUDIO: TOP ACTION BAR + VIEW / RUN / EDIT IN CENTER PANEL
   // ============================================================================
   return (
     <div className="flex-1 overflow-y-auto p-6 bg-[var(--bg-app)]">
       <div className="max-w-3xl mx-auto space-y-5">
-        {/* Header Card */}
-        <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-[#cf6613] flex items-center justify-center shrink-0 mt-0.5">
-                <ClipboardCheck className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
-                    {isEditing ? category || "Operations" : playbook?.category || "Operations"}
-                  </span>
-                  <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {playbook?.estimated_minutes || 2}m estimated
-                  </span>
-                </div>
-                <h2 className="text-base font-semibold text-white leading-snug">
-                  {isEditing
-                    ? title || "New Custom SOP Playbook"
-                    : playbook?.title || "SOP Playbook"}
-                </h2>
-              </div>
-            </div>
-
-            {/* Action Toolbar */}
-            <div className="flex items-center gap-2 shrink-0">
-              {!isEditing && playbook && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(true)}
-                    className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-[#cf6613]" />
-                    <span>Edit Playbook</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeletePlaybook}
-                    className="h-8 px-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Delete Playbook"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={executing}
-                    onClick={handleRunPlaybook}
-                    className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {executing ? (
-                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                    )}
-                    <span>{executing ? "Running SOP..." : "Run SOP Playbook"}</span>
-                  </button>
-                </>
+        {/* Top Studio Toolbar (Auto-Generate & + New Playbook live here in Center Panel) */}
+        <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-xs font-semibold text-white">
+              Admin Playbooks Studio
+            </h3>
+            <p className="text-[11px] text-[var(--text-muted)] truncate">
+              Generate workflows from your active folder documents or build a custom SOP routine.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              disabled={!activeFolder || generating}
+              onClick={handleGenerateFromFolder}
+              title="Generate Playbooks from Folder"
+              className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer",
+                !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] cursor-not-allowed"
+                  : "bg-[#cf6613] hover:bg-[#b8580f] text-white"
               )}
-              {isEditing && (
-                <>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={handleSavePlaybook}
-                    className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{saving ? "Saving..." : "Save Playbook"}</span>
-                  </button>
-                  {playbook && (
+            >
+              {generating ? (
+                <RotateCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={!activeFolder}
+              onClick={handleStartNewPlaybook}
+              title="Add New Playbook"
+              className={cn(
+                "w-8 h-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer",
+                !activeFolder
+                  ? "bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border-color)] cursor-not-allowed"
+                  : "bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              )}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Empty State if no Playbook is selected and not editing */}
+        {!isEditing && !playbook && (
+          <div className="p-6 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-3 text-center">
+            <div className="w-10 h-10 rounded-xl bg-[#cf6613]/15 border border-[#cf6613]/40 flex items-center justify-center mx-auto">
+              <ClipboardCheck className="w-5 h-5 text-[#cf6613]" />
+            </div>
+            <h3 className="text-sm font-semibold text-white">
+              Select or Generate an Admin Playbook
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
+              Click <strong className="text-white">Auto-Generate from Folder</strong> above to scan the documents in your workspace and build tailored SOP workflows, or click <strong className="text-white">New Playbook</strong> to create one manually.
+            </p>
+          </div>
+        )}
+
+        {/* Selected Playbook Header Card */}
+        {(isEditing || playbook) && (
+          <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-[#cf6613] flex items-center justify-center shrink-0 mt-0.5">
+                  <ClipboardCheck className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+                      {isEditing ? category || "Operations" : playbook?.category || "Operations"}
+                    </span>
+                    <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {playbook?.estimated_minutes || 2}m estimated
+                    </span>
+                  </div>
+                  <h2 className="text-base font-semibold text-white leading-snug">
+                    {isEditing
+                      ? title || "New Custom SOP Playbook"
+                      : playbook?.title || "SOP Playbook"}
+                  </h2>
+                </div>
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex items-center gap-2 shrink-0">
+                {!isEditing && playbook && (
+                  <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsEditing(false);
-                        setTitle(playbook.title);
-                        setCategory(playbook.category);
-                        setDescription(playbook.description);
-                        setSteps(
-                          playbook.steps.map((s) => ({
-                            title: s.title,
-                            description: s.description,
-                            target_file: s.target_file,
-                          }))
-                        );
-                      }}
-                      className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
+                      onClick={() => setIsEditing(true)}
+                      className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Cancel</span>
+                      <Pencil className="w-3.5 h-3.5 text-[#cf6613]" />
+                      <span>Edit</span>
                     </button>
-                  )}
-                </>
-              )}
+                    <button
+                      type="button"
+                      onClick={handleDeletePlaybook}
+                      className="h-8 px-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Delete Playbook"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={executing}
+                      onClick={handleRunPlaybook}
+                      className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {executing ? (
+                        <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      )}
+                      <span>{executing ? "Running SOP..." : "Run SOP Playbook"}</span>
+                    </button>
+                  </>
+                )}
+                {isEditing && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={handleSavePlaybook}
+                      className="h-8 px-4 rounded-lg bg-[#cf6613] hover:bg-[#b8580f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{saving ? "Saving..." : "Save Playbook"}</span>
+                    </button>
+                    {playbook && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditing(false);
+                          setTitle(playbook.title);
+                          setCategory(playbook.category);
+                          setDescription(playbook.description);
+                          setSteps(
+                            playbook.steps.map((s) => ({
+                              title: s.title,
+                              description: s.description,
+                              target_file: s.target_file,
+                            }))
+                          );
+                        }}
+                        className="h-8 px-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs font-medium text-white flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Cancel</span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
 
-          {!isEditing && playbook?.description && (
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed pt-2 border-t border-[var(--border-color)]">
-              {playbook.description}
-            </p>
-          )}
-        </div>
+            {!isEditing && playbook?.description && (
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed pt-2 border-t border-[var(--border-color)]">
+                {playbook.description}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* EDIT / CREATE MODE IN CENTER PANEL */}
         {isEditing ? (
