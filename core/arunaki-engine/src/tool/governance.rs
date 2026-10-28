@@ -208,6 +208,31 @@ pub fn execute_manage_governance(
     let mut manifest = load_governance_manifest(workspace_dir);
 
     if action == "status" || action == "list" {
+        let mut dirty = false;
+        for (fname, rec) in manifest.documents.iter_mut() {
+            if !rec.locked && rec.status == "VERIFIED" {
+                let fp = Path::new(workspace_dir).join(fname);
+                if fp.exists() {
+                    let current_hash = compute_file_sha256(&fp);
+                    let content_str = std::fs::read_to_string(&fp).unwrap_or_default();
+                    let is_text_doc = matches!(
+                        fp.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase().as_str(),
+                        "txt" | "md" | "csv"
+                    );
+                    let stamp_removed = is_text_doc && !content_str.contains("VERIFIED BY ARUNAKI ADMINISTRATION MANAGER");
+                    if current_hash != rec.sha256_hash || stamp_removed {
+                        rec.status = "DRAFT".to_string();
+                        rec.stamp_id = None;
+                        rec.sha256_hash = current_hash;
+                        rec.updated_at_ms = now_ms();
+                        dirty = true;
+                    }
+                }
+            }
+        }
+        if dirty {
+            save_governance_manifest(workspace_dir, &manifest);
+        }
         let records: Vec<DocumentGovernanceRecord> =
             manifest.documents.values().cloned().collect();
         return json!({

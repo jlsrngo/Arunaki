@@ -93,6 +93,28 @@ function WorkstationCenterPanelComponent({
     };
   }, [activeTab?.id]);
 
+  useEffect(() => {
+    const handleDiffCleared = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      const targetName = String(detail?.fileName || detail?.filePath || "").split(/[/\\]/).pop()?.toLowerCase();
+      if (!targetName) return;
+      for (const t of tabs) {
+        const tName = (t.title || "").toLowerCase();
+        const tPathName = (t.path || "").split(/[/\\]/).pop()?.toLowerCase();
+        if (tName === targetName || tPathName === targetName) {
+          setActiveDiffs((prev) => ({ ...prev, [t.id]: null }));
+          setUnsavedTabs((prev) => ({ ...prev, [t.id]: false }));
+          if (typeof detail?.content === "string" && detail.content.length > 0) {
+            setEditedContents((prev) => ({ ...prev, [t.id]: detail.content }));
+            setPreviousContents((prev) => ({ ...prev, [t.id]: detail.content }));
+          }
+        }
+      }
+    };
+    window.addEventListener("arunaki:diff-cleared", handleDiffCleared);
+    return () => window.removeEventListener("arunaki:diff-cleared", handleDiffCleared);
+  }, [tabs]);
+
   // Sync tab content when parent updates tab.content (only when user does not have local unsaved edits)
   useEffect(() => {
     if (!activeTab?.id) return;

@@ -50,6 +50,8 @@ export function UnifiedWorkstationPage() {
   const docChanges = useDocumentChanges({
     activeFolder,
     tabs: tabs.tabs,
+    setTabs: tabs.setTabs,
+    setActiveTabId: tabs.setActiveTabId,
     onOpenDiffTab: tabs.handleOpenDiffTab,
     refetchFiles,
   });

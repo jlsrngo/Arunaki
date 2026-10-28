@@ -3,9 +3,24 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { apiFetch } from "./api";
 
 export async function sendDesktopNotification(title: string, body: string): Promise<boolean> {
-  // 1. Try Tauri v2 native desktop notifications first (Windows WinRT toast)
+  // 1. Trigger Windows 10/11 Native WinRT Toast Notification via Engine (works in portable .exe too)
+  try {
+    const res = await apiFetch("/api/desktop/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body }),
+    });
+    if (res.ok) {
+      return true;
+    }
+  } catch (err) {
+    console.debug("[notifications] Engine desktop notify fallback", err);
+  }
+
+  // 2. Fallback to Tauri v2 native desktop notifications
   try {
     let granted = await isPermissionGranted();
     if (!granted) {
@@ -20,7 +35,7 @@ export async function sendDesktopNotification(title: string, body: string): Prom
     console.debug("[notifications] Tauri native notification fallback", err);
   }
 
-  // 2. Fallback to HTML5 Notification API if running in browser
+  // 3. Fallback to HTML5 Notification API if running in browser
   if (typeof window !== "undefined" && "Notification" in window) {
     try {
       if (Notification.permission === "granted") {

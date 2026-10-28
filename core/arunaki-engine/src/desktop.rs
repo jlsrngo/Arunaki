@@ -68,6 +68,7 @@ pub fn router() -> Router {
         .route("/api/telegram/dispatch", post(handle_telegram_dispatch))
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
+        .route("/api/desktop/notify", post(handle_desktop_notify))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -1402,4 +1403,49 @@ async fn handle_telegram_dispatch(Json(payload): Json<Value>) -> impl IntoRespon
         crate::tool::telegram::execute_dispatch_telegram_report(session_id, &workspace, &payload).await
     };
     Json(res)
+}
+
+async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse {
+    let title = payload
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Arunaki Workstation")
+        .to_string();
+    let body = payload
+        .get("body")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Document response completed.")
+        .to_string();
+
+    tokio::task::spawn_blocking(move || {
+        #[cfg(windows)]
+        {
+            let xml_escape = |s: &str| -> String {
+                s.replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;")
+                    .replace('"', "&quot;")
+                    .replace('\'', "&apos;")
+            };
+            let ps_escape = |s: &str| -> String { s.replace('\'', "''") };
+            let t_xml = ps_escape(&xml_escape(&title));
+            let b_xml = ps_escape(&xml_escape(&body));
+            let script = format!(
+                "try {{\n\
+                    New-Item -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Force | Out-Null\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'DisplayName' -Value 'Arunaki Workstation' -Force\n\
+                    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null\n\
+                    [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null\n\
+                    $xml = New-Object Windows.Data.Xml.Dom.XmlDocument\n\
+                    $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual></toast>')\n\
+                    $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\n\
+                    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Arunaki.Workstation').Show($toast)\n\
+                }} catch {{}}",
+                t_xml, b_xml
+            );
+            let _ = arunaki_docs::run_powershell_script("notify", &script);
+        }
+    });
+
+    Json(json!({ "ok": true }))
 }

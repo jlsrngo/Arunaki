@@ -8,6 +8,8 @@ import { CenterTab } from "../tabs/types";
 interface UseDocumentChangesOptions {
   activeFolder: string;
   tabs?: CenterTab[];
+  setTabs?: React.Dispatch<React.SetStateAction<CenterTab[]>>;
+  setActiveTabId?: (id: string | null) => void;
   onOpenDiffTab?: (file: { path: string; name: string; beforeContent: string; afterContent: string }) => void;
   onFileReverted?: (filePath: string, restoredContent: string) => void;
   refetchFiles?: () => void;
@@ -16,6 +18,8 @@ interface UseDocumentChangesOptions {
 export function useDocumentChanges({
   activeFolder,
   tabs,
+  setTabs,
+  setActiveTabId,
   onOpenDiffTab,
   onFileReverted,
   refetchFiles,
@@ -145,6 +149,58 @@ export function useDocumentChanges({
     [onOpenDiffTab]
   );
 
+  const syncTabsAfterResolve = useCallback(
+    (item: DocumentChangeItem, resolvedContent: string) => {
+      const targetName = (item.fileName || item.filePath.split(/[/\\]/).pop() || item.filePath).toLowerCase();
+      const targetPath = item.filePath.replace(/\\/g, "/").toLowerCase();
+
+      if (setTabs) {
+        let fallbackTabId: string | null = null;
+        setTabs((prev) => {
+          const next: CenterTab[] = [];
+          for (const t of prev) {
+            const tPath = (t.path || "").replace(/\\/g, "/").toLowerCase();
+            const tName = (t.title || "").toLowerCase();
+            const isMatch =
+              tPath === targetPath ||
+              tPath.endsWith(`/${targetName}`) ||
+              tName === targetName ||
+              tName === `${targetName} (working tree)`;
+
+            if (t.type === "diff" && isMatch) {
+              continue;
+            }
+            if (t.type === "file" && isMatch) {
+              fallbackTabId = t.id;
+              const finalContent = resolvedContent || t.content || "";
+              next.push({
+                ...t,
+                content: finalContent,
+                originalContent: finalContent,
+              });
+              continue;
+            }
+            next.push(t);
+          }
+          if (!fallbackTabId && next.length > 0) {
+            fallbackTabId = next[next.length - 1].id;
+          }
+          return next;
+        });
+        if (setActiveTabId && fallbackTabId) {
+          setActiveTabId(fallbackTabId);
+        }
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("arunaki:diff-cleared", {
+          detail: { filePath: item.filePath, fileName: item.fileName, content: resolvedContent },
+        })
+      );
+    },
+    [setTabs, setActiveTabId]
+  );
+
   const handleRevertChange = useCallback(
     async (item: DocumentChangeItem) => {
       try {
@@ -153,26 +209,32 @@ export function useDocumentChanges({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: item.filePath }),
+            body: JSON.stringify({ path: item.filePath, beforeContent: item.beforeContent }),
           }
         );
 
         if (res.ok) {
-          toast.success(`Reverted ${item.fileName} to last saved version`);
+          toast.success(`Reverted ${item.fileName}`);
           onFileReverted?.(item.filePath, item.beforeContent);
-          setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+          syncTabsAfterResolve(item, item.beforeContent);
+          setChanges((prev) =>
+            prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
+          );
           refetchFiles?.();
         } else {
-          // Fallback to desktop direct write if available
           const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
           if (desktop?.writeFile) {
-            const fullPath = item.filePath.includes(":") || item.filePath.startsWith("/") || item.filePath.startsWith("\\")
-              ? item.filePath
-              : `${activeFolder}\\${item.filePath}`;
+            const fullPath =
+              item.filePath.includes(":") || item.filePath.startsWith("/") || item.filePath.startsWith("\\")
+                ? item.filePath
+                : `${activeFolder}\\${item.filePath}`;
             await desktop.writeFile(fullPath, item.beforeContent);
-            toast.success(`Reverted ${item.fileName} to last saved version`);
+            toast.success(`Reverted ${item.fileName}`);
             onFileReverted?.(item.filePath, item.beforeContent);
-            setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+            syncTabsAfterResolve(item, item.beforeContent);
+            setChanges((prev) =>
+              prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
+            );
             refetchFiles?.();
           } else {
             toast.error(`Failed to revert ${item.fileName}`);
@@ -182,7 +244,7 @@ export function useDocumentChanges({
         toast.error(`Failed to revert: ${err?.message || err}`);
       }
     },
-    [activeFolder, onFileReverted, refetchFiles]
+    [activeFolder, onFileReverted, refetchFiles, syncTabsAfterResolve]
   );
 
   const handleAcceptChange = useCallback(
@@ -193,17 +255,20 @@ export function useDocumentChanges({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path: item.filePath }),
+            body: JSON.stringify({ path: item.filePath, content: item.afterContent }),
           }
         );
         toast.success(`Saved changes for ${item.fileName}`);
-        setChanges((prev) => prev.filter((c) => c.filePath !== item.filePath));
+        syncTabsAfterResolve(item, item.afterContent);
+        setChanges((prev) =>
+          prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
+        );
         refetchFiles?.();
       } catch (err: any) {
         toast.error(`Failed to save: ${err?.message || err}`);
       }
     },
-    [activeFolder, refetchFiles]
+    [activeFolder, refetchFiles, syncTabsAfterResolve]
   );
 
   const handleRevertDiff = useCallback(

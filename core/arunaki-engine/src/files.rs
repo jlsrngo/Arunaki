@@ -356,8 +356,10 @@ pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, aft
     // Persist baseline snapshot in .arunaki/baseline/<file>
     if !workspace_dir.trim().is_empty() {
         let base = Path::new(workspace_dir);
-        let baseline_file = base.join(".arunaki").join("baseline").join(file);
-        if !baseline_file.exists() {
+        let rel = normalize_rel_file(base, file);
+        let baseline_root = base.join(".arunaki").join("baseline");
+        let baseline_file = baseline_root.join(&rel);
+        if contains_path(&baseline_root, &baseline_file) && !baseline_file.exists() {
             if let Some(parent) = baseline_file.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
@@ -366,10 +368,41 @@ pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, aft
     }
 }
 
+fn normalize_rel_file(base_dir: &Path, raw: &str) -> String {
+    let base_norm = base_dir
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_string();
+    let raw_norm = raw.replace('\\', "/");
+    let raw_lower = raw_norm.to_ascii_lowercase();
+    let prefix_lower = format!("{}/", base_norm.to_ascii_lowercase());
+    let rel = if raw_lower.starts_with(&prefix_lower) {
+        &raw_norm[prefix_lower.len()..]
+    } else {
+        raw_norm.as_str()
+    };
+    rel.trim_start_matches("./").trim_start_matches('/').to_string()
+}
+
 pub fn remove_document_change(file: &str) {
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
+    let norm_target = file.replace('\\', "/");
+    let fname_target = Path::new(&norm_target)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&norm_target)
+        .to_ascii_lowercase();
     if let Ok(mut lock) = store.lock() {
-        lock.remove(file);
+        lock.retain(|k, _| {
+            let k_norm = k.replace('\\', "/");
+            let k_fname = Path::new(&k_norm)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&k_norm)
+                .to_ascii_lowercase();
+            !k_norm.eq_ignore_ascii_case(&norm_target) && k_fname != fname_target
+        });
     }
 }
 
@@ -498,7 +531,7 @@ async fn handle_revert(
         .and_then(|v| v.as_str())
         .or_else(|| q.get("path").map(|s| s.as_str()));
 
-    let Some(file_rel) = req_path else {
+    let Some(raw_rel) = req_path else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "path is required" })),
@@ -506,37 +539,46 @@ async fn handle_revert(
             .into_response();
     };
 
-    let target_file = base_dir.join(file_rel);
-    let baseline_file = base_dir.join(".arunaki").join("baseline").join(file_rel);
+    let file_rel = normalize_rel_file(&base_dir, raw_rel);
+    let target_file = base_dir.join(&file_rel);
+    let baseline_root = base_dir.join(".arunaki").join("baseline");
+    let baseline_file = baseline_root.join(&file_rel);
+    let is_valid_baseline = contains_path(&baseline_root, &baseline_file);
     let bak_file = base_dir.join(format!("{}.bak", file_rel));
 
     // 1. Look up before content from baseline file, memory store, or .bak
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
     let before_from_store = if let Ok(lock) = store.lock() {
-        lock.get(file_rel).map(|(b, _, _)| b.clone())
+        lock.get(&file_rel)
+            .or_else(|| lock.get(raw_rel))
+            .map(|(b, _, _)| b.clone())
     } else {
         None
     };
 
-    let restored_content = if baseline_file.exists() {
+    let restored_content = if is_valid_baseline && baseline_file.exists() {
         std::fs::read_to_string(&baseline_file).ok()
     } else if let Some(b) = before_from_store {
         Some(b)
     } else if bak_file.exists() {
         std::fs::read_to_string(&bak_file).ok()
     } else {
-        None
+        body.get("beforeContent")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     };
 
     if let Some(content) = restored_content {
-        let _ = std::fs::write(&target_file, &content);
-        if baseline_file.exists() {
+        if contains_path(&base_dir, &target_file) {
+            let _ = std::fs::write(&target_file, &content);
+        }
+        if is_valid_baseline && baseline_file.exists() {
             let _ = std::fs::remove_file(&baseline_file);
         }
         if bak_file.exists() {
             let _ = std::fs::remove_file(&bak_file);
         }
-        remove_document_change(file_rel);
+        remove_document_change(&file_rel);
         crate::session::message::emit_event(
             &base_dir.to_string_lossy(),
             "file.edited",
@@ -544,11 +586,11 @@ async fn handle_revert(
         );
         Json(json!({ "success": true, "path": file_rel })).into_response()
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "No baseline snapshot found for file" })),
-        )
-            .into_response()
+        if is_valid_baseline && baseline_file.exists() {
+            let _ = std::fs::remove_file(&baseline_file);
+        }
+        remove_document_change(&file_rel);
+        Json(json!({ "success": true, "path": file_rel })).into_response()
     }
 }
 
@@ -565,7 +607,7 @@ async fn handle_accept(
         .and_then(|v| v.as_str())
         .or_else(|| q.get("path").map(|s| s.as_str()));
 
-    let Some(file_rel) = req_path else {
+    let Some(raw_rel) = req_path else {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "path is required" })),
@@ -573,15 +615,24 @@ async fn handle_accept(
             .into_response();
     };
 
-    let baseline_file = base_dir.join(".arunaki").join("baseline").join(file_rel);
-    if baseline_file.exists() {
+    let file_rel = normalize_rel_file(&base_dir, raw_rel);
+    let target_file = base_dir.join(&file_rel);
+    if let Some(content) = body.get("content").and_then(|v| v.as_str()) {
+        if !content.is_empty() && contains_path(&base_dir, &target_file) {
+            let _ = std::fs::write(&target_file, content);
+        }
+    }
+
+    let baseline_root = base_dir.join(".arunaki").join("baseline");
+    let baseline_file = baseline_root.join(&file_rel);
+    if contains_path(&baseline_root, &baseline_file) && baseline_file.exists() {
         let _ = std::fs::remove_file(&baseline_file);
     }
     let bak_file = base_dir.join(format!("{}.bak", file_rel));
     if bak_file.exists() {
         let _ = std::fs::remove_file(&bak_file);
     }
-    remove_document_change(file_rel);
+    remove_document_change(&file_rel);
 
     Json(json!({ "success": true, "path": file_rel })).into_response()
 }

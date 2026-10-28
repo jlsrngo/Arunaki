@@ -60,6 +60,15 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
 
   useEffect(() => {
     fetchGovernanceStatus();
+    const handleRefresh = () => {
+      fetchGovernanceStatus();
+    };
+    window.addEventListener("arunaki:file.edited", handleRefresh);
+    const interval = setInterval(fetchGovernanceStatus, 4000);
+    return () => {
+      window.removeEventListener("arunaki:file.edited", handleRefresh);
+      clearInterval(interval);
+    };
   }, [fetchGovernanceStatus]);
 
   const handleUpdateGovernance = async (

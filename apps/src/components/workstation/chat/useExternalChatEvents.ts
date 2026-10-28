@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Message } from "./types";
 import { LiveStatusData, StepItem, formatToolStepLabel } from "../LiveExecutionBadge";
 import { subscribeEvents, mapEngineEvent, isSessionActive } from "../../../lib/engine";
+import { dispatchCompletionNotification } from "./chatDiagnostics";
 
 interface UseExternalChatEventsOptions {
   activeChatId: string;
@@ -232,6 +233,10 @@ export function useExternalChatEvents({
             },
           ]);
         } else if (event.type === "done" || event.type === "error") {
+          if (event.type === "done") {
+            const toolsCount = extSteps.filter((s) => s.iconType === "tool").length;
+            dispatchCompletionNotification(toolsCount);
+          }
           setStreamingState(false);
           setLiveStatus(null);
           setOptimisticMessages([]);

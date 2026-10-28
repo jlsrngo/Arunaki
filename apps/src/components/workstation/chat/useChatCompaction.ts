@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Message } from "./types";
 import { summarizeSession } from "../../../lib/engine";
+import { sendDesktopNotification } from "../../../lib/notifications";
 
 interface UseChatCompactionOptions {
   activeChatId: string;
@@ -64,14 +65,18 @@ export function useChatCompaction({
     try {
       const ok = await summarizeSession(activeChatId, activeModel, activeFolder);
       if (ok) {
-        toast.success("Active session context compacted successfully.", { id: toastId });
+        toast.success("Session context compacted", { id: toastId });
+        void sendDesktopNotification(
+          "Arunaki Workstation",
+          "Session context compacted successfully (/compact active)."
+        );
         try {
           localStorage.setItem(`arunaki_compacted_${activeChatId}`, "true");
         } catch {}
         setIsCompacted(true);
         await queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
       } else {
-        toast.error("Failed to compact session context.", { id: toastId });
+        toast.error("Failed to compact context", { id: toastId });
       }
     } catch (err: any) {
       toast.error(`Compaction error: ${err?.message || err}`, { id: toastId });

@@ -30,9 +30,6 @@ async function refreshModelCatalog() {
 
     for (const p of providers) {
       if (!p.id || !p.baseUrl) continue;
-      // The local bridge answers /models with every provider it fronts, not just this one, so syncing
-      // a bridge-routed provider against it would hand Kiro Claude's and OpenCode's models. Those
-      // providers are refreshed by their own Connect, which asks the account instead.
       if (/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(p.baseUrl)) continue;
       try {
         const modelsRes = await apiFetch(`${API_BASE}/providers/fetch-models${directoryQuery()}`, {
@@ -50,11 +47,9 @@ async function refreshModelCatalog() {
         const fallbackDefaults = curatedDefaults.length > 0 ? curatedDefaults : liveModels.slice(0, 5);
 
         if (!currentPoolStr) {
-          // Initialize new pool with curated defaults (max 5)
           localStorage.setItem(poolKey, fallbackDefaults.join(", "));
         } else {
           const currentList = currentPoolStr.split(",").map((s) => s.trim()).filter(Boolean);
-          // Keep user's active choices, but remove discontinued models that no longer exist in live API catalog
           const valid = currentList.filter((m) => liveModels.includes(m));
           const updated = valid.length > 0 ? valid : fallbackDefaults;
           localStorage.setItem(poolKey, updated.join(", "));
@@ -62,7 +57,6 @@ async function refreshModelCatalog() {
       } catch { /* single provider fail — skip, don't break loop */ }
     }
 
-    // Validate active model still exists in its provider's pool
     const activeProvider = localStorage.getItem("arunaki_active_provider") || "kenari";
     const activeModel = localStorage.getItem("arunaki_active_model");
     const pool = localStorage.getItem(`arunaki_provider_models_${activeProvider}`);
@@ -76,11 +70,6 @@ async function refreshModelCatalog() {
 }
 
 if (typeof window !== "undefined") {
-  // A build that let "Sync from API" overwrite Kiro's config with the shared bridge's catalogue also
-  // wrote those ids into this browser's storage, and nothing ever cleaned them up: Kiro's pool read
-  // "gemini-3.8-flash, claude-sonnet-5-5, ..." and the chat then asked Kiro for Gemini models. The
-  // model ids the bridge routes to Kiro all carry the kiro/ prefix, so a pool with none of them is
-  // not a Kiro pool whatever else it holds. Dropped on sight rather than migrated.
   try {
     const kiroPool = localStorage.getItem("arunaki_provider_models_kiro");
     if (kiroPool && !kiroPool.split(",").some((m) => m.trim().startsWith("kiro/"))) {
@@ -88,15 +77,12 @@ if (typeof window !== "undefined") {
     }
   } catch {}
 
-  // Ensure default provider is set
   if (!localStorage.getItem("arunaki_active_provider")) {
     localStorage.setItem("arunaki_active_provider", "kenari");
   }
-  // Ensure default active model for first-time users
   if (!localStorage.getItem("arunaki_active_model")) {
     localStorage.setItem("arunaki_active_model", (DEFAULT_MODELS.kenari || [])[0] || "nemotron-3-super-120b-a12b:free");
   }
-  // Defer catalog refresh until after initial UI hydration so launch stays fast and responsive
   setTimeout(() => {
     refreshModelCatalog();
   }, 3000);
@@ -110,24 +96,29 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <Toaster 
         theme={effectiveTheme as 'light' | 'dark'} 
-        position="top-center" 
-        offset="48px"
-        visibleToasts={3}
+        position="bottom-left" 
+        offset="28px"
+        visibleToasts={1}
         toastOptions={{
           style: {
             background: 'var(--bg-card)',
             color: 'var(--text-primary)',
             borderColor: 'var(--border-strong)',
-            borderRadius: '12px',
+            borderRadius: '9999px',
+            padding: '4px 10px',
+            minHeight: '26px',
+            height: '26px',
+            width: 'fit-content',
+            maxWidth: '260px',
           },
-          className: '!border !px-4 !py-3 !text-[12px] backdrop-blur-md',
+          className: '!border !px-2.5 !py-1 !text-[10.5px] !rounded-full !w-fit !max-w-[260px] !min-h-0 !h-[26px] !flex !items-center !gap-1.5 !whitespace-nowrap !overflow-hidden !shadow-md',
           classNames: {
-            title: '!text-[var(--text-primary)] !font-semibold !text-[12px]',
-            description: '!text-[var(--text-muted)] !text-[11px] !mt-0.5',
-            icon: '!text-[var(--text-primary)]',
-            toast: '!bg-[var(--bg-card)] !border-[var(--border-strong)] !text-[var(--text-primary)]',
+            title: '!text-[var(--text-primary)] !font-medium !text-[10.5px] !leading-none !truncate !whitespace-nowrap',
+            description: '!hidden',
+            icon: '!text-[var(--text-primary)] !w-3 !h-3 !shrink-0 !m-0',
+            toast: '!bg-[var(--bg-card)] !border-[var(--border-strong)] !text-[var(--text-primary)] !rounded-full !px-2.5 !py-1 !h-[26px] !min-h-0 !w-fit !max-w-[260px]',
           },
-          duration: 3000,
+          duration: 2000,
         }}
       />
       <ErrorBoundary fullScreen fallbackTitle="Workstation encountered an unexpected error">
