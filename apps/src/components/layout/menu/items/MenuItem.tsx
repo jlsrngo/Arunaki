@@ -30,7 +30,10 @@ export const MenuItem = memo(function MenuItem({
     if (isValidElement(icon)) {
       return <div className="w-4 h-4 flex items-center justify-center shrink-0">{icon}</div>;
     }
-    if (typeof icon === "function") {
+    if (
+      typeof icon === "function" ||
+      (typeof icon === "object" && icon !== null && "$$typeof" in icon)
+    ) {
       const IconComponent = icon as ComponentType<{ className?: string; strokeWidth?: number }>;
       return <IconComponent className="w-4 h-4 text-[var(--text-muted)] shrink-0" strokeWidth={1.75} />;
     }
