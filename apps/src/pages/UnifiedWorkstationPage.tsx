@@ -229,6 +229,9 @@ export function UnifiedWorkstationPage() {
           onOpenFolder={handleDirectPickFolder}
           onRevertDiff={docChanges.handleRevertDiff}
           onAcceptDiff={docChanges.handleAcceptDiff}
+          onOpenFileTab={(path) =>
+            tabs.handleOpenFileTab(path, path.split(/[\\/]/).pop() || path)
+          }
         />
 
         {!rightCollapsed && (

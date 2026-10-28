@@ -215,6 +215,34 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
         };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabId(id);
+      } else if (
+        app === "playbook" ||
+        app === "playbook-new" ||
+        app === "playbook-audit" ||
+        app === "playbook-exec"
+      ) {
+        const title = rawTitle || "SOP Playbook";
+        const path = rawPath || app;
+        const tabId = `sop-${path}`;
+        const content = customEvent.detail?.content || "";
+        setTabs((prev) => {
+          const existing = prev.find((t) => t.id === tabId);
+          if (existing) {
+            return prev.map((t) =>
+              t.id === tabId ? { ...t, title, content, fileType: app } : t
+            );
+          }
+          const newTab: CenterTab = {
+            id: tabId,
+            type: "app",
+            title,
+            path,
+            fileType: app,
+            content,
+          };
+          return [...prev, newTab];
+        });
+        setActiveTabId(tabId);
       }
     };
 

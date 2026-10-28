@@ -29,6 +29,7 @@ const CanvasView = lazy(() =>
 );
 
 import { SplitDiffViewer } from "./tabs/SplitDiffViewer";
+import { SopPlaybookCenterView } from "./sop/SopPlaybookCenterView";
 
 export type { CenterTab };
 
@@ -43,6 +44,7 @@ export interface WorkstationCenterPanelProps {
   onOpenFolder?: () => void;
   onRevertDiff?: (filePath: string) => void;
   onAcceptDiff?: (filePath: string) => void;
+  onOpenFileTab?: (filePath: string) => void;
 }
 
 function WorkstationCenterPanelComponent({
@@ -56,6 +58,7 @@ function WorkstationCenterPanelComponent({
   onOpenFolder,
   onRevertDiff,
   onAcceptDiff,
+  onOpenFileTab,
 }: WorkstationCenterPanelProps) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -404,13 +407,37 @@ function WorkstationCenterPanelComponent({
                   (/\.(docx|doc|odt|rtf)$/i).test(tab.title))
             );
 
+            const isTabSopPlaybook = Boolean(
+              tab.fileType === "playbook" ||
+                tab.fileType === "playbook-new" ||
+                tab.fileType === "playbook-audit" ||
+                tab.fileType === "playbook-exec"
+            );
+
             return (
               <div
                 key={tab.id}
                 className={cn("w-full h-full flex flex-col flex-1", !isActive && "hidden")}
                 style={{ display: isActive ? "flex" : "none" }}
               >
-                {isTabCanvas ? (
+                {isTabSopPlaybook ? (
+                  <SopPlaybookCenterView
+                    mode={
+                      tab.fileType === "playbook-new"
+                        ? "new-playbook"
+                        : tab.fileType === "playbook-audit"
+                        ? "reconcile"
+                        : tab.fileType === "playbook-exec"
+                        ? "executive"
+                        : "playbook"
+                    }
+                    playbookId={tab.path}
+                    initialContent={tab.content}
+                    activeFolder={activeFolder}
+                    onOpenFileTab={onOpenFileTab}
+                    onCloseCurrentTab={() => onCloseTab(tab.id)}
+                  />
+                ) : isTabCanvas ? (
                   <Suspense fallback={null}>
                     <CanvasView
                       content={tabContent}
