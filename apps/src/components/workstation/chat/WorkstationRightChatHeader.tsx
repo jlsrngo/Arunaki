@@ -116,16 +116,15 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
           </span>
         )}
       </div>
-      <div className="flex items-center gap-0.5 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         {onCompactSession && (
           <button
             type="button"
             disabled={isCompacting}
             onClick={onCompactSession}
             className={cn(
-              "w-6 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95",
-              isCompacting && "opacity-80 cursor-wait",
-              isCompacted && "ring-1 ring-white/40 shadow-sm"
+              "w-5 h-5 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-colors cursor-pointer shrink-0",
+              isCompacting && "opacity-80 cursor-wait"
             )}
             title={
               isCompacting
@@ -136,9 +135,9 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             }
           >
             {isCompacting ? (
-              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+              <Loader2 className="w-3 h-3 text-white animate-spin" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />
+              <Sparkles className="w-3 h-3 text-white" strokeWidth={2} />
             )}
           </button>
         )}
@@ -146,7 +145,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
           <button
             type="button"
             onClick={onNewChat}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer flex items-center justify-center shrink-0"
             title={t("newChatSession", "New Chat Session")}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -155,7 +154,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
         <button
           type="button"
           onClick={onClose}
-          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+          className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer flex items-center justify-center shrink-0"
           title={t("closePanel", "Close Panel")}
         >
           <PanelRightClose className="w-3.5 h-3.5" />
