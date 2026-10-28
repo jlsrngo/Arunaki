@@ -1,4 +1,4 @@
-﻿//! Session module â€” Axum router & public handlers.
+//! Session module â€” Axum router & public handlers.
 pub mod compaction;
 pub mod memory;
 pub mod message;
@@ -7,6 +7,7 @@ pub mod prompt;
 pub mod session;
 pub mod summary;
 pub mod tools;
+pub mod watcher;
 
 #[allow(unused_imports)]
 pub use memory::*;

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
 import { SourceControlPanel } from "../components/workstation/source-control/SourceControlPanel";
 import { SopPlaybookPanel } from "../components/workstation/sop/SopPlaybookPanel";
+import { FolderIngestionBanner } from "../components/workstation/sop/FolderIngestionBanner";
 import { WorkstationActivityBar, SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
@@ -134,6 +135,7 @@ export function UnifiedWorkstationPage() {
 
   return (
     <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
+      <FolderIngestionBanner activeFolder={activeFolder} onOpenFileTab={(path) => tabs.handleOpenFileTab(path, path.split("/").pop() || path)} refetchFiles={refetchFiles} />
       <div
         ref={containerRef}
         className="flex-1 flex overflow-hidden relative"

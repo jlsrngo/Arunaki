@@ -28,6 +28,7 @@ pub fn set_active_workspace_root(dir: &str) {
         .get_or_init(|| Mutex::new(None))
         .lock()
     {
+        crate::session::watcher::seed_baseline_snapshot(&norm);
         *guard = Some(norm);
     }
 }
@@ -59,6 +60,8 @@ pub fn router() -> Router {
         .route("/api/sop/playbooks", get(handle_list_sop_playbooks))
         .route("/api/sop/execute", post(handle_execute_sop_playbook))
         .route("/api/reconcile/audit", post(handle_reconcile_audit))
+        .route("/api/desktop/folder-watch", post(handle_folder_watch))
+        .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -1263,5 +1266,29 @@ async fn handle_reconcile_audit(Json(payload): Json<Value>) -> impl IntoResponse
         .unwrap_or("reconcile_session");
 
     let res = crate::tool::reconcile::execute_audit_reconciliation(session_id, &workspace, &payload);
+    Json(res)
+}
+
+async fn handle_folder_watch(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let detect_all = payload.get("detect_all").and_then(|v| v.as_bool()).unwrap_or(false);
+    let res = crate::session::watcher::scan_workspace_directory(&workspace, detect_all);
+    Json(res)
+}
+
+async fn handle_folder_watch_ack(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let filenames = payload.get("filenames")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect::<Vec<String>>());
+    let res = crate::session::watcher::acknowledge_detected_documents(&workspace, filenames);
     Json(res)
 }

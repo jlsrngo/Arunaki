@@ -390,23 +390,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 153: Background Heartbeat & Project Folder Ingestion Monitor 🔄 [AG]
+### Phase 153: Background Heartbeat & Project Folder Ingestion Monitor ✅ DONE
 **Goal:** Membuat Arunaki proaktif memantau folder proyek aktif (tanpa menunggu perintah user di chat) untuk mendeteksi dokumen baru yang dimasukkan (faktur PDF baru, slip setoran, nota gambar) dan memberikan prompt manajerial.
 
 #### 153.1 Active Folder Watcher Daemon
-- [ ] Implementasikan file watcher asynchronous di backend Rust engine (`core/arunaki-engine/src/session/watcher.rs`) dengan debounce filter.
-- [ ] Identifikasi klasifikasi berkas baru otomatis (tipe dokumen: Invoice, Receipt, Bank Statement, Contract).
+- [x] Implementasikan file watcher asynchronous di backend Rust engine (`core/arunaki-engine/src/session/watcher.rs`) dengan debounce filter.
+- [x] Identifikasi klasifikasi berkas baru otomatis (tipe dokumen: Invoice, Receipt, Bank Statement, Contract).
 
 #### 153.2 Proactive Manager Notification & Ingestion Banner
-- [ ] Pancarkan event SSE `folder:documents-detected` ke UI.
-- [ ] Tampilkan banner proaktif di header workstation: *"3 dokumen faktur baru terdeteksi. Proses sekarang?"* dengan tombol aksi 1-klik.
+- [x] Pancarkan event SSE `folder:documents-detected` ke UI.
+- [x] Tampilkan banner proaktif di header workstation: *"3 dokumen faktur baru terdeteksi. Proses sekarang?"* dengan tombol aksi 1-klik.
 
 #### 153.3 End-to-End Verification
-- [ ] Uji drop file dummy ke folder aktif dan verifikasi deteksi otomatis serta notifikasi sistem.
+- [x] Uji drop file dummy ke folder aktif dan verifikasi deteksi otomatis serta notifikasi sistem.
 
 ---
 
-### Phase 154: Executive Summarizer & Multi-Format Synthesis (WordCraft & DeckCraft)
+### Phase 154: Executive Summarizer & Multi-Format Synthesis (WordCraft & DeckCraft) 🔄 [AG]
 **Goal:** Mengubah data numerik spreadsheet mentah menjadi Laporan Eksekutif 1 halaman di WordCraft dan slide ringkasan eksekutif 16:9 di DeckCraft untuk konsumsi Business Owner / Direktur.
 
 #### 154.1 Executive Synthesis Tool (`synthesize.rs`)

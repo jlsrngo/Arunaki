@@ -52,8 +52,9 @@ pub async fn init_engine_and_bind(
         );
     }
 
-    // 2. Start background Telegram bot polling if enabled
+    // 2. Start background Telegram bot polling & active folder ingestion watcher
     messaging::start_telegram_worker();
+    session::watcher::start_folder_watcher_daemon();
 
     // 3. Write dev-server-password if server password env is provided
     let srv_user = std::env::var("Arunaki_SERVER_USERNAME")
