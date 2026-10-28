@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { WorkstationLeftExplorer } from "../components/workstation/WorkstationLeftExplorer";
 import { SourceControlPanel } from "../components/workstation/source-control/SourceControlPanel";
+import { SopPlaybookPanel } from "../components/workstation/sop/SopPlaybookPanel";
 import { WorkstationActivityBar, SidebarView } from "../components/workstation/activity/WorkstationActivityBar";
 import { WorkstationCenterPanel } from "../components/workstation/WorkstationCenterPanel";
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
@@ -191,6 +192,18 @@ export function UnifiedWorkstationPage() {
                 onNativeFilesChange={setNativeFileNames}
                 recentCanvases={tabs.recentCanvases}
                 onOpenCanvasTab={tabs.handleOpenCanvasTab}
+              />
+            )}
+
+            {activeSidebarView === "sop" && (
+              <SopPlaybookPanel
+                activeFolder={activeFolder}
+                onOpenFileTab={(path) =>
+                  tabs.handleOpenFileTab(path, path.split("/").pop() || path)
+                }
+                refetchFiles={refetchFiles}
+                onClose={handleCloseLeft}
+                width="var(--left-panel-width)"
               />
             )}
           </>

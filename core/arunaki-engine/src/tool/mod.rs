@@ -13,6 +13,7 @@ pub mod zen;
 pub mod open_app;
 pub mod question;
 pub mod read;
+pub mod sop;
 pub mod todo;
 pub mod websearch;
 pub mod write;
@@ -46,6 +47,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.push(image_ocr::image_ocr_tool_definition());
     defs.extend(doc_com::doc_com_tool_definitions());
     defs.extend(zen::zen_tool_definitions());
+    defs.extend(sop::sop_tool_definitions());
     defs
 }
 
@@ -129,6 +131,12 @@ pub async fn execute_tool_call(
         }
         "arunakizen_void_sale_order" | "zen_void_order" | "pos_void_order" | "void_sale_order" | "arunakizen_cancel_sale_order" => {
             zen::execute_void_sale_order(arguments).await
+        }
+        "list_sop_playbooks" | "get_sop_playbooks" | "sop_list" => {
+            sop::execute_list_sop_playbooks(arguments)
+        }
+        "execute_sop_playbook" | "run_sop" | "run_sop_playbook" => {
+            sop::execute_sop_playbook(session_id, workspace_dir, arguments)
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await

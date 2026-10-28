@@ -1,9 +1,9 @@
 import { memo } from "react";
-import { Files, GitBranch, Search } from "lucide-react";
+import { Files, GitBranch, Search, ClipboardCheck } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 
-export type SidebarView = "explorer" | "source-control" | "search";
+export type SidebarView = "explorer" | "source-control" | "search" | "sop";
 
 interface WorkstationActivityBarProps {
   activeView: SidebarView;
@@ -90,6 +90,25 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
             <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
           )}
           <Search className="w-5 h-5 stroke-[1.6]" />
+        </button>
+
+        {/* SOP Playbooks Button (Administration Manager) */}
+        <button
+          type="button"
+          onClick={() => onSelectView("sop")}
+          className={cn(
+            "w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer relative group",
+            isTabActive("sop")
+              ? "text-white bg-[var(--bg-hover)] shadow-xs"
+              : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
+          )}
+          title={t("sopPlaybooks", "SOP Playbooks")}
+          aria-label={t("sopPlaybooks", "SOP Playbooks")}
+        >
+          {isTabActive("sop") && (
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
+          )}
+          <ClipboardCheck className="w-5 h-5 stroke-[1.6]" />
         </button>
       </div>
     </aside>

@@ -1,0 +1,9 @@
+Use this tool to list available administrative SOP (Standard Operating Procedure) playbooks or execute an automated multi-step administrative workflow.
+As an Administration Manager, Arunaki uses SOP Playbooks to execute end-to-end operational routines autonomously (such as Daily Cash Closing, Supplier Invoice Verification, and Monthly Administrative Archiving) rather than requiring manual step-by-step instructions.
+
+Available playbooks:
+- `daily_cash_closing`: Closes daily sales and register shifts, writes revenue breakdown to Excel (`rekap_kas_harian.xlsx`), and generates an official manager sign-off memorandum in WordCraft (`memo_tutup_kas.docx`).
+- `supplier_invoice_verification`: Scans and extracts vendor invoices in the active project folder, cross-references accounts payable, and generates payment voucher drafts.
+- `monthly_administrative_archive`: Catalogs all monthly ledger and document files, computes monthly totals, and produces an executive archive index.
+
+Call `list_sop_playbooks` to see detailed metadata and inputs, or call `execute_sop_playbook` with `playbook_id` and optional parameters.

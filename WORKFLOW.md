@@ -357,20 +357,20 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 151: SOP Playbook & Multi-Step Administrative Workflow Engine
+### Phase 151: SOP Playbook & Multi-Step Administrative Workflow Engine ✅ DONE
 **Goal:** Menghadirkan sistem Standard Operating Procedure (SOP) administratif resmi yang dapat dipanggil dan dieksekusi secara otonom oleh Arunaki dari hulu ke hilir (misal: SOP Tutup Buku Kasir Harian, SOP Penerimaan Invoice Supplier, SOP Arsip Bulanan).
 
 #### 151.1 Engine SOP Playbook Catalog & Tool (`sop.rs`)
-- [ ] Buat modul Rust `core/arunaki-engine/src/tool/sop.rs` dengan katalog playbook SOP terstandarisasi (definisi langkah berantai, input yang dibutuhkan, output berkas target).
-- [ ] Daftarkan tool resmi `list_sop_playbooks` dan `execute_sop_playbook` di `tool/mod.rs` dan system prompt.
-- [ ] Tambahkan parser langkah berantai otonom (eksekusi step-by-step: sinkronisasi POS ArunakiZen -> update GridCraft -> buat laporan memo WordCraft).
+- [x] Buat modul Rust `core/arunaki-engine/src/tool/sop.rs` dengan katalog playbook SOP terstandarisasi (definisi langkah berantai, input yang dibutuhkan, output berkas target).
+- [x] Daftarkan tool resmi `list_sop_playbooks` dan `execute_sop_playbook` di `tool/mod.rs` dan system prompt.
+- [x] Tambahkan parser langkah berantai otonom (eksekusi step-by-step: sinkronisasi POS ArunakiZen -> update GridCraft -> buat laporan memo WordCraft).
 
 #### 151.2 Workstation SOP Playbook UI Integration
-- [ ] Buat antarmuka visual SOP Playbook Drawer / Modal di Workstation (daftar template SOP resmi, status langkah berjalan, visualisasi progres).
-- [ ] Integrasikan trigger 1-klik di header Workstation dan aktivasi instan melalui chat perintah ringkas (`"Jalankan SOP Tutup Buku Kasir"`).
+- [x] Buat antarmuka visual SOP Playbook Drawer / Modal di Workstation (daftar template SOP resmi, status langkah berjalan, visualisasi progres).
+- [x] Integrasikan trigger 1-klik di header Workstation dan aktivasi instan melalui chat perintah ringkas (`"Jalankan SOP Tutup Buku Kasir"`).
 
 #### 151.3 End-to-End Verification
-- [ ] Validasi eksekusi SOP berantai dari terminal dan UI dengan pembuatan berkas rekap `.xlsx` dan draf `.docx` nyata di folder aktif.
+- [x] Validasi eksekusi SOP berantai dari terminal dan UI dengan pembuatan berkas rekap `.xlsx` dan draf `.docx` nyata di folder aktif.
 
 ---
 
