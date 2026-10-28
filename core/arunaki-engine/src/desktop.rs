@@ -1420,6 +1420,21 @@ async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse 
     tokio::task::spawn_blocking(move || {
         #[cfg(windows)]
         {
+            const ARUNAKI_ICON_BYTES: &[u8] = include_bytes!("../../../src-tauri/icons/128x128.png");
+            let icon_path = std::env::var("LOCALAPPDATA")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|_| std::env::temp_dir())
+                .join("Arunaki")
+                .join("arunaki-logo.png");
+            if let Some(parent) = icon_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if !icon_path.exists() {
+                let _ = std::fs::write(&icon_path, ARUNAKI_ICON_BYTES);
+            }
+            let icon_win_path = icon_path.to_string_lossy().to_string();
+            let icon_file_uri = format!("file:///{}", icon_win_path.replace('\\', "/"));
+
             let xml_escape = |s: &str| -> String {
                 s.replace('&', "&amp;")
                     .replace('<', "&lt;")
@@ -1430,18 +1445,22 @@ async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse 
             let ps_escape = |s: &str| -> String { s.replace('\'', "''") };
             let t_xml = ps_escape(&xml_escape(&title));
             let b_xml = ps_escape(&xml_escape(&body));
+            let icon_win_escaped = ps_escape(&icon_win_path);
+            let icon_uri_escaped = ps_escape(&xml_escape(&icon_file_uri));
             let script = format!(
                 "try {{\n\
                     New-Item -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Force | Out-Null\n\
                     Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'DisplayName' -Value 'Arunaki Workstation' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'IconUri' -Value '{}' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'IconBackgroundColor' -Value '00000000' -Force\n\
                     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null\n\
                     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null\n\
                     $xml = New-Object Windows.Data.Xml.Dom.XmlDocument\n\
-                    $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual></toast>')\n\
+                    $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text><image placement=\"appLogoOverride\" src=\"{}\"/></binding></visual></toast>')\n\
                     $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\n\
                     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Arunaki.Workstation').Show($toast)\n\
                 }} catch {{}}",
-                t_xml, b_xml
+                icon_win_escaped, t_xml, b_xml, icon_uri_escaped
             );
             let _ = arunaki_docs::run_powershell_script("notify", &script);
         }
