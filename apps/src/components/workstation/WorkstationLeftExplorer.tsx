@@ -248,38 +248,42 @@ function WorkstationLeftExplorerComponent({
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteTarget(null);
           }}
-          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
+          className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
         >
-          <div className="bg-[#18181b] text-neutral-100 rounded-2xl max-w-[390px] w-full p-5 border border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-neutral-800/80 border border-neutral-700/60 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-rose-400" strokeWidth={1.75} />
+          <div className="bg-[#18181b] text-neutral-100 rounded-2xl max-w-[480px] w-full p-6 border border-[#27272a] shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center shrink-0 shadow-sm">
+                <Trash2 className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-white tracking-tight">
                   {t("deleteItemTitle", "Delete File")}
                 </h3>
-                <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
-                  {t("deleteItemDesc", "Are you sure you want to delete")} <span className="font-semibold text-white font-mono px-1 py-0.5 rounded bg-neutral-800/80 border border-neutral-700/50">"{deleteTarget.name}"</span>?
+                <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
+                  {t("deleteItemDesc", "Are you sure you want to delete")}{" "}
+                  <span className="font-semibold text-white font-mono px-1.5 py-0.5 rounded bg-[#27272a] border border-[#3f3f46] break-all">
+                    "{deleteTarget.name}"
+                  </span>
+                  ?
                 </p>
-                <p className="text-[11px] text-neutral-500 mt-1 leading-normal">
+                <p className="text-[11px] text-neutral-400 mt-1.5 leading-normal">
                   {t("deleteItemWarning", "This will permanently delete this item from your filesystem.")}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-5 pt-3.5 border-t border-neutral-800/80">
+            <div className="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-[#27272a]">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-neutral-300 hover:text-white bg-neutral-800/60 hover:bg-neutral-800 border border-neutral-700/60 transition-all cursor-pointer shadow-xs active:scale-95"
+                className="px-4 py-1.5 rounded-lg text-xs font-medium text-neutral-200 hover:text-white bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 {t("cancel", "Cancel")}
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t("deleteItemAction", "Delete")}</span>

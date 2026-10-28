@@ -8,8 +8,8 @@ import { usePanels, setPanel } from "../../../lib/panels";
 
 /** Returns the correct icon for ArtCraft app-type tabs, or falls back to file-extension icon */
 function getTabIcon(tab: CenterTab): ReactNode {
+  const iconClass = "w-3.5 h-3.5 shrink-0 object-contain rounded-xs";
   if (tab.type === "app") {
-    const iconClass = "w-3.5 h-3.5 shrink-0 object-contain rounded-xs";
     switch (tab.fileType) {
       case "wordcraft-app":
         return <img src="/artcraft/wordcraft/wordcraft.png" alt="WordCraft" className={iconClass} />;
@@ -20,6 +20,9 @@ function getTabIcon(tab: CenterTab): ReactNode {
       case "deckcraft-app":
         return <img src="/artcraft/deckcraft/deckcraft.png" alt="DeckCraft" className={iconClass} />;
     }
+  }
+  if (tab.type === "canvas") {
+    return <img src="/artcraft/wordcraft/wordcraft.png" alt="WordCraft Canvas" className={iconClass} />;
   }
   return getFileIcon(tab.path || tab.title);
 }

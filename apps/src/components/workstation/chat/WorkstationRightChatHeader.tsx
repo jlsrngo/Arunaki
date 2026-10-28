@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, type KeyboardEvent, type FocusEvent } from "react";
-import { Bot, Plus, PanelRightClose, Minimize2 } from "lucide-react";
+import { Bot, Plus, PanelRightClose, Minimize2, Maximize2, Loader2 } from "lucide-react";
 import { getSession } from "../../../lib/engine";
 import { API_BASE, apiFetch } from "../../../lib/api";
 import { useI18n } from "../../../lib/i18n";
@@ -136,13 +136,13 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
                 : t("compactSessionContext", "Compact Context (/compact)")
             }
           >
-            <Minimize2
-              className={cn(
-                "w-3.5 h-3.5 transition-colors",
-                (isCompacting || isCompacted) ? "text-[#f97316] animate-pulse" : "text-[var(--text-muted)]"
-              )}
-              strokeWidth={isCompacted ? 2 : 1.5}
-            />
+{isCompacting ? (
+              <Loader2 className="w-3.5 h-3.5 text-[#cf6613] animate-spin" />
+            ) : isCompacted ? (
+              <Maximize2 className="w-3.5 h-3.5 text-[#cf6613]" strokeWidth={1.8} />
+            ) : (
+              <Minimize2 className="w-3.5 h-3.5 text-[var(--text-muted)] hover:text-white" strokeWidth={1.5} />
+            )}
           </button>
         )}
         {onNewChat && (

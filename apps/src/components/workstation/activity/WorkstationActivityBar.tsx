@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Files, GitBranch, Search, Settings } from "lucide-react";
+import { Files, GitBranch, Search } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
 
@@ -10,7 +10,6 @@ interface WorkstationActivityBarProps {
   isCollapsed: boolean;
   onSelectView: (view: SidebarView) => void;
   changesCount?: number;
-  onOpenSettings?: () => void;
 }
 
 export const WorkstationActivityBar = memo(function WorkstationActivityBar({
@@ -18,7 +17,6 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
   isCollapsed,
   onSelectView,
   changesCount = 0,
-  onOpenSettings,
 }: WorkstationActivityBarProps) {
   const { t } = useI18n();
   const isTabActive = (view: SidebarView) => !isCollapsed && activeView === view;
@@ -92,19 +90,6 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
             <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
           )}
           <Search className="w-5 h-5 stroke-[1.6]" />
-        </button>
-      </div>
-
-      {/* Bottom Settings Icon */}
-      <div className="flex flex-col items-center pb-2 w-full">
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
-          title="Settings"
-          aria-label="Settings"
-        >
-          <Settings className="w-4 h-4 stroke-[1.6]" />
         </button>
       </div>
     </aside>

@@ -93,8 +93,8 @@ export function getFileIcon(name: string) {
     );
   }
 
-  // Word Documents (WordCraft)
-  if (["docx", "doc", "rtf", "odt"].includes(ext)) {
+  // Word Documents, Plain Text, Markdown & Canvas Documents (WordCraft Suite)
+  if (["docx", "doc", "rtf", "odt", "txt", "text", "md"].includes(ext)) {
     return (
       <img
         src="/artcraft/wordcraft/wordcraft.png"
@@ -170,8 +170,8 @@ export function getFileIcon(name: string) {
     );
   }
 
-  // Markdown / Plain Text / Logs (Soft Slate / Neutral)
-  if (["md", "txt", "log", "rtf"].includes(ext)) {
+  // System Logs & Terminal Output (Soft Slate / Neutral)
+  if (["log"].includes(ext)) {
     return (
       <FileText
         className="w-3.5 h-3.5 text-slate-500/85 dark:text-zinc-400/80 shrink-0"

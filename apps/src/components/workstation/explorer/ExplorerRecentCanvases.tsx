@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { ChevronDown, PanelsTopLeft, ReceiptText, ShoppingBag } from "lucide-react";
+import { ChevronDown, PanelsTopLeft } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { CanvasItem } from "./types";
 
@@ -22,28 +22,12 @@ export function formatCanvasTitle(title: string): string {
   return clean || "Document Canvas";
 }
 
-function getCanvasIcon(title: string) {
-  const lower = title.toLowerCase();
-  if (lower.includes("struk") || lower.includes("receipt") || lower.includes("invoice")) {
-    return (
-      <ReceiptText
-        className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
-        strokeWidth={1.5}
-      />
-    );
-  }
-  if (lower.includes("order") || lower.includes("pesanan") || lower.includes("sales")) {
-    return (
-      <ShoppingBag
-        className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
-        strokeWidth={1.5}
-      />
-    );
-  }
+function getCanvasIcon(_title: string) {
   return (
-    <PanelsTopLeft
-      className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] shrink-0 transition-colors"
-      strokeWidth={1.5}
+    <img
+      src="/artcraft/wordcraft/wordcraft.png"
+      alt="WordCraft Canvas"
+      className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
     />
   );
 }
