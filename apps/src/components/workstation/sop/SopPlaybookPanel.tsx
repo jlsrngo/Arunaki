@@ -124,7 +124,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [executingId, setExecutingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null | undefined>(undefined);
   const [showGuide, setShowGuide] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -168,8 +168,8 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
         const data = await response.json();
         if (data && Array.isArray(data.playbooks)) {
           setPlaybooks(data.playbooks);
-          if (data.playbooks.length > 0 && !expandedId) {
-            setExpandedId(data.playbooks[0].id);
+          if (data.playbooks.length > 0) {
+            setExpandedId((prev) => (prev === undefined ? data.playbooks[0].id : prev));
           }
         }
       }
@@ -178,7 +178,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
     } finally {
       setLoading(false);
     }
-  }, [activeFolder, expandedId]);
+  }, [activeFolder]);
 
   useEffect(() => {
     fetchPlaybooks();
@@ -909,7 +909,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                       {pb.title}
                     </h4>
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5 text-[var(--text-muted)]">
+                  <div className="flex items-center gap-1.5 mt-0.5 shrink-0">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -917,14 +917,15 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                         handleStartEditPlaybook(pb);
                       }}
                       className={cn(
-                        "w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer",
+                        "h-6 px-2 rounded border text-[10px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
                         editingId === pb.id
-                          ? "bg-[#cf6613] text-white"
-                          : "text-[var(--text-dim)] hover:text-white hover:bg-[var(--bg-hover)]"
+                          ? "bg-[#cf6613] border-[#cf6613] text-white"
+                          : "bg-[var(--bg-panel)] border-[var(--border-strong)] text-white hover:bg-[#cf6613] hover:border-[#cf6613]"
                       )}
                       title="Edit Playbook"
                     >
                       <Pencil className="w-3 h-3" />
+                      <span>Edit</span>
                     </button>
                     <button
                       type="button"
@@ -932,16 +933,26 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                         e.stopPropagation();
                         handleDeletePlaybook(pb.id, pb.title);
                       }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-[var(--text-dim)] hover:text-rose-500 hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                      className="w-6 h-6 rounded border border-[var(--border-strong)] bg-[var(--bg-panel)] flex items-center justify-center text-white/80 hover:text-white hover:bg-rose-600 hover:border-rose-500 transition-colors cursor-pointer"
                       title="Delete Playbook"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedId(isExpanded ? null : pb.id);
+                      }}
+                      className="w-6 h-6 rounded border border-[var(--border-strong)] bg-[var(--bg-panel)] flex items-center justify-center text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                      title={isExpanded ? "Collapse Steps" : "Expand Steps"}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
