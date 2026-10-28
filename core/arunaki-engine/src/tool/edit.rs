@@ -53,6 +53,9 @@ pub fn execute_edit(session_id: &str, workspace_dir: &str, arguments: &Value) ->
         return json!({ "error": "Target string cannot be empty." });
     }
 
+    if crate::tool::governance::is_document_locked(workspace_dir, fp) {
+        return json!({ "error": format!("Document Governance Lock: '{}' is marked FINAL_LOCKED and is read-only. Unlock via manage_document_governance before editing.", fp) });
+    }
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => match std::fs::read_to_string(&p) {
             Ok(content) => {

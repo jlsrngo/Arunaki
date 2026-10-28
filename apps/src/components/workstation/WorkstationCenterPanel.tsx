@@ -348,6 +348,7 @@ function WorkstationCenterPanelComponent({
         <CenterBreadcrumbs
           folderName={folderName}
           tabTitle={activeTab.title}
+          activeFolder={activeFolder}
           appName={
             activeTab.fileType === "wordcraft-app"
               ? "WordCraft"

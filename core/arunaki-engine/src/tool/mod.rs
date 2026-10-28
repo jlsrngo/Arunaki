@@ -6,6 +6,7 @@ pub mod doc_com;
 pub mod doc_read;
 pub mod edit;
 pub mod glob;
+pub mod governance;
 pub mod grep;
 pub mod image_ocr;
 pub mod zen;
@@ -52,6 +53,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.extend(sop::sop_tool_definitions());
     defs.extend(reconcile::reconcile_tool_definitions());
     defs.extend(synthesize::synthesize_tool_definitions());
+    defs.extend(governance::governance_tool_definitions());
     defs
 }
 
@@ -147,6 +149,9 @@ pub async fn execute_tool_call(
         }
         "generate_executive_summary" | "executive_summary" | "synthesize_executive" => {
             synthesize::execute_generate_executive_summary(session_id, workspace_dir, arguments)
+        }
+        "manage_document_governance" | "document_governance" | "stamp_document" => {
+            governance::execute_manage_governance(session_id, workspace_dir, arguments)
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await

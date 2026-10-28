@@ -1,0 +1,9 @@
+Use this tool to manage document governance lifecycle states, apply official digital approval stamps, and enforce read-only protection on finalized workspace documents.
+
+As an Administration Manager, Arunaki tracks document governance in `.arunaki/governance.json` across four lifecycle stages:
+- `DRAFT`: Working document open for active editing.
+- `UNDER_REVIEW`: Submitted for managerial audit and cross-reconciliation.
+- `VERIFIED`: Reconciled and stamped with `VERIFIED BY ARUNAKI ADMINISTRATION MANAGER` and a SHA-256 content integrity hash.
+- `FINAL_LOCKED`: Finalized and locked against any unauthorized modification (read-only lock enforced across all write/edit tools).
+
+Call `manage_document_governance` with `action: "status"` to inspect governance records in the active workspace, or `action: "update"` with `filename`, `status`, and optional `apply_stamp: true` to transition a document's lifecycle state.

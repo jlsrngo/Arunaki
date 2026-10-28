@@ -61,6 +61,7 @@ pub fn router() -> Router {
         .route("/api/sop/execute", post(handle_execute_sop_playbook))
         .route("/api/reconcile/audit", post(handle_reconcile_audit))
         .route("/api/executive/synthesize", post(handle_executive_synthesize))
+        .route("/api/governance/manage", post(handle_governance_manage))
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/quit", post(handle_quit))
@@ -1303,5 +1304,17 @@ async fn handle_executive_synthesize(Json(payload): Json<Value>) -> impl IntoRes
         .and_then(|v| v.as_str())
         .unwrap_or("executive_session");
     let res = crate::tool::synthesize::execute_generate_executive_summary(session_id, &workspace, &payload);
+    Json(res)
+}
+async fn handle_governance_manage(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let session_id = payload.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("governance_session");
+    let res = crate::tool::governance::execute_manage_governance(session_id, &workspace, &payload);
     Json(res)
 }

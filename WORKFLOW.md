@@ -421,23 +421,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 155: Document Governance, Lifecycle & Digital Approval Stamping 🔄 [AG]
+### Phase 155: Document Governance, Lifecycle & Digital Approval Stamping ✅ DONE
 **Goal:** Menghadirkan tata kelola status dokumen (`Draft` -> `Under Review` -> `Verified & Reconciled` -> `Final Locked`) dengan cap stempel digital manajerial resmi dan proteksi berkas read-only.
 
 #### 155.1 Document Metadata & Digital Stamping Engine
-- [ ] Implementasikan metadata sidecar dokumen `.arunaki/governance.json` untuk mencatat lifecycle, riwayat reviewer, tanggal verifikasi, dan hash integritas berkas.
-- [ ] Fitur digital stamping administratif pada WordCraft & GridCraft: stempel resmi *"VERIFIED BY ARUNAKI ADMINISTRATION MANAGER"*.
+- [x] Implementasikan metadata sidecar dokumen `.arunaki/governance.json` untuk mencatat lifecycle, riwayat reviewer, tanggal verifikasi, dan hash integritas berkas.
+- [x] Fitur digital stamping administratif pada WordCraft & GridCraft: stempel resmi *"VERIFIED BY ARUNAKI ADMINISTRATION MANAGER"*.
 
 #### 155.2 Governance Status Badges in Explorer & Center Tabs
-- [ ] Render badge status dokumen di header tab dan sebelah nama file di File Explorer.
-- [ ] Kunci pengeditan (read-only lock) jika dokumen telah berstatus `Final Locked`.
+- [x] Render badge status dokumen di header tab dan sebelah nama file di File Explorer.
+- [x] Kunci pengeditan (read-only lock) jika dokumen telah berstatus `Final Locked`.
 
 #### 155.3 End-to-End Verification
-- [ ] Uji siklus perubahan status dokumen dari Draft hingga Final Locked beserta proteksi mutasi.
+- [x] Uji siklus perubahan status dokumen dari Draft hingga Final Locked beserta proteksi mutasi.
 
 ---
 
-### Phase 156: Telegram Bot Dispatcher & Remote Administrative Alerts
+### Phase 156: Telegram Bot Dispatcher & Remote Administrative Alerts 🔄 [AG]
 **Goal:** Mengintegrasikan Telegram Bot resmi (bebas biaya API / 100% free) untuk mengirimkan ringkasan laporan harian, rekap kas, dan alert selisih manajerial langsung ke ponsel Business Owner atau grup manajemen.
 
 #### 156.1 Telegram Dispatcher Engine (`telegram.rs`)

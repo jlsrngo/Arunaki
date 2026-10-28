@@ -37,6 +37,9 @@ pub fn execute_write(session_id: &str, workspace_dir: &str, arguments: &Value) -
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
+    if crate::tool::governance::is_document_locked(workspace_dir, fp) {
+        return json!({ "error": format!("Document Governance Lock: '{}' is marked FINAL_LOCKED and is read-only. Unlock via manage_document_governance before editing.", fp) });
+    }
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => {
             let before_content = std::fs::read_to_string(&p).unwrap_or_default();
