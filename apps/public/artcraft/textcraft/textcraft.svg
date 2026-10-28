@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="textBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0891b2" />
+    </linearGradient>
+    <linearGradient id="textCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ecfeff" />
+    </linearGradient>
+    <filter id="textShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- App Squircle Badge -->
+  <rect width="256" height="256" rx="54" fill="url(#textBg)" />
+  <rect x="1.5" y="1.5" width="253" height="253" rx="52.5" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3" />
+
+  <!-- Notepad White Card -->
+  <rect x="48" y="44" width="160" height="168" rx="18" fill="url(#textCard)" filter="url(#textShadow)" />
+
+  <!-- Text Document Lines -->
+  <rect x="68" y="68" width="120" height="16" rx="5" fill="#0891b2" />
+  <rect x="68" y="94" width="98" height="14" rx="4" fill="#0e7490" fill-opacity="0.85" />
+  <rect x="68" y="118" width="120" height="14" rx="4" fill="#0e7490" fill-opacity="0.85" />
+  <rect x="68" y="142" width="76" height="14" rx="4" fill="#0e7490" fill-opacity="0.85" />
+
+  <!-- TXT Badge Pill -->
+  <rect x="118" y="166" width="70" height="26" rx="7" fill="#0891b2" />
+  <text x="153" y="184.5" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">TXT</text>
+</svg>

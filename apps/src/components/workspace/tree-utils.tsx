@@ -93,12 +93,34 @@ export function getFileIcon(name: string) {
     );
   }
 
-  // Word Documents, Plain Text, Markdown & Canvas Documents (WordCraft Suite)
-  if (["docx", "doc", "rtf", "odt", "txt", "text", "md"].includes(ext)) {
+  // Word Documents (WordCraft - Royal Blue)
+  if (["docx", "doc", "rtf", "odt"].includes(ext)) {
     return (
       <img
         src="/artcraft/wordcraft/wordcraft.png"
         alt="WordCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
+      />
+    );
+  }
+
+  // Plain Text Documents (TextCraft - Ocean Teal/Cyan)
+  if (["txt", "text"].includes(ext)) {
+    return (
+      <img
+        src="/artcraft/textcraft/textcraft.svg"
+        alt="TextCraft"
+        className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
+      />
+    );
+  }
+
+  // Markdown Documents (MarkdownCraft - Slate Graphite)
+  if (["md"].includes(ext)) {
+    return (
+      <img
+        src="/artcraft/markdowncraft/markdowncraft.svg"
+        alt="MarkdownCraft"
         className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
       />
     );

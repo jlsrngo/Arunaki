@@ -22,7 +22,7 @@ function getTabIcon(tab: CenterTab): ReactNode {
     }
   }
   if (tab.type === "canvas") {
-    return <img src="/artcraft/wordcraft/wordcraft.png" alt="WordCraft Canvas" className={iconClass} />;
+    return <img src="/artcraft/canvascraft/canvascraft.svg" alt="CanvasCraft" className={iconClass} />;
   }
   return getFileIcon(tab.path || tab.title);
 }

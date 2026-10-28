@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="canvasBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#6d28d9" />
+    </linearGradient>
+    <linearGradient id="canvasCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f5f3ff" />
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- App Squircle Badge -->
+  <rect width="256" height="256" rx="54" fill="url(#canvasBg)" />
+  <rect x="1.5" y="1.5" width="253" height="253" rx="52.5" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3" />
+
+  <!-- Canvas White Card -->
+  <rect x="48" y="44" width="160" height="168" rx="18" fill="url(#canvasCard)" filter="url(#cardShadow)" />
+
+  <!-- Canvas Layout Structure -->
+  <!-- Header Bar -->
+  <rect x="66" y="64" width="124" height="22" rx="6" fill="#7c3aed" />
+
+  <!-- Main Workstation Panel (Hero) -->
+  <rect x="66" y="96" width="72" height="66" rx="8" fill="#8b5cf6" fill-opacity="0.9" />
+
+  <!-- Sidebar Blocks -->
+  <rect x="146" y="96" width="44" height="30" rx="6" fill="#a78bfa" />
+  <rect x="146" y="132" width="44" height="30" rx="6" fill="#c4b5fd" />
+
+  <!-- Bottom Data Strip -->
+  <rect x="66" y="170" width="124" height="16" rx="5" fill="#ddd6fe" />
+</svg>

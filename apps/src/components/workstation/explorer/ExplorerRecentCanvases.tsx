@@ -25,8 +25,8 @@ export function formatCanvasTitle(title: string): string {
 function getCanvasIcon(_title: string) {
   return (
     <img
-      src="/artcraft/wordcraft/wordcraft.png"
-      alt="WordCraft Canvas"
+      src="/artcraft/canvascraft/canvascraft.svg"
+      alt="CanvasCraft"
       className="w-3.5 h-3.5 object-contain rounded-xs shrink-0"
     />
   );

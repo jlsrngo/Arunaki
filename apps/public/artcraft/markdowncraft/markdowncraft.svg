@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="mdBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="mdCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f8fafc" />
+    </linearGradient>
+    <filter id="mdShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- App Squircle Badge -->
+  <rect width="256" height="256" rx="54" fill="url(#mdBg)" />
+  <rect x="1.5" y="1.5" width="253" height="253" rx="52.5" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3" />
+
+  <!-- Markdown White Card -->
+  <rect x="48" y="44" width="160" height="168" rx="18" fill="url(#mdCard)" filter="url(#mdShadow)" />
+
+  <!-- Markdown Symbol -->
+  <!-- M Shape -->
+  <path d="M 68 84 L 84 84 L 98 108 L 112 84 L 128 84 L 128 140 L 114 140 L 114 104 L 102 124 L 94 124 L 82 104 L 82 140 L 68 140 Z" fill="#334155" />
+  
+  <!-- Down Arrow Shape -->
+  <path d="M 160 84 L 160 118 L 174 118 L 150 144 L 126 118 L 140 118 L 140 84 Z" fill="#334155" />
+
+  <!-- MD Badge Pill -->
+  <rect x="124" y="166" width="64" height="26" rx="7" fill="#334155" />
+  <text x="156" y="184.5" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">MD</text>
+</svg>
