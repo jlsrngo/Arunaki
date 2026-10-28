@@ -1,21 +1,13 @@
-Delete / Void (cancel and permanently remove) an existing cashier sales invoice in ArunakiZen.
+Void (permanently cancel and delete) an existing sales invoice in ArunakiZen.
 
 Capabilities:
-- Permanently deletes and rolls back the invoice atomically.
-- Restores item quantities back to store inventory (`UPDATE barang SET toko = toko + qty`).
-- Reverts cash drawer inflows from cashier drawer balance (`UPDATE kas SET saldo = saldo - cash`).
-- Logs supervisor audit trail.
-
-CRITICAL RULE — EDIT VS DELETE (VOID) IN ARUNAKIZEN:
-- In ArunakiZen, **EDITING an order (`edit_f_penjualan_toko`) is OPEN to Cashiers without any password** (equivalent to double-clicking the order or pressing the Edit button in ArunakiZen).
-- By contrast, **DELETING / VOIDING an order (`hapus_f_penjualan_toko` / `delete_jual_via_password`) is RESTRICTED and requires Supervisor Password authorization**!
-- Therefore:
-  1. If the user wants to **EDIT, REVISE, CHANGE ITEM, or CHANGE QTY** on an existing order, **DO NOT call `arunakizen_void_sale_order`!** Instead, call `arunakizen_edit_sale_order` (or `arunakizen_create_sale_order` with `invoice: "R43-..."` and `is_edit: true`).
-  2. ONLY call `arunakizen_void_sale_order` when the user explicitly asks to **DELETE / HAPUS / BATALKAN TOTAL** an invoice without replacing it.
+- Cancels the invoice, restores item quantities to store inventory, and reverts cash drawer inflows.
+- Requires supervisor authorization (`supervisor_user` and `supervisor_password`).
+- Use `arunakizen_edit_sale_order` instead when modifying or revising items on an existing invoice.
 
 Parameters:
-- `invoice` (required): The invoice number to delete/void (e.g. "R43-241026007"). Can also be passed as `faktur`.
-- `reason` (optional): Reason for voiding (e.g. "Cancelled by customer").
-- `operator` (optional): Cashier or operator name. Defaults to active user.
-- `supervisor_user` (optional): Supervisor username/code (e.g. "MASTER" or supervisor code) if supervisor authorization is required for deletion.
-- `supervisor_password` (optional): Supervisor password if required for deletion.
+- `invoice` (required): The invoice number to void.
+- `reason` (optional): Reason for voiding.
+- `operator` (optional): Operator name.
+- `supervisor_user` (optional): Supervisor username/code.
+- `supervisor_password` (optional): Supervisor password.

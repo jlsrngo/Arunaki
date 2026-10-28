@@ -188,14 +188,14 @@ mod tests {
             file_path: Some("report.docx".to_string()),
             text: None,
             paragraph_index: None,
-            find_text: Some("[NAMA]".to_string()),
-            replace_text: Some("Budi".to_string()),
+            find_text: Some("[NAME]".to_string()),
+            replace_text: Some("Alice".to_string()),
             bold: None,
             font_size: None,
             alignment: None,
         });
-        assert!(word_replace.contains("$find.Text = '[NAMA]'"));
-        assert!(word_replace.contains("$find.Replacement.Text = 'Budi'"));
+        assert!(word_replace.contains("$find.Text = '[NAME]'"));
+        assert!(word_replace.contains("$find.Replacement.Text = 'Alice'"));
         assert!(word_replace.contains("OK:replace"));
     }
 

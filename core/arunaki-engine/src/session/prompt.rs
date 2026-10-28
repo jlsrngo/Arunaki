@@ -288,79 +288,20 @@ pub async fn run_agent_turn(
         }),
     );
 
-    // 1. Base system prompt from prompt/default.txt
+    // 1. Base system prompt from prompt/default.txt + environment block (OpenCode SystemPrompt.environment parity)
     let base_prompt_template = include_str!("prompt/default.txt");
     let mut sys_prompt = format!(
-        "{}\n\n# Active Workspace\nYou are operating strictly inside the active project folder: {}\n\
-        All file operations must be isolated to this directory.",
-        base_prompt_template,
-        workspace_dir
+        "{}\n\nHere is some useful information about the environment you are running in:\n\
+        <env>\n\
+          Working directory: {}\n\
+          Platform: {}\n\
+        </env>",
+        base_prompt_template.trim(),
+        workspace_dir,
+        std::env::consts::OS
     );
 
-    // 2. ArunakiZen Retail Integration (if configured)
-    let pos_cfg = crate::tool::zen::load_zen_config();
-    let pos_user = if pos_cfg.username.is_empty() {
-        "Cashier Operator".to_string()
-    } else {
-        pos_cfg.username.clone()
-    };
-    sys_prompt.push_str(&format!(
-        "\n\n<arunakizen>\n\
-        # ArunakiZen Retail & Transaction Integration\n\
-        Arunaki is connected to the local ArunakiZen server at: {}\n\
-        Active Operator: {}\n\
-        \n\
-        Available ArunakiZen Tools:\n\
-        - `arunakizen_search_product`: Search retail product catalog by barcode, SKU, or name to find official items and prices.\n\
-        - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
-        - `arunakizen_edit_sale_order`: Edit/revise an EXISTING invoice in place (same R43 number, is_edit: true): change items, quantities, payment amount, or add shipping lines.\n\
-        - `arunakizen_void_sale_order`: Void (cancel and rollback) an existing cashier sales invoice (R43). Requires supervisor password in ArunakiZen; prefer `arunakizen_edit_sale_order` for revisions.\n\
-        - `arunakizen_print_receipt`: Print an official customer receipt on the physical thermal printer and kick open the cash drawer.\n\
-        - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
-        - `question`: Interactive clarification tool. Use this to ask the user to confirm product typos, ambiguities, or missing catalog items.\n\
-        \n\
-        CRITICAL ARUNAKIZEN INSTRUCTIONS:\n\
-        1. When user inputs sales orders, clothing/apparel items with quantities/prices (e.g. 'KPM POLO BLACK L 18...', 'NSA LONGSLEEVE...'), or asks to 'print invoice', 'print receipt', or 'create transaction':\n\
-           - Record the official retail transaction in ArunakiZen with `arunakizen_create_sale_order`.\n\
-           - Match products with `arunakizen_search_product` and record the official retail transaction with `arunakizen_create_sale_order`.\n\
-           - If user requests to print receipt/invoice, call `arunakizen_print_receipt` with the invoice number.\n\
-           - ALWAYS format the order/invoice breakdown cleanly inside [CANVAS]...[/CANVAS] tags so it opens interactively in the user's Canvas editor!\n\
-        \n\
-        2. STRICT NO-SUBSTITUTION RULE & TYPO CONFIRMATION (CRITICAL):\n\
-           - NEVER invent, substitute, or replace any product code or color on your own without explicit user consent (e.g. NEVER substitute 'MAROON' for 'CARLONE' just because prices match)!\n\
-           - If `arunakizen_search_product` returns 0 results or provides typo suggestions (e.g. 'CARLONE' -> suggested 'CAROLINE BLUE'), you MUST call the `question` tool to ask the user to confirm the intended product before creating the sale order or printing!\n\
-           - Example question prompt: \"Product 'CARLONE XL' was not found. Did you mean 'NSA LONGSLEEVE CAROLINE BLUE XL'?\"\n\
-        \n\
-        3. PRODUCT DEDUPLICATION & LINE MERGING:\n\
-           - Identical items (same product code, size, and unit price) MUST be merged into a single line item with accumulated quantity (e.g. 1 pcs + 1 pcs = 2 pcs). Do NOT put identical items on separate lines unless prices or discounts differ.\n\
-        \n\
-        4. BATCH SEARCH (CRITICAL FOR FAST EXECUTION - ZERO REDUNDANT LOOPS):\n\
-           - When an order contains multiple products (e.g. 2 or more apparel lines), ALWAYS pass the `queries` array to `arunakizen_search_product` (e.g. `queries: [\"KPM POLO BLACK L\", \"KPM POLO MAROON XL\", \"NSA LONGSLEEVE BLACK XL\"]`) instead of calling the tool one-by-one!\n\
-           - This resolves ALL items in a single parallel call in milliseconds, completely preventing slow multiple-turn looping.\n\
-        \n\
-        5. STRICT NO-UNSOLICITED-NOTES RULE (CRITICAL):\n\
-           - NEVER auto-generate summaries, item lists, or filler text into the `notes` (memo/remarks) field of `arunakizen_create_sale_order`!\n\
-           - Leave `notes` completely empty (\"\") unless the user explicitly commanded a specific memo to be recorded on the invoice (e.g. 'leave with security guard', 'dropship for customer Budi').\n\
-        \n\
-        6. ORDER REVISION (CRITICAL - PREVENT DUPLICATE INVOICES):\n\
-           - If an invoice was already created earlier in the conversation (e.g. invoice R43-241026007), and the user now asks to correct, revise, replace an item, or update payment:\n\
-           - Call `arunakizen_edit_sale_order` with the SAME invoice number and the full corrected item list / payment. Do NOT create a new duplicate order.\n\
-           - Only use `arunakizen_void_sale_order` when the user explicitly wants to cancel/delete the transaction.\n\
-        \n\
-        8. STRICT NO-FAKE-ACTION RULE (CRITICAL - ZERO HALLUCINATED POS ACTIONS):\n\
-           - NEVER say a receipt was printed, the cash drawer opened, an invoice was created, edited, revised, or voided unless you called the corresponding `arunakizen_*` tool IN THIS TURN and it returned success.\n\
-           - Previous assistant messages in history are NOT proof that an action happened now. Each new request to print a receipt, modify an order, or open the cash drawer requires a NEW tool call.\n\
-           - If the tool returns an error or `spooled: false`, report the failure honestly.\n\
-        \n\
-        7. STRICT NO-EMOJI RULE (CRITICAL):\n\
-           - NEVER include emojis (e.g. 🧾, 📄, 🛒, ⚠️, 📦, 💰, ✨) in order headings, markdown titles, receipt text, canvas titles, or invoice outputs.\n\
-           - Always output clean, professional, plain alphanumeric text with standard markdown formatting.\n\
-        </arunakizen>\n",
-        pos_cfg.host_url,
-        pos_user
-    ));
-
-    // 2. Living Workspace Memory (Cartographer & Sentinel: ARUNAKI.md)
+    // 2. Workspace Instruction File (.arunaki/ARUNAKI.md)
     let living_mem = crate::session::memory::get_living_memory_for_workspace(workspace_dir);
     if !living_mem.trim().is_empty() {
         sys_prompt.push_str("\n\n<living_memory>\n");
@@ -445,15 +386,21 @@ pub async fn run_agent_turn(
             // Standard OpenCode / OpenAI Message Structure:
             // 1. Assistant message with tool_calls (if any tools were invoked)
             // 2. Tool response messages for each tool call
-            // 3. Final assistant text message (if any summary was generated)
+            // 3. Final assistant text message AFTER tool outputs (preserving strict user/assistant alternation)
             if !tool_calls.is_empty() {
                 chat_messages.push(json!({
                     "role": "assistant",
-                    "content": if clean_txt.is_empty() { Value::Null } else { Value::String(clean_txt.clone()) },
+                    "content": Value::Null,
                     "tool_calls": tool_calls
                 }));
                 for tr in tool_results {
                     chat_messages.push(tr);
+                }
+                if !clean_txt.is_empty() {
+                    chat_messages.push(json!({
+                        "role": "assistant",
+                        "content": clean_txt
+                    }));
                 }
             } else if !clean_txt.is_empty() {
                 chat_messages.push(json!({ "role": "assistant", "content": clean_txt }));
@@ -597,16 +544,9 @@ pub async fn run_agent_turn(
             "ai",
             &format!("⏳ Calling AI model '{}' (step {})...", model_id, _step + 1),
         );
-        let mut step_messages = chat_messages.clone();
-        if _step >= 6 {
-            step_messages.push(json!({
-                "role": "system",
-                "content": "Notice: Multiple tool operations have been performed. If all required document data has been gathered, do not re-read the same files. Conclude pending modifications immediately and provide the final answer and summary to the user."
-            }));
-        }
         let mut req_body = json!({
             "model": model_id,
-            "messages": step_messages,
+            "messages": chat_messages,
             "stream": false
         });
         if !tools_def.is_empty() {
@@ -933,20 +873,16 @@ mod tests {
     #[test]
     fn test_derive_session_title() {
         assert_eq!(
-            derive_session_title("KPM POLO BLACK\nL 18\n\nMAROON"),
-            "KPM POLO BLACK"
+            derive_session_title("Monthly Financial Overview\nSection 1"),
+            "Monthly Financial Overview"
         );
         assert_eq!(
-            derive_session_title("# Laporan Keuangan Harian"),
-            "Laporan Keuangan Harian"
+            derive_session_title("# Daily Revenue Summary"),
+            "Daily Revenue Summary"
         );
         assert_eq!(
-            derive_session_title("- cetak invoice toko"),
-            "cetak invoice toko"
-        );
-        assert_eq!(
-            derive_session_title("🧾 Struk — R43-241026010"),
-            "Struk — R43-241026010"
+            derive_session_title("- update spreadsheet totals"),
+            "update spreadsheet totals"
         );
         assert_eq!(
             derive_session_title(""),

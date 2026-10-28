@@ -801,7 +801,16 @@ async fn handle_get_pos_config() -> Response {
             return Json(json!({ "data": val })).into_response();
         }
     }
-    Json(json!({ "data": null })).into_response()
+    let discovered = crate::tool::zen::load_pos_config();
+    Json(json!({
+        "data": {
+            "hostUrl": discovered.host_url,
+            "apiKey": discovered.api_key,
+            "username": discovered.username,
+            "password": discovered.password
+        }
+    }))
+    .into_response()
 }
 
 async fn handle_save_pos_config(Json(body): Json<Value>) -> Response {
@@ -813,21 +822,9 @@ async fn handle_save_pos_config(Json(body): Json<Value>) -> Response {
 }
 
 async fn handle_pos_status() -> Response {
-    let p = arunaki_dot_dir().join("pos-config.json");
-    let mut url = "http://127.0.0.1:5000".to_string();
-    if let Ok(raw) = std::fs::read_to_string(&p) {
-        if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-            if let Some(u) = val.get("hostUrl").or_else(|| val.get("host_url")).and_then(|v| v.as_str()) {
-                if !u.is_empty() {
-                    url = u.to_string();
-                }
-            }
-        }
-    }
+    let discovered = crate::tool::zen::discover_live_pos_endpoint();
     Json(json!({
-        "data": {
-            "url": url
-        }
+        "data": discovered
     }))
     .into_response()
 }

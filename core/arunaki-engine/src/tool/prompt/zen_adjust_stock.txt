@@ -7,7 +7,7 @@ Capabilities:
 - Updates store inventory balance atomically.
 
 When to use:
-- The user requests to update, edit, or adjust inventory stock (e.g. "update DTF stock to 50", "adjust KPM Black store stock to 20 pcs", "correct physical stock of item 2410001 to 15").
+- The user requests to update, edit, or adjust inventory stock quantities.
 
 Parameters:
 - `item_code`: Unique SKU, barcode, or item code of the product.

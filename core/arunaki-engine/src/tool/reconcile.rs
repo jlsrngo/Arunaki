@@ -109,7 +109,7 @@ fn discover_workspace_records(base_dir: &Path, mode: &str) -> Vec<Value> {
             // Default realistic audit dataset with a deliberate discrepancy for demonstration if no prior file
             records.push(json!({
                 "reference_id": "CSH-2026-1028-A",
-                "description": "Morning Shift Register Sales (CANDANA)",
+                "description": "Morning Shift Register Sales",
                 "source_a": 1850.00,
                 "source_b": 1850.00,
                 "source_c": 1805.00

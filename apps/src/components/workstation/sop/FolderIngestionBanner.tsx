@@ -92,7 +92,7 @@ export const FolderIngestionBanner = memo(function FolderIngestionBanner({
           workspace_dir: activeFolder,
           session_id: "auto_ingestion_monitor",
           params: {
-            cashier_name: "CANDANA",
+            cashier_name: "OPERATOR",
             notes: `Auto-ingested ${pendingDocs.map((d) => d.filename).join(", ")}`,
           },
         }),

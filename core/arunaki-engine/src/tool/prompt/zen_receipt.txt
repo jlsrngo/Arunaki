@@ -12,4 +12,4 @@ Parameters:
 - `invoice`: Required official invoice number (e.g. 'R43-231026001').
 - `open_drawer`: Boolean flag indicating whether to kick the physical drawer open (default: true).
 - `printer`: Optional specific thermal printer device name (leave empty for system default).
-- `kasir`: Optional cashier operator name (e.g. 'Candana'). Defaults to the active paired cashier user.
+- `kasir`: Optional cashier operator name. Defaults to the active paired cashier user.

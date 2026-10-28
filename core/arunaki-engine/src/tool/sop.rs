@@ -880,7 +880,7 @@ pub fn execute_sop_playbook(
         .get("cashier_name")
         .or_else(|| params.get("cashier"))
         .and_then(|v| v.as_str())
-        .unwrap_or("CANDANA");
+        .unwrap_or("OPERATOR");
 
     let today = params
         .get("date")
@@ -1241,15 +1241,15 @@ mod tests {
         let initial = load_workspace_playbooks(workspace);
         assert!(initial.is_empty());
 
-        // Add real user files with rich internal headers/text to folder
+        // Add sample files with internal headers/text to folder
         fs::write(
-            temp_dir.join("LAPORAN-HARIAN.txt"),
-            "# Laporan Penjualan Kasir\nTunai: 2.500.000\nQRIS: 1.200.000",
+            temp_dir.join("daily_sales.txt"),
+            "# Daily Sales Summary\nCash: 2500\nCard: 1200",
         )
         .unwrap();
         fs::write(
-            temp_dir.join("REKAP-2026.csv"),
-            "Tanggal,Keterangan,Debit,Kredit,Saldo\n2026-10-28,Penjualan,3700000,0,3700000",
+            temp_dir.join("ledger_2026.csv"),
+            "Date,Description,Debit,Credit,Balance\n2026-10-28,Revenue,3700,0,3700",
         )
         .unwrap();
 
@@ -1258,8 +1258,8 @@ mod tests {
         assert_eq!(gen_res["status"], "success");
         let list = gen_res["playbooks"].as_array().unwrap();
         assert!(!list.is_empty());
-        assert!(list[0]["title"].as_str().unwrap().contains("LAPORAN-HARIAN.txt"));
-        assert!(list[0]["description"].as_str().unwrap().contains("Tanggal"));
+        assert!(list[0]["title"].as_str().unwrap().contains("daily_sales.txt"));
+        assert!(list[0]["description"].as_str().unwrap().contains("Date"));
 
         // Edit the generated playbook (passing its existing ID)
         let gen_id = list[0]["id"].as_str().unwrap().to_string();
@@ -1273,13 +1273,13 @@ mod tests {
                 "steps": [
                     {
                         "title": "Read Daily Notes",
-                        "description": "Read LAPORAN-HARIAN.txt",
-                        "target_file": "LAPORAN-HARIAN.txt"
+                        "description": "Read daily_sales.txt",
+                        "target_file": "daily_sales.txt"
                     },
                     {
                         "title": "Update Master Ledger",
-                        "description": "Write to REKAP-2026.csv",
-                        "target_file": "REKAP-2026.csv"
+                        "description": "Write to ledger_2026.csv",
+                        "target_file": "ledger_2026.csv"
                     }
                 ]
             }),

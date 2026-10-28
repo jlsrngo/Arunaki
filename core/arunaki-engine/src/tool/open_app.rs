@@ -21,11 +21,11 @@ pub fn open_app_tool_definition() -> Value {
                     },
                     "title": {
                         "type": "string",
-                        "description": "Optional title/document name (e.g. 'Kata-Kata Hari Ini', 'Laporan Keuangan', 'Project Proposal')."
+                        "description": "Optional title/document name (e.g. 'Daily Summary', 'Financial Report', 'Project Proposal')."
                     },
                     "path": {
                         "type": "string",
-                        "description": "Optional relative file path inside active project folder (e.g. 'kata_kata_hari_ini.docx', 'laporan.xlsx'). If provided, the document is linked to this file."
+                        "description": "Optional relative file path inside active project folder (e.g. 'summary.docx', 'report.xlsx'). If provided, the document is linked to this file."
                     },
                     "content": {
                         "type": "string",

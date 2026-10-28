@@ -1,28 +1,15 @@
-Execute or edit an atomic cashier retail sales transaction (official invoice R43) in ArunakiZen.
+Create a new retail sales order (invoice) in ArunakiZen.
 
 Capabilities:
-- Creates a new sales order OR edits an existing invoice in-place (`is_edit: true` + `invoice: "R43-..."`).
-- Deducts (or recalculates) stock quantities directly in local store inventory (`barang.toko`).
-- Records cash drawer inflow (`kas.saldo`) or electronic payment receivables.
-- Generates official sequence-numbered invoices (e.g. R43-231026001) or updates the existing invoice number when editing.
-- Calculates total sale amount, discounts, and customer change.
-
-When to use:
-- CREATE NEW ORDER: The user provides an instruction to record a retail sale or cashier transaction (e.g. "sell 1 DTF cash 50k", "record sales of 2 pcs uniform M").
-- EDIT / REVISE EXISTING ORDER (NO PASSWORD REQUIRED): The user requests to edit, revise, fix, or change an item/quantity on an existing order (e.g. "edit invoice R43-241026007 change maroon to caroline", "revisi order tadi ganti ukuran XL").
-  IMPORTANT: In ArunakiZen, Cashier level has `edit_f_penjualan_toko = True` (Edit is OPEN without password, equivalent to double-clicking an order or clicking Edit in ArunakiZen), whereas Delete/Void (`arunakizen_void_sale_order`) requires a Supervisor Password! Therefore, ALWAYS use `arunakizen_edit_sale_order` (or `arunakizen_create_sale_order` with `invoice` and `is_edit: true`) to revise an order — NEVER call `arunakizen_void_sale_order` to edit an order!
+- Creates a sales transaction and deducts item quantities from store inventory.
+- Records payment method and amount tendered.
+- Automatically merges duplicate item rows with identical code, price, and discount.
 
 Parameters:
-- `invoice` (optional): Existing invoice number (e.g. 'R43-241026007') when editing/revising an existing order. Leave empty for new orders.
-- `is_edit` (optional): Set to `true` when editing/revising an existing order so ArunakiZen updates the invoice in-place without requiring supervisor password.
-- `customer`: Customer/member ID. Use 'UMUM' for regular walk-in customers unless a specific member is mentioned.
-- `payment_method`: One of 'CASH', 'TRANSFER', 'QRIS', 'PIUTANG'. Default is 'CASH'.
-- `amount_paid`: Amount tendered by the buyer.
-- `items`: Array of items, each with `item_code` (unique SKU), `qty` (quantity), `price` (unit price), and optional `discount_percent`.
-- `notes`: STRICT: Leave completely empty ("") unless the user explicitly requested a specific memo/note (e.g. "note: leave with security guard"). Never auto-generate summaries or filler text into notes!
-
-Guidelines:
-- If item prices were not specified in the user prompt, search for the product first via `arunakizen_search_product` to retrieve its official price before submitting the order.
-- DEDUPLICATION: Always merge identical items (same `item_code` and `price`) into a single entry with combined `qty`. Do NOT send duplicate rows for the same product unless prices or discounts differ.
-- INTEGRITY: NEVER invent or substitute another product code if an item wasn't found in the catalog. Confirm with user first via `question`.
-- NO UNSOLICITED NOTES: Never fill `notes` with a summary of the order or products. Only pass text in `notes` if the customer or user explicitly commanded a specific memo.
+- `customer`: Customer or member code (default: 'UMUM').
+- `payment_method`: One of 'CASH', 'TRANSFER', 'QRIS', 'PIUTANG' (default: 'CASH').
+- `amount_paid`: Amount tendered by the customer.
+- `items`: Array of items (`item_code`, `qty`, `price`, optional `discount_percent`).
+- `notes`: Optional custom memo if explicitly requested by the user; otherwise leave empty ("").
+- `invoice` (optional): Existing invoice number if updating an order in place.
+- `is_edit` (optional): Set to `true` if updating an existing invoice.

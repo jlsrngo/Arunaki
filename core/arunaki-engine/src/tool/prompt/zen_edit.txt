@@ -1,0 +1,17 @@
+Edit or revise an existing cashier sales invoice (e.g. R43-241026007) in-place in ArunakiZen without requiring a supervisor password.
+
+Capabilities:
+- Updates an existing invoice in-place on the same invoice number using Cashier edit permissions (`edit_f_penjualan_toko`).
+- Automatically rolls back previous item stock quantities and applies the updated items list and payment amount.
+
+When to use:
+- The user asks to edit, revise, replace an item, change quantity, or update payment on an existing invoice created earlier.
+- Prefer this tool over `arunakizen_void_sale_order` whenever revising an order, because voiding/deleting requires a supervisor password whereas editing does not.
+
+Parameters:
+- `invoice` (required): Existing sales invoice number to edit (e.g. "R43-241026007").
+- `items` (required): Complete updated list of items for this invoice (`item_code`, `qty`, `price`, optional `discount_percent`).
+- `customer` (optional): Customer or member code (preserves existing customer if omitted).
+- `payment_method` (optional): One of "CASH", "TRANSFER", "QRIS", "PIUTANG" (default: "CASH").
+- `amount_paid` (optional): Amount tendered by customer.
+- `notes` (optional): Custom memo if explicitly requested by the user; otherwise leave empty ("").

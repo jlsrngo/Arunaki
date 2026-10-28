@@ -23,7 +23,7 @@ pub async fn handle_summarize(
         return Json(json!({
             "ok": true,
             "message": "No messages in session to summarize",
-            "summary": "Belum ada riwayat percakapan untuk dirangkum."
+            "summary": "No conversation history available to summarize."
         }))
         .into_response();
     }
@@ -114,11 +114,11 @@ pub async fn handle_summarize(
             let data: Value = r.json().await.unwrap_or_default();
             data.pointer("/choices/0/message/content")
                 .and_then(|v| v.as_str())
-                .unwrap_or("Percakapan berhasil dirangkum.")
+                .unwrap_or("Conversation summarized.")
                 .trim()
                 .to_string()
         }
-        _ => "Ringkasan sesi berhasil dibuat: operasi dokumen dan data sebelumnya telah dicatat ke memori terkompaksi.".to_string(),
+        _ => "Session summary recorded: previous document operations and context have been compacted.".to_string(),
     };
 
     let summary_msg_id = gen_id("msg");

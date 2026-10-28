@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -29,7 +29,7 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
         .cloned()
         .unwrap_or_default();
     let mut sys_parts = Vec::new();
-    let mut claude_msgs = Vec::new();
+    let mut claude_msgs: Vec<Value> = Vec::new();
 
     for m in &messages {
         let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("user");
@@ -40,10 +40,77 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
             }
             continue;
         }
+        if role == "tool" {
+            let call_id = m
+                .get("tool_call_id")
+                .or_else(|| m.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("call_0");
+            let out_str = extract_content_text(m.get("content"));
+            let tr_block = json!({
+                "type": "tool_result",
+                "tool_use_id": call_id,
+                "content": out_str
+            });
+            if let Some(last) = claude_msgs.last_mut() {
+                if last.get("role").and_then(|v| v.as_str()) == Some("user") {
+                    if let Some(arr) = last.get_mut("content").and_then(|v| v.as_array_mut()) {
+                        arr.push(tr_block);
+                        continue;
+                    }
+                }
+            }
+            claude_msgs.push(json!({
+                "role": "user",
+                "content": [tr_block]
+            }));
+            continue;
+        }
+        if role == "assistant" {
+            let mut blocks = Vec::new();
+            let txt = extract_content_text(m.get("content"));
+            if !txt.trim().is_empty() {
+                blocks.push(json!({
+                    "type": "text",
+                    "text": txt
+                }));
+            }
+            if let Some(tcs) = m.get("tool_calls").and_then(|v| v.as_array()) {
+                for tc in tcs {
+                    let id = tc.get("id").and_then(|v| v.as_str()).unwrap_or("call_0");
+                    let name = tc
+                        .pointer("/function/name")
+                        .or_else(|| tc.get("name"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("tool");
+                    let input_val = match tc.pointer("/function/arguments") {
+                        Some(Value::String(s)) => {
+                            serde_json::from_str::<Value>(s).unwrap_or_else(|_| json!({}))
+                        }
+                        Some(v) if v.is_object() => v.clone(),
+                        _ => json!({}),
+                    };
+                    blocks.push(json!({
+                        "type": "tool_use",
+                        "id": id,
+                        "name": name,
+                        "input": input_val
+                    }));
+                }
+            }
+            if !blocks.is_empty() {
+                claude_msgs.push(json!({
+                    "role": "assistant",
+                    "content": blocks
+                }));
+            }
+            continue;
+        }
+
         let txt = extract_content_text(m.get("content"));
         claude_msgs.push(json!({
-            "role": if role == "assistant" { "assistant" } else { "user" },
-            "content": txt
+            "role": "user",
+            "content": [{ "type": "text", "text": if txt.is_empty() { " ".to_string() } else { txt } }]
         }));
     }
 
@@ -55,6 +122,31 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
     });
     if !sys_parts.is_empty() {
         payload["system"] = Value::String(sys_parts.join("\n\n"));
+    }
+
+    if let Some(tools) = body.get("tools").and_then(|v| v.as_array()) {
+        let mut mapped_tools = Vec::new();
+        for t in tools {
+            let fn_obj = t.get("function").unwrap_or(t);
+            if let Some(name) = fn_obj.get("name").and_then(|v| v.as_str()) {
+                let desc = fn_obj
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let schema = fn_obj
+                    .get("parameters")
+                    .cloned()
+                    .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
+                mapped_tools.push(json!({
+                    "name": name,
+                    "description": desc,
+                    "input_schema": schema
+                }));
+            }
+        }
+        if !mapped_tools.is_empty() {
+            payload["tools"] = Value::Array(mapped_tools);
+        }
     }
 
     let client = reqwest::Client::builder()
@@ -124,4 +216,3 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
         make_completion_response(model, text, tool_calls)
     }
 }
-

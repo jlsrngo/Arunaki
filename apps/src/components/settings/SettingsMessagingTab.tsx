@@ -509,7 +509,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
               type="text"
               value={targetFolder}
               onChange={(e) => setTargetFolder(e.target.value)}
-              placeholder="e.g. E:\JS\Arunika or C:\Users\Name\Documents"
+              placeholder="e.g. C:\Users\Name\Documents\Project"
               className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
             />
             <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">

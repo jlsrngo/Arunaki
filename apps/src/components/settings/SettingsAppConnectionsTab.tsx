@@ -38,7 +38,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
   const { t } = useI18n();
 
   // All React Hooks declared unconditionally at top level
-  const [hostUrl, setHostUrl] = useState("http://127.0.0.1:5000");
+  const [hostUrl, setHostUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -102,6 +102,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           const json = await res.json();
           if (json?.data?.url) {
             detectedUrl = json.data.url;
+            if (json?.data?.apiKey && !apiKey) setApiKey(json.data.apiKey);
           }
         }
       } catch {}
@@ -130,7 +131,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         setHostUrl(detectedUrl);
         toast.success(`${t("posToastPortDetected", "ArunakiZen detected at:")} ${detectedUrl}`);
       } else {
-        toast.info(t("posToastPortNotFound", "No active ArunakiZen port detected automatically. Using default http://127.0.0.1:5000"));
+        toast.info(t("posToastPortNotFound", "No active local ArunakiZen server detected. Start ArunakiZen or enter your server Host URL manually."));
       }
     } finally {
       setAutoDetecting(false);
@@ -198,7 +199,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
       const newStatus: PosConnectionStatus = {
         connected: true,
-        store: data.store || "CUSTOM KEKINIAN",
+        store: data.store || "ArunakiZen Store",
         operator: data.operator || { nama: cleanUser, kode: "KS", level: "KS" },
         permissions: data.permissions || {},
         message: data.message,
@@ -340,7 +341,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 type="text"
                 value={hostUrl}
                 onChange={(e) => setHostUrl(e.target.value)}
-                placeholder="http://127.0.0.1:5000"
+                placeholder="http://<host-or-ip>:<port>"
                 className="w-full h-9 px-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono focus:border-[var(--border-strong)] focus:outline-none transition-colors"
               />
             </div>
@@ -472,7 +473,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 <Building2 className="w-3.5 h-3.5" />
                 <span>{t("posConnectedStore", "Toko Terhubung")}:</span>
               </span>
-              <strong className="text-white font-semibold">{status.store || "CUSTOM KEKINIAN"}</strong>
+              <strong className="text-white font-semibold">{status.store || "ArunakiZen Store"}</strong>
             </div>
 
             <div className="flex items-center justify-between">
@@ -526,6 +527,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       <ArunakiZenSetupGuideModal
         isOpen={showGuideModal}
         initialStep={guideInitialStep}
+        hostUrl={hostUrl}
         onClose={() => setShowGuideModal(false)}
       />
     </div>

@@ -143,7 +143,7 @@ pub fn doc_com_tool_definitions() -> Vec<Value> {
                         "sheet": { "type": "string", "description": "Sheet name to target (optional)." },
                         "cells": {
                             "type": "array",
-                            "description": "BATCH CELL UPDATE (HIGHLY RECOMMENDED FOR MULTIPLE CELLS): List of cells to write in a single batch. Example: [{'cell': 'A14', 'value': '2026-10-24'}, {'cell': 'B14', 'value': 'CK GINTING'}, {'cell': 'C14', 'value': '130000'}]. DO NOT call excel_com in a loop for each cell!",
+                            "description": "Batch list of cells to write in a single call. Example: [{'cell': 'A14', 'value': '2026-10-24'}, {'cell': 'B14', 'value': 'Item A'}, {'cell': 'C14', 'value': '130000'}].",
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -155,7 +155,7 @@ pub fn doc_com_tool_definitions() -> Vec<Value> {
                         },
                         "rows": {
                             "type": "array",
-                            "description": "BATCH ROW UPDATE: 2D array of rows to insert starting at startCell. Example: [['CK GINTING', '130000', 'BRI'], ['CK SHANK', '372000', 'BNI']]",
+                            "description": "2D array of rows to insert starting at startCell. Example: [['Item A', '130000', 'Transfer'], ['Item B', '372000', 'Cash']]",
                             "items": {
                                 "type": "array",
                                 "items": { "type": "string" }
@@ -374,13 +374,13 @@ mod tests {
     fn test_parse_cells_arg_array_of_objects() {
         let args = json!({
             "cells": [
-                { "cell": "A14", "value": "CK GINTING" },
+                { "cell": "A14", "value": "Item A" },
                 { "cell": "B14", "value": 130 }
             ]
         });
         let parsed = parse_cells_arg(&args);
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0], ("A14".to_string(), "CK GINTING".to_string()));
+        assert_eq!(parsed[0], ("A14".to_string(), "Item A".to_string()));
         assert_eq!(parsed[1], ("B14".to_string(), "130".to_string()));
     }
 
@@ -389,17 +389,17 @@ mod tests {
         let args = json!({
             "startCell": "A14",
             "rows": [
-                ["CK GINTING", "130", "BRI"],
-                ["CK SHANK", "372", "BNI"]
+                ["Item A", "130", "Transfer"],
+                ["Item B", "372", "Cash"]
             ]
         });
         let parsed = parse_cells_arg(&args);
         assert_eq!(parsed.len(), 6);
-        assert_eq!(parsed[0], ("A14".to_string(), "CK GINTING".to_string()));
+        assert_eq!(parsed[0], ("A14".to_string(), "Item A".to_string()));
         assert_eq!(parsed[1], ("B14".to_string(), "130".to_string()));
-        assert_eq!(parsed[2], ("C14".to_string(), "BRI".to_string()));
-        assert_eq!(parsed[3], ("A15".to_string(), "CK SHANK".to_string()));
+        assert_eq!(parsed[2], ("C14".to_string(), "Transfer".to_string()));
+        assert_eq!(parsed[3], ("A15".to_string(), "Item B".to_string()));
         assert_eq!(parsed[4], ("B15".to_string(), "372".to_string()));
-        assert_eq!(parsed[5], ("C15".to_string(), "BNI".to_string()));
+        assert_eq!(parsed[5], ("C15".to_string(), "Cash".to_string()));
     }
 }

@@ -2,15 +2,13 @@ Search for product catalog items in the local ArunakiZen retail system.
 
 Capabilities:
 - Searches across product names, unique SKU codes, categories, and scanned barcode numbers.
-- Returns unit selling prices, wholesale prices, current store stock levels, and unit of measurement (e.g. PCS, PACK).
-- SUPPORTS BATCH SEARCH via `queries: [...]`: pass an array of product queries to lookup all items concurrently in 1 call!
+- Returns unit selling prices, wholesale prices, current store stock levels, and unit of measurement.
+- Supports batch search via `queries: [...]`: pass an array of product queries to lookup multiple items concurrently in a single call.
 
 When to use:
-- The user asks for product stock, availability, or pricing (e.g. "check shirt stock", "find DTF item", "uniform price").
-- Before creating a sales order. For multi-item orders, ALWAYS use batch `queries` array to resolve all items in a single shot.
+- The user asks for product stock, availability, or pricing.
+- Before creating a sales order. For multi-item orders, pass all items in the `queries` array to resolve them in a single call.
 
 Guidelines:
-- If the search query is broad, return the top matching items.
-- If an exact query returns 0 items, the tool automatically detects typos and returns `suggestions`.
-- NEVER substitute missing or ambiguous items with another product code without confirming with the user first via the `question` tool!
-- Present product code, name, unit price, and available stock clearly to the user.
+- If an exact query returns 0 items, the tool returns closest matching suggestions.
+- If an item is not found or ambiguous, use the `question` tool to confirm with the user before creating an order.

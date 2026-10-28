@@ -15,11 +15,8 @@ pub fn read_arunaki_config() -> Value {
     let has_kenari = val.pointer("/provider/kenari").is_some() || val.pointer("/providers/kenari").is_some();
     if !has_kenari {
         let candidates = [
-            arunaki_config_dir().join("Arunaki.json.bak-before-kiro-repair"),
             std::path::PathBuf::from(".arunaki").join("arunaki.json"),
             std::path::PathBuf::from(".arunaki").join("config.json"),
-            std::path::PathBuf::from("E:/REKAPAN/.arunaki/arunaki.json"),
-            std::path::PathBuf::from("E:/JS/Arunika/.arunaki/config.json"),
         ];
         for cand in &candidates {
             if let Ok(raw) = std::fs::read_to_string(cand) {

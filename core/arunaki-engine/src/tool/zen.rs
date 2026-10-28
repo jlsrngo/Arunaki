@@ -8,8 +8,6 @@
 //! - `arunakizen_open_drawer`: Standalone cash drawer kick pulse
 //! - `arunakizen_adjust_stock`: Correct stock inventory balance
 //! - `arunakizen_void_sale_order`: Void / cancel and rollback cashier sales invoice
-//!
-//! Conforms to `E:\JS\Arunaki-POS\doc\PANDUAN_KONEKSI_ARUNAKI_AGENT_KE_ARUNAKIZEN.md`.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -38,17 +36,42 @@ impl Default for ZenConfig {
     }
 }
 
+fn is_local_url_reachable(url: &str) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    if let Some(port_str) = url.rsplit(':').next() {
+        let clean_port = port_str.trim_end_matches('/');
+        if let Ok(port) = clean_port.parse::<u16>() {
+            let addr = SocketAddr::from(([127, 0, 0, 1], port));
+            return TcpStream::connect_timeout(&addr, Duration::from_millis(25)).is_ok();
+        }
+    }
+    false
+}
+
 fn detect_active_pos_port() -> Option<u16> {
     use std::net::{SocketAddr, TcpStream};
-    use std::time::Duration;
 
-    for port in 5000..=5010 {
+    for port in 5000..=5100 {
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        if TcpStream::connect_timeout(&addr, Duration::from_millis(30)).is_ok() {
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(8)).is_ok() {
             return Some(port);
         }
     }
     None
+}
+
+pub fn discover_live_pos_endpoint() -> Value {
+    let cfg = load_pos_config();
+    let reachable = if cfg.host_url.starts_with("http://127.0.0.1") || cfg.host_url.starts_with("http://localhost") {
+        is_local_url_reachable(&cfg.host_url)
+    } else {
+        !cfg.host_url.is_empty()
+    };
+    json!({
+        "url": if reachable { Some(cfg.host_url) } else { None },
+        "apiKey": if cfg.api_key.is_empty() { None } else { Some(cfg.api_key) },
+        "reachable": reachable
+    })
 }
 
 pub fn load_zen_config() -> ZenConfig {
@@ -57,14 +80,16 @@ pub fn load_zen_config() -> ZenConfig {
 
 pub fn load_pos_config() -> ZenConfig {
     let mut cfg = PosConfig::default();
+    let mut has_user_host = false;
 
-    // 1. Try reading user custom config from ~/.arunaki/pos-config.json
+    // 1. Read user custom config from ~/.arunaki/pos-config.json
     let p = arunaki_dot_dir().join("pos-config.json");
     if let Ok(raw) = std::fs::read_to_string(&p) {
         if let Ok(val) = serde_json::from_str::<Value>(&raw) {
             if let Some(u) = val.get("hostUrl").or_else(|| val.get("host_url")).and_then(|v| v.as_str()) {
                 if !u.trim().is_empty() {
                     cfg.host_url = u.trim_end_matches('/').to_string();
+                    has_user_host = true;
                 }
             }
             if let Some(k) = val.get("apiKey").or_else(|| val.get("api_key")).and_then(|v| v.as_str()) {
@@ -83,7 +108,7 @@ pub fn load_pos_config() -> ZenConfig {
         }
     }
 
-    // 2. Production & Development auto-discovery from active ArunakiZen runtime configuration
+    // 2. Auto-discovery from active ArunakiZen runtime configuration (only for missing fields or if user host is unreachable)
     let mut runtime_candidates = vec![
         std::path::PathBuf::from("pos-runtime.json"),
         arunaki_dot_dir().join("pos-runtime.json"),
@@ -99,10 +124,7 @@ pub fn load_pos_config() -> ZenConfig {
         runtime_candidates.push(std::path::PathBuf::from(&userprofile).join(".arunakizen/pos-runtime.json"));
     }
 
-    // Dev workspace fallback candidates
     runtime_candidates.extend(vec![
-        std::path::PathBuf::from("E:/JS/Arunaki-POS/target/debug/pos-runtime.json"),
-        std::path::PathBuf::from("E:/JS/Arunaki-POS/pos-runtime.json"),
         std::path::PathBuf::from("../Arunaki-POS/target/debug/pos-runtime.json"),
         std::path::PathBuf::from("../Arunaki-POS/pos-runtime.json"),
     ]);
@@ -110,14 +132,18 @@ pub fn load_pos_config() -> ZenConfig {
     for rp in &runtime_candidates {
         if let Ok(raw) = std::fs::read_to_string(rp) {
             if let Ok(val) = serde_json::from_str::<Value>(&raw) {
-                if let Some(u) = val.get("url").and_then(|v| v.as_str()) {
-                    if !u.trim().is_empty() {
-                        cfg.host_url = u.trim_end_matches('/').to_string();
+                if !has_user_host || !is_local_url_reachable(&cfg.host_url) {
+                    if let Some(u) = val.get("url").and_then(|v| v.as_str()) {
+                        if !u.trim().is_empty() {
+                            cfg.host_url = u.trim_end_matches('/').to_string();
+                        }
                     }
                 }
-                if let Some(k) = val.get("apiKey").and_then(|v| v.as_str()) {
-                    if !k.trim().is_empty() {
-                        cfg.api_key = k.trim().to_string();
+                if cfg.api_key.is_empty() {
+                    if let Some(k) = val.get("apiKey").and_then(|v| v.as_str()) {
+                        if !k.trim().is_empty() {
+                            cfg.api_key = k.trim().to_string();
+                        }
                     }
                 }
                 break;
@@ -125,10 +151,11 @@ pub fn load_pos_config() -> ZenConfig {
         }
     }
 
-    // 3. Dynamic Localhost Port Hunting (5000-5100):
-    // If running on localhost and the target port is not open or on default,
-    // automatically detect the live port where ArunakiZen is listening.
-    if cfg.host_url.starts_with("http://127.0.0.1") || cfg.host_url.starts_with("http://localhost") {
+    // 3. Dynamic Localhost Port Fallback:
+    // Only hunt for an alternative localhost port if the configured localhost URL is not reachable.
+    if (cfg.host_url.starts_with("http://127.0.0.1") || cfg.host_url.starts_with("http://localhost"))
+        && !is_local_url_reachable(&cfg.host_url)
+    {
         if let Some(active_port) = detect_active_pos_port() {
             cfg.host_url = format!("http://127.0.0.1:{}", active_port);
         }
@@ -158,7 +185,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         "queries": {
                             "type": "array",
                             "items": { "type": "string" },
-                            "description": "BATCH SEARCH: Array of product names/queries to search multiple items simultaneously in ONE call (e.g. ['KPM POLO BLACK L', 'NSA LONGSLEEVE MAROON XL']). Always use this when user provides multiple items to avoid looping!"
+                            "description": "BATCH SEARCH: Array of product names/queries to search multiple items simultaneously in ONE call (e.g. ['ITEM-001', 'ITEM-002']). Always use this when user provides multiple items to avoid looping!"
                         },
                         "limit": {
                             "type": "integer",
@@ -217,7 +244,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "notes": {
                             "type": "string",
-                            "description": "STRICT: Leave empty (\"\") unless the user explicitly gave a specific custom note to record (e.g. 'catatan: titip satpam'). Never auto-generate notes or summaries!"
+                            "description": "STRICT: Leave empty (\"\") unless the user explicitly gave a specific custom note to record. Never auto-generate notes or summaries!"
                         }
                     },
                     "required": ["payment_method", "amount_paid", "items"]
@@ -228,7 +255,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
             "type": "function",
             "function": {
                 "name": "arunakizen_edit_sale_order",
-                "description": "Edit / revise an existing cashier sales invoice (e.g. R43-241026007) in-place in ArunakiZen WITHOUT requiring a supervisor password (uses Cashier 'edit_f_penjualan_toko' permission, equivalent to double-clicking the order or clicking the Edit button in ArunakiZen). Automatically rolls back old item stock and applies the updated items list on the same invoice number.",
+                "description": include_str!("prompt/zen_edit.txt"),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -307,7 +334,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "kasir": {
                             "type": "string",
-                            "description": "Cashier operator name to display on receipt (optional, defaults to active user e.g. 'Candana')."
+                            "description": "Cashier operator name to display on receipt (optional, defaults to active user)."
                         }
                     },
                     "required": ["invoice"]
@@ -354,8 +381,8 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "reason": {
                             "type": "string",
-                            "description": "Optional reason for the adjustment (e.g. 'Opname fisik', 'Barang rusak').",
-                            "default": "Penyesuaian stok via Arunaki Agent"
+                            "description": "Optional reason for the adjustment (e.g. 'Physical stock count', 'Damaged goods').",
+                            "default": "Stock adjustment via Arunaki Agent"
                         }
                     },
                     "required": ["item_code", "actual_stock"]
@@ -376,8 +403,8 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "reason": {
                             "type": "string",
-                            "description": "Reason for cancellation (e.g. 'Dibatalkan pelanggan').",
-                            "default": "Pembatalan transaksi via Arunaki Agent"
+                            "description": "Reason for cancellation (e.g. 'Cancelled by customer').",
+                            "default": "Transaction void via Arunaki Agent"
                         },
                         "operator": {
                             "type": "string",
@@ -385,7 +412,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         },
                         "supervisor_user": {
                             "type": "string",
-                            "description": "Supervisor username/code required by ArunakiZen when deleting an order (hapus_f_penjualan_toko / delete_jual_via_password)."
+                            "description": "Supervisor username/code required by ArunakiZen when deleting an order."
                         },
                         "supervisor_password": {
                             "type": "string",
@@ -585,7 +612,7 @@ async fn try_fuzzy_suggest_products(
         .unwrap_or(0.0);
 
     let msg = format!(
-        "Produk '{}' tidak ditemukan di katalog ArunakiZen. Ditemukan saran produk serupa (kemungkinan typo): '{}' (Kode: {}, Rp {:.0}). DILARANG keras mensubstitusi barang secara sepihak! Tanyakan kepada user dengan memanggil tool 'question' untuk mengonfirmasi pilihan sebelum mencatat pesanan.",
+        "Product '{}' was not found in the ArunakiZen catalog. Closest matching product suggestion (possible typo): '{}' (Code: {}, Price: {:.0}). Do not substitute items without user confirmation; call the 'question' tool to confirm with the user before creating the order.",
         query, top_nama, top_kode, top_harga
     );
 
@@ -751,11 +778,6 @@ pub fn sanitize_transaction_notes(raw_notes: &str) -> &str {
     if t.eq_ignore_ascii_case("none")
         || t.eq_ignore_ascii_case("null")
         || t.eq_ignore_ascii_case("-")
-        || t.starts_with("Pesanan ")
-        || t.starts_with("Order ")
-        || t.starts_with("Transaksi ")
-        || t.starts_with("Pembelian ")
-        || t.starts_with("Penjualan ")
     {
         ""
     } else {
@@ -1138,7 +1160,7 @@ pub async fn execute_adjust_stock(args: &Value) -> Value {
         .or_else(|| args.get("alasan"))
         .or_else(|| args.get("keterangan"))
         .and_then(|v| v.as_str())
-        .unwrap_or("Penyesuaian stok via Arunaki Agent");
+        .unwrap_or("Stock adjustment via Arunaki Agent");
 
     let payload = json!({
         "items": [
@@ -1215,7 +1237,7 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
         .and_then(|v| v.as_str())
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .unwrap_or("Pembatalan / revisi transaksi via Arunaki Agent");
+        .unwrap_or("Transaction void via Arunaki Agent");
 
     let operator = args
         .get("operator")
@@ -1259,7 +1281,7 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
                 let err_msg = json_val.get("error").or_else(|| json_val.get("message")).and_then(|v| v.as_str()).unwrap_or("Unknown error");
                 return json!({
                     "error": format!("ArunakiZen rejected void request: {}", err_msg),
-                    "hint": "PENTING: Di ArunakiZen, HAPUS/VOID (arunakizen_void_sale_order) membutuhkan Password Supervisor, sedangkan EDIT ORDER (arunakizen_edit_sale_order / is_edit: true) TERBUKA untuk Kasir tanpa password! Jika Anda ingin merevisi/mengedit pesanan, gunakan tool `arunakizen_edit_sale_order` dengan nomor `invoice` yang sama.",
+                    "hint": "Voiding an order requires a Supervisor Password, whereas editing an order in-place via `arunakizen_edit_sale_order` does not require a password. To revise an existing order, call `arunakizen_edit_sale_order` with the same `invoice` number.",
                     "details": json_val
                 });
             }
@@ -1278,19 +1300,19 @@ mod tests {
 
     #[test]
     fn test_levenshtein_distance() {
-        assert_eq!(levenshtein_distance("CARLONE", "CAROLINE"), 2);
-        assert_eq!(levenshtein_distance("LONGSLEVE", "LONGSLEEVE"), 1);
-        assert_eq!(levenshtein_distance("POLO", "POLO"), 0);
-        assert_eq!(levenshtein_distance("BLACK", "WHITE"), 5);
+        assert_eq!(levenshtein_distance("SAMPLE", "SIMPLE"), 1);
+        assert_eq!(levenshtein_distance("PRODUCT", "PRODUCTS"), 1);
+        assert_eq!(levenshtein_distance("ITEM", "ITEM"), 0);
+        assert_eq!(levenshtein_distance("ALPHA", "OMEGA"), 4);
     }
 
     #[test]
     fn test_merge_duplicate_order_items() {
         let raw_items = vec![
-            json!({ "kode": "70394", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }),
-            json!({ "kode": "70370", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }),
-            json!({ "kode": "70394", "qty": 1.0, "harga": 86000.0, "diskon": 0.0 }), // duplicate of 70394
-            json!({ "kode": "70394", "qty": 1.0, "harga": 70000.0, "diskon": 0.0 }), // different price, should stay separate
+            json!({ "kode": "1001", "qty": 1.0, "harga": 50.0, "diskon": 0.0 }),
+            json!({ "kode": "1002", "qty": 1.0, "harga": 50.0, "diskon": 0.0 }),
+            json!({ "kode": "1001", "qty": 1.0, "harga": 50.0, "diskon": 0.0 }), // duplicate of 1001
+            json!({ "kode": "1001", "qty": 1.0, "harga": 40.0, "diskon": 0.0 }), // different price, should stay separate
         ];
 
         let mut merged_items: Vec<Value> = Vec::new();
@@ -1313,22 +1335,20 @@ mod tests {
         }
 
         assert_eq!(merged_items.len(), 3);
-        // The first 70394 with price 86000 should now have qty 2.0
-        let item_86k = merged_items.iter().find(|m| m["kode"] == "70394" && m["harga"] == 86000.0).unwrap();
-        assert_eq!(item_86k["qty"], 2.0);
+        let item_50 = merged_items.iter().find(|m| m["kode"] == "1001" && m["harga"] == 50.0).unwrap();
+        assert_eq!(item_50["qty"], 2.0);
 
-        // The second 70394 with price 70000 should remain separate with qty 1.0
-        let item_70k = merged_items.iter().find(|m| m["kode"] == "70394" && m["harga"] == 70000.0).unwrap();
-        assert_eq!(item_70k["qty"], 1.0);
+        let item_40 = merged_items.iter().find(|m| m["kode"] == "1001" && m["harga"] == 40.0).unwrap();
+        assert_eq!(item_40["qty"], 1.0);
     }
 
     #[test]
     fn test_batch_search_args_extraction() {
         let batch_args = json!({
             "queries": [
-                "KPM POLO BLACK L",
-                "KPM POLO MAROON XL",
-                "CARLONE XL"
+                "ITEM-A",
+                "ITEM-B",
+                "ITEM-C"
             ]
         });
 
@@ -1345,31 +1365,24 @@ mod tests {
         }
 
         assert_eq!(queries_list.len(), 3);
-        assert_eq!(queries_list[0], "KPM POLO BLACK L");
-        assert_eq!(queries_list[1], "KPM POLO MAROON XL");
-        assert_eq!(queries_list[2], "CARLONE XL");
+        assert_eq!(queries_list[0], "ITEM-A");
+        assert_eq!(queries_list[1], "ITEM-B");
+        assert_eq!(queries_list[2], "ITEM-C");
     }
 
     #[test]
     fn test_notes_sanitization() {
-        // Unsolicited auto-generated notes are sanitized to empty
-        assert_eq!(sanitize_transaction_notes("Pesanan KPM POLO dan NSA"), "");
-        assert_eq!(sanitize_transaction_notes("Order 6 items baju"), "");
-        assert_eq!(sanitize_transaction_notes("Transaksi kasir"), "");
         assert_eq!(sanitize_transaction_notes("none"), "");
+        assert_eq!(sanitize_transaction_notes("null"), "");
         assert_eq!(sanitize_transaction_notes("-"), "");
-
-        // Specific explicit user notes are preserved
-        assert_eq!(sanitize_transaction_notes("titip satpam"), "titip satpam");
-        assert_eq!(sanitize_transaction_notes("dropship Pak Budi"), "dropship Pak Budi");
-        assert_eq!(sanitize_transaction_notes("kirim via JNE YES"), "kirim via JNE YES");
+        assert_eq!(sanitize_transaction_notes("Express delivery"), "Express delivery");
     }
 
     #[test]
     fn test_void_args_extraction() {
         let args = json!({
-            "invoice": "R43-241026007",
-            "reason": "Revisi order pelanggan"
+            "invoice": "INV-001",
+            "reason": "Order cancelled"
         });
 
         let inv = args
@@ -1383,19 +1396,7 @@ mod tests {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        assert_eq!(inv, "R43-241026007");
-        assert_eq!(rsn, "Revisi order pelanggan");
-
-        // Test fallback to 'faktur'
-        let args_id = json!({
-            "faktur": "R43-241026009",
-            "alasan": "Batal transaksi"
-        });
-        let inv2 = args_id
-            .get("invoice")
-            .or_else(|| args_id.get("faktur"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        assert_eq!(inv2, "R43-241026009");
+        assert_eq!(inv, "INV-001");
+        assert_eq!(rsn, "Order cancelled");
     }
 }

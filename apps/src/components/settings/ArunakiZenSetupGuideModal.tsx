@@ -15,14 +15,17 @@ import { useI18n } from "../../lib/i18n";
 interface ArunakiZenSetupGuideModalProps {
   isOpen: boolean;
   initialStep?: number;
+  hostUrl?: string;
   onClose: () => void;
 }
 
 export function ArunakiZenSetupGuideModal({
   isOpen,
   initialStep = 1,
+  hostUrl = "",
   onClose,
 }: ArunakiZenSetupGuideModalProps) {
+  const activeUrl = hostUrl.trim();
   const { t } = useI18n();
   const tr = (k: string, fb: string) => (t as any)(k, fb);
   const [guideStep, setGuideStep] = useState(initialStep);
@@ -119,23 +122,27 @@ export function ArunakiZenSetupGuideModal({
               <div className="p-3 bg-[var(--bg-app)] rounded-xl border border-[var(--border-color)] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[var(--text-muted)] font-medium">
-                    {tr("zenDefaultUrl", "Default Host URL:")}
+                    {activeUrl
+                      ? tr("zenDetectedUrl", "Configured / Detected Host URL:")
+                      : tr("zenUrlFormatLabel", "Host URL Format (Local or LAN):")}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy("http://127.0.0.1:5000", "url")}
-                    className="flex items-center gap-1 text-[11px] text-[var(--text-primary)] hover:underline cursor-pointer"
-                  >
-                    {copiedCode === "url" ? (
-                      <Check className="w-3 h-3 text-white" />
-                    ) : (
-                      <Copy className="w-3 h-3 text-[var(--text-muted)]" />
-                    )}
-                    <span>{copiedCode === "url" ? "Copied" : "Copy"}</span>
-                  </button>
+                  {activeUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(activeUrl, "url")}
+                      className="flex items-center gap-1 text-[11px] text-[var(--text-primary)] hover:underline cursor-pointer"
+                    >
+                      {copiedCode === "url" ? (
+                        <Check className="w-3 h-3 text-white" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-[var(--text-muted)]" />
+                      )}
+                      <span>{copiedCode === "url" ? "Copied" : "Copy"}</span>
+                    </button>
+                  )}
                 </div>
                 <code className="block text-xs font-mono font-semibold text-[var(--text-primary)] bg-[var(--bg-card)] p-2 rounded-lg border border-[var(--border-color)]">
-                  http://127.0.0.1:5000
+                  {activeUrl || "http://<server-ip-or-localhost>:<port>"}
                 </code>
               </div>
               <p className="text-[11px] text-[var(--text-dim)]">
@@ -190,7 +197,7 @@ export function ArunakiZenSetupGuideModal({
               </p>
               <div className="p-3 bg-[var(--bg-app)] rounded-xl border border-[var(--border-color)] space-y-1.5 text-xs text-[var(--text-secondary)]">
                 <p>
-                  <strong>{tr("zenOperatorUserLabel", "Operator Code:")}</strong> {tr("zenOperatorUserHint", "Your registered cashier username (e.g., CANDANA or cashier01). Normal uppercase and lowercase are supported.")}
+                  <strong>{tr("zenOperatorUserLabel", "Operator Code:")}</strong> {tr("zenOperatorUserHint", "Your registered cashier username (e.g., OPERATOR or cashier01). Normal uppercase and lowercase are supported.")}
                 </p>
                 <p>
                   <strong>{tr("zenOperatorPassLabel", "Operator Password:")}</strong> {tr("zenOperatorPassHint", "The cashier shift PIN or password used to authorize register operations.")}
