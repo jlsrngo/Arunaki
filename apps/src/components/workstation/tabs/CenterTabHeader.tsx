@@ -126,7 +126,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
               )}
             >
               {getTabIcon(tab)}
-              <span className="truncate max-w-[150px] text-[12px]">{tab.title}</span>
+              <span className="truncate whitespace-nowrap max-w-[180px] text-[12px]" title={tab.title}>{tab.title}</span>
               {hasUnsavedChanges ? (
                 <span
                   onClick={(e) => {

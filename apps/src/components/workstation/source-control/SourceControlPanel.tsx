@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { GitBranch, RotateCcw, Check, FileText, RotateCw } from "lucide-react";
+import { GitBranch, RotateCcw, Check, FileText, RotateCw, PanelLeftClose } from "lucide-react";
 import { DocumentChangeItem } from "../explorer/ExplorerSourceControl";
 import { useI18n } from "../../../lib/i18n";
 
@@ -9,6 +9,8 @@ interface SourceControlPanelProps {
   onRevertChange?: (item: DocumentChangeItem) => void;
   onAcceptChange?: (item: DocumentChangeItem) => void;
   onRefresh?: () => void;
+  onClose?: () => void;
+  onToggle?: () => void;
   width?: number | string;
 }
 
@@ -18,6 +20,8 @@ export const SourceControlPanel = memo(function SourceControlPanel({
   onRevertChange,
   onAcceptChange,
   onRefresh,
+  onClose,
+  onToggle,
   width = 256,
 }: SourceControlPanelProps) {
   const { t } = useI18n();
@@ -29,37 +33,50 @@ export const SourceControlPanel = memo(function SourceControlPanel({
       style={{ width }}
       aria-label="Document Changes Panel"
     >
-      {/* Top Header */}
-      <div className="h-10 px-3.5 border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-app)]">
-        <div className="flex items-center gap-2">
-          <GitBranch className="w-4 h-4 text-white" strokeWidth={1.8} />
-          <span className="text-xs font-semibold text-white tracking-wide">
+      {/* Top Header (Exact Parity with Explorer & Playbooks) */}
+      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-app)]">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-1 overflow-hidden">
+          <GitBranch className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={1.8} />
+          <span
+            className="text-xs font-semibold text-white tracking-wide truncate whitespace-nowrap"
+            title={t("documentChanges", "Document Changes")}
+          >
             {t("documentChanges", "Document Changes")}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           {onRefresh && (
             <button
               type="button"
               onClick={onRefresh}
-              className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              className="p-1 rounded-md text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
               title={t("refresh", "Refresh")}
             >
               <RotateCw className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {(onClose || onToggle) && (
+            <button
+              type="button"
+              onClick={onToggle || onClose}
+              className="p-1 rounded-md text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              title={`${t("closePanel", "Close Panel")} (Ctrl+B)`}
+            >
+              <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
             </button>
           )}
         </div>
       </div>
 
       {/* Changes Section Header (Title case) */}
-      <div className="h-8 px-3.5 bg-[var(--bg-panel)]/30 border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-white">
+      <div className="h-8 px-3 bg-[var(--bg-panel)]/30 border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-1 overflow-hidden">
+          <span className="text-xs font-semibold text-white truncate whitespace-nowrap">
             {t("changesTitle", "Changes")}
           </span>
           {count > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white">
+            <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white shrink-0">
               {count}
             </span>
           )}
@@ -85,9 +102,12 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               onClick={() => onOpenDiffTab(item)}
               className="group flex items-center justify-between px-3 py-1.5 hover:bg-[var(--bg-hover)] transition-colors cursor-pointer text-xs"
             >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 flex-1 mr-1 overflow-hidden">
                 <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                <span className="text-white truncate font-medium font-mono text-[11px]">
+                <span
+                  className="text-white truncate whitespace-nowrap font-medium font-mono text-[11px] min-w-0 flex-1"
+                  title={item.fileName}
+                >
                   {item.fileName}
                 </span>
                 {/* Status Badge: N for New, M for Modified */}

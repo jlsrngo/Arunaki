@@ -78,36 +78,48 @@ fn claims_zen_action(lower_msg: &str) -> bool {
         "struk sudah",
         "laci kasir sudah terbuka",
         "laci kasir terbuka",
-        "berhasil diedit",
-        "sudah diedit",
-        "berhasil direvisi",
-        "sudah direvisi",
-        "berhasil di-void",
-        "berhasil divoid",
-        "sudah di-void",
-        "berhasil dibatalkan",
         "receipt has been printed",
         "receipt printed",
-        "invoice has been edited",
-        "invoice has been updated",
         "drawer opened",
     ];
-    PHRASES.iter().any(|p| lower_msg.contains(p))
+    let strong_phrase = PHRASES.iter().any(|p| lower_msg.contains(p));
+    let r43_action = lower_msg.contains("r43-")
+        && (lower_msg.contains("berhasil diedit")
+            || lower_msg.contains("sudah diedit")
+            || lower_msg.contains("berhasil direvisi")
+            || lower_msg.contains("sudah direvisi")
+            || lower_msg.contains("berhasil divoid")
+            || lower_msg.contains("berhasil di-void")
+            || lower_msg.contains("sudah dibatalkan"));
+    strong_phrase || r43_action
 }
 
-/// Weaker completion wording, only meaningful when the user asked for a POS action.
+/// Weaker completion wording, only meaningful when the user specifically asked for a POS action.
 fn claims_zen_action_soft(lower_msg: &str) -> bool {
     const PHRASES: &[&str] = &["selesai", "berhasil", "sudah", "done", "success", "lunas", "revised"];
     PHRASES.iter().any(|p| lower_msg.contains(p))
 }
 
-/// User prompt requests a POS action (print receipt, edit/revise invoice, drawer, void).
+/// User prompt specifically requests an ArunakiZen POS hardware or retail order action.
 fn requests_zen_action(lower_prompt: &str) -> bool {
-    const PHRASES: &[&str] = &[
-        "cetak", "struk", "stuk", "print", "laci", "r43-", "void", "uang pas",
-        "uangnya pas", "uang nya pas", "edit lagi", "revisi order", "edit order",
-    ];
-    PHRASES.iter().any(|p| lower_prompt.contains(p))
+    let mentions_receipt_print = (lower_prompt.contains("cetak") || lower_prompt.contains("print"))
+        && (lower_prompt.contains("struk")
+            || lower_prompt.contains("stuk")
+            || lower_prompt.contains("receipt")
+            || lower_prompt.contains("resi"));
+    let mentions_drawer = lower_prompt.contains("laci") || lower_prompt.contains("drawer");
+    let mentions_r43_action = lower_prompt.contains("r43-")
+        && (lower_prompt.contains("cetak")
+            || lower_prompt.contains("print")
+            || lower_prompt.contains("edit")
+            || lower_prompt.contains("revisi")
+            || lower_prompt.contains("void")
+            || lower_prompt.contains("batal"));
+    let mentions_pos_order_action = lower_prompt.contains("revisi order")
+        || lower_prompt.contains("edit order")
+        || lower_prompt.contains("void order");
+
+    mentions_receipt_print || mentions_drawer || mentions_r43_action || mentions_pos_order_action
 }
 
 fn derive_session_title(prompt: &str) -> String {
@@ -452,25 +464,17 @@ pub async fn run_agent_turn(
                         .join("")
                 })
                 .unwrap_or_default();
-            // Annotate which tools really executed in that past turn so the model never
-            // imitates an earlier "printed/edited" text without issuing a new tool call.
-            let executed_tools: Vec<String> = m
-                .get("content")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter(|p| p.get("type").and_then(|t| t.as_str()) == Some("tool"))
-                        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-            let txt = if executed_tools.is_empty() {
-                txt
-            } else {
-                format!("[Tools executed in this past turn: {}]\n{}", executed_tools.join(", "), txt)
-            };
-            if !txt.is_empty() {
-                chat_messages.push(json!({ "role": "assistant", "content": txt }));
+            // Clean up any historical messages that might have had the leaked debug tag persisted
+            let mut clean_txt = txt;
+            if clean_txt.starts_with("[Tools executed in this past turn:") {
+                if let Some(pos) = clean_txt.find("]\n") {
+                    clean_txt = clean_txt[pos + 2..].to_string();
+                } else if let Some(pos) = clean_txt.find(']') {
+                    clean_txt = clean_txt[pos + 1..].trim_start().to_string();
+                }
+            }
+            if !clean_txt.is_empty() {
+                chat_messages.push(json!({ "role": "assistant", "content": clean_txt }));
             }
         }
     }
@@ -677,9 +681,10 @@ pub async fn run_agent_turn(
         );
 
         if tool_calls.is_empty() {
-            // ArunakiZen fake-action guard: model claims a POS action (print/edit/void/drawer)
+            // ArunakiZen fake-action guard: model claims a POS action (receipt printed / physical thermal receipt / drawer opened / R43 invoice revised)
             // without having executed any arunakizen_* tool in this turn.
-            if !zen_tool_executed && !zen_guard_fired && _step < 4 {
+            // MUST NOT FIRE if a workspace document mutation tool (edit/write/apply_patch/excel_com) already executed!
+            if !zen_tool_executed && !mutation_tool_executed && !zen_guard_fired && _step < 4 {
                 let lower_msg = msg_text.to_lowercase();
                 let lower_prompt = prompt_text.to_lowercase();
                 if claims_zen_action(&lower_msg) || (requests_zen_action(&lower_prompt) && claims_zen_action_soft(&lower_msg)) {
@@ -691,7 +696,7 @@ pub async fn run_agent_turn(
                     chat_messages.push(json!({ "role": "assistant", "content": msg_text }));
                     chat_messages.push(json!({
                         "role": "user",
-                        "content": "CRITICAL SYSTEM GUARD: Your previous reply claimed a POS action (receipt printed / invoice edited / created / voided / drawer opened), but NO arunakizen_* tool was executed in this turn. Nothing happened in ArunakiZen and no receipt was printed. Call the correct tool RIGHT NOW (`arunakizen_edit_sale_order` with the same invoice number for revisions or payment changes, `arunakizen_print_receipt` to print, `arunakizen_open_drawer` for the drawer, `arunakizen_create_sale_order` for new orders). Then report only the real tool result."
+                        "content": "CRITICAL SYSTEM GUARD: Your previous reply claimed a POS action (receipt printed / physical thermal receipt / drawer opened / R43 invoice revised), but NO arunakizen_* tool was executed in this turn. Nothing happened in ArunakiZen and no receipt was printed. If a POS action was requested, call the correct tool RIGHT NOW (`arunakizen_print_receipt` to print, `arunakizen_open_drawer` for the drawer, `arunakizen_edit_sale_order` with the invoice number for revisions, `arunakizen_create_sale_order` for new orders). Otherwise, if this was just a document or file edit, output only the document result."
                     }));
                     continue;
                 }
@@ -1054,8 +1059,12 @@ mod tests {
         ));
         assert!(claims_zen_action(&"invoice r43-281026001 berhasil diedit".to_lowercase()));
         assert!(!claims_zen_action("halo, ada yang bisa saya bantu?"));
+        assert!(!claims_zen_action("file laporan-harian.txt sudah berhasil diedit"));
         assert!(requests_zen_action("cetak lah stuknya"));
-        assert!(requests_zen_action("coba edit lagi dan uang nya pas buat"));
+        assert!(requests_zen_action("cetak invoice r43-281026001"));
+        assert!(!requests_zen_action("coba edit lagi dan uang nya pas buat"));
+        assert!(!requests_zen_action("pengeluaran jnt nya belum ditambahkan"));
+        assert!(!requests_zen_action("masih ada ini kamu belum ada edit lagi"));
         assert!(!requests_zen_action("halo"));
         assert!(claims_zen_action_soft("selesai! total 181.000"));
     }

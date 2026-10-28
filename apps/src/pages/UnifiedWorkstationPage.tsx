@@ -193,6 +193,8 @@ export function UnifiedWorkstationPage() {
                 onRevertChange={docChanges.handleRevertChange}
                 onAcceptChange={docChanges.handleAcceptChange}
                 onRefresh={docChanges.fetchChanges}
+                onClose={handleCloseLeft}
+                onToggle={handleToggleLeft}
                 width="var(--left-panel-width)"
               />
             )}
