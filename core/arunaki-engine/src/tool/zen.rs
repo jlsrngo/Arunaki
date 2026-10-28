@@ -870,6 +870,60 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         .and_then(|v| v.as_bool())
         .unwrap_or_else(|| edit_invoice.is_some());
 
+    // Dynamically verify live permission `edit_f_penjualan_toko` from ArunakiZen database (NOT hardcoded!)
+    if is_edit {
+        let mut active_level = String::new();
+        let mut req_k = client.get(format!("{}/api/karyawan", cfg.host_url));
+        if !cfg.api_key.is_empty() {
+            req_k = req_k.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        if let Ok(res_k) = req_k.send().await {
+            if let Ok(json_k) = res_k.json::<Value>().await {
+                if let Some(arr) = json_k.get("data").or(Some(&json_k)).and_then(|v| v.as_array()) {
+                    let target_op = cfg.username.trim();
+                    for op in arr {
+                        let kode = op.get("kode").and_then(|v| v.as_str()).unwrap_or("");
+                        let nama = op.get("nama").and_then(|v| v.as_str()).unwrap_or("");
+                        let status = op.get("status").and_then(|v| v.as_str()).unwrap_or("");
+                        if (!target_op.is_empty() && (kode.eq_ignore_ascii_case(target_op) || nama.eq_ignore_ascii_case(target_op)))
+                            || (target_op.is_empty() && status.eq_ignore_ascii_case("login"))
+                        {
+                            active_level = op.get("level").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if !active_level.is_empty() {
+            let mut req_lvl = client.get(format!("{}/api/level/{}", cfg.host_url, active_level));
+            if !cfg.api_key.is_empty() {
+                req_lvl = req_lvl.header("Authorization", format!("Bearer {}", cfg.api_key));
+            }
+            if let Ok(res_lvl) = req_lvl.send().await {
+                if let Ok(json_lvl) = res_lvl.json::<Value>().await {
+                    let perms = json_lvl.get("data").unwrap_or(&json_lvl);
+                    if let Some(edit_perm) = perms.get("edit_f_penjualan_toko").and_then(|v| v.as_str()) {
+                        let allowed = edit_perm.eq_ignore_ascii_case("true")
+                            || edit_perm == "1"
+                            || edit_perm.eq_ignore_ascii_case("iya");
+                        if !allowed {
+                            return json!({
+                                "error": format!(
+                                    "Akses Ditolak oleh ArunakiZen: Level operator/kasir ('{}') saat ini diatur edit_f_penjualan_toko = False di Pengaturan Level ArunakiZen.",
+                                    active_level
+                                ),
+                                "level": active_level,
+                                "permission": "edit_f_penjualan_toko",
+                                "allowed": false
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let new_grand_total: f64 = merged_items
         .iter()
         .map(|it| {
