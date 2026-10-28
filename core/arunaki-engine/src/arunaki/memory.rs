@@ -19,29 +19,37 @@ use crate::paths::{arunaki_dot_dir, now_iso};
 pub const ARUNAKI_MD_NAME: &str = "ARUNAKI.md";
 pub const CORRECTIONS_FILE_NAME: &str = "user-corrections.jsonl";
 
-/// Checks if a turn text looks like a rule, instruction, or correction.
+/// Checks if a turn text looks like an explicit persistent rule instruction.
 pub fn might_be_correction(text: &str) -> bool {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return false;
     }
-    // Ignore pure greetings
     let lower = trimmed.to_lowercase();
-    if lower == "halo" || lower == "hi" || lower == "hello" || lower == "p" || lower == "tes" || lower == "test" {
+    // NEVER treat normal transactions, numbers, commands, or regular prompts as rules!
+    if lower.contains('=')
+        || lower.contains("pcs")
+        || lower.contains("rb")
+        || lower.contains("rp")
+        || lower.contains("cetak")
+        || lower.contains("edit")
+        || lower.contains("baca")
+        || lower.contains("hapus")
+        || lower.contains("struk")
+        || lower.contains("pindahkan")
+        || lower.contains("tambahkan")
+        || lower.contains("update")
+        || lower.contains("selisih")
+    {
         return false;
     }
-    // Substantive length or contains rule keywords
-    trimmed.len() >= 10
-        || lower.contains("jangan")
-        || lower.contains("harus")
-        || lower.contains("selalu")
-        || lower.contains("aturan")
-        || lower.contains("ingat")
-        || lower.contains("format")
-        || lower.contains("rule")
-        || lower.contains("remember")
-        || lower.contains("always")
-        || lower.contains("never")
+    // Only capture when the user explicitly commands a permanent rule or preference
+    lower.starts_with("aturan:")
+        || lower.starts_with("rule:")
+        || lower.starts_with("ingat selalu:")
+        || lower.starts_with("ingat:")
+        || lower.starts_with("mulai sekarang:")
+        || lower.contains("format wajib:")
 }
 
 /// Infers domain dynamically based on scanned file extensions.
