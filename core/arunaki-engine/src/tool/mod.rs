@@ -125,6 +125,9 @@ pub async fn execute_tool_call(
         "arunakizen_create_sale_order" | "zen_create_order" | "pos_create_order" => {
             zen::execute_create_sale_order(arguments).await
         }
+        "arunakizen_edit_sale_order" | "zen_edit_order" | "pos_edit_order" | "edit_sale_order" => {
+            zen::execute_edit_sale_order(arguments).await
+        }
         "arunakizen_get_shift_summary" | "zen_shift_summary" | "pos_shift_summary" => {
             zen::execute_get_shift_summary(arguments).await
         }

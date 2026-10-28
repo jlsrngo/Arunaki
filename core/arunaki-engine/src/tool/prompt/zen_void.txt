@@ -1,17 +1,21 @@
-Void (cancel and rollback) an existing cashier sales invoice in ArunakiZen.
+Delete / Void (cancel and permanently remove) an existing cashier sales invoice in ArunakiZen.
 
 Capabilities:
-- Fully rolls back the transaction atomically.
-- Restores item quantities back to store inventory (UPDATE barang SET toko = toko + qty).
-- Reverts cash drawer inflows from cashier drawer balance (UPDATE kas SET saldo = saldo - cash).
-- Marks or removes invoice records and logs supervisor audit trail.
+- Permanently deletes and rolls back the invoice atomically.
+- Restores item quantities back to store inventory (`UPDATE barang SET toko = toko + qty`).
+- Reverts cash drawer inflows from cashier drawer balance (`UPDATE kas SET saldo = saldo - cash`).
+- Logs supervisor audit trail.
 
-When to use:
-- The user requests to cancel an order or invoice (e.g. "cancel invoice R43-241026007", "void the order").
-- The user requests to REVISE, FIX, or CHANGE an order that has already been created (e.g. "keep caroline instead of maroon", "revise the previous order", "change shirt quantity").
-  CRITICAL: You MUST call `arunakizen_void_sale_order` FIRST on the previous invoice before creating a corrected order with `arunakizen_create_sale_order`. NEVER create duplicate orders without voiding the prior incorrect invoice!
+CRITICAL RULE — EDIT VS DELETE (VOID) IN ARUNAKIZEN:
+- In ArunakiZen, **EDITING an order (`edit_f_penjualan_toko`) is OPEN to Cashiers without any password** (equivalent to double-clicking the order or pressing the Edit button in ArunakiZen).
+- By contrast, **DELETING / VOIDING an order (`hapus_f_penjualan_toko` / `delete_jual_via_password`) is RESTRICTED and requires Supervisor Password authorization**!
+- Therefore:
+  1. If the user wants to **EDIT, REVISE, CHANGE ITEM, or CHANGE QTY** on an existing order, **DO NOT call `arunakizen_void_sale_order`!** Instead, call `arunakizen_edit_sale_order` (or `arunakizen_create_sale_order` with `invoice: "R43-..."` and `is_edit: true`).
+  2. ONLY call `arunakizen_void_sale_order` when the user explicitly asks to **DELETE / HAPUS / BATALKAN TOTAL** an invoice without replacing it.
 
 Parameters:
-- `invoice` (required): The invoice number to void (e.g. "R43-241026007"). Can also be passed as `faktur`.
-- `reason` (optional): Reason for voiding (e.g. "Incorrect item correction", "Customer order revision", "Cancelled by customer"). Defaults to "Void / order revision via Arunaki Agent".
+- `invoice` (required): The invoice number to delete/void (e.g. "R43-241026007"). Can also be passed as `faktur`.
+- `reason` (optional): Reason for voiding (e.g. "Cancelled by customer").
 - `operator` (optional): Cashier or operator name. Defaults to active user.
+- `supervisor_user` (optional): Supervisor username/code (e.g. "MASTER" or supervisor code) if supervisor authorization is required for deletion.
+- `supervisor_password` (optional): Supervisor password if required for deletion.

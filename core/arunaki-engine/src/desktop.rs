@@ -1449,16 +1449,16 @@ async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse 
             let icon_uri_escaped = ps_escape(&xml_escape(&icon_file_uri));
             let script = format!(
                 "try {{\n\
-                    New-Item -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Force | Out-Null\n\
-                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'DisplayName' -Value 'Arunaki Workstation' -Force\n\
-                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'IconUri' -Value '{}' -Force\n\
-                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki.Workstation' -Name 'IconBackgroundColor' -Value '00000000' -Force\n\
+                    New-Item -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki' -Force | Out-Null\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki' -Name 'DisplayName' -Value 'Arunaki' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki' -Name 'IconUri' -Value '{}' -Force\n\
+                    Set-ItemProperty -Path 'HKCU:\\Software\\Classes\\AppUserModelId\\Arunaki' -Name 'IconBackgroundColor' -Value '00000000' -Force\n\
                     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null\n\
                     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null\n\
                     $xml = New-Object Windows.Data.Xml.Dom.XmlDocument\n\
                     $xml.LoadXml('<toast><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text><image placement=\"appLogoOverride\" src=\"{}\"/></binding></visual></toast>')\n\
                     $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)\n\
-                    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Arunaki.Workstation').Show($toast)\n\
+                    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Arunaki').Show($toast)\n\
                 }} catch {{}}",
                 icon_win_escaped, t_xml, b_xml, icon_uri_escaped
             );

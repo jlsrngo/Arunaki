@@ -177,6 +177,15 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "invoice": {
+                            "type": "string",
+                            "description": "Optional existing invoice number (e.g. 'R43-241026007') when editing/revising an existing order in-place without supervisor password."
+                        },
+                        "is_edit": {
+                            "type": "boolean",
+                            "description": "Set to true when editing an existing invoice (default: false).",
+                            "default": false
+                        },
                         "customer": {
                             "type": "string",
                             "description": "Customer or member code (use 'UMUM' for regular walk-in customers).",
@@ -212,6 +221,55 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                         }
                     },
                     "required": ["payment_method", "amount_paid", "items"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "arunakizen_edit_sale_order",
+                "description": "Edit / revise an existing cashier sales invoice (e.g. R43-241026007) in-place in ArunakiZen WITHOUT requiring a supervisor password (uses Cashier 'edit_f_penjualan_toko' permission, equivalent to double-clicking the order or clicking the Edit button in ArunakiZen). Automatically rolls back old item stock and applies the updated items list on the same invoice number.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "invoice": {
+                            "type": "string",
+                            "description": "Existing sales invoice number to edit (e.g. 'R43-241026007')."
+                        },
+                        "customer": {
+                            "type": "string",
+                            "description": "Customer or member code (optional, preserves existing customer if omitted)."
+                        },
+                        "payment_method": {
+                            "type": "string",
+                            "enum": ["CASH", "TRANSFER", "QRIS", "PIUTANG"],
+                            "description": "Payment method (default: 'CASH').",
+                            "default": "CASH"
+                        },
+                        "amount_paid": {
+                            "type": "number",
+                            "description": "Amount paid by customer (optional; if omitted or less than new total, automatically adjusts to cover the new total or preserves previous payment)."
+                        },
+                        "items": {
+                            "type": "array",
+                            "description": "Complete updated list of items for this invoice.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "item_code": { "type": "string", "description": "Unique SKU or barcode of the product." },
+                                    "qty": { "type": "number", "description": "Quantity purchased." },
+                                    "price": { "type": "number", "description": "Unit selling price." },
+                                    "discount_percent": { "type": "number", "description": "Item discount percentage (default: 0).", "default": 0 }
+                                },
+                                "required": ["item_code", "qty", "price"]
+                            }
+                        },
+                        "notes": {
+                            "type": "string",
+                            "description": "Optional custom note."
+                        }
+                    },
+                    "required": ["invoice", "items"]
                 }
             }
         }),
@@ -314,16 +372,24 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "invoice": {
                             "type": "string",
-                            "description": "Sales invoice number to void (e.g. 'R43-241026007')."
+                            "description": "Sales invoice number to delete/void (e.g. 'R43-241026007')."
                         },
                         "reason": {
                             "type": "string",
-                            "description": "Reason for cancellation or revision (e.g. 'Revisi pesanan / koreksi item salah').",
-                            "default": "Pembatalan / revisi transaksi via Arunaki Agent"
+                            "description": "Reason for cancellation (e.g. 'Dibatalkan pelanggan').",
+                            "default": "Pembatalan transaksi via Arunaki Agent"
                         },
                         "operator": {
                             "type": "string",
                             "description": "Cashier or operator name (optional, defaults to active user)."
+                        },
+                        "supervisor_user": {
+                            "type": "string",
+                            "description": "Supervisor username/code required by ArunakiZen when deleting an order (hapus_f_penjualan_toko / delete_jual_via_password)."
+                        },
+                        "supervisor_password": {
+                            "type": "string",
+                            "description": "Supervisor password required by ArunakiZen when deleting an order."
                         }
                     },
                     "required": ["invoice"]
@@ -791,19 +857,52 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         }
     }
 
-    let payload = json!({
+    let edit_invoice = args
+        .get("invoice")
+        .or_else(|| args.get("faktur"))
+        .or_else(|| args.get("nomor_faktur"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    let is_edit = args
+        .get("is_edit")
+        .and_then(|v| v.as_bool())
+        .unwrap_or_else(|| edit_invoice.is_some());
+
+    let new_grand_total: f64 = merged_items
+        .iter()
+        .map(|it| {
+            let q = it.get("qty").and_then(|v| v.as_f64()).unwrap_or(1.0);
+            let p = it.get("harga").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let d = it.get("diskon").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            (q * p) * (1.0 - d / 100.0)
+        })
+        .sum();
+
+    let effective_bayar = if is_edit && amount_paid < new_grand_total {
+        new_grand_total
+    } else {
+        amount_paid
+    };
+
+    let mut payload = json!({
         "pelanggan": customer,
         "pembayaran": payment_method,
-        "bayar": amount_paid,
+        "bayar": effective_bayar,
         "keterangan": notes,
         "items": merged_items,
         "user": cfg.username,
+        "is_edit": is_edit,
         "operator": {
             "username": cfg.username,
             "password": cfg.password.unwrap_or_default(),
             "api_key": cfg.api_key
         }
     });
+    if let Some(inv) = edit_invoice {
+        payload["faktur"] = json!(inv);
+    }
 
     let endpoints = [
         format!("{}/api/orders", cfg.host_url),
@@ -834,6 +933,14 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
     json!({
         "error": format!("Failed to submit sales order to ArunakiZen ({})", cfg.host_url)
     })
+}
+
+pub async fn execute_edit_sale_order(args: &Value) -> Value {
+    let mut modified_args = args.clone();
+    if let Some(obj) = modified_args.as_object_mut() {
+        obj.insert("is_edit".to_string(), json!(true));
+    }
+    execute_create_sale_order(&modified_args).await
 }
 
 pub async fn execute_get_shift_summary(args: &Value) -> Value {
@@ -1119,11 +1226,17 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
         .filter(|s| !s.is_empty())
         .unwrap_or(&cfg.username);
 
-    let payload = json!({
+    let mut payload = json!({
         "faktur": invoice,
         "alasan": reason,
         "operator": operator
     });
+    if let Some(spv_u) = args.get("supervisor_user").and_then(|v| v.as_str()).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+        payload["supervisor_user"] = json!(spv_u);
+    }
+    if let Some(spv_p) = args.get("supervisor_password").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        payload["supervisor_password"] = json!(spv_p);
+    }
 
     let endpoints = [
         format!("{}/api/sales/void", cfg.host_url),
@@ -1143,8 +1256,10 @@ pub async fn execute_void_sale_order(args: &Value) -> Value {
                 if status.is_success() || json_val.get("success") == Some(&json!(true)) {
                     return json_val;
                 }
+                let err_msg = json_val.get("error").or_else(|| json_val.get("message")).and_then(|v| v.as_str()).unwrap_or("Unknown error");
                 return json!({
-                    "error": format!("ArunakiZen rejected void request: {}", json_val.get("error").or_else(|| json_val.get("message")).unwrap_or(&json!("Unknown error"))),
+                    "error": format!("ArunakiZen rejected void request: {}", err_msg),
+                    "hint": "PENTING: Di ArunakiZen, HAPUS/VOID (arunakizen_void_sale_order) membutuhkan Password Supervisor, sedangkan EDIT ORDER (arunakizen_edit_sale_order / is_edit: true) TERBUKA untuk Kasir tanpa password! Jika Anda ingin merevisi/mengedit pesanan, gunakan tool `arunakizen_edit_sale_order` dengan nomor `invoice` yang sama.",
                     "details": json_val
                 });
             }
