@@ -870,8 +870,9 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         .and_then(|v| v.as_bool())
         .unwrap_or_else(|| edit_invoice.is_some());
 
-    // Dynamically verify live permission `edit_f_penjualan_toko` from ArunakiZen database (NOT hardcoded!)
-    if is_edit {
+    // Dynamically verify live permission `edit_f_penjualan_toko` from ArunakiZen database (fail-closed, CANNOT be bypassed!)
+    let mut resolved_level = String::from("KS");
+    if is_edit || edit_invoice.is_some() {
         let mut active_level = String::new();
         let mut req_k = client.get(format!("{}/api/karyawan", cfg.host_url));
         if !cfg.api_key.is_empty() {
@@ -896,30 +897,42 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
             }
         }
         if !active_level.is_empty() {
-            let mut req_lvl = client.get(format!("{}/api/level/{}", cfg.host_url, active_level));
-            if !cfg.api_key.is_empty() {
-                req_lvl = req_lvl.header("Authorization", format!("Bearer {}", cfg.api_key));
-            }
-            if let Ok(res_lvl) = req_lvl.send().await {
+            resolved_level = active_level;
+        }
+        let mut req_lvl = client.get(format!("{}/api/level/{}", cfg.host_url, resolved_level));
+        if !cfg.api_key.is_empty() {
+            req_lvl = req_lvl.header("Authorization", format!("Bearer {}", cfg.api_key));
+        }
+        match req_lvl.send().await {
+            Ok(res_lvl) => {
                 if let Ok(json_lvl) = res_lvl.json::<Value>().await {
                     let perms = json_lvl.get("data").unwrap_or(&json_lvl);
-                    if let Some(edit_perm) = perms.get("edit_f_penjualan_toko").and_then(|v| v.as_str()) {
-                        let allowed = edit_perm.eq_ignore_ascii_case("true")
-                            || edit_perm == "1"
-                            || edit_perm.eq_ignore_ascii_case("iya");
-                        if !allowed {
-                            return json!({
-                                "error": format!(
-                                    "Akses Ditolak oleh ArunakiZen: Level operator/kasir ('{}') saat ini diatur edit_f_penjualan_toko = False di Pengaturan Level ArunakiZen.",
-                                    active_level
-                                ),
-                                "level": active_level,
-                                "permission": "edit_f_penjualan_toko",
-                                "allowed": false
-                            });
+                    let allowed = match perms.get("edit_f_penjualan_toko") {
+                        Some(Value::Bool(b)) => *b,
+                        Some(Value::String(s)) => {
+                            let st = s.trim();
+                            st.eq_ignore_ascii_case("true") || st == "1" || st.eq_ignore_ascii_case("iya")
                         }
+                        Some(Value::Number(n)) => n.as_i64().unwrap_or(0) != 0,
+                        _ => false,
+                    };
+                    if !allowed {
+                        return json!({
+                            "error": format!(
+                                "Akses Ditolak oleh ArunakiZen: Level operator/kasir ('{}') saat ini diatur edit_f_penjualan_toko = False di Pengaturan Level ArunakiZen. Tidak dapat mengedit transaksi.",
+                                resolved_level
+                            ),
+                            "level": resolved_level,
+                            "permission": "edit_f_penjualan_toko",
+                            "allowed": false
+                        });
                     }
                 }
+            }
+            Err(e) => {
+                return json!({
+                    "error": format!("Gagal memverifikasi hak akses level '{}' ke ArunakiZen: {}", resolved_level, e)
+                });
             }
         }
     }
@@ -947,6 +960,7 @@ pub async fn execute_create_sale_order(args: &Value) -> Value {
         "keterangan": notes,
         "items": merged_items,
         "user": cfg.username,
+        "level": resolved_level,
         "is_edit": is_edit,
         "operator": {
             "username": cfg.username,
