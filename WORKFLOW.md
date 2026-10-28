@@ -353,6 +353,106 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
+## Autonomous Administration Manager Roadmap (Phases 151 - 156)
+
+---
+
+### Phase 151: SOP Playbook & Multi-Step Administrative Workflow Engine
+**Goal:** Menghadirkan sistem Standard Operating Procedure (SOP) administratif resmi yang dapat dipanggil dan dieksekusi secara otonom oleh Arunaki dari hulu ke hilir (misal: SOP Tutup Buku Kasir Harian, SOP Penerimaan Invoice Supplier, SOP Arsip Bulanan).
+
+#### 151.1 Engine SOP Playbook Catalog & Tool (`sop.rs`)
+- [ ] Buat modul Rust `core/arunaki-engine/src/tool/sop.rs` dengan katalog playbook SOP terstandarisasi (definisi langkah berantai, input yang dibutuhkan, output berkas target).
+- [ ] Daftarkan tool resmi `list_sop_playbooks` dan `execute_sop_playbook` di `tool/mod.rs` dan system prompt.
+- [ ] Tambahkan parser langkah berantai otonom (eksekusi step-by-step: sinkronisasi POS ArunakiZen -> update GridCraft -> buat laporan memo WordCraft).
+
+#### 151.2 Workstation SOP Playbook UI Integration
+- [ ] Buat antarmuka visual SOP Playbook Drawer / Modal di Workstation (daftar template SOP resmi, status langkah berjalan, visualisasi progres).
+- [ ] Integrasikan trigger 1-klik di header Workstation dan aktivasi instan melalui chat perintah ringkas (`"Jalankan SOP Tutup Buku Kasir"`).
+
+#### 151.3 End-to-End Verification
+- [ ] Validasi eksekusi SOP berantai dari terminal dan UI dengan pembuatan berkas rekap `.xlsx` dan draf `.docx` nyata di folder aktif.
+
+---
+
+### Phase 152: 3-Way Reconciliation & Anomaly/Fraud Detection Engine
+**Goal:** Memberikan kemampuan audit silang tiga arah (Three-Way Matching) dan deteksi anomali administratif (selisih uang kasir vs mutasi bank, duplikasi invoice, salah hitung diskon/pajak) dengan kartu peringatan manajerial.
+
+#### 152.1 Cross-Document Reconciliation Tool (`reconcile.rs`)
+- [ ] Buat modul Rust `core/arunaki-engine/src/tool/reconcile.rs` dengan tool resmi `audit_reconciliation`.
+- [ ] Logika matching silang: PO <-> Surat Jalan / Bukti Terima <-> Faktur Tagihan; serta Kasir POS <-> Buku Kas Excel <-> Rekening Koran PDF.
+- [ ] Algoritma deteksi anomali: selisih nominal, nomor invoice duplikat, tanggal kadaluwarsa tidak wajar, lonjakan harga abnormal.
+
+#### 152.2 Manager Discrepancy & Fraud Alert UI
+- [ ] Komponen kartu visual Manager Audit Alert di chat/canvas dengan badge status monokrom/rose, breakdown tabel selisih, dan rekomendasi resolusi manajerial.
+
+#### 152.3 End-to-End Verification
+- [ ] Uji coba kasus selisih kas riil dan verifikasi deteksi anomali akurat tanpa false positive.
+
+---
+
+### Phase 153: Background Heartbeat & Project Folder Ingestion Monitor
+**Goal:** Membuat Arunaki proaktif memantau folder proyek aktif (tanpa menunggu perintah user di chat) untuk mendeteksi dokumen baru yang dimasukkan (faktur PDF baru, slip setoran, nota gambar) dan memberikan prompt manajerial.
+
+#### 153.1 Active Folder Watcher Daemon
+- [ ] Implementasikan file watcher asynchronous di backend Rust engine (`core/arunaki-engine/src/session/watcher.rs`) dengan debounce filter.
+- [ ] Identifikasi klasifikasi berkas baru otomatis (tipe dokumen: Invoice, Receipt, Bank Statement, Contract).
+
+#### 153.2 Proactive Manager Notification & Ingestion Banner
+- [ ] Pancarkan event SSE `folder:documents-detected` ke UI.
+- [ ] Tampilkan banner proaktif di header workstation: *"3 dokumen faktur baru terdeteksi. Proses sekarang?"* dengan tombol aksi 1-klik.
+
+#### 153.3 End-to-End Verification
+- [ ] Uji drop file dummy ke folder aktif dan verifikasi deteksi otomatis serta notifikasi sistem.
+
+---
+
+### Phase 154: Executive Summarizer & Multi-Format Synthesis (WordCraft & DeckCraft)
+**Goal:** Mengubah data numerik spreadsheet mentah menjadi Laporan Eksekutif 1 halaman di WordCraft dan slide ringkasan eksekutif 16:9 di DeckCraft untuk konsumsi Business Owner / Direktur.
+
+#### 154.1 Executive Synthesis Tool (`synthesize.rs`)
+- [ ] Buat tool Rust `generate_executive_summary` yang menganalisis tren data, margin, biaya terbesar, dan rekomendasi manajerial.
+- [ ] Format generator otomatis: mengekspor dokumen memo resmi `.docx` dan slide presentasi `.pptx` / DeckCraft.
+
+#### 154.2 In-App Workstation Dual-Presentation
+- [ ] Setelah sintesis selesai, buka otomatis tab WordCraft (memo eksekutif) dan DeckCraft (slide deck presentasi) berdampingan di panel tengah.
+
+#### 154.3 End-to-End Verification
+- [ ] Uji sintesis data keuangan/penjualan menjadi slide deck dan memo resmi A4 siap cetak.
+
+---
+
+### Phase 155: Document Governance, Lifecycle & Digital Approval Stamping
+**Goal:** Menghadirkan tata kelola status dokumen (`Draft` -> `Under Review` -> `Verified & Reconciled` -> `Final Locked`) dengan cap stempel digital manajerial resmi dan proteksi berkas read-only.
+
+#### 155.1 Document Metadata & Digital Stamping Engine
+- [ ] Implementasikan metadata sidecar dokumen `.arunaki/governance.json` untuk mencatat lifecycle, riwayat reviewer, tanggal verifikasi, dan hash integritas berkas.
+- [ ] Fitur digital stamping administratif pada WordCraft & GridCraft: stempel resmi *"VERIFIED BY ARUNAKI ADMINISTRATION MANAGER"*.
+
+#### 155.2 Governance Status Badges in Explorer & Center Tabs
+- [ ] Render badge status dokumen di header tab dan sebelah nama file di File Explorer.
+- [ ] Kunci pengeditan (read-only lock) jika dokumen telah berstatus `Final Locked`.
+
+#### 155.3 End-to-End Verification
+- [ ] Uji siklus perubahan status dokumen dari Draft hingga Final Locked beserta proteksi mutasi.
+
+---
+
+### Phase 156: Telegram Bot Dispatcher & Remote Administrative Alerts
+**Goal:** Mengintegrasikan Telegram Bot resmi (bebas biaya API / 100% free) untuk mengirimkan ringkasan laporan harian, rekap kas, dan alert selisih manajerial langsung ke ponsel Business Owner atau grup manajemen.
+
+#### 156.1 Telegram Dispatcher Engine (`telegram.rs`)
+- [ ] Buat modul Rust `core/arunaki-engine/src/tool/telegram.rs` dengan tool resmi `dispatch_telegram_report` dan `send_telegram_alert`.
+- [ ] Dukungan pengiriman pesan teks berformat markdown, ringkasan penutupan kas, serta lampiran file dokumen PDF/Excel laporan harian.
+
+#### 156.2 Settings Integration & Connection Test
+- [ ] Tambahkan konfigurasi Telegram Bot di tab Settings (Bot Token, Chat ID / Channel ID, tombol "Test Ping").
+- [ ] Validasi koneksi langsung ke Telegram Bot API (`https://api.telegram.org/bot<token>/getMe`).
+
+#### 156.3 End-to-End Verification
+- [ ] Uji pengiriman laporan kas harian ke bot Telegram dan verifikasi pesan serta lampiran diterima secara utuh.
+
+---
+
 ## Verification & Quality Gates
 
 Sebelum menyelesaikan setiap fase, WAJIB memverifikasi:
