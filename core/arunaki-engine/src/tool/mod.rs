@@ -17,6 +17,7 @@ pub mod read;
 pub mod reconcile;
 pub mod sop;
 pub mod synthesize;
+pub mod telegram;
 pub mod todo;
 pub mod websearch;
 pub mod write;
@@ -54,6 +55,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.extend(reconcile::reconcile_tool_definitions());
     defs.extend(synthesize::synthesize_tool_definitions());
     defs.extend(governance::governance_tool_definitions());
+    defs.extend(telegram::telegram_tool_definitions());
     defs
 }
 
@@ -152,6 +154,12 @@ pub async fn execute_tool_call(
         }
         "manage_document_governance" | "document_governance" | "stamp_document" => {
             governance::execute_manage_governance(session_id, workspace_dir, arguments)
+        }
+        "dispatch_telegram_report" | "send_telegram_report" => {
+            telegram::execute_dispatch_telegram_report(session_id, workspace_dir, arguments).await
+        }
+        "send_telegram_alert" | "telegram_alert" => {
+            telegram::execute_send_telegram_alert(session_id, workspace_dir, arguments).await
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await

@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   FileText,
   Presentation,
+  Send,
   ChevronDown,
   ChevronRight,
   ShieldCheck,
@@ -218,6 +219,48 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
   const [execPeriod, setExecPeriod] = useState("October 2026");
   const [synthesizing, setSynthesizing] = useState(false);
   const [execKpi, setExecKpi] = useState<ExecutiveKpiResult | null>(null);
+  const [dispatchingTg, setDispatchingTg] = useState(false);
+
+  const handleDispatchTelegram = async (
+    kind: "report" | "alert",
+    title: string,
+    filePath?: string,
+    details?: string
+  ) => {
+    if (!activeFolder) {
+      toast.error("Please open a project folder first.");
+      return;
+    }
+    try {
+      setDispatchingTg(true);
+      const response = await apiFetch("/api/telegram/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          workspace_dir: activeFolder,
+          title,
+          file_path: filePath,
+          details,
+          severity: kind === "alert" ? "HIGH" : "INFO",
+        }),
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res?.delivered_live) {
+          toast.success(`Delivered to Telegram Bot (${res.dispatch_id})`);
+        } else {
+          toast.success(`Logged in Telegram Dispatch Queue (${res?.dispatch_id || "OK"})`);
+        }
+      } else {
+        toast.error("Failed to dispatch Telegram notification.");
+      }
+    } catch (err: any) {
+      toast.error(`Telegram dispatch error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setDispatchingTg(false);
+    }
+  };
 
   const fetchPlaybooks = useCallback(async () => {
     try {
@@ -811,6 +854,23 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                   <FileText className="w-3 h-3" />
                   <span>Audit Memo</span>
                 </button>
+                <button
+                  type="button"
+                  disabled={dispatchingTg}
+                  onClick={() =>
+                    handleDispatchTelegram(
+                      "alert",
+                      `3-Way Audit: ${auditResult.audit_status}`,
+                      "reconciliation_discrepancy_memo.docx",
+                      `Total Absolute Variance: $${auditResult.totals.absolute_variance.toFixed(2)} (${auditResult.anomalies_count} anomaly findings)`
+                    )
+                  }
+                  className="py-1 px-2 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  title="Send Discrepancy Alert to Telegram Bot"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>Telegram</span>
+                </button>
               </div>
             </div>
           )}
@@ -930,6 +990,22 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                 >
                   <Presentation className="w-3 h-3" />
                   <span>Slide Deck</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={dispatchingTg}
+                  onClick={() =>
+                    handleDispatchTelegram(
+                      "report",
+                      `Executive Summary — ${execKpi.period}`,
+                      "executive_summary_memo.docx"
+                    )
+                  }
+                  className="py-1 px-2 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white text-[10px] font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  title="Dispatch Executive Summary to Telegram Bot"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>Telegram</span>
                 </button>
               </div>
             </div>

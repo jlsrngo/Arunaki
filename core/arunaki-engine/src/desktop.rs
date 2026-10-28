@@ -62,6 +62,7 @@ pub fn router() -> Router {
         .route("/api/reconcile/audit", post(handle_reconcile_audit))
         .route("/api/executive/synthesize", post(handle_executive_synthesize))
         .route("/api/governance/manage", post(handle_governance_manage))
+        .route("/api/telegram/dispatch", post(handle_telegram_dispatch))
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/quit", post(handle_quit))
@@ -1316,5 +1317,22 @@ async fn handle_governance_manage(Json(payload): Json<Value>) -> impl IntoRespon
         .and_then(|v| v.as_str())
         .unwrap_or("governance_session");
     let res = crate::tool::governance::execute_manage_governance(session_id, &workspace, &payload);
+    Json(res)
+}
+async fn handle_telegram_dispatch(Json(payload): Json<Value>) -> impl IntoResponse {
+    let workspace = payload.get("workspace_dir")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| get_active_workspace_root())
+        .unwrap_or_else(|| ".".to_string());
+    let session_id = payload.get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("telegram_session");
+    let kind = payload.get("kind").and_then(|v| v.as_str()).unwrap_or("report");
+    let res = if kind == "alert" {
+        crate::tool::telegram::execute_send_telegram_alert(session_id, &workspace, &payload).await
+    } else {
+        crate::tool::telegram::execute_dispatch_telegram_report(session_id, &workspace, &payload).await
+    };
     Json(res)
 }

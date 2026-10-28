@@ -1,0 +1,7 @@
+Use these tools to dispatch daily administrative reports, executive summaries, cash closing recaps, and high-priority discrepancy alerts directly to the Business Owner or management group via Telegram Bot (100% free API).
+
+Available tools:
+- `dispatch_telegram_report`: Sends a formatted Markdown administrative summary (and optional document excerpt from the active project folder) to the configured Telegram Bot chat ID, and records an audit log entry in `.arunaki/telegram_dispatches.json`.
+- `send_telegram_alert`: Dispatches an urgent managerial alert (such as a 3-Way Reconciliation variance, duplicate invoice detection, or cash shortage) to Telegram.
+
+If a live Telegram Bot token and chat ID are configured in Settings > Messaging Apps, the message is delivered immediately via the Telegram Bot HTTP API (`sendMessage`) in addition to being logged in the workspace audit trail.

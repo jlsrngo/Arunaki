@@ -437,19 +437,19 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 156: Telegram Bot Dispatcher & Remote Administrative Alerts 🔄 [AG]
+### Phase 156: Telegram Bot Dispatcher & Remote Administrative Alerts ✅ DONE
 **Goal:** Mengintegrasikan Telegram Bot resmi (bebas biaya API / 100% free) untuk mengirimkan ringkasan laporan harian, rekap kas, dan alert selisih manajerial langsung ke ponsel Business Owner atau grup manajemen.
 
 #### 156.1 Telegram Dispatcher Engine (`telegram.rs`)
-- [ ] Buat modul Rust `core/arunaki-engine/src/tool/telegram.rs` dengan tool resmi `dispatch_telegram_report` dan `send_telegram_alert`.
-- [ ] Dukungan pengiriman pesan teks berformat markdown, ringkasan penutupan kas, serta lampiran file dokumen PDF/Excel laporan harian.
+- [x] Buat modul Rust `core/arunaki-engine/src/tool/telegram.rs` dengan tool resmi `dispatch_telegram_report` dan `send_telegram_alert`.
+- [x] Dukungan pengiriman pesan teks berformat markdown, ringkasan penutupan kas, serta lampiran file dokumen PDF/Excel laporan harian.
 
 #### 156.2 Settings Integration & Connection Test
-- [ ] Tambahkan konfigurasi Telegram Bot di tab Settings (Bot Token, Chat ID / Channel ID, tombol "Test Ping").
-- [ ] Validasi koneksi langsung ke Telegram Bot API (`https://api.telegram.org/bot<token>/getMe`).
+- [x] Tambahkan konfigurasi Telegram Bot di tab Settings (Bot Token, Chat ID / Channel ID, tombol "Test Ping").
+- [x] Validasi koneksi langsung ke Telegram Bot API (`https://api.telegram.org/bot<token>/getMe`).
 
 #### 156.3 End-to-End Verification
-- [ ] Uji pengiriman laporan kas harian ke bot Telegram dan verifikasi pesan serta lampiran diterima secara utuh.
+- [x] Uji pengiriman laporan kas harian ke bot Telegram dan verifikasi pesan serta lampiran diterima secara utuh.
 
 ---
 
