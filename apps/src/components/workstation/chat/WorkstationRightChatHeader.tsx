@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, type KeyboardEvent, type FocusEvent } from "react";
-import { Bot, Plus, PanelRightClose, Minimize2, Maximize2, Loader2 } from "lucide-react";
+import { Bot, Plus, PanelRightClose, Sparkles, Loader2 } from "lucide-react";
 import { getSession } from "../../../lib/engine";
 import { API_BASE, apiFetch } from "../../../lib/api";
 import { useI18n } from "../../../lib/i18n";
@@ -123,25 +123,22 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             disabled={isCompacting}
             onClick={onCompactSession}
             className={cn(
-              "p-1 rounded transition-colors cursor-pointer flex items-center justify-center hover:bg-[var(--bg-hover)]",
-              isCompacted || isCompacting
-                ? "text-[#f97316]"
-                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              "w-6 h-6 rounded-md bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95",
+              isCompacting && "opacity-80 cursor-wait",
+              isCompacted && "ring-1 ring-white/40 shadow-sm"
             )}
             title={
               isCompacting
                 ? "Compacting session context..."
                 : isCompacted
-                ? "Token pruning active — Click to disable"
+                ? "Context compacted (/compact active) — Click to restore"
                 : t("compactSessionContext", "Compact Context (/compact)")
             }
           >
-{isCompacting ? (
-              <Loader2 className="w-3.5 h-3.5 text-[#cf6613] animate-spin" />
-            ) : isCompacted ? (
-              <Maximize2 className="w-3.5 h-3.5 text-[#cf6613]" strokeWidth={1.8} />
+            {isCompacting ? (
+              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
             ) : (
-              <Minimize2 className="w-3.5 h-3.5 text-[var(--text-muted)] hover:text-white" strokeWidth={1.5} />
+              <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />
             )}
           </button>
         )}

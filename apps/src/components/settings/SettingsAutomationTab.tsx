@@ -5,12 +5,13 @@ import {
   ShieldCheck,
   Bell,
   Sliders,
-  Minimize2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import { summarizeSession } from "../../lib/engine";
+import { sendDesktopNotification } from "../../lib/notifications";
 
 export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const { t } = useI18n();
@@ -141,34 +142,15 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                 <div className="mt-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-                      if (desktop?.notify) {
-                        desktop.notify({
-                          title: "Arunaki Workstation",
-                          body: "Document automation task completed successfully.",
-                        });
+                    onClick={async () => {
+                      const ok = await sendDesktopNotification(
+                        "Arunaki Workstation",
+                        "Document automation task completed successfully."
+                      );
+                      if (ok) {
                         toast.success("Desktop test notification dispatched.");
-                      } else if (typeof window !== "undefined" && "Notification" in window) {
-                        if (Notification.permission === "granted") {
-                          new Notification("Arunaki Workstation", {
-                            body: "Document automation task completed successfully.",
-                          });
-                          toast.success("Desktop test notification dispatched.");
-                        } else {
-                          Notification.requestPermission().then((perm) => {
-                            if (perm === "granted") {
-                              new Notification("Arunaki Workstation", {
-                                body: "Document automation task completed successfully.",
-                              });
-                              toast.success("Desktop test notification dispatched.");
-                            } else {
-                              toast.warning("Notification permission denied in browser.");
-                            }
-                          });
-                        }
                       } else {
-                        toast.info("Native notifications are active inside Electron desktop shell.");
+                        toast.info("Test notification dispatched to OS notification center.");
                       }
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5"
@@ -186,8 +168,11 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               const next = !desktopNotification;
               setDesktopNotification(next);
               localStorage.setItem("arunaki_pref_desktop_notification", String(next));
-              if (next && typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted") {
-                Notification.requestPermission().catch(() => {});
+              if (next) {
+                sendDesktopNotification(
+                  "Arunaki Workstation",
+                  "Desktop notifications are now enabled."
+                ).catch(() => {});
               }
               toast.success(
                 next ? "Desktop notifications enabled." : "Desktop notifications disabled."
@@ -213,7 +198,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
             <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center shrink-0 border border-[var(--border-strong)]">
-              <Minimize2 className="w-4 h-4 text-[var(--text-muted)]" />
+              <Sparkles className="w-4 h-4 text-[#cf6613]" />
             </div>
             <div>
               <h4 className="text-xs font-bold text-[var(--text-primary)]">
@@ -251,7 +236,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <Minimize2 className="w-3 h-3 text-[var(--text-muted)]" />
+                    <Sparkles className="w-3 h-3 text-[#cf6613]" />
                     <span>{isCompacting ? "Compacting..." : t("compactActiveSessionNow")}</span>
                   </button>
                 </div>

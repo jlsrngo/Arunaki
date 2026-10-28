@@ -1,4 +1,5 @@
 import { API_BASE, apiFetch } from "../../../lib/api";
+import { sendDesktopNotification } from "../../../lib/notifications";
 import { resolveActiveSingleModel } from "./chatModelResolver";
 
 export interface ProviderDiagnostic {
@@ -73,53 +74,8 @@ export async function dispatchCompletionNotification(toolsCount = 0): Promise<vo
         ? `Executed ${toolsCount} document task${toolsCount > 1 ? "s" : ""} successfully.`
         : "Document response generated.";
 
-    // 1. Try Tauri v2 Native Windows Toast Notification (Action Center)
-    if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
-      try {
-        const pkg = "@tauri-apps/plugin-notification";
-        // @ts-ignore
-        const notifPlugin: any = await import(/* @vite-ignore */ pkg);
-        const { isPermissionGranted, requestPermission, sendNotification } = notifPlugin;
-        let granted = await isPermissionGranted();
-        if (!granted) {
-          const perm = await requestPermission();
-          granted = perm === "granted";
-        }
-        if (granted) {
-          sendNotification({
-            title: "Arunaki Workstation",
-            body: notifBody,
-          });
-          return;
-        }
-      } catch (e) {
-        console.warn("[notification] Tauri native notification fallback:", e);
-      }
-    }
-
-    // 2. Desktop helper / wry fallback
-    const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
-    if (desktop?.notify) {
-      desktop.notify({
-        title: "Arunaki Workstation",
-        body: notifBody,
-      });
-      return;
-    }
-
-    // 3. Web Notification API fallback
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
-        new Notification("Arunaki Workstation", { body: notifBody });
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((perm) => {
-          if (perm === "granted") {
-            new Notification("Arunaki Workstation", { body: notifBody });
-          }
-        });
-      }
-    }
+    await sendDesktopNotification("Arunaki Workstation", notifBody);
   } catch (err) {
-    console.warn("[chatDiagnostics] notification error:", err);
+    console.debug("[notification] Completion notification failed:", err);
   }
 }

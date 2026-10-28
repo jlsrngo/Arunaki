@@ -11,7 +11,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Building2,
+  BookOpen,
+  HelpCircle,
 } from "lucide-react";
+import { ArunakiZenSetupGuideModal } from "./ArunakiZenSetupGuideModal";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
@@ -50,6 +53,8 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [guideInitialStep, setGuideInitialStep] = useState(1);
 
   // Load saved config on mount
   useEffect(() => {
@@ -272,15 +277,28 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           </p>
         </div>
 
-        {/* Connection Status Badge (Strict Monochrome Rule: White/Muted, NO Emerald) */}
-        <div
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border select-none shrink-0 transition-all",
-            status.connected
-              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
-              : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)]"
-          )}
-        >
+        {/* Top Actions: Setup Guide & Connection Status */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setGuideInitialStep(1);
+              setShowGuideModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer shadow-xs"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <span>{t("posSetupGuide", "Setup Guide")}</span>
+          </button>
+
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border select-none shrink-0 transition-all",
+              status.connected
+                ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+                : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)]"
+            )}
+          >
           {status.connected ? (
             <>
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -293,15 +311,29 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             </>
           )}
         </div>
+        </div>
       </div>
 
       {/* Main Connection Form Card */}
       <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
         {/* 1. Host URL Server ArunakiZen */}
         <div>
-          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-            {t("posHostUrlLabel", "Host URL Server ArunakiZen")}
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-[var(--text-primary)]">
+              {t("posHostUrlLabel", "Host URL Server ArunakiZen")}
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setGuideInitialStep(1);
+                setShowGuideModal(true);
+              }}
+              className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <HelpCircle className="w-3 h-3" />
+              <span>{t("needPortHelp", "How to detect port? View guide")}</span>
+            </button>
+          </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
@@ -329,9 +361,22 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
         {/* 2. Integration API Key */}
         <div>
-          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-            {t("posApiKeyLabel", "API Key Integrasi (Bearer Token)")}
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-[var(--text-primary)]">
+              {t("posApiKeyLabel", "API Key Integrasi (Bearer Token)")}
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setGuideInitialStep(2);
+                setShowGuideModal(true);
+              }}
+              className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <HelpCircle className="w-3 h-3" />
+              <span>{t("needApiKeyHelp", "Where to get token? View guide")}</span>
+            </button>
+          </div>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
               <Key className="w-3.5 h-3.5" />
@@ -359,9 +404,22 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
         {/* 3. Operator Kasir Credentials (Dual-Layer) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
           <div>
-            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-              {t("posOperatorUserLabel", "Kode / Username Operator Kasir")}
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-[var(--text-primary)]">
+                {t("posOperatorUserLabel", "Kode / Username Operator Kasir")}
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideInitialStep(3);
+                  setShowGuideModal(true);
+                }}
+                className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <HelpCircle className="w-3 h-3" />
+                <span>{t("needCashierHelp", "Need operator ID? View guide")}</span>
+              </button>
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
                 <User className="w-3.5 h-3.5" />
@@ -369,9 +427,9 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder={t("posOperatorUserPlaceholder", "e.g. CASHIER01")}
-                className="w-full h-9 pl-9 pr-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-semibold uppercase focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+                className="w-full h-9 pl-9 pr-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-semibold focus:border-[var(--border-strong)] focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -464,6 +522,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           </button>
         </div>
       </div>
+      {/* Interactive Setup Wizard Modal */}
+      <ArunakiZenSetupGuideModal
+        isOpen={showGuideModal}
+        initialStep={guideInitialStep}
+        onClose={() => setShowGuideModal(false)}
+      />
     </div>
   );
 });
