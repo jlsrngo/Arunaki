@@ -653,7 +653,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
                           {anom.title}
                         </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-600 text-white">
                           {anom.severity}
                         </span>
                       </div>

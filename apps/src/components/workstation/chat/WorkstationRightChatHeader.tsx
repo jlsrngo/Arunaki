@@ -123,21 +123,24 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
             disabled={isCompacting}
             onClick={onCompactSession}
             className={cn(
-              "w-5 h-5 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white flex items-center justify-center transition-colors cursor-pointer shrink-0",
+              "w-[18px] h-[18px] rounded flex items-center justify-center transition-colors cursor-pointer shrink-0",
+              isCompacted || isCompacting
+                ? "bg-[#cf6613] hover:bg-[#b8580f] text-white"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
               isCompacting && "opacity-80 cursor-wait"
             )}
             title={
               isCompacting
                 ? "Compacting session context..."
                 : isCompacted
-                ? "Context compacted (/compact active) — Click to restore"
+                ? "Context compacted (/compact active) — Click to disable"
                 : t("compactSessionContext", "Compact Context (/compact)")
             }
           >
             {isCompacting ? (
-              <Loader2 className="w-3 h-3 text-white animate-spin" />
+              <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
             ) : (
-              <Sparkles className="w-3 h-3 text-white" strokeWidth={2} />
+              <Sparkles className="w-2.5 h-2.5" strokeWidth={1.8} />
             )}
           </button>
         )}

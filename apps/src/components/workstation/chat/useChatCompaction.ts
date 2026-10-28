@@ -14,7 +14,7 @@ interface UseChatCompactionOptions {
 
 export function useChatCompaction({
   activeChatId,
-  chatMessages,
+  chatMessages: _chatMessages,
   isStreaming,
   activeModel,
   activeFolder,
@@ -34,17 +34,8 @@ export function useChatCompaction({
       return;
     }
     const saved = localStorage.getItem(`arunaki_compacted_${activeChatId}`);
-    if (saved === "disabled") {
-      setIsCompacted(false);
-      return;
-    }
-    if (saved === "true") {
-      setIsCompacted(true);
-      return;
-    }
-    const hasSummaryMsg = chatMessages.some((m) => m.summary === true);
-    setIsCompacted(hasSummaryMsg);
-  }, [activeChatId, chatMessages]);
+    setIsCompacted(saved === "true");
+  }, [activeChatId]);
 
   const handleCompactSession = useCallback(async () => {
     if (!activeChatId) {

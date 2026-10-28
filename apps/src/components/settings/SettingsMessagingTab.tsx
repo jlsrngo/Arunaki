@@ -353,7 +353,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
 
         {/* Error Alert if connection error occurred */}
         {enabled && status.lastError && (
-          <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2.5">
+          <div className="p-3.5 rounded-xl bg-rose-600 border border-rose-600 text-white text-xs flex items-start gap-2.5">
             <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold">Gateway Notice</p>

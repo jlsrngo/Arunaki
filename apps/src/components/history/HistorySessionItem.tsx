@@ -122,7 +122,7 @@ export const HistorySessionItem = memo(function HistorySessionItem({
               onDelete(session);
             }}
             title="Delete session"
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

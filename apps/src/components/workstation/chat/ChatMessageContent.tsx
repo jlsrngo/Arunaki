@@ -109,7 +109,7 @@ const MARKDOWN_COMPONENTS = {
     const str = typeof first === "string" ? first : "";
     if (str.trimStart().startsWith("⚠️")) {
       return (
-        <div className="my-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200/90 text-[11px] leading-relaxed flex items-start gap-2 shadow-xs">
+        <div className="my-2 p-2.5 rounded-xl border border-[#cf6613] bg-[#cf6613] text-white text-[11px] leading-relaxed flex items-start gap-2 shadow-xs">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 select-none mt-0.5" strokeWidth={1.5} />
           <div className="flex-1 whitespace-pre-wrap break-words [word-break:break-word] text-[var(--text-primary)]">
             {Array.isArray(children)

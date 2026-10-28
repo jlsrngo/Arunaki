@@ -127,7 +127,7 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
             className={cn(
               "px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider flex items-center gap-1 border",
               isLocked
-                ? "bg-[#cf6613]/20 text-[#cf6613] border-[#cf6613]/50 font-bold"
+                ? "bg-[#cf6613] text-white border-[#cf6613] font-bold"
                 : currentStatus === "VERIFIED"
                 ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)] font-semibold"
                 : "bg-[var(--bg-app)] text-[var(--text-dim)] border-[var(--border-color)]"

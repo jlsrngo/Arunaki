@@ -18,8 +18,8 @@ export function DeleteSessionModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
       <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)] shadow-2xl">
         <div className="flex items-start gap-3.5">
-          <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-            <Trash2 className="w-4 h-4 text-rose-400" />
+          <div className="w-9 h-9 rounded-xl bg-rose-600 border border-rose-600 flex items-center justify-center shrink-0">
+            <Trash2 className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-white tracking-tight">

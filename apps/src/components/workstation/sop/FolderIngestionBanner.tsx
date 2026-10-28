@@ -156,7 +156,7 @@ export const FolderIngestionBanner = memo(function FolderIngestionBanner({
           type="button"
           onClick={handleProcessNow}
           disabled={processing}
-          className="h-6 px-2.5 rounded bg-[#cf6613] hover:bg-[#cf6613]/90 text-white text-[10px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+          className="h-6 px-2.5 rounded bg-[#cf6613] hover:bg-[#b8580f] text-white text-[10px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
         >
           {processing ? (
             <Loader2 className="w-3 h-3 animate-spin" />

@@ -112,7 +112,7 @@ export const AppFooter = memo(function AppFooter({
             "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none shadow-xs",
             isOnline
               ? "bg-[var(--bg-card)] border-[var(--border-strong)] text-white"
-              : "bg-rose-500/10 border-rose-500/30 text-rose-400 font-medium"
+              : "bg-rose-600 border-rose-600 text-white font-medium"
           )}
           title={
             isOnline

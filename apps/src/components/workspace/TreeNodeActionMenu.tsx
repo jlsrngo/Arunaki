@@ -117,7 +117,7 @@ export function TreeNodeActionMenu({
                   setMenuOpen(false);
                   onDelete();
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] flex items-center gap-2 text-rose-400 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3 h-3 text-red-400" />
                 <span>{node.isDir ? "Delete Folder" : "Delete File"}</span>

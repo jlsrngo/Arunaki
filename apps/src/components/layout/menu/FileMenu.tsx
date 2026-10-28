@@ -121,7 +121,7 @@ export const FileMenu = memo(function FileMenu({
           <MenuItem
             icon={LogOut}
             label={t("exitWindow", "Exit Arunaki")}
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            className="text-rose-400 hover:text-white hover:bg-rose-600"
             onClick={() => {
               onClose();
               commands.exitApp();

@@ -697,7 +697,7 @@ export function ProviderForm({
                 "px-3 py-1.5 rounded-xl border text-xs flex items-center gap-2 font-mono animate-in fade-in duration-100",
                 testResult.success
                   ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-                  : "bg-red-500/10 text-red-400 border-red-500/20"
+                  : "bg-rose-600 text-white border-rose-600"
               )}
             >
               <span

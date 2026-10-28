@@ -56,7 +56,7 @@ export function EmptySessionModal({
           <button
             type="button"
             onClick={() => onDelete(session)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white border border-rose-600 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Session</span>

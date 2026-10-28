@@ -107,7 +107,7 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                           e.stopPropagation();
                           onRevertChange(item);
                         }}
-                        className="p-1 rounded hover:bg-rose-500/20 text-rose-300 transition-colors"
+                        className="p-1 rounded hover:bg-rose-600 text-rose-400 hover:text-white transition-colors"
                         title="Revert to last saved"
                       >
                         <RotateCcw className="w-3 h-3" />

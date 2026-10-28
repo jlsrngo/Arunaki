@@ -52,7 +52,7 @@ export const ChatAttachmentChips = memo(function ChatAttachmentChips({
           <button
             type="button"
             onClick={() => onRemoveFile(idx)}
-            className="ml-1 w-4 h-4 rounded-full bg-[var(--bg-panel)] hover:bg-red-500/20 hover:text-red-500 text-[var(--text-muted)] flex items-center justify-center transition-colors cursor-pointer"
+            className="ml-1 w-4 h-4 rounded-full bg-[var(--bg-panel)] hover:bg-rose-600 hover:text-white text-[var(--text-muted)] flex items-center justify-center transition-colors cursor-pointer"
             title="Remove file"
           >
             <X className="w-2.5 h-2.5" />

@@ -491,7 +491,7 @@ export function SettingsCliConnectionsTab({
       : state.installed
       ? "bg-amber-400"
       : loading
-      ? "bg-amber-400/60 animate-pulse"
+      ? "bg-[#cf6613] animate-pulse"
       : "bg-zinc-700";
 
     return (
@@ -554,7 +554,7 @@ export function SettingsCliConnectionsTab({
               </span>
               {refreshErrors[id] && (
                 <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#cf6613] text-white border border-[#cf6613]"
                   title={refreshErrors[id]}
                 >
                   <AlertTriangle className="w-2.5 h-2.5" />

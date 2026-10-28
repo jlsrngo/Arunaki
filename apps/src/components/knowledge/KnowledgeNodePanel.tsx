@@ -421,7 +421,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer"
                 title="Delete Node"
               >
                 <Trash2 className="w-4 h-4" />
