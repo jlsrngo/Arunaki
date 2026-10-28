@@ -655,7 +655,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               ) : (
                 <Sparkles className="w-3 h-3 shrink-0" />
               )}
-              <span className="truncate">Generate from Folder</span>
+              <span className="truncate">Auto-Generate</span>
             </button>
             <button
               type="button"
@@ -709,7 +709,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               </p>
               <div className="space-y-1.5 text-[11px] text-[var(--text-secondary)]">
                 <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
-                  <strong className="text-white">1. Generate from Folder:</strong> Reads the actual content, table headers, and topics inside your documents (<code className="text-[#cf6613]">.xlsx</code>, <code className="text-[#cf6613]">.docx</code>, <code className="text-[#cf6613]">.pdf</code>, <code className="text-[#cf6613]">.csv</code>, <code className="text-[#cf6613]">.txt</code>) to build tailored SOP workflows.
+                  <strong className="text-white">1. Auto-Generate:</strong> Reads the actual content, table headers, and topics inside your documents (<code className="text-[#cf6613]">.xlsx</code>, <code className="text-[#cf6613]">.docx</code>, <code className="text-[#cf6613]">.pdf</code>, <code className="text-[#cf6613]">.csv</code>, <code className="text-[#cf6613]">.txt</code>) to build tailored SOP workflows.
                 </div>
                 <div className="p-2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)]">
                   <strong className="text-white">2. Edit or Add Playbook:</strong> Click the <strong className="text-white">Edit (Pencil)</strong> icon on any generated playbook to customize its title, steps, or target files, or click <strong className="text-white">New Playbook</strong> to build one from scratch.

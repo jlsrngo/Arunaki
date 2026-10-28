@@ -86,17 +86,50 @@ fn detect_app_for_file(filename: &str) -> String {
     }
 }
 
+/// Cleans a line/header extracted from a document, removing markdown symbols,
+/// trailing colons, and rejecting decorative separator lines like `----` or `====`
+/// or purely numeric values.
+fn clean_heading_or_topic(raw: &str) -> Option<String> {
+    let trimmed = raw
+        .trim()
+        .trim_start_matches(['#', '-', '*', '>', '•', ' '])
+        .trim_end_matches([':', '-', '=', '*', '_', ' '])
+        .trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let alpha_count = trimmed.chars().filter(|c| c.is_alphabetic()).count();
+    if alpha_count < 2 {
+        return None;
+    }
+    let clean: String = trimmed.chars().take(48).collect();
+    Some(clean)
+}
+
 /// Classification helper that inspects extracted text/headers from inside a file
-/// to determine its operational domain (`Finance & Cash`, `Inventory & Stock`,
-/// `HR & Payroll`, `Procurement & Invoice`, `Sales & Daily Report`, or `General Operations`).
+/// to determine its operational domain (`Finance & Sales`, `Inventory & Stock`,
+/// `HR & Payroll`, `Procurement & AP`, or `Operations & Reporting`).
 fn classify_domain_from_content(filename: &str, content_sample: &str) -> String {
     let combined = format!("{} {}", filename, content_sample).to_ascii_lowercase();
-    if combined.contains("invoice")
+    if combined.contains("rekap")
+        || combined.contains("penjualan")
+        || combined.contains("pemasukan")
+        || combined.contains("pengeluaran")
+        || combined.contains("kas")
+        || combined.contains("cash")
+        || combined.contains("saldo")
+        || combined.contains("debit")
+        || combined.contains("kredit")
+        || combined.contains("qris")
+        || combined.contains("tunai")
+        || combined.contains("revenue")
+    {
+        "Finance & Sales".to_string()
+    } else if combined.contains("invoice")
         || combined.contains("faktur")
-        || combined.contains("tagihan")
         || combined.contains("supplier")
         || combined.contains("vendor")
-        || combined.contains("po ")
+        || combined.contains("purchase order")
         || combined.contains("payable")
     {
         "Procurement & AP".to_string()
@@ -116,19 +149,19 @@ fn classify_domain_from_content(filename: &str, content_sample: &str) -> String 
         || combined.contains("sku")
     {
         "Inventory & Stock".to_string()
-    } else if combined.contains("kas")
-        || combined.contains("cash")
-        || combined.contains("saldo")
-        || combined.contains("debit")
-        || combined.contains("kredit")
-        || combined.contains("qris")
-        || combined.contains("rekap")
-        || combined.contains("revenue")
-        || combined.contains("penjualan")
-    {
-        "Finance & Sales".to_string()
     } else {
         "Operations & Reporting".to_string()
+    }
+}
+
+fn push_unique_heading(headings: &mut Vec<String>, candidate: &str, max_count: usize) {
+    if headings.len() >= max_count {
+        return;
+    }
+    if let Some(clean) = clean_heading_or_topic(candidate) {
+        if !headings.iter().any(|h| h.eq_ignore_ascii_case(&clean)) {
+            headings.push(clean);
+        }
     }
 }
 
@@ -144,76 +177,86 @@ fn inspect_document_semantics(full_path: &Path, filename: &str, ext: &str) -> In
             if let Ok(txt) = fs::read_to_string(full_path) {
                 raw_text = txt.lines().take(10).collect::<Vec<_>>().join(" ");
                 if let Some(first_line) = txt.lines().next() {
-                    for col in first_line.split([',', '\t', ';']).take(6) {
+                    for col in first_line.split([',', '\t', ';']).take(8) {
                         let c = col.trim().trim_matches('"');
-                        if !c.is_empty() {
-                            headings.push(c.to_string());
-                        }
+                        push_unique_heading(&mut headings, c, 6);
                     }
                 }
             }
         }
         "xlsx" | "xls" => {
             if let Ok(map_json) = arunaki_docs::build_excel_map(&path_str) {
-                raw_text = map_json.clone();
                 if let Ok(val) = serde_json::from_str::<Value>(&map_json) {
                     if let Some(sheets) = val.get("sheets").and_then(|s| s.as_array()) {
+                        let mut cell_texts: Vec<String> = Vec::new();
                         for sh in sheets.iter().take(2) {
-                            if let Some(cells) = sh.get("cells").and_then(|c| c.as_object()) {
-                                for (coord, cell_val) in cells.iter().take(12) {
-                                    if coord.ends_with('1') && coord.len() == 2 {
-                                        if let Some(v) = cell_val.get("v").and_then(|x| x.as_str()) {
-                                            if !v.trim().is_empty() {
-                                                headings.push(v.trim().to_string());
+                            if let Some(sh_name) = sh.get("name").and_then(|n| n.as_str()) {
+                                if !sh_name.eq_ignore_ascii_case("Sheet1") {
+                                    push_unique_heading(&mut headings, sh_name, 6);
+                                }
+                            }
+                            if let Some(cells) = sh.get("cells").and_then(|c| c.as_array()) {
+                                for cell_val in cells.iter().take(40) {
+                                    let cell_ref = cell_val
+                                        .get("ref")
+                                        .and_then(|r| r.as_str())
+                                        .unwrap_or("");
+                                    let text_str = cell_val
+                                        .get("text")
+                                        .and_then(|x| x.as_str())
+                                        .or_else(|| cell_val.get("value").and_then(|x| x.as_str()))
+                                        .unwrap_or("");
+                                    if !text_str.trim().is_empty() {
+                                        cell_texts.push(text_str.trim().to_string());
+                                        if let Some((row_idx, _)) =
+                                            arunaki_docs::parse_cell_ref(cell_ref)
+                                        {
+                                            if row_idx < 5 {
+                                                push_unique_heading(&mut headings, text_str, 6);
                                             }
                                         }
                                     }
                                 }
                             }
-                            if let Some(sh_name) = sh.get("name").and_then(|n| n.as_str()) {
-                                if !sh_name.eq_ignore_ascii_case("Sheet1") {
-                                    headings.push(format!("Sheet: {}", sh_name));
-                                }
-                            }
                         }
+                        raw_text = cell_texts.join(" ");
                     }
                 }
             }
         }
         "docx" | "doc" => {
             if let Ok(map_json) = arunaki_docs::build_word_map(&path_str) {
-                raw_text = map_json.clone();
                 if let Ok(val) = serde_json::from_str::<Value>(&map_json) {
                     if let Some(paras) = val.get("paragraphs").and_then(|p| p.as_array()) {
-                        for p in paras.iter().take(5) {
+                        let mut para_texts: Vec<String> = Vec::new();
+                        for p in paras.iter().take(8) {
                             if let Some(t) = p.get("text").and_then(|x| x.as_str()) {
-                                let clean = t.trim();
-                                if !clean.is_empty() {
-                                    headings.push(clean.chars().take(48).collect());
-                                }
+                                para_texts.push(t.trim().to_string());
+                                push_unique_heading(&mut headings, t, 4);
                             }
                         }
+                        raw_text = para_texts.join(" ");
                     }
                 }
             }
             if headings.is_empty() {
                 if let Ok(txt) = fs::read_to_string(full_path) {
                     raw_text = txt.lines().take(12).collect::<Vec<_>>().join(" ");
-                    for line in txt.lines().filter(|l| !l.trim().is_empty()).take(3) {
-                        headings.push(line.trim().trim_start_matches('#').trim().chars().take(48).collect());
+                    for line in txt.lines() {
+                        push_unique_heading(&mut headings, line, 4);
                     }
                 }
             }
         }
         "pdf" => {
             if let Ok(map_json) = arunaki_docs::build_pdf_map(&path_str, Some(3)) {
-                raw_text = map_json.clone();
                 if let Ok(val) = serde_json::from_str::<Value>(&map_json) {
                     if let Some(pages) = val.get("pages").and_then(|p| p.as_array()) {
                         if let Some(first_page) = pages.first() {
                             if let Some(t) = first_page.get("text").and_then(|x| x.as_str()) {
-                                for line in t.lines().filter(|l| !l.trim().is_empty()).take(3) {
-                                    headings.push(line.trim().chars().take(48).collect());
+                                raw_text = t.lines().take(15).collect::<Vec<_>>().join(" ");
+                                for line in t.lines() {
+                                    push_unique_heading(&mut headings, line, 4);
                                 }
                             }
                         }
@@ -224,8 +267,8 @@ fn inspect_document_semantics(full_path: &Path, filename: &str, ext: &str) -> In
         _ => {
             if let Ok(txt) = fs::read_to_string(full_path) {
                 raw_text = txt.lines().take(15).collect::<Vec<_>>().join(" ");
-                for line in txt.lines().filter(|l| !l.trim().is_empty()).take(3) {
-                    headings.push(line.trim().trim_start_matches('#').trim().chars().take(48).collect());
+                for line in txt.lines() {
+                    push_unique_heading(&mut headings, line, 4);
                 }
             }
         }
@@ -233,11 +276,11 @@ fn inspect_document_semantics(full_path: &Path, filename: &str, ext: &str) -> In
 
     let domain_category = classify_domain_from_content(filename, &raw_text);
     let extracted_summary = if headings.is_empty() {
-        format!("Detected {} document in '{}'", domain_category, filename)
+        format!("{} document ({})", domain_category, filename)
     } else {
         format!(
-            "Detected fields/topics: {}",
-            headings.iter().take(4).cloned().collect::<Vec<_>>().join(", ")
+            "Topics/Columns: {}",
+            headings.iter().take(5).cloned().collect::<Vec<_>>().join(", ")
         )
     };
 
