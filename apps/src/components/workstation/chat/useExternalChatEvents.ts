@@ -233,7 +233,14 @@ export function useExternalChatEvents({
             },
           ]);
         } else if (event.type === "done" || event.type === "error") {
-          if (event.type === "done") {
+          // Trailing done events (step.ended -> session.status idle -> session.idle) that arrive
+          // after a local turn already finalized must be ignored entirely (prevents notification loops).
+          if (extStartTime === 0 && !isStreamingRef.current) return;
+          if (
+            event.type === "done" &&
+            extStartTime > 0 &&
+            (extText.trim().length > 0 || extSteps.length > 0)
+          ) {
             const toolsCount = extSteps.filter((s) => s.iconType === "tool").length;
             dispatchCompletionNotification(toolsCount);
           }

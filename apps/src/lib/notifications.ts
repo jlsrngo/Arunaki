@@ -5,7 +5,24 @@ import {
 } from "@tauri-apps/plugin-notification";
 import { apiFetch } from "./api";
 
+// Global cooldown guard: trailing engine events (step.ended / session.idle / session.status idle)
+// must never produce repeated (looping) OS notifications for the same turn.
+const NOTIFICATION_COOLDOWN_MS = 4000;
+let lastNotificationAt = 0;
+let lastNotificationKey = "";
+
 export async function sendDesktopNotification(title: string, body: string): Promise<boolean> {
+  const now = Date.now();
+  const key = `${title}|${body}`;
+  if (now - lastNotificationAt < NOTIFICATION_COOLDOWN_MS) {
+    return false;
+  }
+  if (key === lastNotificationKey && now - lastNotificationAt < NOTIFICATION_COOLDOWN_MS * 3) {
+    return false;
+  }
+  lastNotificationAt = now;
+  lastNotificationKey = key;
+
   // 1. Trigger Windows 10/11 Native WinRT Toast Notification via Engine (works in portable .exe too)
   try {
     const res = await apiFetch("/api/desktop/notify", {

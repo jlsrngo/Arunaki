@@ -67,6 +67,49 @@ fn is_emoji_char(c: char) -> bool {
         || ('\u{1F680}'..='\u{1F6FF}').contains(&c)
 }
 
+/// Strong claim that an ArunakiZen POS action physically happened (lowercased text).
+fn claims_zen_action(lower_msg: &str) -> bool {
+    const PHRASES: &[&str] = &[
+        "sudah dicetak",
+        "berhasil dicetak",
+        "dicetak ulang",
+        "sudah tercetak",
+        "struk fisik",
+        "struk sudah",
+        "laci kasir sudah terbuka",
+        "laci kasir terbuka",
+        "berhasil diedit",
+        "sudah diedit",
+        "berhasil direvisi",
+        "sudah direvisi",
+        "berhasil di-void",
+        "berhasil divoid",
+        "sudah di-void",
+        "berhasil dibatalkan",
+        "receipt has been printed",
+        "receipt printed",
+        "invoice has been edited",
+        "invoice has been updated",
+        "drawer opened",
+    ];
+    PHRASES.iter().any(|p| lower_msg.contains(p))
+}
+
+/// Weaker completion wording, only meaningful when the user asked for a POS action.
+fn claims_zen_action_soft(lower_msg: &str) -> bool {
+    const PHRASES: &[&str] = &["selesai", "berhasil", "sudah", "done", "success", "lunas", "revised"];
+    PHRASES.iter().any(|p| lower_msg.contains(p))
+}
+
+/// User prompt requests a POS action (print receipt, edit/revise invoice, drawer, void).
+fn requests_zen_action(lower_prompt: &str) -> bool {
+    const PHRASES: &[&str] = &[
+        "cetak", "struk", "stuk", "print", "laci", "r43-", "void", "uang pas",
+        "uangnya pas", "uang nya pas", "edit lagi", "revisi order", "edit order",
+    ];
+    PHRASES.iter().any(|p| lower_prompt.contains(p))
+}
+
 fn derive_session_title(prompt: &str) -> String {
     let first_line = prompt
         .lines()
@@ -313,7 +356,8 @@ pub async fn run_agent_turn(
         Available ArunakiZen Tools:\n\
         - `arunakizen_search_product`: Search retail product catalog by barcode, SKU, or name to find official items and prices.\n\
         - `arunakizen_create_sale_order`: Create an official cashier sales transaction (R43 invoice), deduct inventory, and record payment.\n\
-        - `arunakizen_void_sale_order`: Void (cancel and rollback) an existing cashier sales invoice (R43), restoring inventory stock and cashier drawer cash.\n\
+        - `arunakizen_edit_sale_order`: Edit/revise an EXISTING invoice in place (same R43 number, is_edit: true): change items, quantities, payment amount (e.g. 'uang pas'), or add shipping lines.\n\
+        - `arunakizen_void_sale_order`: Void (cancel and rollback) an existing cashier sales invoice (R43). Requires supervisor password in ArunakiZen; prefer `arunakizen_edit_sale_order` for revisions.\n\
         - `arunakizen_print_receipt`: Print an official customer receipt on the physical thermal printer and kick open the cash drawer.\n\
         - `arunakizen_get_shift_summary`: View cashier shift turnover and drawer cash balance.\n\
         - `question`: Interactive clarification tool. Use this to ask the user to confirm product typos, ambiguities, or missing catalog items.\n\
@@ -341,11 +385,15 @@ pub async fn run_agent_turn(
            - NEVER auto-generate summaries, item lists, or filler text into the `notes` (memo/remarks) field of `arunakizen_create_sale_order`!\n\
            - Leave `notes` completely empty (\"\") unless the user explicitly commanded a specific memo to be recorded on the invoice (e.g. 'leave with security guard', 'dropship for customer Budi').\n\
         \n\
-        6. ORDER REVISION & VOID PROTECTION (CRITICAL - PREVENT DUPLICATE INVOICES):\n\
-           - If an invoice was already created earlier in the conversation (e.g. invoice R43-241026007), and the user now asks to correct, revise, replace an item, or cancel (e.g. 'keep caroline instead of maroon', 'revise previous order', 'change item quantity'):\n\
-           - You MUST FIRST call `arunakizen_void_sale_order` with the previous invoice number (e.g. invoice: 'R43-241026007', reason: 'Order revision / item correction') BEFORE creating a new corrected sale order!\n\
-           - NEVER create duplicate orders without voiding the prior incorrect invoice! Creating duplicate orders deducts inventory multiple times and corrupts daily transaction revenue.\n\
-           - Always notify the user: \"Previous invoice [R43-...] has been voided and replaced with new invoice [R43-...]\".\n\
+        6. ORDER REVISION (CRITICAL - PREVENT DUPLICATE INVOICES):\n\
+           - If an invoice was already created earlier in the conversation (e.g. invoice R43-241026007), and the user now asks to correct, revise, replace an item, change payment, or 'edit lagi':\n\
+           - Call `arunakizen_edit_sale_order` with the SAME invoice number and the full corrected item list / payment. Do NOT create a new duplicate order.\n\
+           - Only use `arunakizen_void_sale_order` when the user explicitly wants to cancel/delete the transaction.\n\
+        \n\
+        8. STRICT NO-FAKE-ACTION RULE (CRITICAL - ZERO HALLUCINATED POS ACTIONS):\n\
+           - NEVER say a receipt was printed, the cash drawer opened, an invoice was created, edited, revised, or voided unless you called the corresponding `arunakizen_*` tool IN THIS TURN and it returned success.\n\
+           - Previous assistant messages in history are NOT proof that an action happened now. Each new request ('cetak struk', 'edit lagi', 'buka laci') requires a NEW tool call.\n\
+           - If the tool returns an error or `spooled: false`, report the failure honestly.\n\
         \n\
         7. STRICT NO-EMOJI RULE (CRITICAL):\n\
            - NEVER include emojis (e.g. 🧾, 📄, 🛒, ⚠️, 📦, 💰, ✨) in order headings, markdown titles, receipt text, canvas titles, or invoice outputs.\n\
@@ -404,6 +452,23 @@ pub async fn run_agent_turn(
                         .join("")
                 })
                 .unwrap_or_default();
+            // Annotate which tools really executed in that past turn so the model never
+            // imitates an earlier "printed/edited" text without issuing a new tool call.
+            let executed_tools: Vec<String> = m
+                .get("content")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter(|p| p.get("type").and_then(|t| t.as_str()) == Some("tool"))
+                        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let txt = if executed_tools.is_empty() {
+                txt
+            } else {
+                format!("[Tools executed in this past turn: {}]\n{}", executed_tools.join(", "), txt)
+            };
             if !txt.is_empty() {
                 chat_messages.push(json!({ "role": "assistant", "content": txt }));
             }
@@ -541,6 +606,8 @@ pub async fn run_agent_turn(
     let mut final_text = String::new();
     let mut read_tool_executed = false;
     let mut mutation_tool_executed = false;
+    let mut zen_tool_executed = false;
+    let mut zen_guard_fired = false;
 
     for _step in 0..25 {
         let step_start = now_ms();
@@ -610,6 +677,25 @@ pub async fn run_agent_turn(
         );
 
         if tool_calls.is_empty() {
+            // ArunakiZen fake-action guard: model claims a POS action (print/edit/void/drawer)
+            // without having executed any arunakizen_* tool in this turn.
+            if !zen_tool_executed && !zen_guard_fired && _step < 4 {
+                let lower_msg = msg_text.to_lowercase();
+                let lower_prompt = prompt_text.to_lowercase();
+                if claims_zen_action(&lower_msg) || (requests_zen_action(&lower_prompt) && claims_zen_action_soft(&lower_msg)) {
+                    zen_guard_fired = true;
+                    crate::paths::log_engine(
+                        "ai",
+                        "🛡️ ArunakiZen guard: model claimed a POS action without calling any arunakizen_* tool. Forcing tool call.",
+                    );
+                    chat_messages.push(json!({ "role": "assistant", "content": msg_text }));
+                    chat_messages.push(json!({
+                        "role": "user",
+                        "content": "CRITICAL SYSTEM GUARD: Your previous reply claimed a POS action (receipt printed / invoice edited / created / voided / drawer opened), but NO arunakizen_* tool was executed in this turn. Nothing happened in ArunakiZen and no receipt was printed. Call the correct tool RIGHT NOW (`arunakizen_edit_sale_order` with the same invoice number for revisions or payment changes, `arunakizen_print_receipt` to print, `arunakizen_open_drawer` for the drawer, `arunakizen_create_sale_order` for new orders). Then report only the real tool result."
+                    }));
+                    continue;
+                }
+            }
             let lower_msg = msg_text.to_lowercase();
             let claims_mutation = lower_msg.contains("has been updated")
                 || lower_msg.contains("have updated")
@@ -720,6 +806,14 @@ pub async fn run_agent_turn(
             .await;
 
             let fn_lower = fn_name.to_lowercase();
+            if fn_lower.starts_with("arunakizen_")
+                || fn_lower.starts_with("zen_")
+                || fn_lower.starts_with("pos_")
+                || fn_lower == "edit_sale_order"
+                || fn_lower == "void_sale_order"
+            {
+                zen_tool_executed = true;
+            }
             if matches!(
                 fn_lower.as_str(),
                 "read" | "read_file" | "excel_read" | "word_read" | "ppt_read" | "pdf_read" | "image_ocr" | "ocr" | "grep" | "glob"
@@ -952,6 +1046,19 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_zen_fake_action_detection() {
+        assert!(claims_zen_action(
+            &"Struk fisik sudah keluar dari printer dan laci kasir sudah terbuka!".to_lowercase()
+        ));
+        assert!(claims_zen_action(&"invoice r43-281026001 berhasil diedit".to_lowercase()));
+        assert!(!claims_zen_action("halo, ada yang bisa saya bantu?"));
+        assert!(requests_zen_action("cetak lah stuknya"));
+        assert!(requests_zen_action("coba edit lagi dan uang nya pas buat"));
+        assert!(!requests_zen_action("halo"));
+        assert!(claims_zen_action_soft("selesai! total 181.000"));
+    }
 
     #[test]
     fn test_derive_session_title() {
