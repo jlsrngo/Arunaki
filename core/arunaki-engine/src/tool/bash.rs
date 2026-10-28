@@ -97,6 +97,9 @@ pub async fn execute_bash(
     .await
     .unwrap_or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())));
 
+    // Automatically clean up temporary scratch scripts in .arunaki/scratch after execution
+    let _ = std::fs::remove_dir_all(&scratch_dir);
+
     match res {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();

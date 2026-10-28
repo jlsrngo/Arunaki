@@ -72,31 +72,31 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] select-text overflow-hidden">
       {/* Top Diff Action & Info Bar */}
-      <div className="h-10 px-4 bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-center justify-between shrink-0 select-none">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="h-10 px-4 bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-center justify-between gap-3 shrink-0 select-none">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <GitCompare className="w-4 h-4 text-white shrink-0" strokeWidth={1.6} />
-          <span className="text-xs font-semibold text-white truncate flex items-center gap-1.5 font-mono">
-            <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-            <span>{fileName}</span>
-            <span className="text-[var(--text-muted)] font-normal text-[11px]">(Working Tree)</span>
+          <span className="text-xs font-semibold text-white flex items-center gap-1.5 font-mono min-w-0">
+            <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+            <span className="truncate">{fileName}</span>
+            <span className="text-[var(--text-muted)] font-normal text-[11px] shrink-0">(Working Tree)</span>
             {/* Status Badge: N for New, M for Modified */}
             {isNew ? (
               <span
-                className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none select-none shadow-xs"
+                className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none select-none shadow-xs shrink-0"
                 title={t("newFileBadge", "New")}
               >
                 N
               </span>
             ) : (
               <span
-                className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none shadow-xs"
+                className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none shadow-xs shrink-0"
                 title={t("modifiedBadge", "Modified")}
               >
                 M
               </span>
             )}
           </span>
-          <div className="flex items-center gap-1.5 ml-2">
+          <div className="flex items-center gap-1.5 ml-1 shrink-0">
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
               +{stats.added}
             </span>
@@ -106,15 +106,15 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {onRevert && (
             <button
               type="button"
               onClick={onRevert}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer shadow-xs active:scale-95"
+              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold text-[var(--text-muted)] hover:text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer shadow-xs active:scale-95 whitespace-nowrap shrink-0"
               title={t("discardChanges", "Discard Changes")}
             >
-              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <RotateCcw className="w-3 h-3 text-rose-400 shrink-0" />
               <span>{t("discardChanges", "Discard Changes")}</span>
             </button>
           )}
@@ -123,10 +123,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <button
               type="button"
               onClick={onAccept}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-xs active:scale-95 whitespace-nowrap shrink-0"
               title={t("saveToDisk", "Save to Disk")}
             >
-              <Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <Check className="w-3 h-3 shrink-0" strokeWidth={2.5} />
               <span>{t("saveToDisk", "Save to Disk")}</span>
             </button>
           )}

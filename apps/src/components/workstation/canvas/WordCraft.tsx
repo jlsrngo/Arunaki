@@ -84,19 +84,21 @@ export const WordCraft = memo(function WordCraft({
             const json = await res.json();
             if (json?.content) {
               const b64 = json.content.trim();
-              const binaryStr = atob(b64);
-              const bytes = new Uint8Array(binaryStr.length);
-              for (let i = 0; i < binaryStr.length; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
+              if (b64.startsWith("UEsDB")) {
+                const binaryStr = atob(b64);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+                buffer = bytes.buffer;
               }
-              buffer = bytes.buffer;
             }
           } catch (err) {
             console.warn("[WordCraft] Binary read fallback:", err);
           }
         }
 
-        // 2. If payload is base64 (e.g. starts with UEsDB for zip/docx or data URL)
+        // 2. If payload is base64 (e.g. starts with UEsDB for zip/docx or data URL), or plain text/Markdown that needs .docx conversion
         if (!buffer && textPayload) {
           const trimmed = textPayload.trim();
           if (trimmed.startsWith("UEsDB") || trimmed.includes(";base64,")) {
@@ -110,9 +112,34 @@ export const WordCraft = memo(function WordCraft({
               buffer = bytes.buffer;
             } catch {}
           } else {
-            const encoder = new TextEncoder();
-            const bytes = encoder.encode(textPayload);
-            buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+            // Convert plain text / Markdown into a real OOXML .docx binary via backend before sending to WordCraft WASM
+            const targetDocPath =
+              filePath && /\.(docx)$/i.test(filePath)
+                ? filePath
+                : (docName || "Document 1.docx").endsWith(".docx")
+                  ? docName || "Document 1.docx"
+                  : `${docName || "Document 1"}.docx`;
+            try {
+              await apiFetch("/api/desktop/write-file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filePath: targetDocPath, content: textPayload }),
+              });
+              const res = await apiFetch("/api/desktop/read-file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filePath: targetDocPath }),
+              });
+              const json = await res.json();
+              if (json?.content && json.content.trim().startsWith("UEsDB")) {
+                const binaryStr = atob(json.content.trim());
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                  bytes[i] = binaryStr.charCodeAt(i);
+                }
+                buffer = bytes.buffer;
+              }
+            } catch {}
           }
         }
 

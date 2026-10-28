@@ -1,5 +1,5 @@
 import { memo, type ReactNode, useCallback } from "react";
-import { X, Copy, Check, Download, Save, Maximize2, Minimize2 } from "lucide-react";
+import { X, Copy, Check, Download, Save, Maximize2, Minimize2, ClipboardCheck, Scale, Presentation } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { CenterTab } from "./types";
@@ -19,6 +19,25 @@ function getTabIcon(tab: CenterTab): ReactNode {
         return <img src="/artcraft/pdfcraft/pdfcraft.png" alt="PdfCraft" className={iconClass} />;
       case "deckcraft-app":
         return <img src="/artcraft/deckcraft/deckcraft.png" alt="DeckCraft" className={iconClass} />;
+      case "playbook":
+      case "playbook-new":
+        return (
+          <span className="w-3.5 h-3.5 rounded-xs bg-[#cf6613] flex items-center justify-center shrink-0">
+            <ClipboardCheck className="w-2.5 h-2.5 text-white" />
+          </span>
+        );
+      case "playbook-audit":
+        return (
+          <span className="w-3.5 h-3.5 rounded-xs bg-[#cf6613] flex items-center justify-center shrink-0">
+            <Scale className="w-2.5 h-2.5 text-white" />
+          </span>
+        );
+      case "playbook-exec":
+        return (
+          <span className="w-3.5 h-3.5 rounded-xs bg-[#cf6613] flex items-center justify-center shrink-0">
+            <Presentation className="w-2.5 h-2.5 text-white" />
+          </span>
+        );
     }
   }
   if (tab.type === "canvas") {

@@ -69,11 +69,16 @@ export function useExternalChatEvents({
         if (event.type === "open_document_app" || event.type === "open_app") {
           const app = event.data?.app || (event as any)?.properties?.app;
           const title = event.data?.title || (event as any)?.properties?.title;
+          const path =
+            event.data?.path ||
+            event.data?.filePath ||
+            (event as any)?.properties?.path ||
+            (event as any)?.properties?.filePath;
           const content = event.data?.content || (event as any)?.properties?.content;
           if (app) {
             window.dispatchEvent(
               new CustomEvent("arunaki:open-app", {
-                detail: { app, title, content },
+                detail: { app, title, path, content },
               })
             );
           }

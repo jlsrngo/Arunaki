@@ -127,13 +127,26 @@ pub fn execute_open_app(session_id: &str, workspace_dir: &str, arguments: &Value
         if let Some(parent) = target_file_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        if !target_file_path.exists() {
-            let initial_bytes = if content.is_empty() {
+        if !target_file_path.exists() || !content.trim().is_empty() {
+            let initial_text = if content.is_empty() {
                 format!("# {}\n\nCreated with Arunaki.\n", final_title)
             } else {
                 content.to_string()
             };
-            let _ = std::fs::write(&target_file_path, initial_bytes);
+            let ext = target_file_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if ext == "docx" {
+                if let Ok(docx_bytes) = arunaki_docs::create_docx_from_markdown(&initial_text) {
+                    let _ = std::fs::write(&target_file_path, docx_bytes);
+                } else {
+                    let _ = std::fs::write(&target_file_path, &initial_text);
+                }
+            } else {
+                let _ = std::fs::write(&target_file_path, &initial_text);
+            }
             emit_event(
                 workspace_dir,
                 "file.edited",

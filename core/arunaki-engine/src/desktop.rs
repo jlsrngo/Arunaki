@@ -142,6 +142,7 @@ fn build_tree_recursive(dir: &Path, depth: usize) -> Vec<Value> {
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.')
+            || name.starts_with("~$")
             || matches!(
                 name.as_str(),
                 "node_modules" | "dist" | "build" | "__pycache__" | ".git" | "target"
@@ -238,7 +239,14 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
     );
     if is_binary {
         match std::fs::read(&path) {
-            Ok(bytes) => {
+            Ok(mut bytes) => {
+                if ext == "docx" && !bytes.starts_with(b"PK\x03\x04") {
+                    let text = String::from_utf8_lossy(&bytes).to_string();
+                    if let Ok(repaired) = arunaki_docs::create_docx_from_markdown(&text) {
+                        let _ = std::fs::write(&path, &repaired);
+                        bytes = repaired;
+                    }
+                }
                 let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 Json(json!({ "content": b64, "encoding": "base64" })).into_response()
             }

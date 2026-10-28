@@ -32,6 +32,20 @@ export function useDocumentChanges({
         const json = await res.json();
         const rawItems: any[] = json.data || [];
         const mapped: DocumentChangeItem[] = rawItems
+          .filter((item: any) => {
+            const p = String(item.path || "").replace(/\\/g, "/");
+            const n = String(item.name || "");
+            if (!p || p.startsWith(".") || p.startsWith("~$") || p.includes("/.") || p.includes("/~$")) {
+              return false;
+            }
+            if (n.startsWith(".") || n.startsWith("~$")) {
+              return false;
+            }
+            if (/\.(py|ps1|sh|bat|cmd|bak|tmp)$/i.test(n)) {
+              return false;
+            }
+            return true;
+          })
           .map((item: any) => {
             const before = item.before ?? item.before_content ?? "";
             const after = item.after ?? item.after_content ?? "";

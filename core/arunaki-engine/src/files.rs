@@ -105,7 +105,10 @@ async fn handle_list(
     if let Ok(entries) = std::fs::read_dir(&target) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if name == ".git" || name == ".DS_Store" || name == "node_modules" {
+            if name.starts_with('.')
+                || name.starts_with("~$")
+                || name == "node_modules"
+            {
                 continue;
             }
             let full = entry.path();
@@ -179,7 +182,7 @@ async fn handle_content(
             .into_response();
     }
 
-    let Ok(bytes) = std::fs::read(&target) else {
+    let Ok(mut bytes) = std::fs::read(&target) else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "File not found" })),
@@ -192,6 +195,14 @@ async fn handle_content(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
+
+    if ext == "docx" && !bytes.starts_with(b"PK\x03\x04") {
+        let text = String::from_utf8_lossy(&bytes).to_string();
+        if let Ok(repaired) = arunaki_docs::create_docx_from_markdown(&text) {
+            let _ = std::fs::write(&target, &repaired);
+            bytes = repaired;
+        }
+    }
 
     let is_binary = matches!(
         ext.as_str(),
@@ -300,7 +311,36 @@ use std::sync::{Mutex, OnceLock};
 pub static DOCUMENT_CHANGES: OnceLock<Mutex<HashMap<String, (String, String, u64)>>> =
     OnceLock::new();
 
+fn is_ignored_change_path(rel_path: &str) -> bool {
+    let norm = rel_path.replace('\\', "/");
+    let trimmed = norm.trim_start_matches("./").trim_start_matches('/');
+    if trimmed.is_empty()
+        || trimmed.starts_with('.')
+        || trimmed.starts_with("~$")
+        || trimmed.contains("/.")
+        || trimmed.contains("/~$")
+    {
+        return true;
+    }
+    let fname = Path::new(trimmed)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(trimmed);
+    if fname.starts_with('.') || fname.starts_with("~$") {
+        return true;
+    }
+    let ext = Path::new(fname)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(ext.as_str(), "py" | "ps1" | "sh" | "bat" | "cmd" | "bak" | "tmp")
+}
+
 pub fn record_document_change(workspace_dir: &str, file: &str, before: &str, after: &str) {
+    if is_ignored_change_path(file) {
+        return;
+    }
     let store = DOCUMENT_CHANGES.get_or_init(|| Mutex::new(HashMap::new()));
     if let Ok(mut lock) = store.lock() {
         lock.insert(
@@ -344,11 +384,16 @@ async fn handle_status(
     // 1. Scan persistent baseline directory .arunaki/baseline/
     let baseline_dir = base_dir.join(".arunaki").join("baseline");
     if baseline_dir.exists() {
+        let _ = std::fs::remove_dir_all(baseline_dir.join(".arunaki"));
         let mut baseline_files = Vec::new();
         collect_files_recursive(&baseline_dir, &baseline_dir, &mut baseline_files, 200);
         for bf in baseline_files {
             if let Ok(rel) = bf.strip_prefix(&baseline_dir) {
                 let rel_str = rel.to_string_lossy().replace('\\', "/");
+                if is_ignored_change_path(&rel_str) {
+                    let _ = std::fs::remove_file(&bf);
+                    continue;
+                }
                 let current_file = base_dir.join(&rel);
                 if current_file.exists() {
                     let before = std::fs::read_to_string(&bf).unwrap_or_default();
@@ -381,7 +426,7 @@ async fn handle_status(
     // 2. Supplement with active in-memory edits
     if let Ok(lock) = store.lock() {
         for (file, (before, after, ts)) in lock.iter() {
-            if before == after {
+            if before == after || is_ignored_change_path(file) {
                 continue;
             }
             if items.iter().any(|it| it.get("path").and_then(|v| v.as_str()) == Some(file)) {

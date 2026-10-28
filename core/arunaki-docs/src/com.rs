@@ -14,7 +14,12 @@ pub fn run_powershell_script(prefix: &str, script: &str) -> Result<String, Strin
         .unwrap_or(0);
     let mut tmp_path: PathBuf = std::env::temp_dir();
     tmp_path.push(format!("arunaki-{}-{}-{}.ps1", prefix, std::process::id(), nanos));
-    fs::write(&tmp_path, script).map_err(|e| e.to_string())?;
+    let bom_script = if script.starts_with('\u{FEFF}') {
+        script.to_string()
+    } else {
+        format!("\u{FEFF}{}", script)
+    };
+    fs::write(&tmp_path, bom_script).map_err(|e| e.to_string())?;
 
     #[cfg(windows)]
     use std::os::windows::process::CommandExt;
@@ -375,6 +380,7 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
         actions.push("}".to_string());
     }
 
+    actions.push("try {".to_string());
     match p.action.as_str() {
         "open" => {
             actions.push("$word.Visible = $true".to_string());
@@ -397,12 +403,21 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
         "replace" | "find_replace" => {
             let f = p.find_text.as_deref().unwrap_or("");
             let r = p.replace_text.as_deref().unwrap_or("");
-            actions.push(format!("$find = $doc.Content.Find"));
+            let r_word = r.replace("\r\n", "\r").replace('\n', "\r");
+            actions.push("$find = $doc.Content.Find".to_string());
             actions.push(format!("$find.Text = '{}'", ps_escape(f)));
-            actions.push(format!("$find.Replacement.Text = '{}'", ps_escape(r)));
-            actions.push("$find.Forward = $true".to_string());
-            actions.push("$find.Wrap = 1".to_string());
-            actions.push("$find.Execute([System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, 2)".to_string());
+            if r_word.chars().count() <= 200 && !r_word.contains('\r') {
+                actions.push(format!("$find.Replacement.Text = '{}'", ps_escape(&r_word)));
+                actions.push("$find.Forward = $true".to_string());
+                actions.push("$find.Wrap = 1".to_string());
+                actions.push("$find.Execute([System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, [System.Reflection.Missing]::Value, 2) | Out-Null".to_string());
+            } else {
+                actions.push("$rng = $doc.Content".to_string());
+                actions.push(format!("$rng.Find.Text = '{}'", ps_escape(f)));
+                actions.push("$rng.Find.Forward = $true".to_string());
+                actions.push("$rng.Find.Wrap = 1".to_string());
+                actions.push(format!("if ($rng.Find.Execute()) {{ $rng.Text = '{}' }}", ps_escape(&r_word)));
+            }
             actions.push(format!("Write-Output \"OK:{}\"", p.action));
         }
         "format" => {
@@ -428,6 +443,9 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
             actions.push(format!("Write-Output \"ERROR:unknown action '{}'\"", other));
         }
     }
+    actions.push("} catch {".to_string());
+    actions.push("  Write-Output \"ERROR: $($_.Exception.Message)\"".to_string());
+    actions.push("} finally {".to_string());
 
     if p.action == "open" {
         actions.extend([
@@ -445,6 +463,7 @@ pub fn build_word_com_script(p: &WordComParams) -> String {
             "[System.GC]::WaitForPendingFinalizers()".to_string(),
         ]);
     }
+    actions.push("}".to_string());
 
     actions.join("\n")
 }

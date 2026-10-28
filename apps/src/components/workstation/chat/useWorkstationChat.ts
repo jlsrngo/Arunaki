@@ -1377,11 +1377,16 @@ export function useWorkstationChat({
           if (lowerTool === "open_document_app" || lowerTool === "open_app") {
             const app = toolData.args?.app || toolData.args?.name || toolData.app;
             const title = toolData.args?.title || toolData.title;
+            const path =
+              toolData.args?.path ||
+              toolData.args?.filePath ||
+              toolData.args?.file ||
+              toolData.path;
             const content = toolData.args?.content || toolData.content;
             if (app) {
               window.dispatchEvent(
                 new CustomEvent("arunaki:open-app", {
-                  detail: { app, title, content },
+                  detail: { app, title, path, content },
                 })
               );
             }
@@ -1389,11 +1394,12 @@ export function useWorkstationChat({
         } else if (event.type === "open_document_app" && event.data) {
           const app = event.data?.app;
           const title = event.data?.title;
+          const path = event.data?.path || event.data?.filePath || event.data?.file;
           const content = event.data?.content;
           if (app) {
             window.dispatchEvent(
               new CustomEvent("arunaki:open-app", {
-                detail: { app, title, content },
+                detail: { app, title, path, content },
               })
             );
           }
