@@ -374,23 +374,23 @@ Semua fase fondasi lama (Phase 1 s/d Phase 130) telah selesai 100% dan diarsipka
 
 ---
 
-### Phase 152: 3-Way Reconciliation & Anomaly/Fraud Detection Engine
+### Phase 152: 3-Way Reconciliation & Anomaly/Fraud Detection Engine ✅ DONE
 **Goal:** Memberikan kemampuan audit silang tiga arah (Three-Way Matching) dan deteksi anomali administratif (selisih uang kasir vs mutasi bank, duplikasi invoice, salah hitung diskon/pajak) dengan kartu peringatan manajerial.
 
 #### 152.1 Cross-Document Reconciliation Tool (`reconcile.rs`)
-- [ ] Buat modul Rust `core/arunaki-engine/src/tool/reconcile.rs` dengan tool resmi `audit_reconciliation`.
-- [ ] Logika matching silang: PO <-> Surat Jalan / Bukti Terima <-> Faktur Tagihan; serta Kasir POS <-> Buku Kas Excel <-> Rekening Koran PDF.
-- [ ] Algoritma deteksi anomali: selisih nominal, nomor invoice duplikat, tanggal kadaluwarsa tidak wajar, lonjakan harga abnormal.
+- [x] Buat modul Rust `core/arunaki-engine/src/tool/reconcile.rs` dengan tool resmi `audit_reconciliation`.
+- [x] Logika matching silang: PO <-> Surat Jalan / Bukti Terima <-> Faktur Tagihan; serta Kasir POS <-> Buku Kas Excel <-> Rekening Koran PDF.
+- [x] Algoritma deteksi anomali: selisih nominal, nomor invoice duplikat, tanggal kadaluwarsa tidak wajar, lonjakan harga abnormal.
 
 #### 152.2 Manager Discrepancy & Fraud Alert UI
-- [ ] Komponen kartu visual Manager Audit Alert di chat/canvas dengan badge status monokrom/rose, breakdown tabel selisih, dan rekomendasi resolusi manajerial.
+- [x] Komponen kartu visual Manager Audit Alert di chat/canvas dengan badge status monokrom/rose, breakdown tabel selisih, dan rekomendasi resolusi manajerial.
 
 #### 152.3 End-to-End Verification
-- [ ] Uji coba kasus selisih kas riil dan verifikasi deteksi anomali akurat tanpa false positive.
+- [x] Uji coba kasus selisih kas riil dan verifikasi deteksi anomali akurat tanpa false positive.
 
 ---
 
-### Phase 153: Background Heartbeat & Project Folder Ingestion Monitor
+### Phase 153: Background Heartbeat & Project Folder Ingestion Monitor 🔄 [AG]
 **Goal:** Membuat Arunaki proaktif memantau folder proyek aktif (tanpa menunggu perintah user di chat) untuk mendeteksi dokumen baru yang dimasukkan (faktur PDF baru, slip setoran, nota gambar) dan memberikan prompt manajerial.
 
 #### 153.1 Active Folder Watcher Daemon
