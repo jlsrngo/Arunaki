@@ -4,8 +4,15 @@ use std::io::Read;
 use zip::ZipArchive;
 
 pub fn build_ppt_map(file_path: &str) -> Result<String, String> {
-    let file = File::open(file_path).map_err(|e| e.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+    let mut file = File::open(file_path).map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    build_ppt_map_from_bytes(file_path, &bytes)
+}
+
+pub fn build_ppt_map_from_bytes(file_path: &str, bytes: &[u8]) -> Result<String, String> {
+    let cursor = std::io::Cursor::new(bytes);
+    let mut archive = ZipArchive::new(cursor).map_err(|e| e.to_string())?;
 
     let mut slide_entries: Vec<(usize, String)> = Vec::new();
     for i in 0..archive.len() {

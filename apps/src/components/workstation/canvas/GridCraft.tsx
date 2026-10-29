@@ -158,14 +158,38 @@ export const GridCraft = memo(function GridCraft({
         try {
           if (data.bytes) {
             const rawBytes = new Uint8Array(data.bytes);
-            const decoder = new TextDecoder("utf-8", { fatal: false });
-            const decodedText = decoder.decode(rawBytes);
+            const isBinaryZip = rawBytes.length > 4 && rawBytes[0] === 0x50 && rawBytes[1] === 0x4b;
 
-            if (onContentChangeRef.current) {
-              onContentChangeRef.current(decodedText);
-            }
-            if (onSaveRef.current) {
-              onSaveRef.current();
+            if (isBinaryZip && filePath) {
+              let binaryStr = "";
+              const chunkSize = 8192;
+              for (let i = 0; i < rawBytes.length; i += chunkSize) {
+                const chunk = rawBytes.subarray(i, i + chunkSize);
+                binaryStr += String.fromCharCode.apply(null, chunk as any);
+              }
+              const b64 = btoa(binaryStr);
+              apiFetch("/api/desktop/write-file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  filePath,
+                  content: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64,
+                }),
+              }).then(() => {
+                window.dispatchEvent(
+                  new CustomEvent("arunaki:file.edited", { detail: { file: filePath } })
+                );
+              }).catch(() => {});
+            } else {
+              const decoder = new TextDecoder("utf-8", { fatal: false });
+              const decodedText = decoder.decode(rawBytes);
+
+              if (onContentChangeRef.current) {
+                onContentChangeRef.current(decodedText);
+              }
+              if (onSaveRef.current) {
+                onSaveRef.current();
+              }
             }
           }
           if (onDirtyChangeRef.current) {

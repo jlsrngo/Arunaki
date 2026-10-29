@@ -77,15 +77,22 @@ pub fn build_word_map_from_xml(file_path: &str, xml: &str) -> String {
     )
 }
 
-pub fn build_word_map(file_path: &str) -> Result<String, String> {
-    let file = File::open(file_path).map_err(|e| e.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+pub fn build_word_map_from_bytes(file_path: &str, bytes: &[u8]) -> Result<String, String> {
+    let cursor = std::io::Cursor::new(bytes);
+    let mut archive = ZipArchive::new(cursor).map_err(|e| e.to_string())?;
     let mut doc_file = archive
         .by_name("word/document.xml")
         .map_err(|_| "not a .docx (no word/document.xml)".to_string())?;
     let mut xml = String::new();
     doc_file.read_to_string(&mut xml).map_err(|e| e.to_string())?;
     Ok(build_word_map_from_xml(file_path, &xml))
+}
+
+pub fn build_word_map(file_path: &str) -> Result<String, String> {
+    let mut file = File::open(file_path).map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    build_word_map_from_bytes(file_path, &bytes)
 }
 
 fn escape_xml(s: &str) -> String {

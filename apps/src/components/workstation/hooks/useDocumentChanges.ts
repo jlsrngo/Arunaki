@@ -94,12 +94,16 @@ export function useDocumentChanges({
     return () => window.removeEventListener("arunaki:file.edited", handleFileEdited);
   }, [fetchChanges]);
 
-  // Live buffer integration: merge in-memory edited tabs with disk changes
+  // Live buffer integration: merge in-memory edited text tabs with disk changes
   const combinedChanges = useMemo(() => {
     const list = [...changes];
     if (tabs && tabs.length > 0) {
       for (const tab of tabs) {
+        const isBinaryDoc = /\.(xlsx|xls|xlsm|xlsb|docx|doc|pptx|ppt|pdf|png|jpg|jpeg|gif|webp|zip)$/i.test(
+          tab.title || tab.path || ""
+        );
         if (
+          !isBinaryDoc &&
           tab.type === "file" &&
           tab.originalContent !== undefined &&
           tab.content !== undefined &&
@@ -150,9 +154,10 @@ export function useDocumentChanges({
   );
 
   const syncTabsAfterResolve = useCallback(
-    (item: DocumentChangeItem, resolvedContent: string) => {
+    (item: DocumentChangeItem, resolvedContent: string, wasDeleted?: boolean) => {
       const targetName = (item.fileName || item.filePath.split(/[/\\]/).pop() || item.filePath).toLowerCase();
       const targetPath = item.filePath.replace(/\\/g, "/").toLowerCase();
+      const isBinaryDoc = /\.(xlsx|xls|xlsm|xlsb|docx|doc|pptx|ppt|pdf|png|jpg|jpeg|gif|webp|zip)$/i.test(targetName);
 
       if (setTabs) {
         let fallbackTabId: string | null = null;
@@ -170,14 +175,21 @@ export function useDocumentChanges({
             if (t.type === "diff" && isMatch) {
               continue;
             }
+            if (wasDeleted && isMatch) {
+              continue;
+            }
             if (t.type === "file" && isMatch) {
               fallbackTabId = t.id;
-              const finalContent = resolvedContent || t.content || "";
-              next.push({
-                ...t,
-                content: finalContent,
-                originalContent: finalContent,
-              });
+              if (isBinaryDoc) {
+                next.push(t);
+              } else {
+                const finalContent = resolvedContent || t.content || "";
+                next.push({
+                  ...t,
+                  content: finalContent,
+                  originalContent: finalContent,
+                });
+              }
               continue;
             }
             next.push(t);
@@ -194,7 +206,11 @@ export function useDocumentChanges({
 
       window.dispatchEvent(
         new CustomEvent("arunaki:diff-cleared", {
-          detail: { filePath: item.filePath, fileName: item.fileName, content: resolvedContent },
+          detail: {
+            filePath: item.filePath,
+            fileName: item.fileName,
+            content: isBinaryDoc ? undefined : resolvedContent,
+          },
         })
       );
     },
@@ -214,9 +230,11 @@ export function useDocumentChanges({
         );
 
         if (res.ok) {
+          const json = await res.json().catch(() => ({}));
+          const wasDeleted = Boolean(json?.deleted || item.status === "new");
           toast.success(`Reverted ${item.fileName}`);
           onFileReverted?.(item.filePath, item.beforeContent);
-          syncTabsAfterResolve(item, item.beforeContent);
+          syncTabsAfterResolve(item, item.beforeContent, wasDeleted);
           setChanges((prev) =>
             prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
           );

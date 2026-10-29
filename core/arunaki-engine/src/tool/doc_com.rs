@@ -234,6 +234,9 @@ pub async fn execute_doc_com(
 
     match resolve_isolated_path(workspace_dir, fp) {
         Ok(p) => {
+            if action != "open" {
+                crate::files::capture_baseline_before_write(workspace_dir, fp);
+            }
             let abs = p.to_string_lossy().to_string();
             let script = if name == "excel_com" {
                 let parsed_cells = parse_cells_arg(arguments);
@@ -345,6 +348,11 @@ pub async fn execute_doc_com(
                     if out.starts_with("ERROR:") {
                         json!({ "error": out })
                     } else {
+                        crate::session::message::emit_event(
+                            workspace_dir,
+                            "file.edited",
+                            json!({ "file": fp }),
+                        );
                         json!({ "ok": true, "output": out })
                     }
                 }

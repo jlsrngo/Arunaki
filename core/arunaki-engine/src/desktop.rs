@@ -29,6 +29,7 @@ pub fn set_active_workspace_root(dir: &str) {
         .lock()
     {
         crate::session::watcher::seed_baseline_snapshot(&norm);
+        crate::files::ensure_workspace_baseline(Path::new(&norm));
         *guard = Some(norm);
     }
 }
@@ -275,6 +276,13 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    let ws_root = get_active_workspace_root().unwrap_or_else(|| {
+        path.parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default()
+    });
+    crate::files::capture_baseline_before_write(&ws_root, &path.to_string_lossy());
+
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -285,34 +293,48 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
         "pdf" | "png" | "jpg" | "jpeg" | "gif" | "webp" | "xlsx" | "xls" | "docx" | "doc" | "pptx" | "ppt" | "zip"
     );
 
-    if content.starts_with("data:") && content.contains(";base64,") {
+    let write_res = if content.starts_with("data:") && content.contains(";base64,") {
         if let Some((_, b64)) = content.split_once(";base64,") {
             if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
-                return match std::fs::write(path, bytes) {
-                    Ok(_) => Json(json!({ "success": true })).into_response(),
-                    Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
-                };
+                Some(std::fs::write(&path, bytes))
+            } else {
+                None
             }
+        } else {
+            None
         }
     } else if is_binary || content.starts_with("UEsDB") || content.starts_with("JVBER") {
         // "UEsDB" = PK\x03\x04 (zip/xlsx/docx/pptx), "JVBER" = %PDF
         if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(content.trim()) {
-            return match std::fs::write(path, bytes) {
-                Ok(_) => Json(json!({ "success": true })).into_response(),
-                Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
-            };
+            Some(std::fs::write(&path, bytes))
+        } else {
+            None
         }
-    }
-    if ext == "docx" {
+    } else {
+        None
+    };
+
+    let final_res = if let Some(res) = write_res {
+        res
+    } else if ext == "docx" {
         if let Ok(docx_bytes) = arunaki_docs::create_docx_from_markdown(content) {
-            return match std::fs::write(path, docx_bytes) {
-                Ok(_) => Json(json!({ "success": true })).into_response(),
-                Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
-            };
+            std::fs::write(&path, docx_bytes)
+        } else {
+            std::fs::write(&path, content)
         }
-    }
-    match std::fs::write(path, content) {
-        Ok(_) => Json(json!({ "success": true })).into_response(),
+    } else {
+        std::fs::write(&path, content)
+    };
+
+    match final_res {
+        Ok(_) => {
+            crate::session::message::emit_event(
+                &ws_root,
+                "file.edited",
+                json!({ "file": path.to_string_lossy() }),
+            );
+            Json(json!({ "success": true })).into_response()
+        }
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
     }
 }
@@ -388,7 +410,12 @@ async fn handle_delete_path(Json(body): Json<Value>) -> Response {
         std::fs::remove_file(&path)
     };
     match res {
-        Ok(_) => Json(json!({ "success": true })).into_response(),
+        Ok(_) => {
+            if let Some(ws_root) = get_active_workspace_root() {
+                crate::files::remove_baseline_for_path(&ws_root, &path.to_string_lossy());
+            }
+            Json(json!({ "success": true })).into_response()
+        }
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
     }
 }
@@ -717,6 +744,10 @@ async fn handle_write_excel(Json(body): Json<Value>) -> Response {
         }
     }
 
+    let ws_root = get_active_workspace_root().unwrap_or_default();
+    crate::files::capture_baseline_before_write(&ws_root, &fp);
+    let fp_for_event = fp.clone();
+
     let res = tokio::task::spawn_blocking(move || {
         let params = arunaki_docs::ExcelComParams {
             action: "write_range".to_string(),
@@ -739,7 +770,14 @@ async fn handle_write_excel(Json(body): Json<Value>) -> Response {
     .await;
 
     match res {
-        Ok(Ok(_)) => Json(json!({ "success": true })).into_response(),
+        Ok(Ok(_)) => {
+            crate::session::message::emit_event(
+                &ws_root,
+                "file.edited",
+                json!({ "file": fp_for_event }),
+            );
+            Json(json!({ "success": true })).into_response()
+        }
         Ok(Err(e)) => Json(json!({ "error": e })).into_response(),
         Err(e) => Json(json!({ "error": e.to_string() })).into_response(),
     }

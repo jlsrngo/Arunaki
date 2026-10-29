@@ -149,8 +149,20 @@ pub fn build_excel_map(file_path: &str) -> Result<String, String> {
         return Ok(build_csv_excel_map(file_path, &text));
     }
 
-    let file = File::open(file_path).map_err(|e| e.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+    let mut file = File::open(file_path).map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    build_excel_map_from_bytes(file_path, &bytes)
+}
+
+pub fn build_excel_map_from_bytes(file_path: &str, bytes: &[u8]) -> Result<String, String> {
+    if file_path.to_ascii_lowercase().ends_with(".csv") || !bytes.starts_with(b"PK\x03\x04") {
+        let text = String::from_utf8_lossy(bytes);
+        return Ok(build_csv_excel_map(file_path, &text));
+    }
+
+    let cursor = std::io::Cursor::new(bytes);
+    let mut archive = ZipArchive::new(cursor).map_err(|e| e.to_string())?;
 
     // 1. Read sharedStrings.xml if present
     let mut shared_strings: Vec<String> = Vec::new();

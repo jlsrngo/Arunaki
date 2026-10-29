@@ -486,17 +486,9 @@ export function useTabs({ activeFolder, activeChatId, refetchFiles }: UseTabsOpt
                   : t
               )
             );
-            // Accept change on backend to clean baseline
-            try {
-              engineFetch(
-                `/api/file/accept?directory=${encodeURIComponent(activeFolder)}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ path: filePath }),
-                }
-              );
-            } catch {}
+            window.dispatchEvent(
+              new CustomEvent("arunaki:file.edited", { detail: { file: filePath } })
+            );
             refetchFiles?.();
             return;
           } else if (res?.error) {
