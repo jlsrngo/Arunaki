@@ -10,6 +10,8 @@ import { WorkstationCenterPanel } from "../components/workstation/WorkstationCen
 import { WorkstationRightChat } from "../components/workstation/WorkstationRightChat";
 import { ConnectFolderModal } from "../components/workstation/ConnectFolderModal";
 import { SearchSectionModal } from "../components/workstation/SearchSectionModal";
+import { WorkspaceSearchPanel } from "../components/workstation/search/WorkspaceSearchPanel";
+import { QuickOpenFileModal } from "../components/workstation/QuickOpenFileModal";
 import { useTabs } from "../components/workstation/tabs/useTabs";
 import { useWorkstationChat } from "../components/workstation/chat/useWorkstationChat";
 import { useWorkstationSession } from "../components/workstation/hooks/useWorkstationSession";
@@ -135,6 +137,7 @@ export function UnifiedWorkstationPage() {
 
   // Activity Bar Sidebar View State (Explorer / Source Control / Search)
   const [activeSidebarView, setActiveSidebarView] = useState<SidebarView>("explorer");
+  const [showQuickOpenModal, setShowQuickOpenModal] = useState(false);
 
   const handleSelectSidebarView = useCallback(
     (view: SidebarView) => {
@@ -149,6 +152,24 @@ export function UnifiedWorkstationPage() {
     },
     [leftCollapsed, activeSidebarView, handleToggleLeft]
   );
+
+  // Listen for Ctrl+P Quick Open File & Ctrl+Shift+F Workspace Search (driven by useGlobalShortcuts & top menu)
+  useEffect(() => {
+    const handleQuickOpenEvent = () => setShowQuickOpenModal((prev) => !prev);
+    const handleWorkspaceSearchEvent = () => {
+      setActiveSidebarView("search");
+      if (leftCollapsed) {
+        handleToggleLeft();
+      }
+    };
+
+    window.addEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
+    window.addEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
+    return () => {
+      window.removeEventListener("arunaki-quick-open-file", handleQuickOpenEvent);
+      window.removeEventListener("arunaki-workspace-search", handleWorkspaceSearchEvent);
+    };
+  }, [leftCollapsed, handleToggleLeft]);
 
   return (
     <div className="flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
@@ -200,19 +221,13 @@ export function UnifiedWorkstationPage() {
             )}
 
             {activeSidebarView === "search" && (
-              <WorkstationLeftExplorer
-                collapsed={false}
-                onClose={handleCloseLeft}
-                onToggle={handleToggleLeft}
-                activeWorkspace={activeWorkspace}
+              <WorkspaceSearchPanel
+                activeFolder={activeFolder}
                 workspaceFiles={workspaceFiles}
                 onOpenFileTab={tabs.handleOpenFileTab}
-                onOpenFolderModal={handleDirectPickFolder}
-                onCloseFolder={handleCloseFolderAction}
+                onClose={handleCloseLeft}
+                onToggle={handleToggleLeft}
                 width="var(--left-panel-width)"
-                onNativeFilesChange={setNativeFileNames}
-                recentCanvases={tabs.recentCanvases}
-                onOpenCanvasTab={tabs.handleOpenCanvasTab}
               />
             )}
 
@@ -304,6 +319,17 @@ export function UnifiedWorkstationPage() {
         activeFolder={activeFolder}
         onClose={handleCloseSearchModal}
         onSelectSession={handleSelectSessionAction}
+      />
+
+      <QuickOpenFileModal
+        isOpen={showQuickOpenModal}
+        onClose={() => setShowQuickOpenModal(false)}
+        activeFolder={activeFolder}
+        workspaceFiles={workspaceFiles}
+        tabs={tabs.tabs}
+        onOpenFileTab={tabs.handleOpenFileTab}
+        onSelectTab={tabs.setActiveTabId}
+        onCloseTab={tabs.handleCloseTab}
       />
     </div>
   );

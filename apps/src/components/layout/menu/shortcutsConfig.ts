@@ -21,6 +21,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "select-all", category: "Edit & Text", desc: "Select all text", defaultKey: "Ctrl + A" },
 
   // File & Workstation
+  { id: "quick-open-file", category: "File & Workstation", desc: "Quick Open File by Name", defaultKey: "Ctrl + P" },
+  { id: "workspace-search", category: "File & Workstation", desc: "Search in Workspace Documents", defaultKey: "Ctrl + Shift + F" },
   { id: "open-folder", category: "File & Workstation", desc: "Open Workspace Folder", defaultKey: "Ctrl + O" },
   { id: "save-file", category: "File & Workstation", desc: "Save Active Document", defaultKey: "Ctrl + S" },
   { id: "new-session", category: "File & Workstation", desc: "Start New Chat Session", defaultKey: "Ctrl + N" },

@@ -129,6 +129,16 @@ export const EditMenu = memo(function EditMenu({
             }}
           />
 
+          <MenuItem
+            icon={Search}
+            label="Search in Workspace..."
+            shortcut={getEffectiveShortcut("workspace-search") || "Ctrl+Shift+F"}
+            onClick={() => {
+              commands.workspaceSearch();
+              onClose();
+            }}
+          />
+
           <MenuSeparator />
 
           <MenuItem

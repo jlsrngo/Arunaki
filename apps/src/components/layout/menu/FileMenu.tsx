@@ -7,6 +7,7 @@ import {
   FolderX,
   Settings,
   LogOut,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
@@ -72,6 +73,16 @@ export const FileMenu = memo(function FileMenu({
             onClick={() => {
               onClose();
               commands.openFolder?.();
+            }}
+          />
+
+          <MenuItem
+            icon={FileSearch}
+            label="Quick Open File..."
+            shortcut={getEffectiveShortcut("quick-open-file") || "Ctrl+P"}
+            onClick={() => {
+              onClose();
+              commands.quickOpenFile();
             }}
           />
 

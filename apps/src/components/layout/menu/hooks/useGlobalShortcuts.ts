@@ -41,6 +41,12 @@ export function useGlobalShortcuts({
       } else if (matchesShortcut(e, getEffectiveShortcut("settings"))) {
         e.preventDefault();
         commands.openSettings();
+      } else if (matchesShortcut(e, getEffectiveShortcut("quick-open-file"))) {
+        e.preventDefault();
+        commands.quickOpenFile();
+      } else if (matchesShortcut(e, getEffectiveShortcut("workspace-search"))) {
+        e.preventDefault();
+        commands.workspaceSearch();
       } else if (matchesShortcut(e, getEffectiveShortcut("open-folder"))) {
         e.preventDefault();
         commands.openFolder?.();

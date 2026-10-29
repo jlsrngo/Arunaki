@@ -1166,40 +1166,67 @@ async fn handle_find_text(
     headers: HeaderMap,
 ) -> Response {
     let base_dir = resolve_base_dir(&q, &headers);
-    let pattern = q
-        .get("pattern")
-        .map(|s| s.to_lowercase())
-        .unwrap_or_default();
-    if pattern.is_empty() {
+    let raw_pattern = q.get("pattern").cloned().unwrap_or_default();
+    if raw_pattern.trim().is_empty() {
         return Json(json!([])).into_response();
     }
+    let case_sensitive = q
+        .get("caseSensitive")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+    let pattern_cmp = if case_sensitive {
+        raw_pattern.clone()
+    } else {
+        raw_pattern.to_lowercase()
+    };
 
     let mut all_files = Vec::new();
     collect_files_recursive(&base_dir, &base_dir, &mut all_files, 500);
 
     let mut results = Vec::new();
     for f in all_files {
-        if results.len() >= 100 {
+        if results.len() >= 150 {
             break;
         }
-        if let Ok(txt) = std::fs::read_to_string(&f) {
-            let rel = f
-                .strip_prefix(&base_dir)
-                .unwrap_or(&f)
-                .to_string_lossy()
-                .replace('\\', "/");
-            for (idx, line) in txt.lines().enumerate() {
-                if line.to_lowercase().contains(&pattern) {
-                    results.push(json!({
-                        "path": { "text": rel },
-                        "lines": { "text": line },
-                        "line_number": idx + 1,
-                        "absolute_offset": 0,
-                        "submatches": []
-                    }));
-                    if results.len() >= 100 {
-                        break;
-                    }
+        let ext = f
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(
+            ext.as_str(),
+            "png" | "jpg" | "jpeg" | "gif" | "webp" | "zip" | "exe" | "dll" | "bak" | "tmp"
+        ) {
+            continue;
+        }
+        let txt = extract_diffable_text(&f);
+        if txt.is_empty() || txt.starts_with("[Binary File:") {
+            continue;
+        }
+        let rel = f
+            .strip_prefix(&base_dir)
+            .unwrap_or(&f)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if is_ignored_change_path(&rel) {
+            continue;
+        }
+        for (idx, line) in txt.lines().enumerate() {
+            let matched = if case_sensitive {
+                line.contains(&pattern_cmp)
+            } else {
+                line.to_lowercase().contains(&pattern_cmp)
+            };
+            if matched {
+                results.push(json!({
+                    "path": { "text": rel },
+                    "lines": { "text": line },
+                    "line_number": idx + 1,
+                    "absolute_offset": 0,
+                    "submatches": []
+                }));
+                if results.len() >= 150 {
+                    break;
                 }
             }
         }

@@ -65,6 +65,20 @@ export function useAppCommands({
     window.dispatchEvent(new CustomEvent("arunaki-search-session"));
   }, []);
 
+  const quickOpenFile = useCallback(() => {
+    navigate("/");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("arunaki-quick-open-file"));
+    }, 10);
+  }, [navigate]);
+
+  const workspaceSearch = useCallback(() => {
+    navigate("/");
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("arunaki-workspace-search"));
+    }, 10);
+  }, [navigate]);
+
   const toggleExplorer = useCallback(() => {
     window.dispatchEvent(new CustomEvent("arunaki-toggle-explorer"));
   }, []);
@@ -144,6 +158,8 @@ export function useAppCommands({
     newSession,
     saveFile,
     findSession,
+    quickOpenFile,
+    workspaceSearch,
     toggleExplorer,
     toggleChat,
     toggleWordWrap,
