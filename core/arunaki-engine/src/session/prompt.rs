@@ -575,28 +575,101 @@ pub async fn run_agent_turn(
             .pointer("/choices/0/message")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let msg_text = msg
+        let mut msg_text = msg
             .get("content")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
+        let mut msg_reasoning = msg
+            .get("reasoning_content")
+            .or_else(|| msg.get("reasoning"))
+            .or_else(|| msg.get("thought"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+
+        // Also extract inline <think>...</think> blocks if model emitted them inside content
+        if let Some(s_idx) = msg_text.find("<think>") {
+            if let Some(e_rel) = msg_text[s_idx + 7..].find("</think>") {
+                let e_idx = s_idx + 7 + e_rel;
+                let inline_thought = msg_text[s_idx + 7..e_idx].trim().to_string();
+                if !inline_thought.is_empty() {
+                    if !msg_reasoning.is_empty() {
+                        msg_reasoning.push_str("\n\n");
+                    }
+                    msg_reasoning.push_str(&inline_thought);
+                }
+                let mut cleaned = String::with_capacity(msg_text.len());
+                cleaned.push_str(&msg_text[..s_idx]);
+                cleaned.push_str(&msg_text[e_idx + 8..]);
+                msg_text = cleaned.trim().to_string();
+            }
+        }
+
         let tool_calls = msg
             .get("tool_calls")
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
 
-        let step_dur = now_ms().saturating_sub(step_start);
+        let step_end = now_ms();
+        let step_dur = step_end.saturating_sub(step_start);
         crate::paths::log_engine(
             "ai",
             &format!(
-                "✨ AI Model '{}' replied in {}ms | text: {} chars | tools: {}",
+                "✨ AI Model '{}' replied in {}ms | thought: {} chars | text: {} chars | tools: {}",
                 model_id,
                 step_dur,
+                msg_reasoning.len(),
                 msg_text.len(),
                 tool_calls.len()
             ),
         );
+
+        if !msg_reasoning.is_empty() {
+            let r_part_id = gen_id("rsn");
+            emit_event(
+                workspace_dir,
+                "session.next.reasoning.started",
+                json!({
+                    "sessionID": session_id,
+                    "messageID": assistant_msg_id,
+                    "id": r_part_id
+                }),
+            );
+            emit_event(
+                workspace_dir,
+                "session.next.reasoning.delta",
+                json!({
+                    "sessionID": session_id,
+                    "messageID": assistant_msg_id,
+                    "id": r_part_id,
+                    "delta": msg_reasoning
+                }),
+            );
+            emit_event(
+                workspace_dir,
+                "session.next.reasoning.ended",
+                json!({
+                    "sessionID": session_id,
+                    "messageID": assistant_msg_id,
+                    "id": r_part_id,
+                    "text": msg_reasoning
+                }),
+            );
+            content_parts.push(json!({
+                "type": "reasoning",
+                "id": r_part_id,
+                "text": msg_reasoning,
+                "time": {
+                    "start": step_start,
+                    "end": step_end,
+                    "created": step_start,
+                    "completed": step_end
+                }
+            }));
+        }
 
         if tool_calls.is_empty() {
             final_text = msg_text;

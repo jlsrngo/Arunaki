@@ -115,48 +115,45 @@ export function useChatModels() {
 
   const providerModels = useMemo<ProviderModelItem[]>(() => {
     const list = modelsQuery.data ?? [];
-    const fromApi = list
-      .filter((m: any) => m?.providerID === activeModel.providerID)
-      .map((m: any) => ({
-        id: String(m?.id ?? ""),
-        name: String(m?.name ?? m?.id ?? ""),
-        isRetired: retiredModels.has(String(m?.id ?? "")),
-      }))
-      .filter((m: any) => m.id !== "");
+    const seen = new Set<string>();
+    const merged: ProviderModelItem[] = [];
 
-    if (fromApi.length > 0) return fromApi;
+    const pushModel = (id: string, name?: string) => {
+      const cleanId = id.trim();
+      if (!cleanId || seen.has(cleanId)) return;
+      seen.add(cleanId);
+      merged.push({
+        id: cleanId,
+        name: (name || cleanId).trim(),
+        isRetired: retiredModels.has(cleanId),
+      });
+    };
+
+    for (const m of list) {
+      if (m?.providerID === activeModel.providerID && m?.id) {
+        pushModel(String(m.id), String(m.name ?? m.id));
+      }
+    }
 
     const pool =
       typeof window !== "undefined"
         ? localStorage.getItem(`arunaki_provider_models_${activeModel.providerID}`)
         : null;
     if (pool) {
-      const items = pool
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (items.length > 0) {
-        return items.map((id) => ({
-          id,
-          name: id,
-          isRetired: retiredModels.has(id),
-        }));
+      for (const s of pool.split(",")) {
+        pushModel(s);
       }
     }
 
-    const defaults = getProviderDefaultModels(activeModel.providerID);
-    if (defaults.length > 0) {
-      return defaults.map((id) => ({
-        id,
-        name: id,
-        isRetired: retiredModels.has(id),
-      }));
+    for (const id of getProviderDefaultModels(activeModel.providerID)) {
+      pushModel(id);
     }
 
     if (activeModel.id) {
-      return [{ id: activeModel.id, name: activeModel.id, isRetired: false }];
+      pushModel(activeModel.id);
     }
-    return [];
+
+    return merged;
   }, [modelsQuery.data, activeModel.providerID, activeModel.id, retiredModels]);
 
   const setActiveModel = useCallback(

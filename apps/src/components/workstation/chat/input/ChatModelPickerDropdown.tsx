@@ -1,5 +1,5 @@
 import { memo, type RefObject } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { useI18n } from "../../../../lib/i18n";
 import { describeModel } from "../../../settings/SettingsCliConnectionsTab";
@@ -27,16 +27,19 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
     return null;
   }
 
-  const activeLabel = describeModel(
+  const activeDesc = describeModel(
     modelOptions.find((m) => m.id === activeModel?.id)?.id || activeModel?.id
-  ).label;
+  );
+  const activeLabel = activeDesc.badge
+    ? `${activeDesc.label} (${activeDesc.badge})`
+    : activeDesc.label;
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={onToggle}
-        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs max-w-[150px]"
+        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs max-w-[180px]"
         title={t("model", "Model")}
       >
         <span className="truncate">{activeLabel}</span>
@@ -49,7 +52,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full mb-1.5 left-0 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
+        <div className="absolute bottom-full mb-1.5 left-0 w-60 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
           <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5 flex items-center justify-between">
             <span>{t("model", "Model")}</span>
             <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold border border-[var(--border-color)]">
@@ -58,20 +61,26 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
           </div>
           {modelOptions.map((m) => {
             const isSelected = m.id === activeModel?.id;
+            const desc = describeModel(m.id);
             return (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => onSelectModel?.(m)}
                 className={cn(
-                  "w-full text-left px-2 py-1 rounded-lg text-[10px] flex items-center justify-between gap-2 cursor-pointer transition-colors",
+                  "w-full text-left px-2 py-1.5 rounded-lg text-[10.5px] flex items-center justify-between gap-2 cursor-pointer transition-colors",
                   isSelected
                     ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                 )}
               >
-                <span className="truncate">{describeModel(m.id).label}</span>
+                <span className="truncate">{desc.label || m.name}</span>
                 <div className="flex items-center gap-1 shrink-0">
+                  {desc.badge && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-secondary)] font-medium">
+                      {desc.badge}
+                    </span>
+                  )}
                   {(m as any).isRetired && (
                     <span
                       className="text-[9px] px-1 py-0.2 rounded bg-[#cf6613] text-white font-normal"
@@ -80,7 +89,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
                       retired
                     </span>
                   )}
-                  {isSelected && <span className="text-[9px] opacity-60">✓</span>}
+                  {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
                 </div>
               </button>
             );

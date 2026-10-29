@@ -282,11 +282,23 @@ pub(crate) fn make_completion_response(
     text: String,
     tool_calls: Vec<Value>,
 ) -> Response {
+    make_completion_response_with_reasoning(model, text, String::new(), tool_calls)
+}
+
+pub(crate) fn make_completion_response_with_reasoning(
+    model: &str,
+    text: String,
+    reasoning: String,
+    tool_calls: Vec<Value>,
+) -> Response {
     let has_tools = !tool_calls.is_empty();
     let mut message = json!({
         "role": "assistant",
         "content": if text.is_empty() && has_tools { Value::Null } else { Value::String(text) },
     });
+    if !reasoning.trim().is_empty() {
+        message["reasoning_content"] = Value::String(reasoning);
+    }
     if has_tools {
         message["tool_calls"] = Value::Array(tool_calls);
     }
@@ -314,9 +326,35 @@ pub(crate) fn make_sse_response_from_result(
     text: String,
     tool_calls: Vec<Value>,
 ) -> Response {
+    make_sse_response_with_reasoning(model, text, String::new(), tool_calls)
+}
+
+pub(crate) fn make_sse_response_with_reasoning(
+    model: &str,
+    text: String,
+    reasoning: String,
+    tool_calls: Vec<Value>,
+) -> Response {
     let chat_id = gen_id("chatcmpl");
     let created = now_ms() / 1000;
     let mut chunks = Vec::new();
+
+    if !reasoning.trim().is_empty() {
+        chunks.push(format!(
+            "data: {}\n\n",
+            json!({
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": { "role": "assistant", "reasoning_content": reasoning },
+                    "finish_reason": Value::Null
+                }]
+            })
+        ));
+    }
 
     if !text.is_empty() {
         chunks.push(format!(

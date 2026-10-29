@@ -9,7 +9,7 @@ export function isModelValidForProvider(providerId: string, modelId: string): bo
   if (!modelId) return false;
   const clean = modelId.trim().toLowerCase();
   if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-    return (clean.startsWith("gemini") || clean.startsWith("claude")) && !clean.endsWith(":free");
+    return (clean.startsWith("gemini") || clean.startsWith("claude") || clean.startsWith("gpt-oss")) && !clean.endsWith(":free");
   }
   if (providerId === "claude-code") {
     return clean.startsWith("claude") && !clean.endsWith(":free");
@@ -136,13 +136,30 @@ export function getProviderDefaultModels(providerId: string): string[] {
     ];
   }
   if (providerId === "antigravity" || providerId === "gemini" || providerId === "gemini-cli") {
-    return ["gemini-3.8-flash", "gemini-2.5-pro", "gemini-2.5-flash", "claude-sonnet-4-6"];
+    return [
+      "gemini-3.8-flash-high",
+      "gemini-3.8-flash-medium",
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash-minimal",
+      "claude-sonnet-4-6-agy",
+      "claude-opus-4-6-thinking",
+      "gpt-oss-120b-medium",
+    ];
   }
   if (providerId === "claude-code" || providerId === "claude") {
-    return ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku"];
+    return ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"];
   }
   if (providerId === "codex") {
-    return ["o3-mini", "o1", "gpt-4o", "gpt-5.6-terra"];
+    return [
+      "gpt-5.6-terra",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.3-codex",
+      "gpt-5.2-codex",
+      "gpt-5.2",
+      "gpt-5.1-codex-max",
+      "gpt-5.1-codex-mini",
+    ];
   }
   if (providerId === "opencode") {
     return ["groq/openai/gpt-oss-120b", "groq/qwen/qwen3.8-27b", "opencode/big-pickle", "9router/ComboMaut"];

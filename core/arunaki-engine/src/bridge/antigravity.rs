@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -7,7 +7,10 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-use super::{extract_content_text, make_completion_response, make_sse_response_from_result};
+use super::{
+    extract_content_text, make_completion_response_with_reasoning,
+    make_sse_response_with_reasoning,
+};
 use crate::cred_store::{ensure_fresh_credential, refresh_credential_source};
 use crate::paths::gen_id;
 
@@ -395,6 +398,7 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
 
     let sse_text = resp.text().await.unwrap_or_default();
     let mut full_text = String::new();
+    let mut thought_text = String::new();
     let mut tool_calls = Vec::new();
     let mut last_sig = String::new();
 
@@ -421,10 +425,12 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
                         .get("thought")
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
-                    if !is_thought {
+                    if is_thought {
                         if let Some(t) = part.get("text").and_then(|v| v.as_str()) {
-                            full_text.push_str(t);
+                            thought_text.push_str(t);
                         }
+                    } else if let Some(t) = part.get("text").and_then(|v| v.as_str()) {
+                        full_text.push_str(t);
                     }
                     if let Some(fc) = part.get("functionCall") {
                         let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
@@ -461,9 +467,9 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
     }
 
     if is_stream {
-        make_sse_response_from_result(model, full_text, tool_calls)
+        make_sse_response_with_reasoning(model, full_text, thought_text, tool_calls)
     } else {
-        make_completion_response(model, full_text, tool_calls)
+        make_completion_response_with_reasoning(model, full_text, thought_text, tool_calls)
     }
 }
 

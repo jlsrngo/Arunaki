@@ -5,7 +5,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-use super::{extract_content_text, make_completion_response, make_sse_response_from_result};
+use super::extract_content_text;
 use crate::cred_store::ensure_fresh_credential;
 
 // ============================================================================
@@ -189,14 +189,24 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
 
     let data: Value = resp.json().await.unwrap_or_else(|_| json!({}));
     let mut text = String::new();
+    let mut thought_text = String::new();
     let mut tool_calls = Vec::new();
     if let Some(arr) = data.get("content").and_then(|v| v.as_array()) {
         for block in arr {
-            if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+            let btype = block.get("type").and_then(|v| v.as_str());
+            if btype == Some("thinking") || btype == Some("reasoning") {
+                if let Some(t) = block
+                    .get("thinking")
+                    .or_else(|| block.get("text"))
+                    .and_then(|v| v.as_str())
+                {
+                    thought_text.push_str(t);
+                }
+            } else if btype == Some("text") {
                 if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
                     text.push_str(t);
                 }
-            } else if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+            } else if btype == Some("tool_use") {
                 let id = block.get("id").and_then(|v| v.as_str()).unwrap_or("call_0");
                 let name = block.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
                 let args = serde_json::to_string(block.get("input").unwrap_or(&json!({})))
@@ -211,8 +221,8 @@ pub(crate) async fn handle_claude_request(body: Value, model: &str, is_stream: b
     }
 
     if is_stream {
-        make_sse_response_from_result(model, text, tool_calls)
+        super::make_sse_response_with_reasoning(model, text, thought_text, tool_calls)
     } else {
-        make_completion_response(model, text, tool_calls)
+        super::make_completion_response_with_reasoning(model, text, thought_text, tool_calls)
     }
 }

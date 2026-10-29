@@ -1,11 +1,11 @@
-﻿use axum::{
+use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::{json, Value};
 
-use super::{extract_content_text, make_completion_response, make_sse_response_from_result};
+use super::extract_content_text;
 use crate::cred_store::{decode_jwt_payload, ensure_fresh_credential, refresh_credential_source};
 
 // ============================================================================
@@ -195,6 +195,7 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
 
     let sse_text = resp.text().await.unwrap_or_default();
     let mut full_text = String::new();
+    let mut thought_text = String::new();
     let mut tool_calls = Vec::new();
 
     for line in sse_text.lines() {
@@ -211,6 +212,12 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
             if etype == "response.output_text.delta" {
                 if let Some(d) = evt.get("delta").and_then(|v| v.as_str()) {
                     full_text.push_str(d);
+                }
+            } else if etype == "response.reasoning_summary_text.delta"
+                || etype == "response.reasoning_text.delta"
+            {
+                if let Some(d) = evt.get("delta").and_then(|v| v.as_str()) {
+                    thought_text.push_str(d);
                 }
             } else if etype == "response.output_item.done" {
                 if let Some(item) = evt.get("item") {
@@ -243,9 +250,9 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
     }
 
     if is_stream {
-        make_sse_response_from_result(model, full_text, tool_calls)
+        super::make_sse_response_with_reasoning(model, full_text, thought_text, tool_calls)
     } else {
-        make_completion_response(model, full_text, tool_calls)
+        super::make_completion_response_with_reasoning(model, full_text, thought_text, tool_calls)
     }
 }
 

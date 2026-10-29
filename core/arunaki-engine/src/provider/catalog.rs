@@ -39,48 +39,75 @@ pub fn build_catalog() -> (Vec<Value>, Vec<Value>) {
                 "request": { "headers": {}, "body": {} }
             }));
 
-            if let Some(mod_map) = pval.get("models").and_then(|v| v.as_object()) {
-                for (mid, mval) in mod_map {
-                    let mname = mval
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(mid.as_str());
-                    let ctx_lim = mval
-                        .pointer("/limit/context")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(200_000);
-                    let out_lim = mval
-                        .pointer("/limit/output")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(32_768);
-                    models.push(json!({
-                        "id": mid,
-                        "providerID": pid,
-                        "name": mname,
-                        "api": {
-                            "id": mid,
-                            "type": "aisdk",
-                            "package": "@ai-sdk/openai-compatible",
-                            "url": base_url,
-                            "settings": {}
-                        },
-                        "capabilities": {
-                            "tools": mval.get("tool_call").and_then(|v| v.as_bool()).unwrap_or(true),
-                            "input": ["text", "image"],
-                            "output": ["text"]
-                        },
-                        "request": { "headers": {}, "body": {} },
-                        "variants": [],
-                        "time": { "released": 0 },
-                        "cost": [],
-                        "status": "active",
-                        "enabled": true,
-                        "limit": {
-                            "context": ctx_lim,
-                            "output": out_lim
-                        }
-                    }));
+            let mut combined_models = pval
+                .get("models")
+                .and_then(|v| v.as_object())
+                .cloned()
+                .unwrap_or_default();
+
+            let cli_target = match pid.as_str() {
+                "antigravity" | "antigravity-local" | "gemini" | "gemini-cli" => Some("antigravity"),
+                "claude" | "claude-code" | "claude-cli" => Some("claude"),
+                "codex" | "codex-cli" => Some("codex"),
+                "kiro" | "kiro-cli" => Some("kiro"),
+                "opencode" | "opencode-zen" => Some("opencode"),
+                "9router" | "nineRouter" => Some("9router"),
+                _ => None,
+            };
+            if let Some(t) = cli_target {
+                for m in super::local_cli::default_models_for_target(t) {
+                    combined_models.entry(m.to_string()).or_insert_with(|| {
+                        json!({
+                            "name": m,
+                            "attachment": true,
+                            "reasoning": true,
+                            "tool_call": true,
+                            "limit": { "context": 200000, "output": 32768 }
+                        })
+                    });
                 }
+            }
+
+            for (mid, mval) in &combined_models {
+                let mname = mval
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(mid.as_str());
+                let ctx_lim = mval
+                    .pointer("/limit/context")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(200_000);
+                let out_lim = mval
+                    .pointer("/limit/output")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(32_768);
+                models.push(json!({
+                    "id": mid,
+                    "providerID": pid,
+                    "name": mname,
+                    "api": {
+                        "id": mid,
+                        "type": "aisdk",
+                        "package": "@ai-sdk/openai-compatible",
+                        "url": base_url,
+                        "settings": {}
+                    },
+                    "capabilities": {
+                        "tools": mval.get("tool_call").and_then(|v| v.as_bool()).unwrap_or(true),
+                        "input": ["text", "image"],
+                        "output": ["text"]
+                    },
+                    "request": { "headers": {}, "body": {} },
+                    "variants": [],
+                    "time": { "released": 0 },
+                    "cost": [],
+                    "status": "active",
+                    "enabled": true,
+                    "limit": {
+                        "context": ctx_lim,
+                        "output": out_lim
+                    }
+                }));
             }
         }
     }
