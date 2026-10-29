@@ -102,7 +102,8 @@ async function main() {
     const tauriDesktopExe = path.join(targetReleaseDir, 'arunaki-desktop.exe');
     if (fs.existsSync(tauriDesktopExe)) {
       fs.copyFileSync(tauriDesktopExe, desktopExePath);
-      // tauriDesktopExe is already built with Windows GUI subsystem and embedded Tauri icon
+      setPeSubsystem(desktopExePath, 2);
+      injectIcon(desktopExePath, mainIco);
     } else if (fs.existsSync(engineExePath)) {
       fs.copyFileSync(engineExePath, desktopExePath);
       setPeSubsystem(desktopExePath, 2);
@@ -161,6 +162,7 @@ async function main() {
     }
 
     safeCopy(desktopExePath, path.join(portableDir, 'arunaki.exe'));
+    injectIcon(path.join(portableDir, 'arunaki.exe'), mainIco);
 
     if (fs.existsSync(engineExePath)) {
       safeCopy(engineExePath, path.join(portableDir, 'arunaki-engine.exe'));

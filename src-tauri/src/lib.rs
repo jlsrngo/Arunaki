@@ -80,6 +80,11 @@ pub fn run() {
             // (Print Ctrl+P, Find bar Ctrl+F/F3, Reload F5/Ctrl+R, Context Menu, Autofill, Zoom, DevTools, Status Bar)
             #[cfg(windows)]
             if let Some(main_window) = app.get_webview_window("main") {
+                // Explicitly set window icon so Windows taskbar displays Arunaki logo
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = main_window.set_icon(icon.clone());
+                }
+
                 let _ = main_window.with_webview(|webview| unsafe {
                     if let Ok(core_webview) = webview.controller().CoreWebView2() {
                         if let Ok(settings) = core_webview.Settings() {

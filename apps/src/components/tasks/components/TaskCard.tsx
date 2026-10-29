@@ -1,0 +1,224 @@
+import {
+  Calendar,
+  Send,
+  Clock,
+  AlertTriangle,
+  Bell,
+  BellRing,
+  FileSpreadsheet,
+  FileText,
+  ExternalLink,
+  CheckSquare,
+  Square,
+} from "lucide-react";
+import { cn } from "../../../lib/utils";
+import { TaskItem, getTodayString } from "../taskTypes";
+
+interface TaskCardProps {
+  task: TaskItem;
+  draggedTaskId: string | null;
+  isSendingTelegram: string | null;
+  onDragStart: (id: string) => void;
+  onEdit: (task: TaskItem) => void;
+  onSyncGoogleCalendar: (task: TaskItem) => void;
+  onSendTelegram: (task: TaskItem) => void;
+  onOpenFileInWorkstation: (fileName: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  isIndonesian: boolean;
+  t: (key: any, fallback?: string) => any;
+}
+
+export function TaskCard({
+  task,
+  draggedTaskId,
+  isSendingTelegram,
+  onDragStart,
+  onEdit,
+  onSyncGoogleCalendar,
+  onSendTelegram,
+  onOpenFileInWorkstation,
+  onToggleSubtask,
+  isIndonesian,
+  t,
+}: TaskCardProps) {
+  const totalSubtasks = task.subtasks?.length || 0;
+  const completedSubtasks = task.subtasks?.filter((s) => s.completed).length || 0;
+  const isOverdue =
+    task.targetDate &&
+    task.targetDate < getTodayString() &&
+    task.columnId !== "done";
+
+  return (
+    <div
+      draggable
+      onDragStart={() => onDragStart(task.id)}
+      onClick={() => onEdit(task)}
+      className={cn(
+        "group p-3.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-sm relative space-y-2.5",
+        task.priority === "high" && "border-l-2 border-l-[#cf6613]",
+        draggedTaskId === task.id && "opacity-40"
+      )}
+    >
+      {/* Title and Action Buttons */}
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-xs font-medium text-white leading-snug line-clamp-2">
+          {task.title}
+        </h3>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Google Calendar Quick Sync */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSyncGoogleCalendar(task);
+            }}
+            title={t("openInGoogleCalendar", "Sinkron ke Google Calendar")}
+            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+          >
+            <Calendar className="w-3.5 h-3.5 text-white/70" />
+          </button>
+
+          {/* Telegram Dispatch */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendTelegram(task);
+            }}
+            disabled={isSendingTelegram === task.id}
+            title={isIndonesian ? "Kirim pemberitahuan agenda ke Telegram sekarang" : "Send agenda notification to Telegram now"}
+            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+          >
+            <Send className={cn("w-3.5 h-3.5", isSendingTelegram === task.id && "animate-pulse text-[#cf6613]")} />
+          </button>
+        </div>
+      </div>
+
+      {/* Description Preview */}
+      {task.description && (
+        <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+          {task.description}
+        </p>
+      )}
+
+      {/* Attached File Quick Open */}
+      {task.attachedFile && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenFileInWorkstation(task.attachedFile);
+          }}
+          title={`Buka ${task.attachedFile} di Workstation`}
+          className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-hover)] text-[10.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] truncate transition-colors cursor-pointer"
+        >
+          {task.attachedFile.endsWith(".xlsx") || task.attachedFile.endsWith(".csv") ? (
+            <FileSpreadsheet className="w-3 h-3 text-white shrink-0" />
+          ) : (
+            <FileText className="w-3 h-3 text-white shrink-0" />
+          )}
+          <span className="truncate">{task.attachedFile}</span>
+          <ExternalLink className="w-2.5 h-2.5 text-[var(--text-muted)] ml-auto shrink-0" />
+        </div>
+      )}
+
+      {/* Subtasks Progress */}
+      {totalSubtasks > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+            <span>{t("taskSubtasks", "Daftar Rincian Subtugas / Checklist")}</span>
+            <span className="font-mono">{completedSubtasks}/{totalSubtasks}</span>
+          </div>
+          <div className="w-full h-1 bg-[var(--bg-hover)] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white transition-all duration-300"
+              style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}
+            />
+          </div>
+          <div className="space-y-1 pt-0.5">
+            {task.subtasks.slice(0, 3).map((st) => (
+              <div
+                key={st.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSubtask(task.id, st.id);
+                }}
+                className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-secondary)] hover:text-white"
+              >
+                {st.completed ? (
+                  <CheckSquare className="w-3 h-3 text-white shrink-0" />
+                ) : (
+                  <Square className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+                )}
+                <span className={cn("truncate", st.completed && "line-through text-[var(--text-muted)]")}>
+                  {st.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Footer Badges, Google Calendar Pill & Overdue Alert */}
+      <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/60 text-[10.5px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-1.5">
+          {task.reminderTime ? (
+            <span className="flex items-center gap-1 text-[var(--text-secondary)] font-mono">
+              <Clock className="w-3 h-3 text-[var(--text-muted)]" />
+              {task.reminderTime}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[var(--text-muted)]">
+              <Calendar className="w-3 h-3" />
+              {task.targetDate}
+            </span>
+          )}
+
+          {isOverdue && (
+            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
+              <AlertTriangle className="w-2.5 h-2.5" />
+              {t("taskOverdue", "Terlewat")}
+            </span>
+          )}
+
+          {task.telegramReminderEnabled && (
+            <span
+              title={task.notifiedAt ? (isIndonesian ? "Pemberitahuan Telegram sudah terkirim" : "Telegram notification delivered") : (isIndonesian ? "Pengingat Telegram aktif" : "Telegram reminder active")}
+              className={cn(
+                "p-0.5 rounded",
+                task.notifiedAt ? "text-white" : "text-[#cf6613]"
+              )}
+            >
+              {task.notifiedAt ? (
+                <BellRing className="w-3 h-3" />
+              ) : (
+                <Bell className="w-3 h-3" />
+              )}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {/* Clickable Google Calendar Pill */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSyncGoogleCalendar(task);
+            }}
+            title={t("openInGoogleCalendar", "Sinkron ke Google Calendar")}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[#cf6613]/20 text-[9.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] hover:border-[#cf6613]/40 transition-colors cursor-pointer"
+          >
+            <Calendar className="w-2.5 h-2.5 text-[#cf6613]" />
+            <span>Google Cal</span>
+          </button>
+
+          {task.priority === "high" && (
+            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
+              {t("taskPriorityHigh", "Mendesak / Kritis")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

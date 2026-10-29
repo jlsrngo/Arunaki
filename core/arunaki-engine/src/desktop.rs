@@ -70,6 +70,7 @@ pub fn router() -> Router {
         .route("/api/desktop/folder-watch", post(handle_folder_watch))
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/notify", post(handle_desktop_notify))
+        .route("/api/desktop/open-url", post(handle_open_url))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -926,6 +927,20 @@ if ($img -ne $null) {
     .flatten();
 
     Json(json!({ "dataUrl": data_url })).into_response()
+}
+
+async fn handle_open_url(Json(body): Json<Value>) -> Response {
+    let raw_url = body.get("url").and_then(|v| v.as_str()).unwrap_or("");
+    if raw_url.starts_with("http://") || raw_url.starts_with("https://") {
+        #[cfg(windows)]
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(&["/c", "start", "", raw_url])
+                .spawn();
+        }
+        return Json(json!({ "success": true, "url": raw_url })).into_response();
+    }
+    Json(json!({ "error": "Invalid URL" })).into_response()
 }
 
 async fn handle_quit() -> Response {

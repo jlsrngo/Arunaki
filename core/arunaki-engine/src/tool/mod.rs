@@ -18,6 +18,7 @@ pub mod reconcile;
 pub mod sop;
 pub mod synthesize;
 pub mod telegram;
+pub mod tasks;
 pub mod todo;
 pub mod websearch;
 pub mod write;
@@ -56,6 +57,7 @@ pub fn build_tool_definitions() -> Vec<Value> {
     defs.extend(synthesize::synthesize_tool_definitions());
     defs.extend(governance::governance_tool_definitions());
     defs.extend(telegram::telegram_tool_definitions());
+    defs.push(tasks::tasks_tool_definition());
     defs
 }
 
@@ -163,6 +165,9 @@ pub async fn execute_tool_call(
         }
         "send_telegram_alert" | "telegram_alert" => {
             telegram::execute_send_telegram_alert(session_id, workspace_dir, arguments).await
+        }
+        "manage_operational_tasks" | "manage_tasks" | "update_task_status" | "complete_subtask" => {
+            tasks::execute_manage_tasks(session_id, workspace_dir, arguments)
         }
         "bash" | "shell" | "terminal" => {
             bash::execute_bash(session_id, workspace_dir, arguments).await
