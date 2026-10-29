@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
+import { useI18n } from "../lib/i18n";
 import { apiFetch } from "../lib/api";
 import { sendDesktopNotification } from "../lib/notifications";
 
@@ -47,11 +48,11 @@ export interface TaskItem {
   updatedAt: string;
 }
 
-const DEFAULT_COLUMNS: { id: TaskItem["columnId"]; titleId: string; defaultTitle: string }[] = [
-  { id: "today", titleId: "colToday", defaultTitle: "Hari Ini" },
-  { id: "tomorrow", titleId: "colTomorrow", defaultTitle: "Besok" },
-  { id: "inprogress", titleId: "colInProgress", defaultTitle: "Sedang Dikerjakan" },
-  { id: "done", titleId: "colDone", defaultTitle: "Selesai" },
+const DEFAULT_COLUMNS = [
+  { id: "today" as const, titleId: "colToday" as const, defaultTitle: "Hari Ini" },
+  { id: "tomorrow" as const, titleId: "colTomorrow" as const, defaultTitle: "Besok" },
+  { id: "inprogress" as const, titleId: "colInProgress" as const, defaultTitle: "Sedang Dikerjakan" },
+  { id: "done" as const, titleId: "colDone" as const, defaultTitle: "Selesai" },
 ];
 
 function getTodayString(): string {
@@ -67,6 +68,8 @@ function getTomorrowString(): string {
 
 export const TasksBoardPage = memo(function TasksBoardPage() {
   const navigate = useNavigate();
+  const { t, language } = useI18n();
+  const isIndonesian = language === "id";
 
   const [activeFolder, setActiveFolder] = useState<string>(() => {
     return localStorage.getItem("arunaki_active_folder") || "";
@@ -215,36 +218,47 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     }
   }, [activeFolder]);
 
-  // Dispatch reminder to Telegram
+  // Dispatch professional reminder to Telegram
   const sendTelegramReminder = useCallback(async (task: TaskItem, isManual = false) => {
     setIsSendingTelegram(task.id);
-    const toastId = isManual ? toast.loading(`Mengirim pengingat '${task.title}' ke Telegram...`) : null;
+    const toastId = isManual ? toast.loading(`${isIndonesian ? "Mengirim agenda" : "Dispatching agenda"} '${task.title}'...`) : null;
 
     try {
       const dateLabel = task.targetDate === getTodayString()
-        ? "Hari Ini"
+        ? t("taskToday", "Today")
         : task.targetDate === getTomorrowString()
-        ? "Besok"
+        ? t("taskTomorrow", "Tomorrow")
         : task.targetDate;
+
+      const priorityLabel = task.priority === "high"
+        ? t("taskPriorityHigh", "High Urgency")
+        : task.priority === "medium"
+        ? t("taskPriorityMedium", "Medium Priority")
+        : t("taskPriorityNormal", "Normal");
 
       const subtaskLines = (task.subtasks || [])
         .map((st) => `  ${st.completed ? "✓" : "○"} ${st.title}`)
         .join("\n");
 
+      // Professional executive reminder structure
       const messageDetails = [
-        `*Jadwal:* ${dateLabel}${task.reminderTime ? ` jam ${task.reminderTime} WIB` : ""}`,
-        task.priority === "high" ? `*Prioritas:* Mendesak (High)` : "",
-        task.attachedFile ? `*File Terkait:* \`${task.attachedFile}\`` : "",
-        task.description ? `*Catatan:*\n${task.description}` : "",
-        subtaskLines ? `*Daftar Subtask:*\n${subtaskLines}` : "",
+        `*${isIndonesian ? "Waktu Pelaksanaan" : "Scheduled Time"}:* ${dateLabel}${task.reminderTime ? ` (${task.reminderTime} WIB)` : ""}`,
+        `*${isIndonesian ? "Tingkat Prioritas" : "Priority Level"}:* ${priorityLabel}`,
+        task.attachedFile ? `*${isIndonesian ? "Dokumen Terkait" : "Attached Document"}:* \`${task.attachedFile}\`` : "",
+        task.description ? `*${isIndonesian ? "Instruksi Kerja" : "Work Instructions"}:*\n${task.description}` : "",
+        subtaskLines ? `*${isIndonesian ? "Daftar Subtugas" : "Subtasks"}:*\n${subtaskLines}` : "",
       ].filter(Boolean).join("\n\n");
+
+      const alertTitle = isIndonesian
+        ? `Agenda Operasional: ${task.title}`
+        : `Operational Agenda: ${task.title}`;
 
       const res = await apiFetch("/api/telegram/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "alert",
-          title: `PENGINGAT KERJAAN ADMIN: ${task.title}`,
+          title: alertTitle,
           details: messageDetails,
           severity: task.priority === "high" ? "HIGH" : "INFO",
           workspace_dir: activeFolder || ".",
@@ -263,7 +277,12 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
       await saveTasks(updated);
 
       if (isManual && toastId) {
-        toast.success(`Pengingat '${task.title}' terkirim ke Telegram HP!`, { id: toastId });
+        toast.success(
+          isIndonesian
+            ? `Pemberitahuan agenda '${task.title}' terkirim ke Telegram HP!`
+            : `Agenda reminder '${task.title}' dispatched to Telegram!`,
+          { id: toastId }
+        );
       }
     } catch (err: any) {
       console.warn("[TasksBoard] Telegram dispatch error:", err);
@@ -273,7 +292,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     } finally {
       setIsSendingTelegram(null);
     }
-  }, [activeFolder, saveTasks]);
+  }, [activeFolder, isIndonesian, saveTasks, t]);
 
   // Background Reminder Worker (Runs every 20 seconds)
   useEffect(() => {
@@ -292,9 +311,15 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
 
           if (!isNaN(taskDate.getTime()) && now >= taskDate) {
             // Trigger Desktop Toast & Telegram Dispatch
+            const dateLabel = task.targetDate === getTodayString()
+              ? t("taskToday", "Today")
+              : task.targetDate === getTomorrowString()
+              ? t("taskTomorrow", "Tomorrow")
+              : task.targetDate;
+
             void sendDesktopNotification(
-              "Pengingat Kerjaan Admin — Arunaki",
-              `${task.title}${task.reminderTime ? ` (Jadwal: ${task.reminderTime})` : ""}`
+              t("tasksBoardTitle", "Operational Agenda & Task Board"),
+              `${task.title} (${dateLabel}${task.reminderTime ? ` — ${task.reminderTime}` : ""})`
             );
             void sendTelegramReminder(task, false);
           }
@@ -303,7 +328,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     }, 20000);
 
     return () => clearInterval(interval);
-  }, [sendTelegramReminder]);
+  }, [sendTelegramReminder, t]);
 
   // Modal Open Handler
   const openNewTaskModal = (col: TaskItem["columnId"] = "today") => {
@@ -338,7 +363,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
 
   const handleSaveModal = async () => {
     if (!modalTitle.trim()) {
-      toast.error("Judul tugas wajib diisi");
+      toast.error(isIndonesian ? "Judul tugas wajib diisi" : "Task title is required");
       return;
     }
 
@@ -367,7 +392,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
         return t;
       });
       await saveTasks(updated);
-      toast.success("Tugas berhasil diperbarui");
+      toast.success(isIndonesian ? "Agenda berhasil diperbarui" : "Task updated successfully");
     } else {
       // Create new
       const newTask: TaskItem = {
@@ -387,7 +412,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
         updatedAt: nowIso,
       };
       await saveTasks([newTask, ...tasks]);
-      toast.success("Tugas baru ditambahkan ke papan");
+      toast.success(isIndonesian ? "Agenda baru ditambahkan ke papan" : "New task added to board");
     }
 
     setIsModalOpen(false);
@@ -396,7 +421,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
   const handleDeleteTask = async (id: string) => {
     const updated = tasks.filter((t) => t.id !== id);
     await saveTasks(updated);
-    toast.success("Tugas dihapus");
+    toast.success(isIndonesian ? "Agenda dihapus" : "Task deleted");
   };
 
   const handleToggleSubtask = async (taskId: string, subtaskId: string) => {
@@ -467,13 +492,13 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
           </div>
           <div>
             <h1 className="text-sm font-semibold text-white flex items-center gap-2">
-              Agenda & Papan Tugas Admin
+              {t("tasksBoardTitle", "Operational Agenda & Task Board")}
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)] font-mono">
-                {tasks.length} Tugas
+                {tasks.length} {t("tasksCount", "Tasks")}
               </span>
             </h1>
             <p className="text-[11px] text-[var(--text-muted)] truncate max-w-[420px]">
-              {activeFolder ? activeFolder : "Buka folder proyek untuk sinkronisasi otomatis (.arunaki/tasks.json)"}
+              {activeFolder ? activeFolder : (isIndonesian ? "Buka folder proyek untuk sinkronisasi otomatis (.arunaki/tasks.json)" : "Open a project folder to sync tasks (.arunaki/tasks.json)")}
             </p>
           </div>
         </div>
@@ -484,7 +509,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari tugas..."
+              placeholder={isIndonesian ? "Cari agenda..." : "Search tasks..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-44 h-8 pl-8 pr-3 text-xs bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] placeholder:text-[var(--text-muted)]"
@@ -495,7 +520,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             type="button"
             onClick={loadTasks}
             disabled={isLoading}
-            title="Refresh Papan"
+            title={isIndonesian ? "Refresh Papan" : "Refresh Board"}
             className="h-8 w-8 flex items-center justify-center rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
@@ -507,7 +532,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             className="h-8 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
-            <span>Tambah Kerja Hari Ini</span>
+            <span>{t("addNewTaskToday", "Add Today's Agenda")}</span>
           </button>
         </div>
       </div>
@@ -527,7 +552,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               {/* Column Header */}
               <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-header)]/60">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-semibold text-white">{col.defaultTitle}</h2>
+                  <h2 className="text-xs font-semibold text-white">{t(col.titleId, col.defaultTitle)}</h2>
                   <span className="text-[10.5px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)]">
                     {colTasks.length}
                   </span>
@@ -535,7 +560,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                 <button
                   type="button"
                   onClick={() => openNewTaskModal(col.id)}
-                  title={`Tambah tugas di ${col.defaultTitle}`}
+                  title={`${isIndonesian ? "Tambah tugas di" : "Add task to"} ${t(col.titleId, col.defaultTitle)}`}
                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -546,13 +571,13 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div className="flex-1 p-3 overflow-y-auto space-y-2.5 min-h-[140px]">
                 {colTasks.length === 0 ? (
                   <div className="h-28 border border-dashed border-[var(--border-color)]/70 rounded-lg flex flex-col items-center justify-center text-[var(--text-muted)] text-[11px] gap-1 p-3 text-center">
-                    <span>Belum ada kerjaan</span>
+                    <span>{isIndonesian ? "Belum ada agenda" : "No tasks scheduled"}</span>
                     <button
                       type="button"
                       onClick={() => openNewTaskModal(col.id)}
                       className="text-[10px] text-[#cf6613] hover:underline cursor-pointer"
                     >
-                      + Buat tugas
+                      + {isIndonesian ? "Catat tugas" : "Create task"}
                     </button>
                   </div>
                 ) : (
@@ -584,7 +609,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                               sendTelegramReminder(task, true);
                             }}
                             disabled={isSendingTelegram === task.id}
-                            title="Kirim notifikasi pengingat ke Telegram sekarang"
+                            title={isIndonesian ? "Kirim pemberitahuan agenda ke Telegram sekarang" : "Send agenda notification to Telegram now"}
                             className="shrink-0 p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors"
                           >
                             <Send className={cn("w-3.5 h-3.5", isSendingTelegram === task.id && "animate-pulse text-[#cf6613]")} />
@@ -622,7 +647,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                         {totalSubtasks > 0 && (
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                              <span>Checklist Subtask</span>
+                              <span>{t("taskSubtasks", "Subtask Checklist")}</span>
                               <span>{completedSubtasks}/{totalSubtasks}</span>
                             </div>
                             <div className="w-full h-1 bg-[var(--bg-hover)] rounded-full overflow-hidden">
@@ -672,7 +697,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
 
                             {task.telegramReminderEnabled && (
                               <span
-                                title={task.notifiedAt ? "Notifikasi Telegram sudah terkirim" : "Pengingat Telegram aktif"}
+                                title={task.notifiedAt ? (isIndonesian ? "Pemberitahuan Telegram sudah terkirim" : "Telegram notification delivered") : (isIndonesian ? "Pengingat Telegram aktif" : "Telegram reminder active")}
                                 className={cn(
                                   "p-0.5 rounded",
                                   task.notifiedAt ? "text-white" : "text-[#cf6613]"
@@ -690,7 +715,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                           <div className="flex items-center gap-1">
                             {task.priority === "high" && (
                               <span className="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
-                                Mendesak
+                                {t("taskPriorityHigh", "High Urgency")}
                               </span>
                             )}
                           </div>
@@ -714,7 +739,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div className="flex items-center gap-2">
                 <Kanban className="w-4 h-4 text-white" />
                 <h3 className="text-sm font-semibold text-white">
-                  {editingTask ? "Edit Kerjaan Admin" : "Catat Kerjaan Baru"}
+                  {editingTask ? t("editTask", "Edit Operational Task") : t("createNewTask", "Create Operational Task")}
                 </h3>
               </div>
               <button
@@ -731,11 +756,11 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               {/* Judul Tugas */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Judul Tugas <span className="text-[#cf6613]">*</span>
+                  {t("taskTitle", "Task Title")} <span className="text-[#cf6613]">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="Misal: Rekap faktur pajak supplier PT Makmur..."
+                  placeholder={t("taskTitlePlaceholder", "e.g. Monthly tax invoice reconciliation...")}
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs placeholder:text-[var(--text-muted)]"
@@ -746,31 +771,30 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    Kolom Papan
+                    {t("taskBoardColumn", "Board Column")}
                   </label>
                   <select
                     value={modalColumn}
                     onChange={(e) => setModalColumn(e.target.value as any)}
                     className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
                   >
-                    <option value="today">Hari Ini</option>
-                    <option value="tomorrow">Besok</option>
-                    <option value="inprogress">Sedang Dikerjakan</option>
-                    <option value="done">Selesai</option>
+                    <option value="today">{t("colToday", "Today")}</option>
+                    <option value="tomorrow">{t("colTomorrow", "Tomorrow")}</option>
+                    <option value="inprogress">{t("colInProgress", "In Progress")}</option>
+                    <option value="done">{t("colDone", "Completed")}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    Tanggal Target
+                    {t("taskTargetDate", "Target Date")}
                   </label>
                   <input
                     type="date"
                     value={modalDate}
                     onChange={(e) => setModalDate(e.target.value)}
                     className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
-                  >
-                  </input>
+                  />
                 </div>
               </div>
 
@@ -779,7 +803,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                    Jam Pengingat (WIB)
+                    {t("taskReminderTime", "Scheduled Time")} (WIB)
                   </label>
                   <input
                     type="time"
@@ -791,16 +815,16 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
 
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    Tingkat Prioritas
+                    {t("taskPriority", "Priority Level")}
                   </label>
                   <select
                     value={modalPriority}
                     onChange={(e) => setModalPriority(e.target.value as any)}
                     className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
                   >
-                    <option value="low">Normal</option>
-                    <option value="medium">Penting (Medium)</option>
-                    <option value="high">Mendesak (High Alert)</option>
+                    <option value="low">{t("taskPriorityNormal", "Normal")}</option>
+                    <option value="medium">{t("taskPriorityMedium", "Medium Priority")}</option>
+                    <option value="high">{t("taskPriorityHigh", "High Urgency")}</option>
                   </select>
                 </div>
               </div>
@@ -812,9 +836,9 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                     <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-medium text-white">Ingatkan ke Telegram HP</h4>
+                    <h4 className="text-xs font-medium text-white">{t("taskTelegramReminder", "Executive Telegram Reminder")}</h4>
                     <p className="text-[10.5px] text-[var(--text-muted)]">
-                      Bot otomatis mengirim pesan reminder saat jam tugas tiba
+                      {t("taskTelegramReminderDesc", "Automatically dispatches reminder to configured Telegram when scheduled time arrives")}
                     </p>
                   </div>
                 </div>
@@ -830,7 +854,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
                   <Paperclip className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                  Hubungkan dengan Dokumen Proyek (Opsional)
+                  {t("taskAttachedDocument", "Linked Project Document (Optional)")}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -861,11 +885,11 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               {/* Catatan / Instruksi */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Catatan / Instruksi Kerja
+                  {t("taskInstructions", "Work Instructions / Notes")}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Instruksi singkat atau catatan khusus untuk tugas ini..."
+                  placeholder={t("taskInstructionsPlaceholder", "Specify context, instructions, or deliverables...")}
                   value={modalDescription}
                   onChange={(e) => setModalDescription(e.target.value)}
                   className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs placeholder:text-[var(--text-muted)] resize-none"
@@ -875,7 +899,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               {/* Subtask Checklist */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Daftar Subtask / Checklist Kerja
+                  {t("taskSubtasks", "Subtask Checklist")}
                 </label>
                 <div className="space-y-1.5 mb-2">
                   {modalSubtasks.map((st) => (
@@ -1000,4 +1024,3 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     </div>
   );
 });
-
