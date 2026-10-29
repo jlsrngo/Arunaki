@@ -120,7 +120,7 @@ export function TaskModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        className="w-full max-w-4xl bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl flex flex-col max-h-[94vh] overflow-hidden"
         onClick={() => {
           setIsTimeDropdownOpen(false);
           setIsColumnDropdownOpen(false);
@@ -128,7 +128,7 @@ export function TaskModal({
         }}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/50">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/50">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#cf6613]" />
             <h3 className="text-sm font-semibold text-white tracking-wide">
@@ -144,10 +144,10 @@ export function TaskModal({
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Judul Tugas */}
-          <div className="space-y-1.5">
+        {/* Modal Body: 4-Column Responsive Layout, Zero Need to Scroll */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
+          {/* Row 1: Judul Tugas */}
+          <div className="space-y-1">
             <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
               {t("taskTitleLabel", "Judul Agenda Operasional")} <span className="text-[#cf6613]">*</span>
             </label>
@@ -156,14 +156,14 @@ export function TaskModal({
               placeholder={t("taskTitlePlaceholder", "Contoh: Rekonsiliasi faktur pajak supplier PT Maju...")}
               value={modalTitle}
               onChange={(e) => setModalTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+              className="w-full px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
             />
           </div>
 
-          {/* Kolom Papan & Tanggal Target */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Custom Column Popover */}
-            <div className="space-y-1.5 relative">
+          {/* Row 2: 4 Kolom Rata Kiri-Kanan (Kolom Papan, Tanggal, Jam, Prioritas) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            {/* 1. Kolom Papan */}
+            <div className="space-y-1 relative">
               <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
                 {t("taskColumnLabel", "Kolom Papan")}
               </label>
@@ -175,10 +175,10 @@ export function TaskModal({
                   setIsTimeDropdownOpen(false);
                   setIsPriorityDropdownOpen(false);
                 }}
-                className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
-                <span>{DEFAULT_COLUMNS.find((c) => c.id === modalColumn)?.defaultTitle || modalColumn}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <span className="truncate">{DEFAULT_COLUMNS.find((c) => c.id === modalColumn)?.defaultTitle || modalColumn}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
               </button>
 
               {isColumnDropdownOpen && (
@@ -203,7 +203,7 @@ export function TaskModal({
                           setIsColumnDropdownOpen(false);
                         }}
                         className={cn(
-                          "w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                          "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
                           isSelected
                             ? "bg-[var(--bg-hover)] text-white font-semibold"
                             : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
@@ -218,30 +218,27 @@ export function TaskModal({
               )}
             </div>
 
-            {/* Target Date */}
-            <div className="space-y-1.5">
+            {/* 2. Tanggal Target */}
+            <div className="space-y-1">
               <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
                 {t("taskTargetDateLabel", "Tanggal Target")}
               </label>
               <div className="relative">
-                <Calendar className="w-3.5 h-3.5 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Calendar className="w-3.5 h-3.5 text-white/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="date"
                   value={modalDate}
                   onChange={(e) => setModalDate(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[var(--border-strong)]"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[var(--border-strong)]"
                 />
               </div>
             </div>
-          </div>
 
-          {/* Jam Pelaksanaan & Prioritas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Custom Time Popover */}
-            <div className="space-y-1.5 relative">
-              <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+            {/* 3. Jam Pelaksanaan WIB */}
+            <div className="space-y-1 relative">
+              <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#cf6613]" />
-                {t("taskScheduledTimeLabel", "Jam Pelaksanaan (WIB)")}
+                {t("taskScheduledTimeLabel", "Jam (WIB)")}
               </label>
               <button
                 type="button"
@@ -251,23 +248,23 @@ export function TaskModal({
                   setIsColumnDropdownOpen(false);
                   setIsPriorityDropdownOpen(false);
                 }}
-                className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white font-mono text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white font-mono text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
                 <span>{modalTime} WIB</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
               </button>
 
               {isTimeDropdownOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-0 top-full mt-1.5 w-72 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2"
+                  className="absolute left-0 top-full mt-1.5 w-64 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1.5"
                 >
                   <div className="px-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)]/60 pb-1 flex items-center justify-between">
                     <span>{t("selectTimeSlot", "Pilih Jadwal Jam")}</span>
-                    <span className="text-[#cf6613] font-semibold">WIB (UTC+7)</span>
+                    <span className="text-[#cf6613] font-semibold">WIB</span>
                   </div>
 
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
                     {TIME_PRESETS.map((slot) => {
                       const isSelected = modalTime === slot.time;
                       return (
@@ -280,31 +277,31 @@ export function TaskModal({
                             setIsTimeDropdownOpen(false);
                           }}
                           className={cn(
-                            "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
+                            "w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
                             isSelected
                               ? "bg-[var(--bg-hover)] text-white font-semibold"
                               : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
                           )}
                         >
                           <span className="font-mono">{slot.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)] font-medium">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)]">
                               {slot.badge}
                             </span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                            {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
                           </div>
                         </button>
                       );
                     })}
                   </div>
 
-                  <div className="pt-2 border-t border-[var(--border-color)]/60 flex items-center gap-2">
+                  <div className="pt-1.5 border-t border-[var(--border-color)]/60 flex items-center gap-1.5">
                     <input
                       type="text"
-                      placeholder="HH:mm (misal 15:45)"
+                      placeholder="HH:mm"
                       value={customTimeInput}
                       onChange={(e) => setCustomTimeInput(e.target.value)}
-                      className="flex-1 px-2.5 py-1 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded text-xs font-mono text-white placeholder:text-[var(--text-muted)] focus:outline-none"
+                      className="flex-1 px-2 py-1 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded text-xs font-mono text-white placeholder:text-[var(--text-muted)] focus:outline-none"
                     />
                     <button
                       type="button"
@@ -317,7 +314,7 @@ export function TaskModal({
                           toast.error(isIndonesian ? "Format jam harus HH:mm (contoh 09:30)" : "Time format must be HH:mm");
                         }
                       }}
-                      className="px-2.5 py-1 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium cursor-pointer transition-colors"
+                      className="px-2 py-1 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium cursor-pointer transition-colors"
                     >
                       {t("applyTime", "Terapkan")}
                     </button>
@@ -326,8 +323,8 @@ export function TaskModal({
               )}
             </div>
 
-            {/* Custom Priority Popover */}
-            <div className="space-y-1.5 relative">
+            {/* 4. Prioritas */}
+            <div className="space-y-1 relative">
               <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
                 {t("taskPriorityLabel", "Tingkat Prioritas")}
               </label>
@@ -339,13 +336,13 @@ export function TaskModal({
                   setIsTimeDropdownOpen(false);
                   setIsColumnDropdownOpen(false);
                 }}
-                className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full", PRIORITY_CONFIGS.find((p) => p.id === modalPriority)?.dot)} />
-                  <span>{PRIORITY_CONFIGS.find((p) => p.id === modalPriority)?.title || modalPriority}</span>
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className={cn("w-2 h-2 rounded-full shrink-0", PRIORITY_CONFIGS.find((p) => p.id === modalPriority)?.dot)} />
+                  <span className="truncate">{PRIORITY_CONFIGS.find((p) => p.id === modalPriority)?.title || modalPriority}</span>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
               </button>
 
               {isPriorityDropdownOpen && (
@@ -368,7 +365,7 @@ export function TaskModal({
                           setIsPriorityDropdownOpen(false);
                         }}
                         className={cn(
-                          "w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors",
+                          "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors",
                           isSelected
                             ? "bg-[var(--bg-hover)] text-white font-semibold"
                             : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
@@ -379,7 +376,7 @@ export function TaskModal({
                           <span className="text-white">{p.title}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)] font-medium">
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)] font-medium">
                             {p.badge}
                           </span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
@@ -392,241 +389,246 @@ export function TaskModal({
             </div>
           </div>
 
-          {/* Telegram Reminder Toggle Card */}
-          <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-center">
-                <Send className="w-3.5 h-3.5 text-[#cf6613]" />
-              </div>
-              <div>
-                <h4 className="text-xs font-medium text-white">{t("taskTelegramReminder", "Pengingat Telegram Eksekutif")}</h4>
-                <p className="text-[10.5px] text-[var(--text-muted)]">
-                  {t("taskTelegramReminderDesc", "Otomatis mengirimkan pemberitahuan ke Telegram saat jadwal tiba")}
-                </p>
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={modalTelegram}
-              onChange={(e) => setModalTelegram(e.target.checked)}
-              className="w-4 h-4 accent-[#cf6613] cursor-pointer"
-            />
-          </div>
-
-          {/* Google Calendar Link & Sync Card */}
-          <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
+          {/* Row 3: 2 Kolom Integrasi (Telegram & Google Calendar Bersebelahan) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Telegram Reminder */}
+            <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
-                  <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
+                  <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-medium text-white">{t("taskGoogleCalendar", "Sinkronisasi Google Calendar")}</h4>
-                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
-                      Auto-Link
-                    </span>
-                  </div>
-                  <p className="text-[10.5px] text-[var(--text-muted)]">
-                    {t("taskGoogleCalendarDesc", "Menyertakan tanggal, jam, dan rincian catatan kerja ke Google Calendar")}
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold text-white truncate">{t("taskTelegramReminder", "Pengingat Telegram Eksekutif")}</h4>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">
+                    {t("taskTelegramReminderDesc", "Kirim pemberitahuan ke Telegram saat jadwal tiba")}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const gcalUrl = buildGoogleCalendarUrl({
-                      title: modalTitle || "Agenda Operasional",
-                      targetDate: modalDate,
-                      reminderTime: modalTime,
-                      description: modalDescription,
-                      attachedFile: modalFile,
-                      priority: modalPriority,
-                      subtasks: modalSubtasks,
-                    });
-                    navigator.clipboard.writeText(gcalUrl);
-                    toast.success(isIndonesian ? "Tautan Google Calendar berhasil disalin!" : "Google Calendar link copied!");
-                  }}
-                  title={isIndonesian ? "Salin tautan Google Calendar" : "Copy Google Calendar link"}
-                  className="px-2 py-1 rounded bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-white text-xs border border-[var(--border-color)] flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Link className="w-3 h-3" />
-                  <span className="hidden sm:inline">{isIndonesian ? "Salin Link" : "Copy Link"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const gcalUrl = buildGoogleCalendarUrl({
-                      title: modalTitle || "Agenda Operasional",
-                      targetDate: modalDate,
-                      reminderTime: modalTime,
-                      description: modalDescription,
-                      attachedFile: modalFile,
-                      priority: modalPriority,
-                      subtasks: modalSubtasks,
-                    });
-                    openExternalUrl(gcalUrl);
-                    toast.success(isIndonesian ? "Membuka Google Calendar..." : "Opening Google Calendar...");
-                  }}
-                  className="px-2.5 py-1 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>{isIndonesian ? "Buka Kalender" : "Open Calendar"}</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/60 text-[10.5px]">
-              <label className="flex items-center gap-2 cursor-pointer text-[var(--text-secondary)] hover:text-white">
-                <input
-                  type="checkbox"
-                  checked={modalAutoOpenGCal}
-                  onChange={(e) => setModalAutoOpenGCal(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-[#cf6613] cursor-pointer"
-                />
-                <span>{isIndonesian ? "Buka Google Calendar otomatis saat agenda disimpan" : "Auto-open Google Calendar when task is saved"}</span>
-              </label>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                {modalDate} • {modalTime} WIB
-              </span>
-            </div>
-          </div>
-
-          {/* File Dokumen Terkait */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Paperclip className="w-3.5 h-3.5 text-white/70" />
-                {t("taskAttachedDocument", "Dokumen Kerja Terkait (Opsional)")}
-              </span>
-              {projectFiles.length > 0 && (
-                <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                  {projectFiles.length} {isIndonesian ? "berkas tersedia" : "files available"}
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <Paperclip className="w-3.5 h-3.5 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
-                type="text"
-                placeholder={t("taskAttachedDocumentPlaceholder", "Contoh: faktur_pajak.xlsx atau rekening_koran.pdf...")}
-                value={modalFile}
-                onChange={(e) => setModalFile(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                type="checkbox"
+                checked={modalTelegram}
+                onChange={(e) => setModalTelegram(e.target.checked)}
+                className="w-4 h-4 accent-[#cf6613] cursor-pointer shrink-0"
               />
             </div>
-            {projectFiles.length > 0 && (
-              <div className="space-y-1 pt-1">
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {projectFiles.slice(0, 6).map((file) => (
-                    <button
-                      key={file}
-                      type="button"
-                      onClick={() => setModalFile(file)}
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-mono border transition-colors cursor-pointer shrink-0 truncate max-w-[160px]",
-                        modalFile === file
-                          ? "bg-white text-black border-white font-semibold"
-                          : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-white border-[var(--border-color)]"
-                      )}
-                    >
-                      {file}
-                    </button>
-                  ))}
+
+            {/* Google Calendar Link & Auto-Sync Card */}
+            <div className="p-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-md bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-xs font-semibold text-white">Google Calendar</h4>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
+                        Auto-Link
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gcalUrl = buildGoogleCalendarUrl({
+                        title: modalTitle || "Agenda Operasional",
+                        targetDate: modalDate,
+                        reminderTime: modalTime,
+                        description: modalDescription,
+                        attachedFile: modalFile,
+                        priority: modalPriority,
+                        subtasks: modalSubtasks,
+                      });
+                      navigator.clipboard.writeText(gcalUrl);
+                      toast.success(isIndonesian ? "Tautan Google Calendar berhasil disalin!" : "Google Calendar link copied!");
+                    }}
+                    title={isIndonesian ? "Salin tautan Google Calendar" : "Copy Google Calendar link"}
+                    className="px-2 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-white text-[11px] border border-[var(--border-color)] flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Link className="w-2.5 h-2.5" />
+                    <span>Salin</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gcalUrl = buildGoogleCalendarUrl({
+                        title: modalTitle || "Agenda Operasional",
+                        targetDate: modalDate,
+                        reminderTime: modalTime,
+                        description: modalDescription,
+                        attachedFile: modalFile,
+                        priority: modalPriority,
+                        subtasks: modalSubtasks,
+                      });
+                      openExternalUrl(gcalUrl);
+                      toast.success(isIndonesian ? "Membuka Google Calendar..." : "Opening Google Calendar...");
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" />
+                    <span>Buka Kalender</span>
+                  </button>
                 </div>
               </div>
-            )}
+
+              <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/60 text-[10px]">
+                <label className="flex items-center gap-1.5 cursor-pointer text-[var(--text-secondary)] hover:text-white truncate">
+                  <input
+                    type="checkbox"
+                    checked={modalAutoOpenGCal}
+                    onChange={(e) => setModalAutoOpenGCal(e.target.checked)}
+                    className="w-3 h-3 accent-[#cf6613] cursor-pointer shrink-0"
+                  />
+                  <span className="truncate">{isIndonesian ? "Buka kalender otomatis saat disimpan" : "Auto-open when saved"}</span>
+                </label>
+                <span className="text-[9.5px] text-[var(--text-muted)] font-mono shrink-0 pl-1">
+                  {modalDate} • {modalTime} WIB
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Catatan / Instruksi Kerja */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
-              {t("taskDescriptionLabel", "Instruksi Kerja / Catatan")}
-            </label>
-            <textarea
-              rows={3}
-              placeholder={t("taskDescriptionPlaceholder", "Tuliskan catatan kerja, target rekonsiliasi, nominal pengeluaran, atau hasil laporan...")}
-              value={modalDescription}
-              onChange={(e) => setModalDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
-            />
-          </div>
+          {/* Row 4: 2 Kolom Lebar (Kiri: Berkas & Catatan, Kanan: Checklist Subtugas) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-[var(--border-color)]/70">
+            {/* Sisi Kiri: Dokumen Terkait & Catatan Kerja */}
+            <div className="space-y-2.5">
+              {/* Berkas Proyek */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Paperclip className="w-3 h-3 text-white/70" />
+                    {t("taskAttachedDocument", "Dokumen Terkait (Opsional)")}
+                  </span>
+                  {projectFiles.length > 0 && (
+                    <span className="text-[9.5px] text-[var(--text-muted)] font-mono">
+                      {projectFiles.length} berkas
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  placeholder={t("taskAttachedDocumentPlaceholder", "Contoh: faktur_pajak.xlsx...")}
+                  value={modalFile}
+                  onChange={(e) => setModalFile(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                />
+                {projectFiles.length > 0 && (
+                  <div className="flex items-center gap-1 overflow-x-auto pt-0.5 pb-0.5">
+                    {projectFiles.slice(0, 5).map((file) => (
+                      <button
+                        key={file}
+                        type="button"
+                        onClick={() => setModalFile(file)}
+                        className={cn(
+                          "px-1.5 py-0.2 rounded text-[9.5px] font-mono border transition-colors cursor-pointer shrink-0 truncate max-w-[130px]",
+                          modalFile === file
+                            ? "bg-white text-black border-white font-semibold"
+                            : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-white border-[var(--border-color)]"
+                        )}
+                      >
+                        {file}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-          {/* Subtasks Checklist */}
-          <div className="space-y-2 pt-1 border-t border-[var(--border-color)]">
-            <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center justify-between">
-              <span>{t("taskSubtasks", "Daftar Rincian Subtugas / Checklist")}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                {modalSubtasks.filter((s) => s.completed).length}/{modalSubtasks.length}
-              </span>
-            </label>
-
-            {/* Subtask Input */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder={t("addSubtaskPlaceholder", "Tambah item subtugas (Tekan Enter)...")}
-                value={newSubtaskInput}
-                onChange={(e) => setNewSubtaskInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddSubtask();
-                  }
-                }}
-                className="flex-1 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
-              />
-              <button
-                type="button"
-                onClick={handleAddSubtask}
-                className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-white hover:bg-[var(--border-color)] border border-[var(--border-color)] text-xs font-medium transition-colors cursor-pointer"
-              >
-                {t("addSubtaskBtn", "Tambah")}
-              </button>
+              {/* Catatan / Instruksi Kerja */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
+                  {t("taskDescriptionLabel", "Instruksi Kerja / Catatan")}
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder={t("taskDescriptionPlaceholder", "Tuliskan catatan kerja, target rekonsiliasi, nominal biaya...")}
+                  value={modalDescription}
+                  onChange={(e) => setModalDescription(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
+                />
+              </div>
             </div>
 
-            {/* Subtask List */}
-            {modalSubtasks.length > 0 && (
-              <div className="space-y-1.5 pt-1 max-h-36 overflow-y-auto">
-                {modalSubtasks.map((st) => (
-                  <div
-                    key={st.id}
-                    className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]"
-                  >
-                    <label className="flex items-center gap-2 flex-1 cursor-pointer truncate">
-                      <input
-                        type="checkbox"
-                        checked={st.completed}
-                        onChange={() => {
-                          setModalSubtasks(
-                            modalSubtasks.map((s) =>
-                              s.id === st.id ? { ...s, completed: !s.completed } : s
-                            )
-                          );
-                        }}
-                        className="w-3.5 h-3.5 accent-[#cf6613] cursor-pointer"
-                      />
-                      <span className={cn("text-xs truncate", st.completed ? "line-through text-[var(--text-muted)]" : "text-white")}>
-                        {st.title}
-                      </span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSubtask(st.id)}
-                      className="p-1 text-[var(--text-muted)] hover:text-rose-400 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+            {/* Sisi Kanan: Checklist Subtugas */}
+            <div className="space-y-1.5 flex flex-col">
+              <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center justify-between">
+                <span>{t("taskSubtasks", "Daftar Rincian Subtugas / Checklist")}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                  {modalSubtasks.filter((s) => s.completed).length}/{modalSubtasks.length}
+                </span>
+              </label>
+
+              {/* Subtask Input */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  placeholder={t("addSubtaskPlaceholder", "Tambah subtugas (Tekan Enter)...")}
+                  value={newSubtaskInput}
+                  onChange={(e) => setNewSubtaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSubtask();
+                    }
+                  }}
+                  className="flex-1 px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSubtask}
+                  className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] text-white hover:bg-[var(--border-color)] border border-[var(--border-color)] text-xs font-medium transition-colors cursor-pointer shrink-0"
+                >
+                  {t("addSubtaskBtn", "Tambah")}
+                </button>
               </div>
-            )}
+
+              {/* Subtask List Container */}
+              <div className="flex-1 min-h-[96px] max-h-36 overflow-y-auto space-y-1 pr-0.5">
+                {modalSubtasks.length === 0 ? (
+                  <div className="h-full flex items-center justify-center p-3 text-center border border-dashed border-[var(--border-color)]/60 rounded-lg text-[var(--text-muted)] text-[11px]">
+                    Belum ada checklist subtugas
+                  </div>
+                ) : (
+                  modalSubtasks.map((st) => (
+                    <div
+                      key={st.id}
+                      className="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-xs"
+                    >
+                      <label className="flex items-center gap-2 flex-1 cursor-pointer truncate">
+                        <input
+                          type="checkbox"
+                          checked={st.completed}
+                          onChange={() => {
+                            setModalSubtasks(
+                              modalSubtasks.map((s) =>
+                                s.id === st.id ? { ...s, completed: !s.completed } : s
+                              )
+                            );
+                          }}
+                          className="w-3.5 h-3.5 accent-[#cf6613] cursor-pointer shrink-0"
+                        />
+                        <span className={cn("truncate text-xs", st.completed ? "line-through text-[var(--text-muted)]" : "text-white")}>
+                          {st.title}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubtask(st.id)}
+                        className="p-1 text-[var(--text-muted)] hover:text-rose-400 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)]/50">
+        <div className="flex items-center justify-between px-5 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)]/50">
           <div className="flex items-center gap-2">
             {editingTask && onDelete ? (
               <button

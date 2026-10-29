@@ -143,7 +143,6 @@ pub fn execute_manage_tasks(
                                 "completed": mark_completed
                             }));
                             matched_subtask_title = subtask_query.clone();
-                            found_subtask = true;
                         }
 
                         // Check if all subtasks are completed

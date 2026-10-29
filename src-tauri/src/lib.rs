@@ -83,6 +83,38 @@ pub fn run() {
                 // Explicitly set window icon so Windows taskbar displays Arunaki logo
                 if let Some(icon) = app.default_window_icon() {
                     let _ = main_window.set_icon(icon.clone());
+                } else if let Ok(icon) = tauri::image::Image::from_icon_resource(1, 32, 32) {
+                    let _ = main_window.set_icon(icon);
+                } else if let Ok(icon) = tauri::image::Image::from_app_icon_resource(32) {
+                    let _ = main_window.set_icon(icon);
+                }
+
+                // Ensure Win32 window HWND taskbar icon is set via WM_SETICON
+                unsafe {
+                    #[link(name = "user32")]
+                    extern "system" {
+                        fn SendMessageW(hWnd: *mut std::ffi::c_void, Msg: u32, wParam: usize, lParam: isize) -> isize;
+                        fn GetModuleHandleW(lpModuleName: *const u16) -> *mut std::ffi::c_void;
+                        fn LoadIconW(hInstance: *mut std::ffi::c_void, lpIconName: *const u16) -> *mut std::ffi::c_void;
+                    }
+                    const WM_SETICON: u32 = 0x0080;
+                    const ICON_SMALL: usize = 0;
+                    const ICON_BIG: usize = 1;
+                    let h_instance = GetModuleHandleW(std::ptr::null());
+                    let mut h_icon = LoadIconW(h_instance, 1 as _);
+                    if h_icon.is_null() {
+                        h_icon = LoadIconW(h_instance, 32512 as _);
+                    }
+                    if h_icon.is_null() {
+                        h_icon = LoadIconW(h_instance, 128 as _);
+                    }
+                    if !h_icon.is_null() {
+                        if let Ok(hwnd) = main_window.hwnd() {
+                            let hwnd_ptr = hwnd.0 as *mut std::ffi::c_void;
+                            SendMessageW(hwnd_ptr, WM_SETICON, ICON_BIG, h_icon as isize);
+                            SendMessageW(hwnd_ptr, WM_SETICON, ICON_SMALL, h_icon as isize);
+                        }
+                    }
                 }
 
                 let _ = main_window.with_webview(|webview| unsafe {
