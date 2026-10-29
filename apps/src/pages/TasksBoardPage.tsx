@@ -18,6 +18,7 @@ import {
   FileText,
   Search,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
@@ -363,7 +364,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
 
   const handleSaveModal = async () => {
     if (!modalTitle.trim()) {
-      toast.error(isIndonesian ? "Judul tugas wajib diisi" : "Task title is required");
+      toast.error(isIndonesian ? "Judul agenda wajib diisi" : "Task title is required");
       return;
     }
 
@@ -509,10 +510,10 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder={isIndonesian ? "Cari agenda..." : "Search tasks..."}
+              placeholder={t("taskSearchPlaceholder", "Cari agenda operasional...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-44 h-8 pl-8 pr-3 text-xs bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] placeholder:text-[var(--text-muted)]"
+              className="w-48 h-8 pl-8 pr-3 text-xs bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 
@@ -520,7 +521,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             type="button"
             onClick={loadTasks}
             disabled={isLoading}
-            title={isIndonesian ? "Refresh Papan" : "Refresh Board"}
+            title={t("taskRefreshBoard", "Muat Ulang Papan")}
             className="h-8 w-8 flex items-center justify-center rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
@@ -532,7 +533,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             className="h-8 px-3 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
-            <span>{t("addNewTaskToday", "Add Today's Agenda")}</span>
+            <span>{t("addNewTaskToday", "Tambah Agenda Hari Ini")}</span>
           </button>
         </div>
       </div>
@@ -560,7 +561,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                 <button
                   type="button"
                   onClick={() => openNewTaskModal(col.id)}
-                  title={`${isIndonesian ? "Tambah tugas di" : "Add task to"} ${t(col.titleId, col.defaultTitle)}`}
+                  title={`${isIndonesian ? "Tambah agenda di" : "Add task to"} ${t(col.titleId, col.defaultTitle)}`}
                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -571,13 +572,13 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div className="flex-1 p-3 overflow-y-auto space-y-2.5 min-h-[140px]">
                 {colTasks.length === 0 ? (
                   <div className="h-28 border border-dashed border-[var(--border-color)]/70 rounded-lg flex flex-col items-center justify-center text-[var(--text-muted)] text-[11px] gap-1 p-3 text-center">
-                    <span>{isIndonesian ? "Belum ada agenda" : "No tasks scheduled"}</span>
+                    <span>{t("taskNoTasksScheduled", "Belum ada agenda pada bagian ini")}</span>
                     <button
                       type="button"
                       onClick={() => openNewTaskModal(col.id)}
                       className="text-[10px] text-[#cf6613] hover:underline cursor-pointer"
                     >
-                      + {isIndonesian ? "Catat tugas" : "Create task"}
+                      {t("taskCreateFirst", "+ Catat Agenda")}
                     </button>
                   </div>
                 ) : (
@@ -752,49 +753,57 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs [color-scheme:dark]">
               {/* Judul Tugas */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  {t("taskTitle", "Task Title")} <span className="text-[#cf6613]">*</span>
+                  {t("taskTitle", "Judul Agenda Operasional")} <span className="text-[#cf6613]">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder={t("taskTitlePlaceholder", "e.g. Monthly tax invoice reconciliation...")}
+                  placeholder={t("taskTitlePlaceholder", "Contoh: Rekapitulasi faktur pajak masukan periode berjalan...")}
                   value={modalTitle}
                   onChange={(e) => setModalTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs placeholder:text-[var(--text-muted)]"
                 />
               </div>
 
-              {/* Target Kolom & Tanggal Cepat */}
+              {/* Target Kolom & Tanggal Pelaksanaan */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    {t("taskBoardColumn", "Board Column")}
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
+                    <Kanban className="w-3.5 h-3.5 text-white/70" />
+                    {t("taskBoardColumn", "Kolom Papan Agenda")}
                   </label>
-                  <select
-                    value={modalColumn}
-                    onChange={(e) => setModalColumn(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
-                  >
-                    <option value="today">{t("colToday", "Today")}</option>
-                    <option value="tomorrow">{t("colTomorrow", "Tomorrow")}</option>
-                    <option value="inprogress">{t("colInProgress", "In Progress")}</option>
-                    <option value="done">{t("colDone", "Completed")}</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={modalColumn}
+                      onChange={(e) => setModalColumn(e.target.value as any)}
+                      className="w-full appearance-none pl-3 pr-8 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs focus:outline-none focus:border-[var(--border-strong)] cursor-pointer [color-scheme:dark]"
+                    >
+                      <option value="today" className="bg-[#181818] text-white py-1.5">{t("colToday", "Hari Ini")}</option>
+                      <option value="tomorrow" className="bg-[#181818] text-white py-1.5">{t("colTomorrow", "Besok")}</option>
+                      <option value="inprogress" className="bg-[#181818] text-white py-1.5">{t("colInProgress", "Sedang Dikerjakan")}</option>
+                      <option value="done" className="bg-[#181818] text-white py-1.5">{t("colDone", "Selesai")}</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    {t("taskTargetDate", "Target Date")}
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-white/70" />
+                    {t("taskTargetDate", "Tanggal Pelaksanaan")}
                   </label>
-                  <input
-                    type="date"
-                    value={modalDate}
-                    onChange={(e) => setModalDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
-                  />
+                  <div className="relative">
+                    <Calendar className="w-3.5 h-3.5 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={modalDate}
+                      onChange={(e) => setModalDate(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-[var(--border-strong)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-90 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -802,30 +811,37 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                    {t("taskReminderTime", "Scheduled Time")} (WIB)
+                    <Clock className="w-3.5 h-3.5 text-white/70" />
+                    {t("taskReminderTime", "Waktu Pelaksanaan")} (WIB)
                   </label>
-                  <input
-                    type="time"
-                    value={modalTime}
-                    onChange={(e) => setModalTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs font-mono"
-                  />
+                  <div className="relative">
+                    <Clock className="w-3.5 h-3.5 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="time"
+                      value={modalTime}
+                      onChange={(e) => setModalTime(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-[var(--border-strong)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-90 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                    {t("taskPriority", "Priority Level")}
+                  <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#cf6613]" />
+                    {t("taskPriority", "Tingkat Prioritas")}
                   </label>
-                  <select
-                    value={modalPriority}
-                    onChange={(e) => setModalPriority(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs"
-                  >
-                    <option value="low">{t("taskPriorityNormal", "Normal")}</option>
-                    <option value="medium">{t("taskPriorityMedium", "Medium Priority")}</option>
-                    <option value="high">{t("taskPriorityHigh", "High Urgency")}</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={modalPriority}
+                      onChange={(e) => setModalPriority(e.target.value as any)}
+                      className="w-full appearance-none pl-3 pr-8 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs focus:outline-none focus:border-[var(--border-strong)] cursor-pointer [color-scheme:dark]"
+                    >
+                      <option value="low" className="bg-[#181818] text-white py-1.5">{t("taskPriorityNormal", "Normal")}</option>
+                      <option value="medium" className="bg-[#181818] text-white py-1.5">{t("taskPriorityMedium", "Prioritas Menengah")}</option>
+                      <option value="high" className="bg-[#181818] text-white py-1.5">{t("taskPriorityHigh", "Mendesak / Kritis")}</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
@@ -836,9 +852,9 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                     <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-medium text-white">{t("taskTelegramReminder", "Executive Telegram Reminder")}</h4>
+                    <h4 className="text-xs font-medium text-white">{t("taskTelegramReminder", "Pengingat Telegram Eksekutif")}</h4>
                     <p className="text-[10.5px] text-[var(--text-muted)]">
-                      {t("taskTelegramReminderDesc", "Automatically dispatches reminder to configured Telegram when scheduled time arrives")}
+                      {t("taskTelegramReminderDesc", "Otomatis mengirimkan pemberitahuan ke Telegram saat jadwal tiba")}
                     </p>
                   </div>
                 </div>
@@ -851,45 +867,70 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               </div>
 
               {/* File Dokumen Terkait */}
-              <div>
-                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                  {t("taskAttachedDocument", "Linked Project Document (Optional)")}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-white/70" />
+                    {t("taskAttachedDocument", "Dokumen Kerja Terkait (Opsional)")}
+                  </span>
+                  {projectFiles.length > 0 && (
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                      {projectFiles.length} {isIndonesian ? "berkas tersedia" : "files available"}
+                    </span>
+                  )}
                 </label>
-                <div className="flex gap-2">
+                <div className="relative">
+                  <Paperclip className="w-3.5 h-3.5 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Contoh: laporan_keuangan.xlsx atau nota.pdf..."
+                    placeholder={t("taskAttachedDocumentPlaceholder", "Contoh: faktur_pajak.xlsx atau rekening_koran.pdf...")}
                     value={modalFile}
                     onChange={(e) => setModalFile(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs font-mono placeholder:text-[var(--text-muted)]"
+                    className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
                   />
-                  {projectFiles.length > 0 && (
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) setModalFile(e.target.value);
-                      }}
-                      className="px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs max-w-[140px]"
-                    >
-                      <option value="">Pilih file...</option>
-                      {projectFiles.map((f) => (
-                        <option key={f} value={f}>
-                          {f}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                 </div>
+                {projectFiles.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                      <span className="text-[10px] text-[var(--text-muted)] shrink-0">
+                        {t("taskProjectFilesLabel", "Pilih cepat:")}
+                      </span>
+                      {projectFiles.slice(0, 6).map((f) => {
+                        const isSelected = modalFile === f;
+                        return (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => setModalFile(isSelected ? "" : f)}
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[10.5px] font-mono border transition-all cursor-pointer flex items-center gap-1 shrink-0",
+                              isSelected
+                                ? "bg-[#cf6613]/25 border-[#cf6613] text-white shadow-sm"
+                                : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-strong)]"
+                            )}
+                          >
+                            {f.endsWith(".xlsx") || f.endsWith(".csv") ? (
+                              <FileSpreadsheet className="w-2.5 h-2.5 text-white shrink-0" />
+                            ) : (
+                              <FileText className="w-2.5 h-2.5 text-white shrink-0" />
+                            )}
+                            <span className="truncate max-w-[130px]">{f}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Catatan / Instruksi */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  {t("taskInstructions", "Work Instructions / Notes")}
+                  {t("taskInstructions", "Instruksi Kerja & Catatan Operasional")}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder={t("taskInstructionsPlaceholder", "Specify context, instructions, or deliverables...")}
+                  placeholder={t("taskInstructionsPlaceholder", "Tuliskan instruksi kerja, target rekonsiliasi, atau catatan penting...")}
                   value={modalDescription}
                   onChange={(e) => setModalDescription(e.target.value)}
                   className="w-full px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white focus:outline-none focus:border-[var(--border-strong)] text-xs placeholder:text-[var(--text-muted)] resize-none"
@@ -899,7 +940,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               {/* Subtask Checklist */}
               <div>
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  {t("taskSubtasks", "Subtask Checklist")}
+                  {t("taskSubtasks", "Daftar Rincian Subtugas / Checklist")}
                 </label>
                 <div className="space-y-1.5 mb-2">
                   {modalSubtasks.map((st) => (
@@ -941,7 +982,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Tambah item subtask (Enter)..."
+                    placeholder={t("taskSubtaskPlaceholder", "Tambah rincian pekerjaan (Tekan Enter)...")}
                     value={newSubtaskInput}
                     onChange={(e) => setNewSubtaskInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -977,7 +1018,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-white text-xs font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-colors cursor-pointer"
                   >
-                    Tambah
+                    {t("taskAddSubtaskBtn", "Tambah")}
                   </button>
                 </div>
               </div>
@@ -995,7 +1036,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                   className="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Hapus</span>
+                  <span>{t("taskDeleteBtn", "Hapus Agenda")}</span>
                 </button>
               ) : (
                 <div />
@@ -1007,14 +1048,14 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
                   onClick={() => setIsModalOpen(false)}
                   className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white text-xs font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
                 >
-                  Batal
+                  {t("taskCancelBtn", "Batal")}
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveModal}
                   className="px-4 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium transition-colors cursor-pointer shadow-sm"
                 >
-                  {editingTask ? "Simpan Perubahan" : "Buat Tugas"}
+                  {editingTask ? t("taskSaveBtn", "Simpan Perubahan") : t("taskCreateBtn", "Catat Agenda")}
                 </button>
               </div>
             </div>
