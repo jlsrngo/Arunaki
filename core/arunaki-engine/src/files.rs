@@ -40,7 +40,9 @@ pub fn router() -> Router {
 fn resolve_base_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> PathBuf {
     if let Some(dir) = q.get("directory").or_else(|| q.get("workspacePath")) {
         if !dir.trim().is_empty() {
-            return PathBuf::from(normalize_workspace_path(dir));
+            let norm = normalize_workspace_path(dir);
+            crate::desktop::set_active_workspace_root(&norm);
+            return PathBuf::from(norm);
         }
     }
     if let Some(hdr) = headers
@@ -50,7 +52,14 @@ fn resolve_base_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> PathBuf
     {
         if !hdr.trim().is_empty() {
             let decoded = urlencoding_decode(hdr);
-            return PathBuf::from(normalize_workspace_path(&decoded));
+            let norm = normalize_workspace_path(&decoded);
+            crate::desktop::set_active_workspace_root(&norm);
+            return PathBuf::from(norm);
+        }
+    }
+    if let Some(root) = crate::desktop::get_active_workspace_root() {
+        if !root.trim().is_empty() {
+            return PathBuf::from(root);
         }
     }
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))

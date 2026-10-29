@@ -221,6 +221,15 @@ async fn handle_folder_tree(Json(body): Json<Value>) -> Response {
 }
 
 async fn handle_read_file(Json(body): Json<Value>) -> Response {
+    if let Some(dir) = body
+        .get("directory")
+        .or_else(|| body.get("workspacePath"))
+        .and_then(|v| v.as_str())
+    {
+        if !dir.trim().is_empty() {
+            set_active_workspace_root(dir);
+        }
+    }
     let fp = body
         .get("filePath")
         .or_else(|| body.get("path"))
@@ -263,6 +272,15 @@ async fn handle_read_file(Json(body): Json<Value>) -> Response {
 }
 
 async fn handle_write_file(Json(body): Json<Value>) -> Response {
+    if let Some(dir) = body
+        .get("directory")
+        .or_else(|| body.get("workspacePath"))
+        .and_then(|v| v.as_str())
+    {
+        if !dir.trim().is_empty() {
+            set_active_workspace_root(dir);
+        }
+    }
     let fp = body
         .get("filePath")
         .or_else(|| body.get("path"))
@@ -274,12 +292,19 @@ async fn handle_write_file(Json(body): Json<Value>) -> Response {
         Err(e) => return Json(json!({ "error": e })).into_response(),
     };
     if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
     }
     let ws_root = get_active_workspace_root().unwrap_or_else(|| {
         path.parent()
+            .filter(|p| !p.as_os_str().is_empty())
             .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default()
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .map(|c| c.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
     });
     crate::files::capture_baseline_before_write(&ws_root, &path.to_string_lossy());
 

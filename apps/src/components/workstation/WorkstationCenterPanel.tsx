@@ -194,10 +194,35 @@ function WorkstationCenterPanelComponent({
     [activeTab?.id, onUpdateTabContent]
   );
 
+  const isArtCraftBinaryTab = useCallback((tab?: CenterTab | null) => {
+    if (!tab) return false;
+    if (
+      tab.fileType === "wordcraft-app" ||
+      tab.fileType === "gridcraft-app" ||
+      tab.fileType === "deckcraft-app"
+    ) {
+      return true;
+    }
+    const nameOrPath = `${tab.title || ""} ${tab.path || ""} ${tab.fileType || ""}`.toLowerCase();
+    return /\.(docx|doc|odt|rtf|xlsx|xls|xlsm|xlsb|pptx|ppt|odp)(\b|$)/i.test(nameOrPath);
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!activeTab?.id) return;
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
+    }
+    if (isArtCraftBinaryTab(activeTab)) {
+      window.dispatchEvent(
+        new CustomEvent("arunaki:artcraft-trigger-save", {
+          detail: {
+            tabId: activeTab.id,
+            filePath: activeTab.path,
+            title: activeTab.title,
+          },
+        })
+      );
+      return;
     }
     if (onUpdateTabContent) {
       onUpdateTabContent(activeTab.id, currentContent);
@@ -207,7 +232,7 @@ function WorkstationCenterPanelComponent({
     }
     setUnsavedTabs((prev) => ({ ...prev, [activeTab.id]: false }));
     setPreviousContents((prev) => ({ ...prev, [activeTab.id]: currentContent }));
-  }, [activeTab?.id, currentContent, onSaveTabContent, onUpdateTabContent]);
+  }, [activeTab, currentContent, isArtCraftBinaryTab, onSaveTabContent, onUpdateTabContent]);
 
   const handleTextChangeForTab = useCallback(
     (tabId: string, newText: string) => {
@@ -225,7 +250,20 @@ function WorkstationCenterPanelComponent({
 
   const handleSaveForTab = useCallback(
     async (tabId: string) => {
-      const contentToSave = editedContents[tabId] ?? tabs.find((t) => t.id === tabId)?.content ?? "";
+      const targetTab = tabs.find((t) => t.id === tabId);
+      if (isArtCraftBinaryTab(targetTab)) {
+        window.dispatchEvent(
+          new CustomEvent("arunaki:artcraft-trigger-save", {
+            detail: {
+              tabId,
+              filePath: targetTab?.path,
+              title: targetTab?.title,
+            },
+          })
+        );
+        return;
+      }
+      const contentToSave = editedContents[tabId] ?? targetTab?.content ?? "";
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       if (onUpdateTabContent) {
         onUpdateTabContent(tabId, contentToSave);
@@ -236,7 +274,7 @@ function WorkstationCenterPanelComponent({
       setUnsavedTabs((prev) => ({ ...prev, [tabId]: false }));
       setPreviousContents((prev) => ({ ...prev, [tabId]: contentToSave }));
     },
-    [editedContents, tabs, onSaveTabContent, onUpdateTabContent]
+    [editedContents, tabs, isArtCraftBinaryTab, onSaveTabContent, onUpdateTabContent]
   );
 
   const handleScroll = () => {
@@ -486,9 +524,14 @@ function WorkstationCenterPanelComponent({
                     <SpreadsheetViewer
                       content={tabContent}
                       filePath={tab.path}
+                      activeFolder={activeFolder}
+                      tabId={tab.id}
                       title={tab.title}
                       onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
                       onSave={() => handleSaveForTab(tab.id)}
+                      onDirtyChange={(dirty) => {
+                        setUnsavedTabs((prev) => ({ ...prev, [tab.id]: dirty }));
+                      }}
                     />
                   </Suspense>
                 ) : isTabDeck ? (
@@ -496,9 +539,14 @@ function WorkstationCenterPanelComponent({
                     <DeckCraft
                       content={tabContent}
                       filePath={tab.path}
+                      activeFolder={activeFolder}
+                      tabId={tab.id}
                       title={tab.title}
                       onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
                       onSave={() => handleSaveForTab(tab.id)}
+                      onDirtyChange={(dirty) => {
+                        setUnsavedTabs((prev) => ({ ...prev, [tab.id]: dirty }));
+                      }}
                     />
                   </Suspense>
                 ) : tab.type === "diff" ? (
@@ -525,6 +573,8 @@ function WorkstationCenterPanelComponent({
                     <WordCraft
                       content={tabContent}
                       filePath={tab.path}
+                      activeFolder={activeFolder}
+                      tabId={tab.id}
                       title={tab.title}
                       onContentChange={(newContent) => handleTextChangeForTab(tab.id, newContent)}
                       onSave={() => handleSaveForTab(tab.id)}

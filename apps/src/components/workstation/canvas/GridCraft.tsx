@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
 import { bindArtCraftIframeGuards } from "../../../lib/artcraftPreloader";
@@ -9,6 +10,8 @@ import * as XLSX from "xlsx";
 export interface GridCraftProps {
   content: string;
   filePath?: string;
+  activeFolder?: string;
+  tabId?: string;
   title: string;
   onContentChange?: (newContent: string) => void;
   onSave?: () => Promise<void> | void;
@@ -25,6 +28,8 @@ export interface GridCraftProps {
 export const GridCraft = memo(function GridCraft({
   content,
   filePath,
+  activeFolder,
+  tabId,
   title,
   onContentChange,
   onSave,
@@ -34,6 +39,16 @@ export const GridCraft = memo(function GridCraft({
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const resolvedFilePath = filePath
+    ? filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\")
+      ? filePath
+      : activeFolder
+      ? `${activeFolder.replace(/[\\/]+$/, "")}\\${filePath.replace(/^[\\/]+/, "")}`
+      : filePath
+    : activeFolder && title
+    ? `${activeFolder.replace(/[\\/]+$/, "")}\\${title}`
+    : undefined;
 
   const onContentChangeRef = useRef(onContentChange);
   const onSaveRef = useRef(onSave);
@@ -45,6 +60,32 @@ export const GridCraft = memo(function GridCraft({
   }, [onContentChange, onSave, onDirtyChange]);
 
   const lastSentContentRef = useRef<string | null>(null);
+  const lastSavedB64Ref = useRef<string | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveSeqRef = useRef(0);
+  const pendingSilentSaveRef = useRef(false);
+
+  const requestIframeSave = useCallback((silent = false) => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow) return;
+    pendingSilentSaveRef.current = silent;
+    const seq = ++saveSeqRef.current;
+    iframe.contentWindow.postMessage({ type: "gridcraft:trigger-save" }, "*");
+    if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+    fallbackSaveTimerRef.current = setTimeout(() => {
+      if (saveSeqRef.current === seq && iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage({ type: "gridcraft:click-save-btn" }, "*");
+      }
+    }, 160);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -59,7 +100,7 @@ export const GridCraft = memo(function GridCraft({
 
   // Send spreadsheet payload to GridCraft Web via host postMessage bridge
   const sendDocumentToGridCraft = useCallback(
-    async (textPayload: string, docName: string) => {
+    async (textPayload: string, docName: string, forceReload = false) => {
       const iframe = iframeRef.current;
       if (!iframe || !iframe.contentWindow) return;
 
@@ -67,16 +108,20 @@ export const GridCraft = memo(function GridCraft({
         let buffer: ArrayBuffer | null = null;
 
         // If file exists on disk and is a binary XLSX, read binary bytes
-        if (filePath && (filePath.toLowerCase().endsWith(".xlsx") || filePath.toLowerCase().endsWith(".xls"))) {
+        if (resolvedFilePath && (resolvedFilePath.toLowerCase().endsWith(".xlsx") || resolvedFilePath.toLowerCase().endsWith(".xls"))) {
           try {
             const res = await apiFetch("/api/desktop/read-file", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ filePath }),
+              body: JSON.stringify({ filePath: resolvedFilePath, directory: activeFolder }),
             });
             const json = await res.json();
             if (json?.content) {
-              const binaryStr = atob(json.content.trim());
+              const b64 = json.content.trim();
+              if (!forceReload && lastSavedB64Ref.current && b64 === lastSavedB64Ref.current) {
+                return;
+              }
+              const binaryStr = atob(b64);
               const bytes = new Uint8Array(binaryStr.length);
               for (let i = 0; i < binaryStr.length; i++) {
                 bytes[i] = binaryStr.charCodeAt(i);
@@ -138,7 +183,7 @@ export const GridCraft = memo(function GridCraft({
         console.warn("[GridCraft] Failed to send document buffer:", err);
       }
     },
-    [filePath]
+    [resolvedFilePath, activeFolder]
   );
 
   // Listen for official GridCraft host bridge events
@@ -152,16 +197,22 @@ export const GridCraft = memo(function GridCraft({
         setIsLoading(false);
         setLoadError(null);
 
-        if (content || filePath) {
+        if (content || resolvedFilePath) {
           sendDocumentToGridCraft(content, title);
         }
       } else if (data.type === "gridcraft:save") {
+        saveSeqRef.current++;
+        if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        const isSilent = pendingSilentSaveRef.current;
+        pendingSilentSaveRef.current = false;
+
         try {
           if (data.bytes) {
             const rawBytes = new Uint8Array(data.bytes);
             const isBinaryZip = rawBytes.length > 4 && rawBytes[0] === 0x50 && rawBytes[1] === 0x4b;
 
-            if (isBinaryZip && filePath) {
+            if (isBinaryZip && resolvedFilePath) {
               let binaryStr = "";
               const chunkSize = 8192;
               for (let i = 0; i < rawBytes.length; i += chunkSize) {
@@ -169,17 +220,22 @@ export const GridCraft = memo(function GridCraft({
                 binaryStr += String.fromCharCode.apply(null, chunk as any);
               }
               const b64 = btoa(binaryStr);
+              lastSavedB64Ref.current = b64;
               apiFetch("/api/desktop/write-file", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  filePath,
+                  filePath: resolvedFilePath,
+                  directory: activeFolder,
                   content: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64,
                 }),
               }).then(() => {
                 window.dispatchEvent(
-                  new CustomEvent("arunaki:file.edited", { detail: { file: filePath } })
+                  new CustomEvent("arunaki:file.edited", { detail: { file: resolvedFilePath } })
                 );
+                if (!isSilent) {
+                  toast.success(`Saved ${title} to local disk`, { id: `save-${title}` });
+                }
               }).catch(() => {});
             } else {
               const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -199,9 +255,16 @@ export const GridCraft = memo(function GridCraft({
         } catch (err) {
           console.warn("[GridCraft] Failed to process saved document bytes:", err);
         }
-      } else if (data.type === "gridcraft:dirty") {
+      } else if (data.type === "gridcraft:dirty" || data.type === "gridcraft:user-edit") {
+        const isDirty = data.type === "gridcraft:user-edit" ? true : Boolean(data.dirty);
         if (onDirtyChangeRef.current) {
-          onDirtyChangeRef.current(Boolean(data.dirty));
+          onDirtyChangeRef.current(isDirty);
+        }
+        if (isDirty) {
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = setTimeout(() => {
+            requestIframeSave(true);
+          }, 950);
         }
       } else if (data.type === "gridcraft:failed") {
         setIsLoading(false);
@@ -213,24 +276,58 @@ export const GridCraft = memo(function GridCraft({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [content, title, filePath, sendDocumentToGridCraft]);
+  }, [content, title, resolvedFilePath, activeFolder, sendDocumentToGridCraft, requestIframeSave]);
+
+  useEffect(() => {
+    const handleTriggerSave = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (
+        (tabId && detail?.tabId === tabId) ||
+        (filePath && detail?.filePath === filePath) ||
+        (title && detail?.title === title)
+      ) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        requestIframeSave(false);
+      }
+    };
+    const handleDiffCleared = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.action !== "revert") return;
+      const targetName = String(detail?.fileName || detail?.filePath || "").split(/[/\\]/).pop()?.toLowerCase();
+      const myName = (title || filePath || "").split(/[/\\]/).pop()?.toLowerCase();
+      if (targetName && myName && targetName === myName) {
+        lastSavedB64Ref.current = null;
+        sendDocumentToGridCraft("", title, true);
+      }
+    };
+    window.addEventListener("arunaki:artcraft-trigger-save", handleTriggerSave);
+    window.addEventListener("arunaki:diff-cleared", handleDiffCleared);
+    return () => {
+      window.removeEventListener("arunaki:artcraft-trigger-save", handleTriggerSave);
+      window.removeEventListener("arunaki:diff-cleared", handleDiffCleared);
+    };
+  }, [tabId, filePath, title, requestIframeSave, sendDocumentToGridCraft]);
 
   useEffect(() => {
     if (isReady && content && content !== lastSentContentRef.current) {
+      if (lastSavedB64Ref.current && content.trim() === lastSavedB64Ref.current) {
+        lastSentContentRef.current = content;
+        return;
+      }
       sendDocumentToGridCraft(content, title);
     }
   }, [content, isReady, title, sendDocumentToGridCraft]);
 
   // Open native Microsoft Excel companion (Dual-Mode Architecture)
   const handleOpenNativeExcel = useCallback(async () => {
-    if (!filePath) return;
+    if (!resolvedFilePath) return;
     const desktop = typeof window !== "undefined" && (window as any).arunakiDesktop;
     if (desktop?.openExcelNative) {
-      await desktop.openExcelNative(filePath);
+      await desktop.openExcelNative(resolvedFilePath);
     } else if (desktop?.openPath) {
-      await desktop.openPath(filePath);
+      await desktop.openPath(resolvedFilePath);
     }
-  }, [filePath]);
+  }, [resolvedFilePath]);
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#1f1f1f] overflow-hidden select-none">
@@ -270,7 +367,7 @@ export const GridCraft = memo(function GridCraft({
             >
               Retry
             </button>
-            {filePath && (
+            {resolvedFilePath && (
               <button
                 onClick={handleOpenNativeExcel}
                 className="px-3.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"

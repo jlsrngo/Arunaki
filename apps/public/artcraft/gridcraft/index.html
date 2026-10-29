@@ -8,6 +8,53 @@
   
 <script type="module">
 import init, * as bindings from './gridcraft-web-f3f8c58ab634d6ba.js';
+
+if (window.showSaveFilePicker) {
+  window.showSaveFilePicker = async function() {
+    throw new Error("fallback to anchor download");
+  };
+}
+
+const origAnchorClick = HTMLAnchorElement.prototype.click;
+HTMLAnchorElement.prototype.click = function() {
+  if (this.download && this.href && (this.href.startsWith("blob:") || this.href.startsWith("data:"))) {
+    const filename = this.download;
+    const blobUrl = this.href;
+    fetch(blobUrl)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(
+            {
+              type: "gridcraft:save",
+              name: filename,
+              bytes: buf,
+            },
+            "*"
+          );
+        }
+      })
+      .catch((err) => console.warn("[GridCraft Host] Save export error:", err));
+    return;
+  }
+  return origAnchorClick.apply(this, arguments);
+};
+
+function clickCanvas(x, y) {
+  const canvas = document.getElementById("gridcraft_canvas") || document.querySelector("canvas");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const clientX = rect.left + x;
+  const clientY = rect.top + y;
+  const downOpts = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0, buttons: 1 };
+  canvas.dispatchEvent(new PointerEvent("pointerdown", downOpts));
+  canvas.dispatchEvent(new MouseEvent("mousedown", downOpts));
+  const upOpts = { clientX, clientY, bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0, buttons: 0 };
+  canvas.dispatchEvent(new PointerEvent("pointerup", upOpts));
+  canvas.dispatchEvent(new MouseEvent("mouseup", upOpts));
+  canvas.dispatchEvent(new MouseEvent("click", upOpts));
+}
+
 try {
   const wasm = await init({ module_or_path: './gridcraft-web-f3f8c58ab634d6ba_bg.wasm' });
   window.wasmBindings = bindings;
@@ -22,9 +69,41 @@ try {
   }
 }
 
+let lastEditPost = 0;
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === "s") return;
+  if (["Control", "Shift", "Alt", "Meta", "CapsLock", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+  const now = Date.now();
+  if (now - lastEditPost > 250 && window.parent && window.parent !== window) {
+    lastEditPost = now;
+    window.parent.postMessage({ type: "gridcraft:user-edit" }, "*");
+  }
+}, true);
+
 window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
+  if (data.type === "gridcraft:trigger-save") {
+    const canvas = document.getElementById("gridcraft_canvas") || document.querySelector("canvas");
+    if (canvas) {
+      try { canvas.focus(); } catch {}
+      const ctrlDown = { key: "Control", code: "ControlLeft", keyCode: 17, which: 17, ctrlKey: true, bubbles: true, cancelable: true };
+      const sDown = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
+      canvas.dispatchEvent(new KeyboardEvent("keydown", ctrlDown));
+      canvas.dispatchEvent(new KeyboardEvent("keydown", sDown));
+      setTimeout(() => {
+        const sUp = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
+        const ctrlUp = { key: "Control", code: "ControlLeft", keyCode: 17, which: 17, ctrlKey: false, bubbles: true, cancelable: true };
+        canvas.dispatchEvent(new KeyboardEvent("keyup", sUp));
+        canvas.dispatchEvent(new KeyboardEvent("keyup", ctrlUp));
+      }, 45);
+    }
+    return;
+  }
+  if (data.type === "gridcraft:click-save-btn") {
+    clickCanvas(114, 19);
+    return;
+  }
   if (data.type && (data.type === "gridcraft:open" || data.type.endsWith(":open")) && data.bytes) {
     try {
       const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

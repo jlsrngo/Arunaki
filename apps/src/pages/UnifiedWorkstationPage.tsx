@@ -89,6 +89,24 @@ export function UnifiedWorkstationPage() {
   const handleSaveActiveTab = useCallback(() => {
     const activeTab = tabs.tabs.find((t) => t.id === tabs.activeTabId);
     if (activeTab && (activeTab.type === "file" || activeTab.type === "app")) {
+      const nameOrPath = `${activeTab.title || ""} ${activeTab.path || ""} ${activeTab.fileType || ""}`.toLowerCase();
+      if (
+        activeTab.fileType === "wordcraft-app" ||
+        activeTab.fileType === "gridcraft-app" ||
+        activeTab.fileType === "deckcraft-app" ||
+        /\.(docx|doc|odt|rtf|xlsx|xls|xlsm|xlsb|pptx|ppt|odp)(\b|$)/i.test(nameOrPath)
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("arunaki:artcraft-trigger-save", {
+            detail: {
+              tabId: activeTab.id,
+              filePath: activeTab.path,
+              title: activeTab.title,
+            },
+          })
+        );
+        return;
+      }
       tabs.handleSaveFileTab(activeTab.id, activeTab.content || "");
       return;
     }

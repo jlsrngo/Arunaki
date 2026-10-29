@@ -109,6 +109,25 @@ try {
   }
 }
 
+let lastEditPost = 0;
+window.addEventListener("keydown", (e) => {
+  if (!isInDocument) return;
+  if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === "s") return;
+  if (["Control", "Shift", "Alt", "Meta", "CapsLock", "Escape", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+  const now = Date.now();
+  if (now - lastEditPost > 250 && window.parent && window.parent !== window) {
+    lastEditPost = now;
+    window.parent.postMessage({ type: "wordcraft:user-edit" }, "*");
+  }
+}, true);
+
+window.addEventListener("paste", () => {
+  if (!isInDocument) return;
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: "wordcraft:user-edit" }, "*");
+  }
+}, true);
+
 window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
@@ -116,9 +135,24 @@ window.addEventListener("message", (event) => {
   if (data.type === "wordcraft:trigger-save") {
     const canvas = document.getElementById("wordcraft_canvas") || document.querySelector("canvas");
     if (canvas) {
-      const sOpts = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
-      canvas.dispatchEvent(new KeyboardEvent("keydown", sOpts));
-      canvas.dispatchEvent(new KeyboardEvent("keyup", sOpts));
+      try { canvas.focus(); } catch {}
+      const ctrlDown = { key: "Control", code: "ControlLeft", keyCode: 17, which: 17, ctrlKey: true, bubbles: true, cancelable: true };
+      const sDown = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
+      canvas.dispatchEvent(new KeyboardEvent("keydown", ctrlDown));
+      canvas.dispatchEvent(new KeyboardEvent("keydown", sDown));
+      setTimeout(() => {
+        const sUp = { key: "s", code: "KeyS", keyCode: 83, which: 83, ctrlKey: true, bubbles: true, cancelable: true };
+        const ctrlUp = { key: "Control", code: "ControlLeft", keyCode: 17, which: 17, ctrlKey: false, bubbles: true, cancelable: true };
+        canvas.dispatchEvent(new KeyboardEvent("keyup", sUp));
+        canvas.dispatchEvent(new KeyboardEvent("keyup", ctrlUp));
+      }, 45);
+    }
+    return;
+  }
+
+  if (data.type === "wordcraft:click-save-btn") {
+    if (isInDocument) {
+      clickCanvas(114, 19);
     }
     return;
   }
@@ -141,7 +175,7 @@ window.addEventListener("message", (event) => {
         : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
       // If document with the exact same name & size is ALREADY loaded and active in the editor, skip duplicate sequence!
-      if (hasLoadedDocument && isInDocument && pendingFile && pendingFile.name === docName && pendingFile.size === bytes.byteLength) {
+      if (!data.forceReload && hasLoadedDocument && isInDocument && pendingFile && pendingFile.name === docName && pendingFile.size === bytes.byteLength) {
         console.log("[WordCraft Host] Document already active in editor, skipping redundant open sequence:", docName);
         return;
       }

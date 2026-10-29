@@ -8,6 +8,8 @@ import { bindArtCraftIframeGuards } from "../../../lib/artcraftPreloader";
 export interface WordCraftProps {
   content: string;
   filePath?: string;
+  activeFolder?: string;
+  tabId?: string;
   title: string;
   onContentChange?: (newContent: string) => void;
   onSave?: () => Promise<void> | void;
@@ -24,6 +26,8 @@ export interface WordCraftProps {
 export const WordCraft = memo(function WordCraft({
   content,
   filePath,
+  activeFolder,
+  tabId,
   title,
   onContentChange,
   onSave,
@@ -34,6 +38,16 @@ export const WordCraft = memo(function WordCraft({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [forceWebGL, setForceWebGL] = useState(false);
+
+  const resolvedFilePath = filePath
+    ? filePath.includes(":") || filePath.startsWith("/") || filePath.startsWith("\\")
+      ? filePath
+      : activeFolder
+      ? `${activeFolder.replace(/[\\/]+$/, "")}\\${filePath.replace(/^[\\/]+/, "")}`
+      : filePath
+    : activeFolder && title
+    ? `${activeFolder.replace(/[\\/]+$/, "")}\\${title}`
+    : undefined;
 
   // Keep latest callbacks in ref to avoid re-subscribing message listener
   const onContentChangeRef = useRef(onContentChange);
@@ -47,7 +61,33 @@ export const WordCraft = memo(function WordCraft({
 
   const lastSentContentRef = useRef<string | null>(null);
   const lastSentPathRef = useRef<string | null>(null);
+  const lastSavedB64Ref = useRef<string | null>(null);
   const isDispatchingRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveSeqRef = useRef(0);
+  const pendingSilentSaveRef = useRef(false);
+
+  const requestIframeSave = useCallback((silent = false) => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow) return;
+    pendingSilentSaveRef.current = silent;
+    const seq = ++saveSeqRef.current;
+    iframe.contentWindow.postMessage({ type: "wordcraft:trigger-save" }, "*");
+    if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+    fallbackSaveTimerRef.current = setTimeout(() => {
+      if (saveSeqRef.current === seq && iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage({ type: "wordcraft:click-save-btn" }, "*");
+      }
+    }, 160);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+    };
+  }, []);
 
   // Never leave the user staring at a spinner: if the WASM app does not boot, show the error state.
   useEffect(() => {
@@ -63,28 +103,32 @@ export const WordCraft = memo(function WordCraft({
 
   // Send document payload to WordCraft Web via the official host postMessage bridge
   const sendDocumentToWordCraft = useCallback(
-    async (textPayload: string, docName: string) => {
+    async (textPayload: string, docName: string, forceReload = false) => {
       const iframe = iframeRef.current;
       if (!iframe || !iframe.contentWindow) return;
       if (isDispatchingRef.current) return;
       isDispatchingRef.current = true;
       lastSentContentRef.current = textPayload;
-      lastSentPathRef.current = filePath || null;
+      lastSentPathRef.current = resolvedFilePath || null;
 
       try {
         let buffer: ArrayBuffer | null = null;
 
         // 1. If physical file exists on disk, read binary bytes via /api/desktop/read-file
-        if (filePath && /\.(docx|doc|odt|rtf)$/i.test(filePath)) {
+        if (resolvedFilePath && /\.(docx|doc|odt|rtf)$/i.test(resolvedFilePath)) {
           try {
             const res = await apiFetch("/api/desktop/read-file", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ filePath }),
+              body: JSON.stringify({ filePath: resolvedFilePath, directory: activeFolder }),
             });
             const json = await res.json();
             if (json?.content) {
               const b64 = json.content.trim();
+              if (!forceReload && lastSavedB64Ref.current && b64 === lastSavedB64Ref.current) {
+                isDispatchingRef.current = false;
+                return;
+              }
               if (b64.startsWith("UEsDB")) {
                 const binaryStr = atob(b64);
                 const bytes = new Uint8Array(binaryStr.length);
@@ -115,8 +159,8 @@ export const WordCraft = memo(function WordCraft({
           } else {
             // Convert plain text / Markdown into a real OOXML .docx binary via backend before sending to WordCraft WASM
             const targetDocPath =
-              filePath && /\.(docx)$/i.test(filePath)
-                ? filePath
+              resolvedFilePath && /\.(docx)$/i.test(resolvedFilePath)
+                ? resolvedFilePath
                 : (docName || "Document 1.docx").endsWith(".docx")
                   ? docName || "Document 1.docx"
                   : `${docName || "Document 1"}.docx`;
@@ -124,12 +168,16 @@ export const WordCraft = memo(function WordCraft({
               await apiFetch("/api/desktop/write-file", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filePath: targetDocPath, content: textPayload }),
+                body: JSON.stringify({
+                  filePath: targetDocPath,
+                  directory: activeFolder,
+                  content: textPayload,
+                }),
               });
               const res = await apiFetch("/api/desktop/read-file", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filePath: targetDocPath }),
+                body: JSON.stringify({ filePath: targetDocPath, directory: activeFolder }),
               });
               const json = await res.json();
               if (json?.content && json.content.trim().startsWith("UEsDB")) {
@@ -149,18 +197,19 @@ export const WordCraft = memo(function WordCraft({
             type: "wordcraft:open",
             name: docName || "Document.docx",
             bytes: buffer,
+            forceReload,
           },
           "*"
         );
         lastSentContentRef.current = textPayload;
-        lastSentPathRef.current = filePath || null;
+        lastSentPathRef.current = resolvedFilePath || null;
       } catch (err) {
         console.warn("[WordCraft] Failed to send document buffer:", err);
       } finally {
         isDispatchingRef.current = false;
       }
     },
-    [filePath]
+    [resolvedFilePath, activeFolder]
   );
 
   // Listen for official WordCraft host bridge events (?host=parent)
@@ -176,21 +225,27 @@ export const WordCraft = memo(function WordCraft({
         setLoadError(null);
         // Synchronously record refs before re-render so secondary useEffect will not duplicate dispatch
         lastSentContentRef.current = content || "";
-        lastSentPathRef.current = filePath || null;
+        lastSentPathRef.current = resolvedFilePath || null;
         sendDocumentToWordCraft(content || "", title);
       }
       else if (data.type === "wordcraft:document-ready") {
         setIsLoading(false);
       }
 
-      // 2. User clicked Save (Ctrl+S or File > Save)
+      // 2. User clicked Save (Ctrl+S or File > Save or Auto-Save)
       else if (data.type === "wordcraft:save") {
+        saveSeqRef.current++;
+        if (fallbackSaveTimerRef.current) clearTimeout(fallbackSaveTimerRef.current);
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        const isSilent = pendingSilentSaveRef.current;
+        pendingSilentSaveRef.current = false;
+
         try {
           if (data.bytes) {
             const rawBytes = new Uint8Array(data.bytes);
 
             // SAVE DIRECTLY TO USER'S HARD DISK AS REAL .DOCX BINARY FILE!
-            if (filePath) {
+            if (resolvedFilePath) {
               try {
                 let binaryStr = "";
                 const chunkSize = 8192;
@@ -199,21 +254,27 @@ export const WordCraft = memo(function WordCraft({
                   binaryStr += String.fromCharCode.apply(null, chunk as any);
                 }
                 const b64 = btoa(binaryStr);
+                lastSavedB64Ref.current = b64;
                 await apiFetch("/api/desktop/write-file", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    filePath,
+                    filePath: resolvedFilePath,
+                    directory: activeFolder,
                     content: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64," + b64,
                   }),
                 });
                 window.dispatchEvent(
-                  new CustomEvent("arunaki:file.edited", { detail: { file: filePath } })
+                  new CustomEvent("arunaki:file.edited", { detail: { file: resolvedFilePath } })
                 );
-                toast.success(`Saved ${title} to local disk`, { id: `save-${title}` });
+                if (!isSilent) {
+                  toast.success(`Saved ${title} to local disk`, { id: `save-${title}` });
+                }
               } catch (err) {
                 console.error("[WordCraft] Failed to write binary file to disk:", err);
-                toast.error("Failed to save .docx to computer disk");
+                if (!isSilent) {
+                  toast.error("Failed to save .docx to computer disk");
+                }
               }
             } else if (onSaveRef.current) {
               await onSaveRef.current();
@@ -227,10 +288,17 @@ export const WordCraft = memo(function WordCraft({
         }
       }
 
-      // 3. Document dirty status changes
-      else if (data.type === "wordcraft:dirty") {
+      // 3. Document dirty status changes or user keystroke edit inside WordCraft
+      else if (data.type === "wordcraft:dirty" || data.type === "wordcraft:user-edit") {
+        const isDirty = data.type === "wordcraft:user-edit" ? true : Boolean(data.dirty);
         if (onDirtyChangeRef.current) {
-          onDirtyChangeRef.current(Boolean(data.dirty));
+          onDirtyChangeRef.current(isDirty);
+        }
+        if (isDirty) {
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = setTimeout(() => {
+            requestIframeSave(true);
+          }, 950);
         }
       }
 
@@ -245,16 +313,52 @@ export const WordCraft = memo(function WordCraft({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [content, title, filePath, sendDocumentToWordCraft]);
+  }, [content, title, resolvedFilePath, activeFolder, sendDocumentToWordCraft, requestIframeSave]);
+
+  // Listen for CenterTabHeader [Save] / Ctrl+S trigger & Source Control Revert
+  useEffect(() => {
+    const handleTriggerSave = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (
+        (tabId && detail?.tabId === tabId) ||
+        (filePath && detail?.filePath === filePath) ||
+        (title && detail?.title === title)
+      ) {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        requestIframeSave(false);
+      }
+    };
+    const handleDiffCleared = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.action !== "revert") return;
+      const targetName = String(detail?.fileName || detail?.filePath || "").split(/[/\\]/).pop()?.toLowerCase();
+      const myName = (title || filePath || "").split(/[/\\]/).pop()?.toLowerCase();
+      if (targetName && myName && targetName === myName) {
+        lastSavedB64Ref.current = null;
+        sendDocumentToWordCraft("", title, true);
+      }
+    };
+    window.addEventListener("arunaki:artcraft-trigger-save", handleTriggerSave);
+    window.addEventListener("arunaki:diff-cleared", handleDiffCleared);
+    return () => {
+      window.removeEventListener("arunaki:artcraft-trigger-save", handleTriggerSave);
+      window.removeEventListener("arunaki:diff-cleared", handleDiffCleared);
+    };
+  }, [tabId, filePath, title, requestIframeSave, sendDocumentToWordCraft]);
 
   // Sync external content or path updates
   useEffect(() => {
-    if (isReady && (content !== lastSentContentRef.current || filePath !== lastSentPathRef.current)) {
+    if (isReady && (content !== lastSentContentRef.current || resolvedFilePath !== lastSentPathRef.current)) {
+      if (content && lastSavedB64Ref.current && content.trim() === lastSavedB64Ref.current) {
+        lastSentContentRef.current = content;
+        lastSentPathRef.current = resolvedFilePath || null;
+        return;
+      }
       lastSentContentRef.current = content;
-      lastSentPathRef.current = filePath || null;
+      lastSentPathRef.current = resolvedFilePath || null;
       sendDocumentToWordCraft(content || "", title);
     }
-  }, [content, filePath, isReady, title, sendDocumentToWordCraft]);
+  }, [content, resolvedFilePath, isReady, title, sendDocumentToWordCraft]);
 
   // Open native Microsoft Word companion (Dual-Mode Architecture)
   const handleOpenNativeWord = useCallback(async () => {

@@ -154,7 +154,7 @@ export function useDocumentChanges({
   );
 
   const syncTabsAfterResolve = useCallback(
-    (item: DocumentChangeItem, resolvedContent: string, wasDeleted?: boolean) => {
+    (item: DocumentChangeItem, resolvedContent: string, wasDeleted?: boolean, action: "revert" | "accept" = "accept") => {
       const targetName = (item.fileName || item.filePath.split(/[/\\]/).pop() || item.filePath).toLowerCase();
       const targetPath = item.filePath.replace(/\\/g, "/").toLowerCase();
       const isBinaryDoc = /\.(xlsx|xls|xlsm|xlsb|docx|doc|pptx|ppt|pdf|png|jpg|jpeg|gif|webp|zip)$/i.test(targetName);
@@ -209,6 +209,7 @@ export function useDocumentChanges({
           detail: {
             filePath: item.filePath,
             fileName: item.fileName,
+            action,
             content: isBinaryDoc ? undefined : resolvedContent,
           },
         })
@@ -234,7 +235,7 @@ export function useDocumentChanges({
           const wasDeleted = Boolean(json?.deleted || item.status === "new");
           toast.success(`Reverted ${item.fileName}`);
           onFileReverted?.(item.filePath, item.beforeContent);
-          syncTabsAfterResolve(item, item.beforeContent, wasDeleted);
+          syncTabsAfterResolve(item, item.beforeContent, wasDeleted, "revert");
           setChanges((prev) =>
             prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
           );
@@ -249,7 +250,7 @@ export function useDocumentChanges({
             await desktop.writeFile(fullPath, item.beforeContent);
             toast.success(`Reverted ${item.fileName}`);
             onFileReverted?.(item.filePath, item.beforeContent);
-            syncTabsAfterResolve(item, item.beforeContent);
+            syncTabsAfterResolve(item, item.beforeContent, false, "revert");
             setChanges((prev) =>
               prev.filter((c) => c.filePath !== item.filePath && c.fileName !== item.fileName)
             );
