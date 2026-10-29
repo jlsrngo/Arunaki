@@ -215,6 +215,9 @@ export const WordCraft = memo(function WordCraft({
   // Listen for official WordCraft host bridge events (?host=parent)
   useEffect(() => {
     async function handleMessage(event: MessageEvent) {
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
       const data = event.data;
       if (!data || typeof data !== "object") return;
 

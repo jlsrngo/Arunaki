@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
+use super::schema::sanitize_gemini_schema;
 use super::{
     extract_content_text, make_completion_response_with_reasoning,
     make_sse_response_with_reasoning,
@@ -47,76 +48,6 @@ fn map_antigravity_model(model: &str) -> (&'static str, Option<&'static str>) {
         "claude-opus-4-6-thinking" => ("claude-opus-4-6-thinking", Some("high")),
         "gpt-oss-120b-medium" => ("gpt-oss-120b-medium", Some("medium")),
         _ => ("gemini-3-flash", Some("medium")),
-    }
-}
-
-fn sanitize_gemini_schema(schema: &Value) -> Value {
-    match schema {
-        Value::Array(arr) => Value::Array(arr.iter().map(sanitize_gemini_schema).collect()),
-        Value::Object(map) => {
-            let mut out = serde_json::Map::new();
-            for (k, v) in map {
-                if matches!(
-                    k.as_str(),
-                    "$schema"
-                        | "additionalProperties"
-                        | "default"
-                        | "title"
-                        | "examples"
-                        | "exclusiveMinimum"
-                        | "exclusiveMaximum"
-                        | "propertyNames"
-                        | "const"
-                ) {
-                    continue;
-                }
-                if k == "type" {
-                    if let Some(arr) = v.as_array() {
-                        let non_null = arr
-                            .iter()
-                            .filter_map(|x| x.as_str())
-                            .find(|&t| t != "null")
-                            .unwrap_or("string");
-                        out.insert(k.clone(), Value::String(non_null.to_string()));
-                        continue;
-                    }
-                }
-                if k == "properties" {
-                    // Keys here are user-defined property names (e.g. "title",
-                    // "default"); never strip them, only sanitize their schemas.
-                    if let Some(props) = v.as_object() {
-                        let mut p_out = serde_json::Map::new();
-                        for (pk, pv) in props {
-                            p_out.insert(pk.clone(), sanitize_gemini_schema(pv));
-                        }
-                        out.insert(k.clone(), Value::Object(p_out));
-                        continue;
-                    }
-                }
-                out.insert(k.clone(), sanitize_gemini_schema(v));
-            }
-            // Gemini rejects `required` entries not defined in `properties`.
-            if let Some(Value::Array(req)) = out.get("required").cloned() {
-                let props = out.get("properties").and_then(|p| p.as_object());
-                let filtered: Vec<Value> = req
-                    .into_iter()
-                    .filter(|r| {
-                        r.as_str()
-                            .map_or(false, |name| props.map_or(false, |p| p.contains_key(name)))
-                    })
-                    .collect();
-                if filtered.is_empty() {
-                    out.remove("required");
-                } else {
-                    out.insert("required".to_string(), Value::Array(filtered));
-                }
-            }
-            if out.contains_key("properties") && !out.contains_key("type") {
-                out.insert("type".to_string(), Value::String("object".to_string()));
-            }
-            Value::Object(out)
-        }
-        _ => schema.clone(),
     }
 }
 
@@ -498,26 +429,5 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
         make_sse_response_with_reasoning(model, full_text, thought_text, tool_calls)
     } else {
         make_completion_response_with_reasoning(model, full_text, thought_text, tool_calls)
-    }
-}
-
-
-#[cfg(test)]
-mod sanitize_schema_tests {
-    use super::sanitize_gemini_schema;
-    use serde_json::json;
-
-    #[test]
-    fn keeps_reserved_named_properties_and_prunes_required() {
-        let s = json!({
-            "type": "object",
-            "properties": { "title": { "type": "string", "title": "T" }, "default": { "type": "string" } },
-            "required": ["title", "default", "missing"]
-        });
-        let out = sanitize_gemini_schema(&s);
-        assert!(out["properties"]["title"].is_object());
-        assert!(out["properties"]["title"].get("title").is_none());
-        assert!(out["properties"]["default"].is_object());
-        assert_eq!(out["required"], json!(["title", "default"]));
     }
 }

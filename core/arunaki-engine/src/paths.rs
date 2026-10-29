@@ -168,6 +168,47 @@ mod tests {
         assert!(contains_path(&base, &inside));
         assert!(!contains_path(&base, &outside));
     }
+
+    #[test]
+    fn test_path_traversal_parent_dir_rejected() {
+        let base = std::env::temp_dir().join("arunaki_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let parent_escape = base.join("..").join("secret.txt");
+        assert!(!contains_path(&base, &parent_escape));
+
+        let nested_escape = base.join("sub").join("..").join("..").join("etc").join("passwd");
+        assert!(!contains_path(&base, &nested_escape));
+    }
+
+    #[test]
+    fn test_sibling_prefix_prevented() {
+        let temp = std::env::temp_dir();
+        let base = temp.join("arunaki_ws");
+        let sibling = temp.join("arunaki_ws_sibling").join("file.txt");
+        let _ = std::fs::create_dir_all(&base);
+        let _ = std::fs::create_dir_all(temp.join("arunaki_ws_sibling"));
+
+        assert!(!contains_path(&base, &sibling));
+    }
+
+    #[test]
+    fn test_nested_nonexistent_file_allowed() {
+        let base = std::env::temp_dir().join("arunaki_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let future_nested = base.join("level1").join("level2").join("new_report.xlsx");
+        assert!(contains_path(&base, &future_nested));
+    }
+
+    #[test]
+    fn test_absolute_system_path_rejected() {
+        let base = std::env::temp_dir().join("arunaki_test_ws");
+        let _ = std::fs::create_dir_all(&base);
+
+        let win_sys = Path::new("C:\\Windows\\System32\\drivers\\etc\\hosts");
+        assert!(!contains_path(&base, win_sys));
+    }
 }
 
 pub fn log_engine(category: &str, message: &str) {

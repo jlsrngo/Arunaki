@@ -189,6 +189,9 @@ export const GridCraft = memo(function GridCraft({
   // Listen for official GridCraft host bridge events
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
       const data = event.data;
       if (!data || typeof data !== "object") return;
 

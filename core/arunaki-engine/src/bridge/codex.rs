@@ -6,6 +6,7 @@ use axum::{
 use serde_json::{json, Value};
 
 use super::extract_content_text;
+use super::schema::normalize_openai_schema;
 use crate::cred_store::{decode_jwt_payload, ensure_fresh_credential, refresh_credential_source};
 
 // ============================================================================
@@ -123,11 +124,15 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
             .iter()
             .map(|t| {
                 if let Some(fn_obj) = t.get("function") {
+                    let raw_params = fn_obj
+                        .get("parameters")
+                        .cloned()
+                        .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
                     json!({
                         "type": "function",
                         "name": fn_obj.get("name"),
                         "description": fn_obj.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                        "parameters": fn_obj.get("parameters").cloned().unwrap_or_else(|| json!({ "type": "object", "properties": {} }))
+                        "parameters": normalize_openai_schema(&raw_params)
                     })
                 } else {
                     t.clone()

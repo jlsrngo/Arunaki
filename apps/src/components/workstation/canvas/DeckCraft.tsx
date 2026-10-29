@@ -171,6 +171,9 @@ export const DeckCraft = memo(function DeckCraft({
   // Listen for official DeckCraft host bridge events
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
       const data = event.data;
       if (!data || typeof data !== "object") return;
 

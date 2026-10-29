@@ -4,6 +4,7 @@ mod antigravity;
 mod claude;
 mod codex;
 mod kiro;
+pub mod schema;
 
 use crate::cred_store::{ensure_fresh_credential, get_all_credentials, harvest_all};
 use crate::paths::{gen_id, now_ms};
