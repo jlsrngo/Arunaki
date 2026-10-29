@@ -76,6 +76,49 @@ pub fn run() {
             system::system_ping
         ])
         .setup(|app| {
+            // Completely disable all native Microsoft Edge WebView2 browser features
+            // (Print Ctrl+P, Find bar Ctrl+F/F3, Reload F5/Ctrl+R, Context Menu, Autofill, Zoom, DevTools, Status Bar)
+            #[cfg(windows)]
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.with_webview(|webview| unsafe {
+                    if let Ok(core_webview) = webview.controller().CoreWebView2() {
+                        if let Ok(settings) = core_webview.Settings() {
+                            let _ = settings.SetIsStatusBarEnabled(false);
+                            let _ = settings.SetAreDefaultContextMenusEnabled(false);
+                            let _ = settings.SetIsZoomControlEnabled(false);
+                            let _ = settings.SetAreDevToolsEnabled(false);
+                            let _ = settings.SetIsBuiltInErrorPageEnabled(false);
+
+                            if let Ok(settings3) = windows_core::Interface::cast::<
+                                webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3,
+                            >(&settings)
+                            {
+                                let _ = settings3.SetAreBrowserAcceleratorKeysEnabled(false);
+                            }
+                            if let Ok(settings4) = windows_core::Interface::cast::<
+                                webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings4,
+                            >(&settings)
+                            {
+                                let _ = settings4.SetIsGeneralAutofillEnabled(false);
+                                let _ = settings4.SetIsPasswordAutosaveEnabled(false);
+                            }
+                            if let Ok(settings5) = windows_core::Interface::cast::<
+                                webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings5,
+                            >(&settings)
+                            {
+                                let _ = settings5.SetIsPinchZoomEnabled(false);
+                            }
+                            if let Ok(settings6) = windows_core::Interface::cast::<
+                                webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings6,
+                            >(&settings)
+                            {
+                                let _ = settings6.SetIsSwipeNavigationEnabled(false);
+                            }
+                        }
+                    }
+                });
+            }
+
             // Bridge engine events to the webview over Tauri IPC, so the UI never needs SSE over
             // the local HTTP port. Third-party clients still use GET /api/event on :4096.
             let handle = app.handle().clone();

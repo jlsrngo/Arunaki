@@ -41,18 +41,25 @@ export function useGlobalShortcuts({
       } else if (matchesShortcut(e, getEffectiveShortcut("settings"))) {
         e.preventDefault();
         commands.openSettings();
-      } else if (matchesShortcut(e, getEffectiveShortcut("quick-open-file"))) {
+      } else if (
+        matchesShortcut(e, getEffectiveShortcut("quick-open-file")) ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p")
+      ) {
         e.preventDefault();
+        e.stopPropagation();
         commands.quickOpenFile();
       } else if (matchesShortcut(e, getEffectiveShortcut("workspace-search"))) {
         e.preventDefault();
+        e.stopPropagation();
         commands.workspaceSearch();
       } else if (matchesShortcut(e, getEffectiveShortcut("open-folder"))) {
         e.preventDefault();
         commands.openFolder?.();
       } else if (matchesShortcut(e, getEffectiveShortcut("save-file"))) {
         e.preventDefault();
-        if (target.tagName === 'TEXTAREA' || target.isContentEditable) { return; }
+        if (target.tagName === "TEXTAREA" || target.isContentEditable) {
+          return;
+        }
         commands.saveFile();
       } else if (matchesShortcut(e, getEffectiveShortcut("new-session"))) {
         e.preventDefault();
@@ -96,7 +103,7 @@ export function useGlobalShortcuts({
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [commands, onCloseMenus, onCloseModals, onOpenShortcutsModal]);
 }

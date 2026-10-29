@@ -21,7 +21,9 @@
         "fullscreen": false,
         "decorations": false,
         "shadow": true,
-        "theme": "Dark"
+        "theme": "Dark",
+        "zoomHotkeysEnabled": false,
+        "browserExtensionsEnabled": false
       }
     ],
     "security": {

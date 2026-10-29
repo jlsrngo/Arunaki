@@ -73,6 +73,14 @@ async function main() {
   log('Step 1/3', 'Building production web frontend (apps)...');
   try {
     execSync('npm run build -w apps', { cwd: rootDir, stdio: 'inherit' });
+    // Touch src-tauri/build.rs and src-tauri/src/lib.rs so Cargo always re-embeds fresh ../apps/dist into arunaki-desktop.exe
+    const now = new Date();
+    for (const rel of ['src-tauri/build.rs', 'src-tauri/src/lib.rs']) {
+      const p = path.join(rootDir, rel);
+      if (fs.existsSync(p)) {
+        fs.utimesSync(p, now, now);
+      }
+    }
   } catch (err) {
     error('Step 1/3', 'Web build failed.');
     process.exit(1);

@@ -3,6 +3,7 @@ import { ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
+import { bindArtCraftIframeGuards } from "../../../lib/artcraftPreloader";
 
 export interface WordCraftProps {
   content: string;
@@ -346,6 +347,7 @@ export const WordCraft = memo(function WordCraft({
         title="ArtCraft WordCraft Suite"
         onLoad={() => {
           setIsLoading(false);
+          bindArtCraftIframeGuards(iframeRef.current);
         }}
         className={cn(
           "w-full h-full border-0 block flex-1 transition-opacity duration-200",

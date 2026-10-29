@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { apiFetch } from "../../../lib/api";
+import { bindArtCraftIframeGuards } from "../../../lib/artcraftPreloader";
 
 export interface PdfCraftProps {
   content: string;
@@ -246,6 +247,7 @@ export const PdfCraft = memo(function PdfCraft({
         title="ArtCraft PdfCraft Suite"
         onLoad={() => {
           setIsLoading(false);
+          bindArtCraftIframeGuards(iframeRef.current);
         }}
         className={cn(
           "w-full h-full border-0 block flex-1 transition-opacity duration-200",
