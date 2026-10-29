@@ -12,6 +12,7 @@ import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import { summarizeSession } from "../../lib/engine";
 import { sendDesktopNotification } from "../../lib/notifications";
+import { setSmartCompactionPref } from "../workstation/chat/useChatCompaction";
 
 export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const { t } = useI18n();
@@ -276,7 +277,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
             onClick={() => {
               const next = !smartCompaction;
               setSmartCompaction(next);
-              localStorage.setItem("arunaki_pref_smart_compaction", String(next));
+              setSmartCompactionPref(next);
               toast.success(
                 next
                   ? "Smart context compaction & token pruning enabled."

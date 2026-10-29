@@ -5,6 +5,16 @@ import { Message } from "./types";
 import { summarizeSession } from "../../../lib/engine";
 import { sendDesktopNotification } from "../../../lib/notifications";
 
+export const SMART_COMPACTION_PREF_KEY = "arunaki_pref_smart_compaction";
+export const SMART_COMPACTION_EVENT = "arunaki:smart-compaction-changed";
+
+export function setSmartCompactionPref(enabled: boolean) {
+  try {
+    localStorage.setItem(SMART_COMPACTION_PREF_KEY, String(enabled));
+  } catch {}
+  window.dispatchEvent(new Event(SMART_COMPACTION_EVENT));
+}
+
 interface UseChatCompactionOptions {
   activeChatId: string;
   chatMessages: Message[];
@@ -24,41 +34,42 @@ export function useChatCompaction({
   const [isCompacting, setIsCompacting] = useState(false);
   const isCompactingRef = useRef(false);
 
+  // Single source of truth shared with Settings > Automation toggle.
   const [isCompacted, setIsCompacted] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !activeChatId) return false;
-    return localStorage.getItem(`arunaki_compacted_${activeChatId}`) === "true";
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(SMART_COMPACTION_PREF_KEY) !== "false";
   });
 
   useEffect(() => {
-    if (!activeChatId) {
-      setIsCompacted(false);
-      return;
-    }
-    const saved = localStorage.getItem(`arunaki_compacted_${activeChatId}`);
-    setIsCompacted(saved === "true");
-  }, [activeChatId]);
+    const sync = () =>
+      setIsCompacted(localStorage.getItem(SMART_COMPACTION_PREF_KEY) !== "false");
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SMART_COMPACTION_PREF_KEY) sync();
+    };
+    window.addEventListener(SMART_COMPACTION_EVENT, sync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(SMART_COMPACTION_EVENT, sync);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   const handleCompactSession = useCallback(async () => {
-    if (!activeChatId) {
-      toast.error("No active session to compact");
-      return;
-    }
-    if (isStreaming) {
-      toast.warning("Please wait for current response to finish");
-      return;
-    }
-
-    // Toggle OFF: if already compacted/active, turn it off cleanly
+    // Toggle OFF: disable smart compaction globally (syncs Settings)
     if (isCompacted) {
-      try {
-        localStorage.setItem(`arunaki_compacted_${activeChatId}`, "disabled");
-      } catch {}
+      setSmartCompactionPref(false);
       setIsCompacted(false);
       toast.info("Context compaction disabled.");
       return;
     }
 
-    // Toggle ON: trigger compaction
+    // Toggle ON: enable globally, then compact active session if possible
+    setSmartCompactionPref(true);
+    setIsCompacted(true);
+    if (!activeChatId || isStreaming) {
+      toast.info("Smart context compaction enabled.");
+      return;
+    }
     setIsCompacting(true);
     isCompactingRef.current = true;
     const toastId = toast.loading("Compacting session context...");
@@ -70,10 +81,6 @@ export function useChatCompaction({
           "Arunaki Workstation",
           "Session context compacted successfully (/compact active)."
         );
-        try {
-          localStorage.setItem(`arunaki_compacted_${activeChatId}`, "true");
-        } catch {}
-        setIsCompacted(true);
         await queryClient.invalidateQueries({ queryKey: ["chat-messages", activeChatId] });
       } else {
         toast.error("Failed to compact context", { id: toastId });
