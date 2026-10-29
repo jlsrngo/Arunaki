@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Search, FileText, FolderOpen, CornerDownLeft, X } from "lucide-react";
+import { Search, FileText, FolderOpen, X } from "lucide-react";
 import { engineFetch } from "../../lib/engine";
 import { getFileIcon } from "../workspace/tree-utils";
 import { CenterTab } from "./tabs/types";
@@ -16,7 +16,6 @@ interface QuickOpenEntry {
   name: string;
   path: string;
   dirPath: string;
-  extLabel: string;
   sizeLabel?: string;
   isRecent: boolean;
   tabId?: string;
@@ -35,16 +34,15 @@ interface QuickOpenFileModalProps {
 
 function formatFileSize(size?: number | string): string | undefined {
   if (size === undefined || size === null) return undefined;
-  if (typeof size === "string") return size;
+  if (typeof size === "string") {
+    const trimmed = size.trim();
+    if (!trimmed || trimmed === "0" || trimmed === "0 B" || trimmed === "0 KB") return undefined;
+    return trimmed;
+  }
+  if (size <= 0) return undefined;
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function getExtBadge(name: string): string {
-  const parts = name.split(".");
-  if (parts.length < 2) return "FILE";
-  return parts[parts.length - 1].toUpperCase().slice(0, 6);
 }
 
 export function QuickOpenFileModal({
@@ -140,7 +138,6 @@ export function QuickOpenFileModal({
         name,
         path: t.path || t.title,
         dirPath: getDirPart(rel, name),
-        extLabel: getExtBadge(name),
         sizeLabel: sizeLookup.get(normKey) || sizeLookup.get(name.toLowerCase()),
         isRecent: true,
         tabId: t.id,
@@ -158,7 +155,6 @@ export function QuickOpenFileModal({
         name: f.name,
         path: f.path || f.name,
         dirPath: getDirPart(rel, f.name),
-        extLabel: getExtBadge(f.name),
         sizeLabel: formatFileSize(f.size),
         isRecent: false,
       });
@@ -176,7 +172,6 @@ export function QuickOpenFileModal({
         name,
         path: rel,
         dirPath: getDirPart(rel, name),
-        extLabel: getExtBadge(name),
         sizeLabel: sizeLookup.get(normKey) || sizeLookup.get(name.toLowerCase()),
         isRecent: false,
       });
@@ -263,16 +258,16 @@ export function QuickOpenFileModal({
 
   return (
     <div
-      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
+      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[75vh] transform-gpu"
+        className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[68vh] transform-gpu"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Search Input Bar */}
-        <div className="px-4 py-3.5 border-b border-[var(--border-color)] flex items-center gap-3 bg-[var(--bg-panel)] shrink-0">
-          <Search className="w-4 h-4 text-[#cf6613] shrink-0" />
+        {/* Top Search Input Bar */}
+        <div className="px-3.5 py-3 border-b border-[var(--border-color)] flex items-center gap-2.5 bg-[var(--bg-panel)] shrink-0">
+          <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -280,7 +275,7 @@ export function QuickOpenFileModal({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
             placeholder="Search documents & files by name..."
-            className="flex-1 bg-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none font-sans"
+            className="flex-1 bg-transparent text-xs text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none font-sans"
           />
           {query && (
             <button
@@ -296,31 +291,24 @@ export function QuickOpenFileModal({
           )}
           {folderName && (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--bg-hover)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)] shrink-0 max-w-[140px] truncate">
-              <FolderOpen className="w-3 h-3 text-[#cf6613] shrink-0" />
+              <FolderOpen className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
               <span className="truncate">{folderName}</span>
             </span>
           )}
         </div>
 
-        {/* File Results List */}
+        {/* Clean Plain File Results List (No Footer) */}
         <div
           ref={listRef}
-          className="flex-1 overflow-y-auto p-2 space-y-1 min-h-[240px] max-h-[380px] overscroll-contain custom-scrollbar"
+          className="flex-1 overflow-y-auto p-1.5 space-y-0.5 max-h-[360px] overscroll-contain custom-scrollbar"
         >
           {entries.length === 0 ? (
-            <div className="h-[220px] flex flex-col items-center justify-center text-center px-4 gap-2">
-              <div className="w-9 h-9 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center text-[var(--text-dim)]">
-                <FileText className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-medium text-[var(--text-muted)]">
+            <div className="py-10 flex flex-col items-center justify-center text-center px-4 gap-1.5">
+              <FileText className="w-4 h-4 text-[var(--text-dim)]" />
+              <p className="text-xs text-[var(--text-muted)]">
                 {activeFolder
                   ? `No documents matching "${query}"`
                   : "No active project folder connected"}
-              </p>
-              <p className="text-[11px] text-[var(--text-dim)]">
-                {activeFolder
-                  ? "Try typing a partial document name (.docx, .xlsx, .pdf, .txt)"
-                  : "Open a project folder first to search and launch documents"}
               </p>
             </div>
           ) : (
@@ -334,63 +322,44 @@ export function QuickOpenFileModal({
                   onMouseEnter={() => setSelectedIndex(idx)}
                   onClick={() => handleSelectEntry(entry)}
                   className={cn(
-                    "group relative w-full py-2.5 px-3 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-colors border",
+                    "group w-full py-2 px-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer transition-colors",
                     isSelected
-                      ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
-                      : "bg-transparent border-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]/60"
+                      ? "bg-[var(--bg-hover)] text-[var(--text-primary)]"
+                      : "bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]/50"
                   )}
                 >
-                  {/* Active Left Pill Indicator */}
-                  {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#cf6613]" />
-                  )}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                      {getFileIcon(entry.name) || (
+                        <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                      )}
+                    </span>
 
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div
+                    <span
                       className={cn(
-                        "w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 transition-colors",
+                        "text-xs truncate",
                         isSelected
-                          ? "bg-[var(--bg-card)] border-[var(--border-strong)]"
-                          : "bg-[var(--bg-panel)] border-[var(--border-color)]"
+                          ? "font-medium text-[var(--text-primary)]"
+                          : "font-normal text-[var(--text-primary)]/90"
                       )}
                     >
-                      {getFileIcon(entry.name) || (
-                        <FileText className="w-4 h-4 text-[var(--text-muted)]" />
-                      )}
-                    </div>
+                      {entry.name}
+                    </span>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={cn(
-                            "text-xs font-medium truncate",
-                            isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-primary)]/90"
-                          )}
-                        >
-                          {entry.name}
-                        </span>
-                        {entry.isRecent && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase tracking-wider bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30 shrink-0">
-                            Open Tab
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[var(--text-dim)] font-mono truncate">
-                        <span className="truncate">
-                          {entry.dirPath ? entry.dirPath : folderName || "Workspace root"}
-                        </span>
-                        {entry.sizeLabel && (
-                          <>
-                            <span>•</span>
-                            <span className="shrink-0">{entry.sizeLabel}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    {entry.dirPath && (
+                      <span className="text-[11px] text-[var(--text-dim)] font-mono truncate">
+                        {entry.dirPath}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Right Action / Extension Badge */}
+                  {/* Right Side: Optional Size / Open Tab Close Button */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {entry.sizeLabel && (
+                      <span className="text-[10px] font-mono text-[var(--text-dim)]">
+                        {entry.sizeLabel}
+                      </span>
+                    )}
                     {entry.tabId && onCloseTab && (
                       <button
                         type="button"
@@ -399,48 +368,16 @@ export function QuickOpenFileModal({
                           e.stopPropagation();
                           onCloseTab(entry.tabId!);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-dim)]">
-                      {entry.extLabel}
-                    </span>
-                    {isSelected && (
-                      <CornerDownLeft className="w-3.5 h-3.5 text-[#cf6613] shrink-0" />
                     )}
                   </div>
                 </div>
               );
             })
           )}
-        </div>
-
-        {/* Footer Keyboard Navigation Bar */}
-        <div className="px-4 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between text-[11px] text-[var(--text-dim)] shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5">
-              <kbd className="font-mono text-[10px] bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)] px-1.5 py-0.5 rounded">
-                ↑↓
-              </kbd>
-              <span>Navigate</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="font-mono text-[10px] bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)] px-1.5 py-0.5 rounded">
-                Enter
-              </kbd>
-              <span>Open</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] text-[var(--text-dim)]">
-              {entries.length} {entries.length === 1 ? "document" : "documents"}
-            </span>
-            <kbd className="font-mono text-[10px] bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)] px-1.5 py-0.5 rounded">
-              ESC to close
-            </kbd>
-          </div>
         </div>
       </div>
     </div>
