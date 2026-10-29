@@ -35,6 +35,11 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
     .replace(/\[Tool result:[^\n]*(\n|$)/gi, "")
     .replace(/\[Assistant\]:\s*/gi, "")
     .replace(/^Wrote file successfully:.*(\n|$)/gmi, "")
+    // Clean raw LaTeX dollar tags & formulas into readable plain markdown
+    .replace(/\\(?:text|mathrm|operatorname)\{([^}]+)\}/g, "$1")
+    .replace(/\\mathbf\{([^}]+)\}/g, "**$1**")
+    .replace(/\$\$([\s\S]*?)\$\$/g, "$1")
+    .replace(/\$([^\$\n]+)\$/g, "$1")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!content.includes("|")) {
