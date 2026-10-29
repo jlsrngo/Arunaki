@@ -127,6 +127,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={null} />
               <Route path="/workspace" element={<Navigate to="/" replace />} />
+              <Route path="/tasks" element={null} />
               <Route path="/knowledge" element={null} />
               <Route path="/history" element={null} />
               <Route path="/settings" element={null} />

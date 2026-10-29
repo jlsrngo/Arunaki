@@ -16,6 +16,9 @@ const HistoryPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("../../pages/SettingsPage").then((m) => ({ default: m.SettingsPage }))
 );
+const TasksBoardPage = lazy(() =>
+  import("../../pages/TasksBoardPage").then((m) => ({ default: m.TasksBoardPage }))
+);
 
 export function AppLayout() {
   const location = useLocation();
@@ -59,6 +62,11 @@ export function AppLayout() {
         </div>
 
         <Suspense fallback={<div className="w-full h-full flex-1 bg-[var(--bg-app)]" />}>
+          {location.pathname === "/tasks" && (
+            <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
+              <TasksBoardPage />
+            </div>
+          )}
           {location.pathname === "/knowledge" && (
             <div className="w-full h-full flex flex-col flex-1 animate-in fade-in duration-100">
               <KnowledgePage />

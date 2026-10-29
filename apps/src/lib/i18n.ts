@@ -205,6 +205,7 @@ export const translations = {
 
     // Main Navigation Tabs
     navWorkstation: "Workstation",
+    navTasks: "Tasks",
     navKnowledge: "Knowledge",
     navHistory: "History",
     navSettings: "Settings",
@@ -611,6 +612,7 @@ export const translations = {
 
     // Main Navigation Tabs
     navWorkstation: "Workstation",
+    navTasks: "Agenda",
     navKnowledge: "Pengetahuan",
     navHistory: "Riwayat",
     navSettings: "Pengaturan",

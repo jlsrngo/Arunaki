@@ -2,6 +2,7 @@ import { memo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   MessageSquare,
+  Kanban,
   BookOpen,
   History,
   Settings,
@@ -29,6 +30,7 @@ export const AppFooter = memo(function AppFooter({
 
   const navItems = [
     { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare },
+    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban },
     { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen },
     { label: t("navHistory", "History"), path: "/history", icon: History },
     { label: t("navSettings", "Settings"), path: "/settings", icon: Settings },
