@@ -114,6 +114,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
         onRefresh={loadTasks}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
         onAddNewTask={() => openNewTaskModal("today")}
+        isIndonesian={isIndonesian}
         t={t}
       />
 

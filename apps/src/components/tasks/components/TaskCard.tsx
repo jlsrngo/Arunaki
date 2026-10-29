@@ -72,7 +72,7 @@ export function TaskCard({
               e.stopPropagation();
               onSyncGoogleCalendar(task);
             }}
-            title={t("openInGoogleCalendar", "Sinkron ke Google Calendar")}
+            title={t("openInGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
             className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
           >
             <Calendar className="w-3.5 h-3.5 text-white/70" />
@@ -108,7 +108,7 @@ export function TaskCard({
             e.stopPropagation();
             onOpenFileInWorkstation(task.attachedFile);
           }}
-          title={`Buka ${task.attachedFile} di Workstation`}
+          title={isIndonesian ? `Buka ${task.attachedFile} di Workstation` : `Open ${task.attachedFile} in Workstation`}
           className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-hover)] text-[10.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] truncate transition-colors cursor-pointer"
         >
           {task.attachedFile.endsWith(".xlsx") || task.attachedFile.endsWith(".csv") ? (
@@ -125,7 +125,7 @@ export function TaskCard({
       {totalSubtasks > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-            <span>{t("taskSubtasks", "Daftar Rincian Subtugas / Checklist")}</span>
+            <span>{t("taskSubtasks", isIndonesian ? "Daftar Rincian Subtugas / Checklist" : "Actionable Subtasks Checklist")}</span>
             <span className="font-mono">{completedSubtasks}/{totalSubtasks}</span>
           </div>
           <div className="w-full h-1 bg-[var(--bg-hover)] rounded-full overflow-hidden">
@@ -176,7 +176,7 @@ export function TaskCard({
           {isOverdue && (
             <span className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
               <AlertTriangle className="w-2.5 h-2.5" />
-              {t("taskOverdue", "Terlewat")}
+              {t("taskOverdue", isIndonesian ? "Terlewat" : "Overdue")}
             </span>
           )}
 
@@ -205,7 +205,7 @@ export function TaskCard({
               e.stopPropagation();
               onSyncGoogleCalendar(task);
             }}
-            title={t("openInGoogleCalendar", "Sinkron ke Google Calendar")}
+            title={t("openInGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
             className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[#cf6613]/20 text-[9.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] hover:border-[#cf6613]/40 transition-colors cursor-pointer"
           >
             <Calendar className="w-2.5 h-2.5 text-[#cf6613]" />
@@ -214,7 +214,7 @@ export function TaskCard({
 
           {task.priority === "high" && (
             <span className="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
-              {t("taskPriorityHigh", "Mendesak / Kritis")}
+              {t("taskPriorityHigh", isIndonesian ? "Mendesak / Kritis" : "Urgent / Critical")}
             </span>
           )}
         </div>

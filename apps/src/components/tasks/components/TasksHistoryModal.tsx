@@ -162,7 +162,7 @@ export function TasksHistoryModal({
                     <div className="pl-6 pt-1 text-[11px] space-y-1">
                       <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] font-mono">
                         <CheckSquare className="w-3 h-3" />
-                        <span>Subtask Checklist ({doneSt}/{totalSt} selesai):</span>
+                        <span>Subtask Checklist ({doneSt}/{totalSt} {isIndonesian ? "selesai" : "done"}):</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {hTask.subtasks.map((st) => (
@@ -188,7 +188,7 @@ export function TasksHistoryModal({
                       Target: {hTask.targetDate || "-"} • {hTask.reminderTime || "-"} WIB
                     </span>
                     <span className="uppercase font-mono tracking-wider">
-                      {hTask.columnId} • Prioritas: {hTask.priority}
+                      {hTask.columnId} • {isIndonesian ? "Prioritas" : "Priority"}: {hTask.priority}
                     </span>
                   </div>
                 </div>

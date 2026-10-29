@@ -13,6 +13,7 @@ interface TasksBoardHeaderProps {
   onRefresh: () => void;
   onOpenHistory: () => void;
   onAddNewTask: () => void;
+  isIndonesian: boolean;
   t: (key: any, fallback?: string) => any;
 }
 
@@ -27,6 +28,7 @@ export function TasksBoardHeader({
   onRefresh,
   onOpenHistory,
   onAddNewTask,
+  isIndonesian,
   t,
 }: TasksBoardHeaderProps) {
   return (
@@ -38,14 +40,14 @@ export function TasksBoardHeader({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-semibold text-white tracking-wide">
-              {t("tasksBoardTitle", "Agenda Operasional & Papan Tugas")}
+              {t("tasksBoardTitle", isIndonesian ? "Agenda Operasional & Papan Tugas" : "Operational Agenda & Task Board")}
             </h1>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)]">
-              {totalTasks} {t("tasksCount", "Agenda")}
+              {totalTasks} {t("tasksCount", isIndonesian ? "Agenda" : "Tasks")}
             </span>
           </div>
           <p className="text-[11px] text-[var(--text-muted)] font-mono truncate max-w-[280px] sm:max-w-[420px]">
-            {activeFolder || t("noActiveFolder", "Folder Lokal Belum Terpilih")}
+            {activeFolder || t("noActiveFolder", isIndonesian ? "Folder Lokal Belum Terpilih" : "No Local Folder Selected")}
           </p>
         </div>
       </div>
@@ -56,7 +58,7 @@ export function TasksBoardHeader({
           <Search className="w-3.5 h-3.5 text-white/50 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder={t("taskSearchPlaceholder", "Cari agenda operasional...")}
+            placeholder={t("taskSearchPlaceholder", isIndonesian ? "Cari agenda operasional..." : "Search operational agenda...")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-xs text-white placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
@@ -75,7 +77,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeAll", "Semua Kolom")}
+            {t("viewModeAll", isIndonesian ? "Semua Kolom" : "All Columns")}
           </button>
           <button
             type="button"
@@ -87,7 +89,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeActive", "Agenda Aktif")}
+            {t("viewModeActive", isIndonesian ? "Agenda Aktif" : "Active Agendas")}
           </button>
           <button
             type="button"
@@ -99,7 +101,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeHistory", "Riwayat Selesai")}
+            {t("viewModeHistory", isIndonesian ? "Riwayat Selesai" : "Completed History")}
           </button>
         </div>
 
@@ -108,7 +110,7 @@ export function TasksBoardHeader({
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
-          title={t("refreshTasks", "Muat ulang agenda")}
+          title={t("taskRefreshBoard", isIndonesian ? "Muat ulang agenda" : "Refresh board")}
           className="p-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] transition-colors cursor-pointer"
         >
           <RefreshCw className={cn("w-3.5 h-3.5 text-white/80", isLoading && "animate-spin")} />
@@ -118,11 +120,11 @@ export function TasksBoardHeader({
         <button
           type="button"
           onClick={onOpenHistory}
-          title={t("agendaHistory", "Riwayat & Arsip Agenda")}
+          title={t("agendaHistory", isIndonesian ? "Riwayat & Arsip Agenda" : "Agenda History & Archive")}
           className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <History className="w-3.5 h-3.5 text-white/80" />
-          <span className="hidden md:inline">{t("agendaHistory", "Riwayat Agenda")}</span>
+          <span className="hidden md:inline">{t("agendaHistory", isIndonesian ? "Riwayat Agenda" : "History")}</span>
         </button>
 
         {/* Add Agenda Button */}
@@ -132,7 +134,7 @@ export function TasksBoardHeader({
           className="px-3 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>{t("taskAddToday", "Tambah Agenda")}</span>
+          <span>{t("createNewTask", isIndonesian ? "Tambah Agenda" : "New Agenda")}</span>
         </button>
       </div>
     </div>

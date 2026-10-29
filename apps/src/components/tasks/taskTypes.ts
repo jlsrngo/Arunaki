@@ -28,32 +28,33 @@ export interface ColumnConfig {
   id: TaskItem["columnId"];
   titleId: "colToday" | "colTomorrow" | "colInProgress" | "colDone";
   defaultTitle: string;
+  titleEn: string;
 }
 
 export type TaskViewMode = "all" | "active" | "history";
 
 export const DEFAULT_COLUMNS: ColumnConfig[] = [
-  { id: "today", titleId: "colToday", defaultTitle: "Hari Ini" },
-  { id: "tomorrow", titleId: "colTomorrow", defaultTitle: "Besok" },
-  { id: "inprogress", titleId: "colInProgress", defaultTitle: "Sedang Dikerjakan" },
-  { id: "done", titleId: "colDone", defaultTitle: "Selesai" },
+  { id: "today", titleId: "colToday", defaultTitle: "Hari Ini", titleEn: "Today" },
+  { id: "tomorrow", titleId: "colTomorrow", defaultTitle: "Besok", titleEn: "Tomorrow" },
+  { id: "inprogress", titleId: "colInProgress", defaultTitle: "Sedang Dikerjakan", titleEn: "In Progress" },
+  { id: "done", titleId: "colDone", defaultTitle: "Selesai", titleEn: "Completed" },
 ];
 
 export const TIME_PRESETS = [
-  { time: "08:00", label: "08:00 WIB", badge: "Pagi" },
-  { time: "09:00", label: "09:00 WIB", badge: "Mulai Jam Kerja" },
-  { time: "10:00", label: "10:00 WIB", badge: "Pertengahan Pagi" },
-  { time: "11:30", label: "11:30 WIB", badge: "Menjelang Siang" },
-  { time: "13:00", label: "13:00 WIB", badge: "Siang" },
-  { time: "14:30", label: "14:30 WIB", badge: "Rekap Sore" },
-  { time: "16:00", label: "16:00 WIB", badge: "Review" },
-  { time: "17:00", label: "17:00 WIB", badge: "Akhir Jam Kerja" },
+  { time: "08:00", label: "08:00 WIB", badge: "Pagi", badgeEn: "Morning" },
+  { time: "09:00", label: "09:00 WIB", badge: "Mulai Jam Kerja", badgeEn: "Office Start" },
+  { time: "10:00", label: "10:00 WIB", badge: "Pertengahan Pagi", badgeEn: "Mid-Morning" },
+  { time: "11:30", label: "11:30 WIB", badge: "Menjelang Siang", badgeEn: "Before Noon" },
+  { time: "13:00", label: "13:00 WIB", badge: "Siang", badgeEn: "Afternoon" },
+  { time: "14:30", label: "14:30 WIB", badge: "Rekap Sore", badgeEn: "Recap" },
+  { time: "16:00", label: "16:00 WIB", badge: "Review", badgeEn: "Review" },
+  { time: "17:00", label: "17:00 WIB", badge: "Akhir Jam Kerja", badgeEn: "End of Day" },
 ];
 
 export const PRIORITY_CONFIGS = [
-  { id: "low" as const, title: "Normal", badge: "Rendah / Standar", dot: "bg-white/40" },
-  { id: "medium" as const, title: "Penting", badge: "Menengah", dot: "bg-white" },
-  { id: "high" as const, title: "Mendesak / Kritis", badge: "Tinggi", dot: "bg-[#cf6613]" },
+  { id: "low" as const, title: "Normal", titleEn: "Normal", badge: "Standar", badgeEn: "Standard", dot: "bg-white/40" },
+  { id: "medium" as const, title: "Prioritas Menengah", titleEn: "Medium Priority", badge: "Menengah", badgeEn: "Elevated", dot: "bg-white" },
+  { id: "high" as const, title: "Mendesak / Kritis", titleEn: "Urgent / Critical", badge: "Tinggi", badgeEn: "High Urgency", dot: "bg-[#cf6613]" },
 ];
 
 export function getTodayString(): string {
