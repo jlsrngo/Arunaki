@@ -79,7 +79,12 @@ target/
 core/**/target/
 crates/**/target/
 
-# Local documentation (kept on local machine, ignored from GitHub)
+# Local documentation & demo workspace (kept on local machine, ignored from GitHub)
 docs/
+demo/
+demo-workspace/
+ARTCRAFT_DOCUMENTS_INTEGRATION.txt
+WORKFLOW.md
+
 
 
