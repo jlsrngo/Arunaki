@@ -1,5 +1,6 @@
 //! Session module — Axum router & public handlers.
 pub mod compaction;
+pub mod canvas_extractor;
 pub mod memory;
 pub mod message;
 pub mod prompt;
@@ -68,6 +69,8 @@ pub fn router() -> Router {
         .route("/session/:id/todo", get(handle_empty_list))
         .route("/api/session/:id/diff", get(handle_empty_list))
         .route("/session/:id/diff", get(handle_empty_list))
+        .route("/api/session/:id/canvases", get(handle_session_canvases))
+        .route("/session/:id/canvases", get(handle_session_canvases))
         .route(
             "/api/session/:id/summarize",
             post(summary::handle_summarize),
@@ -348,6 +351,24 @@ async fn handle_messages(
         "data": slice,
         "total": total,
         "cursor": { "next": next_cursor }
+    }))
+    .into_response()
+}
+
+async fn handle_session_canvases(AxumPath(id): AxumPath<String>) -> Response {
+    let (latest, recent) = with_store(|store| {
+        let msgs = store.messages.get(&id);
+        if let Some(m) = msgs {
+            canvas_extractor::extract_session_canvases(m)
+        } else {
+            (None, Vec::new())
+        }
+    });
+
+    Json(json!({
+        "ok": true,
+        "latestCanvasText": latest,
+        "recentCanvases": recent
     }))
     .into_response()
 }

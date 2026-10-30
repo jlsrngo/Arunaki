@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Message, MessagePart, QuestionData } from "./types";
 import { mapEngineMessages } from "./mapper";
 import { LiveStatusData, StepItem, formatToolStepLabel } from "../LiveExecutionBadge";
-import { extractCanvasContent, extractCanvasTitle } from "../canvas/canvas";
+import { extractCanvasContent } from "../canvas/canvas";
 import { CanvasItem } from "../canvas/types";
 import { isDocumentPath } from "../tabs/utils";
 import {
@@ -15,6 +15,7 @@ import {
   mapEngineEvent,
   getMessages,
   getSession,
+  getSessionCanvases,
   switchSessionModel,
   replySessionQuestion,
   isSessionActive,
@@ -266,52 +267,36 @@ export function useWorkstationChat({
     };
   }, [isStreaming, activeChatId, queryClient, clearWatchdog]);
 
-  // 5. Restore Canvas from history on session load so center panel is populated with recent data
+  // 5. Restore Canvas from history on session load via Rust engine::session::canvas_extractor
   const hasRestoredCanvasRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeChatId || isStreaming || chatMessages.length === 0) return;
     if (hasRestoredCanvasRef.current === activeChatId) return;
     hasRestoredCanvasRef.current = activeChatId;
 
-    const sessionCanvases: CanvasItem[] = [];
-    let latestCanvasText = "";
-
-    for (let i = chatMessages.length - 1; i >= 0; i--) {
-      const msg = chatMessages[i];
-      if (msg.role === "assistant" && msg.content) {
-        const canvasContent = extractCanvasContent(msg.content);
-        if (canvasContent) {
-          if (!latestCanvasText) {
-            latestCanvasText = canvasContent;
-          }
-          if (!sessionCanvases.some((c) => c.content.trim() === canvasContent.trim())) {
-            const title = extractCanvasTitle(canvasContent);
-            const createdAt = msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now();
-            const timeStr = new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            sessionCanvases.push({
-              id: `canvas-${createdAt}-${sessionCanvases.length}`,
-              title,
-              content: canvasContent,
-              createdAt: msg.createdAt || new Date(createdAt).toISOString(),
-              timeStr,
-            });
-          }
-        }
+    let cancelled = false;
+    getSessionCanvases(activeChatId).then(({ latestCanvasText, recentCanvases }) => {
+      if (cancelled) return;
+      if (recentCanvases.length > 0 && setRecentCanvases) {
+        const top5 = recentCanvases.slice(0, 5).map((c) => ({
+          ...c,
+          timeStr: c.timeStr || new Date(c.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }));
+        setRecentCanvases(top5);
+        try {
+          localStorage.setItem(`arunaki_recent_canvases_${activeChatId}`, JSON.stringify(top5));
+        } catch {}
       }
-    }
 
-    if (sessionCanvases.length > 0 && setRecentCanvases) {
-      const top5 = sessionCanvases.slice(0, 5);
-      setRecentCanvases(top5);
-      try {
-        localStorage.setItem(`arunaki_recent_canvases_${activeChatId}`, JSON.stringify(top5));
-      } catch {}
-    }
+      if (latestCanvasText) {
+        upsertCanvasTab(latestCanvasText, false);
+      }
+    });
 
-    if (latestCanvasText) {
-      upsertCanvasTab(latestCanvasText, false);
-    }
-  }, [activeChatId, chatMessages, isStreaming, upsertCanvasTab, setRecentCanvases]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChatId, chatMessages.length, isStreaming, upsertCanvasTab, setRecentCanvases]);
 
   useExternalChatEvents({
     activeChatId,

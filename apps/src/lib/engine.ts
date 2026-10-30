@@ -115,6 +115,23 @@ export async function getSession(sessionID: string) {
   return json.data;
 }
 
+export async function getSessionCanvases(sessionID: string): Promise<{
+  latestCanvasText?: string;
+  recentCanvases: Array<{ id: string; title: string; content: string; createdAt: string; timeStr?: string }>;
+}> {
+  try {
+    const res = await engineFetch(`/api/session/${sessionID}/canvases`);
+    if (res.ok) {
+      const json = await res.json();
+      return {
+        latestCanvasText: json.latestCanvasText || undefined,
+        recentCanvases: Array.isArray(json.recentCanvases) ? json.recentCanvases : [],
+      };
+    }
+  } catch {}
+  return { recentCanvases: [] };
+}
+
 export async function deleteSession(sessionID: string): Promise<boolean> {
   let res = await engineFetch(`/session/${sessionID}`, { method: "DELETE" });
   if (!res.ok) {
