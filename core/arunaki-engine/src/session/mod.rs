@@ -1,10 +1,11 @@
-//! Session module â€” Axum router & public handlers.
+//! Session module — Axum router & public handlers.
 pub mod compaction;
 pub mod memory;
 pub mod message;
 pub mod prompt;
 #[allow(clippy::module_inception)]
 pub mod session;
+pub mod stats;
 pub mod summary;
 pub mod tools;
 pub mod watcher;
@@ -33,6 +34,8 @@ pub fn router() -> Router {
     Router::new()
         .route("/api/session", get(handle_list).post(handle_create))
         .route("/session", get(handle_list).post(handle_create))
+        .route("/api/session/cleanup-empty", post(stats::handle_cleanup_empty))
+        .route("/session/cleanup-empty", post(stats::handle_cleanup_empty))
         .route("/api/session/active", get(handle_active))
         .route("/session/status", get(handle_active))
         .route(
@@ -47,8 +50,7 @@ pub fn router() -> Router {
         .route("/session/:id/abort", post(handle_abort))
         .route("/api/session/:id/interrupt", post(handle_abort))
         .route("/session/:id/interrupt", post(handle_abort))
-
-.route(
+        .route(
             "/api/session/:id/message",
             get(handle_messages).post(handle_prompt_route),
         )
@@ -151,26 +153,8 @@ async fn handle_list(
             .map(|s| {
                 let mut obj = s.clone();
                 let sid = obj.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                let msgs = store.messages.get(sid);
-                let msg_count = msgs.map(|m| m.len()).unwrap_or(0);
-                let preview = msgs
-                    .and_then(|m| m.last())
-                    .and_then(|last| {
-                        last.get("text")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string())
-                            .or_else(|| {
-                                last.get("content")
-                                    .and_then(|v| v.as_array())
-                                    .and_then(|arr| {
-                                        arr.iter().find_map(|p| {
-                                            p.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
-                                        })
-                                    })
-                            })
-                    })
-                    .unwrap_or_default();
-                let short_preview: String = preview.chars().take(95).collect();
+                let (msg_count, short_preview) =
+                    stats::compute_session_stats(store.messages.get(sid));
                 obj["messageCount"] = json!(msg_count);
                 obj["lastMessagePreview"] = Value::String(short_preview);
                 obj

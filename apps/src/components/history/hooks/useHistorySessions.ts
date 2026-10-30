@@ -20,148 +20,36 @@ export function useHistorySessions() {
   const [cleanupConfirmModal, setCleanupConfirmModal] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
 
-  // 1. Fetch sessions and background stats
+  // 1. Fetch sessions with inline Rust-computed messageCount & lastMessagePreview
   useEffect(() => {
     let isMounted = true;
 
     async function fetchSessions() {
       try {
         setLoading(true);
-        const raw = await listSessions({ limit: 100 });
+        const raw = await listSessions({ limit: 150 });
         if (!isMounted) return;
 
-        const initial: ChatSession[] = (raw || []).map((s: any) => {
-          const hasInlineStats = typeof s.messageCount === "number";
-          return {
-            id: s.id,
-            title: s.title || "",
-            createdAt: s.time?.created ? new Date(s.time.created).toISOString() : "",
-            updatedAt: s.time?.updated
-              ? new Date(s.time.updated).toISOString()
-              : s.time?.created
-              ? new Date(s.time.created).toISOString()
-              : "",
-            directory: s.directory || s.location?.directory || "",
-            messageCount: hasInlineStats ? s.messageCount : undefined,
-            lastMessagePreview:
-              typeof s.lastMessagePreview === "string" ? s.lastMessagePreview : undefined,
-            isLoadingStats: !hasInlineStats,
-          };
-        });
+        const mapped: ChatSession[] = (raw || []).map((s: any) => ({
+          id: s.id,
+          title: s.title || "",
+          createdAt: s.time?.created ? new Date(s.time.created).toISOString() : "",
+          updatedAt: s.time?.updated
+            ? new Date(s.time.updated).toISOString()
+            : s.time?.created
+            ? new Date(s.time.created).toISOString()
+            : "",
+          directory: s.directory || s.location?.directory || "",
+          messageCount: typeof s.messageCount === "number" ? s.messageCount : 0,
+          lastMessagePreview:
+            typeof s.lastMessagePreview === "string" ? s.lastMessagePreview : "",
+          isLoadingStats: false,
+        }));
 
-        setSessions(initial);
-        setLoading(false);
-
-        const needStats = initial.filter((s) => s.isLoadingStats);
-        if (needStats.length === 0) return;
-
-        // Fetch stats (message count & preview) in concurrent chunks of 10 only when not provided inline
-        const chunkSize = 10;
-        for (let i = 0; i < needStats.length; i += chunkSize) {
-          if (!isMounted) break;
-          const chunk = needStats.slice(i, i + chunkSize);
-
-          const updates = await Promise.all(
-            chunk.map(async (sess) => {
-              try {
-                const rawMsgs: any[] = [];
-                let nextCursor: string | undefined = undefined;
-
-                do {
-                  const params = new URLSearchParams();
-                  if (nextCursor) {
-                    params.set("cursor", nextCursor);
-                    params.set("limit", "200");
-                  } else {
-                    params.set("order", "desc");
-                    params.set("limit", "200");
-                  }
-                  const res = await engineFetch(
-                    `/api/session/${sess.id}/message?${params}`
-                  );
-                  if (!res.ok) break;
-                  const json = await res.json();
-                  const pageData = json.data || [];
-                  rawMsgs.push(...pageData);
-                  nextCursor = pageData.length >= 200 ? json.cursor?.next : undefined;
-                } while (nextCursor && rawMsgs.length < 2000);
-
-                if (rawMsgs.length > 0) {
-                  // Count real conversational messages (user & assistant turns)
-                  const chatMsgs = rawMsgs.filter(
-                    (m: any) =>
-                      m &&
-                      m.type !== "system" &&
-                      m.type !== "compaction" &&
-                      m.type !== "model-switched" &&
-                      m.type !== "plan" &&
-                      m.agent !== "compaction" &&
-                      m.summary !== true &&
-                      m.info?.summary !== true
-                  );
-                  const count =
-                    chatMsgs.length > 0 ? chatMsgs.length : rawMsgs.length;
-
-                  // Extract latest message snippet from newest message
-                  let preview = "";
-                  const candidateMsgs =
-                    chatMsgs.length > 0 ? chatMsgs : rawMsgs;
-                  for (const m of candidateMsgs) {
-                    if (typeof m.content === "string" && m.content.trim()) {
-                      preview = m.content;
-                      break;
-                    }
-                    if (typeof m.text === "string" && m.text.trim()) {
-                      preview = m.text;
-                      break;
-                    }
-                    if (Array.isArray(m.content)) {
-                      const textPart = m.content.find(
-                        (p: any) =>
-                          p &&
-                          (p.type === "text" || !p.type) &&
-                          typeof p.text === "string" &&
-                          p.text.trim()
-                      );
-                      if (textPart) {
-                        preview = textPart.text;
-                        break;
-                      }
-                    }
-                  }
-
-                  return {
-                    id: sess.id,
-                    messageCount: count,
-                    lastMessagePreview: preview
-                      ? preview.trim().replace(/\s+/g, " ").slice(0, 95)
-                      : "",
-                  };
-                }
-              } catch {}
-              return { id: sess.id, messageCount: 0, lastMessagePreview: "" };
-            })
-          );
-
-          if (!isMounted) break;
-
-          setSessions((prev) =>
-            prev.map((s) => {
-              const match = updates.find((u) => u.id === s.id);
-              if (match) {
-                return {
-                  ...s,
-                  messageCount: match.messageCount,
-                  lastMessagePreview: match.lastMessagePreview,
-                  isLoadingStats: false,
-                };
-              }
-              return s;
-            })
-          );
-        }
+        setSessions(mapped);
       } catch (err) {
         console.error("Failed to fetch chat history:", err);
+      } finally {
         if (isMounted) setLoading(false);
       }
     }
@@ -231,13 +119,28 @@ export function useHistorySessions() {
     }
   }, []);
 
-  // 4. Batch cleanup for all empty sessions
+  // 4. Atomic batch cleanup for all empty sessions via Rust engine::session::stats
   const handleCleanupEmptySessions = useCallback(async () => {
     const emptySessions = sessions.filter((s) => s.messageCount === 0);
     if (emptySessions.length === 0) return;
 
     setIsCleaning(true);
     try {
+      const res = await engineFetch("/api/session/cleanup-empty", {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const deletedCount =
+          typeof data?.deletedCount === "number"
+            ? data.deletedCount
+            : emptySessions.length;
+        setSessions((prev) => prev.filter((s) => s.messageCount !== 0));
+        toast.success(`Cleaned up ${deletedCount} empty sessions`);
+        return;
+      }
+
+      // Fallback if endpoint is unavailable
       const results = await Promise.allSettled(
         emptySessions.map((s) => deleteSession(s.id))
       );
