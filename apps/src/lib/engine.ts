@@ -680,6 +680,23 @@ export function mapEngineEvent(
   }
 }
 
+// --- Spreadsheet & Table Formula Engine ---
+
+export async function parseTableAndStats(content: string) {
+  try {
+    const res = await engineFetch("/api/files/table/parse-and-stats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json;
+  } catch {
+    return null;
+  }
+}
+
 // --- Provider (maps to old "providers") ---
 
 export async function listProviders() {

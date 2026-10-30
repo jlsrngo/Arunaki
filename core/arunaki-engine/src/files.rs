@@ -1,3 +1,4 @@
+pub mod formula_eval;
 use crate::paths::{contains_path, normalize_workspace_path};
 use axum::{
     extract::Query,
@@ -35,6 +36,10 @@ pub fn router() -> Router {
         .route("/api/find/file", get(handle_find_file))
         .route("/find/symbol", get(handle_status))
         .route("/api/find/symbol", get(handle_status))
+        .route("/api/files/spreadsheet/calculate", post(formula_eval::handle_calculate_range))
+        .route("/files/spreadsheet/calculate", post(formula_eval::handle_calculate_range))
+        .route("/api/files/table/parse-and-stats", post(formula_eval::handle_parse_and_stats))
+        .route("/files/table/parse-and-stats", post(formula_eval::handle_parse_and_stats))
 }
 
 fn resolve_base_dir(q: &HashMap<String, String>, headers: &HeaderMap) -> PathBuf {
