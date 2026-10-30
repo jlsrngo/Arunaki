@@ -1,4 +1,4 @@
-﻿//! Message/event emitter & pending question delegation.
+//! Message/event emitter & pending question delegation.
 use crate::paths::{gen_id, now_ms};
 use serde_json::{json, Value};
 use std::sync::OnceLock;
@@ -41,6 +41,14 @@ pub fn emit_event(directory: &str, event_type: &str, properties: Value) {
         if let Some(map) = payload.as_object_mut() {
             for (k, v) in obj {
                 map.insert(k.clone(), v.clone());
+            }
+        }
+    }
+    if let Some(normalized) = super::event_normalizer::normalize_engine_event(&payload, "") {
+        if let Some(map) = payload.as_object_mut() {
+            map.insert("_ui".to_string(), normalized.clone());
+            if let Some(inner) = map.get_mut("payload").and_then(|v| v.as_object_mut()) {
+                inner.insert("_ui".to_string(), normalized);
             }
         }
     }

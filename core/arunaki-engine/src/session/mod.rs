@@ -1,6 +1,7 @@
 //! Session module — Axum router & public handlers.
 pub mod compaction;
 pub mod canvas_extractor;
+pub mod event_normalizer;
 pub mod memory;
 pub mod message;
 pub mod prompt;
@@ -71,6 +72,14 @@ pub fn router() -> Router {
         .route("/session/:id/diff", get(handle_empty_list))
         .route("/api/session/:id/canvases", get(handle_session_canvases))
         .route("/session/:id/canvases", get(handle_session_canvases))
+        .route(
+            "/api/session/:id/normalize-event",
+            post(event_normalizer::handle_normalize_session_event),
+        )
+        .route(
+            "/session/:id/normalize-event",
+            post(event_normalizer::handle_normalize_session_event),
+        )
         .route(
             "/api/session/:id/summarize",
             post(summary::handle_summarize),

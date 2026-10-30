@@ -481,6 +481,15 @@ export function mapEngineEvent(
   currentSessionID: string,
 ): { type: string; data?: any } | null {
   const innerPayload = (event as any)?.payload;
+
+  // Fast-path: pre-normalized by Rust event_normalizer engine
+  const preNormalized = (event as any)?._ui || innerPayload?._ui;
+  if (preNormalized) {
+    const sid = event.sessionID || innerPayload?.sessionID || preNormalized.data?.sessionID;
+    if (sid && currentSessionID && sid !== currentSessionID) return null;
+    return preNormalized;
+  }
+
   const rawType = event.type || innerPayload?.type || "";
   const payload = innerPayload?.properties || innerPayload?.data || event.data || event.properties || innerPayload || event;
   const sessionID = payload?.sessionID || event.sessionID || innerPayload?.sessionID || (event as any)?.sessionID;
