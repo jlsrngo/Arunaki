@@ -5,7 +5,7 @@
 //! via the official Telegram Bot API (`sendMessage`), while recording an immutable
 //! local audit log in `.arunaki/telegram_dispatches.json`.
 
-use crate::messaging::read_config;
+use crate::messaging::{read_config, write_config};
 use crate::paths::now_ms;
 use crate::session::emit_event;
 use serde::{Deserialize, Serialize};
@@ -107,18 +107,33 @@ fn resolve_telegram_credentials(args: &Value) -> (String, String) {
         .get("chat_id")
         .and_then(|v| v.as_str())
         .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            // First priority: activeChatId (numeric ID discovered when user chatted with bot)
+            cfg.pointer("/telegram/activeChatId")
+                .and_then(|v| {
+                    if let Some(n) = v.as_i64() {
+                        Some(n.to_string())
+                    } else {
+                        v.as_str().map(|s| s.to_string())
+                    }
+                })
+                .filter(|s| !s.trim().is_empty())
+        })
         .or_else(|| {
             cfg.pointer("/telegram/allowedUserId")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.trim().is_empty())
+                .map(|s| s.to_string())
         })
         .or_else(|| {
             cfg.pointer("/telegram/allowedChatIds")
                 .and_then(|v| v.as_array())
                 .and_then(|arr| arr.first())
                 .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
         })
-        .unwrap_or("")
+        .unwrap_or_default()
         .trim()
         .to_string();
 
@@ -147,20 +162,61 @@ fn append_dispatch_log(workspace_dir: &str, record: &TelegramDispatchRecord) {
 }
 
 async fn send_via_telegram_api(bot_token: &str, chat_id: &str, text: &str) -> Result<(), String> {
-    if bot_token.is_empty() || chat_id.is_empty() {
-        return Err("Telegram Bot Token or Chat ID is not configured in Settings > Messaging Apps".to_string());
+    if bot_token.is_empty() {
+        return Err("Telegram Bot Token is not configured in Settings > Messaging Apps".to_string());
     }
 
-    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(12))
         .build()
         .map_err(|e| e.to_string())?;
 
+    let mut target_id = chat_id.trim().to_string();
+
+    // If target_id is username-based (e.g. "@nestapa99"), Telegram sendMessage API will reject it with 400 Bad Request.
+    // Try to auto-resolve numeric chat_id from Telegram getUpdates!
+    if target_id.starts_with('@') || (!target_id.is_empty() && !target_id.chars().all(|c| c.is_ascii_digit() || c == '-')) {
+        let clean_guard = target_id.trim_start_matches('@').to_lowercase();
+        let get_updates_url = format!("https://api.telegram.org/bot{}/getUpdates?limit=50", bot_token);
+        if let Ok(resp) = client.get(&get_updates_url).send().await {
+            if let Ok(data) = resp.json::<Value>().await {
+                if let Some(updates) = data.get("result").and_then(|v| v.as_array()) {
+                    for upd in updates.iter().rev() {
+                        if let Some(msg) = upd.get("message") {
+                            let sender_uname = msg.pointer("/from/username").and_then(|v| v.as_str()).unwrap_or("");
+                            if sender_uname.to_lowercase() == clean_guard {
+                                if let Some(cid) = msg.pointer("/chat/id").and_then(|v| v.as_i64()) {
+                                    target_id = cid.to_string();
+                                    // Cache discovered numeric ID into messaging.json so future dispatches are instantaneous
+                                    let mut cfg = read_config();
+                                    cfg["telegram"]["activeChatId"] = json!(target_id.clone());
+                                    write_config(&cfg);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if target_id.is_empty() {
+        return Err("Telegram Chat ID belum terkonfigurasi. Buka bot di Telegram dan klik Start agar akun Anda terhubung.".to_string());
+    }
+
+    if target_id.starts_with('@') {
+        return Err(format!(
+            "Akun Telegram {} belum menekan Start pada bot. Silakan buka bot di Telegram, tekan tombol 'Start' (/start), lalu coba kirim kembali.",
+            target_id
+        ));
+    }
+
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
     let resp = client
         .post(&url)
         .json(&json!({
-            "chat_id": chat_id,
+            "chat_id": target_id,
             "text": text,
         }))
         .send()

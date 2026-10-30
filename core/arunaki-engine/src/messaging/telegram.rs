@@ -205,6 +205,11 @@ pub async fn handle_telegram_message(client: &reqwest::Client, token: &str, msg:
         if !matches {
             return;
         }
+
+        // Cache the verified sender's numeric chat ID for outgoing alerts & reminders
+        let mut cfg_mut = cfg.clone();
+        cfg_mut["telegram"]["activeChatId"] = json!(chat_id.to_string());
+        super::write_config(&cfg_mut);
     }
 
     let target_dir = cfg
