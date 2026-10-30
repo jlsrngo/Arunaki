@@ -6,6 +6,9 @@
 //! `directory` query / `x-arunaki-directory` header; with no folder open the sandbox
 //! folder `~/.arunaki/scratch` is used (same as the TS engine) instead of failing 400.
 
+#[path = "knowledge_locations.rs"]
+pub mod locations;
+
 use crate::files::urlencoding_decode;
 use crate::paths::{arunaki_dot_dir, normalize_workspace_path, now_iso};
 use axum::{
@@ -23,6 +26,14 @@ pub fn router() -> Router {
     Router::new()
         .route("/api/knowledge", get(handle_list).post(handle_create))
         .route("/knowledge", get(handle_list).post(handle_create))
+        .route(
+            "/api/knowledge/locations",
+            get(locations::handle_search_locations),
+        )
+        .route(
+            "/knowledge/locations",
+            get(locations::handle_search_locations),
+        )
         .route("/api/knowledge/upload", post(handle_upload))
         .route("/knowledge/upload", post(handle_upload))
         .route("/api/knowledge/sync", post(handle_sync))
@@ -299,7 +310,7 @@ async fn handle_toggle(
     AxumPath(id): AxumPath<String>,
     Query(q): Query<HashMap<String, String>>,
     headers: HeaderMap,
-) -> Response {
+    ) -> Response {
     let dir = resolve_dir(&q, &headers);
     let mut store = load(&dir);
     let Some(node) = store.nodes.iter_mut().find(|n| id_of(n) == id) else {

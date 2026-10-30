@@ -1,11 +1,13 @@
 /**
- * Lightweight hybrid location catalog & autocomplete (replaces the 8.7 MB `country-state-city` package).
+ * Lightweight hybrid location catalog & autocomplete powered by Rust `engine::knowledge::locations`.
  *
  * 1. Instant zero-latency local catalog covering all 38 Indonesian provinces, major Indonesian
- *    cities/regencies, and major global business hubs (~4 KB vs 8,716 KB).
- * 2. On-demand fallback to Open-Meteo Geocoding API (free, no API key required) when the user
- *    types a location with fewer than 5 local matches.
+ *    cities/regencies, and major global business hubs.
+ * 2. Native Rust hybrid lookup (`GET /api/knowledge/locations?q=...&limit=...`) that ranks
+ *    prefix matches first and queries Open-Meteo Geocoding API in Rust when needed.
  */
+
+import { apiFetch } from "../../lib/api";
 
 export const LOCAL_LOCATIONS: readonly string[] = [
   // 38 Provinsi di Indonesia
@@ -85,8 +87,6 @@ export const LOCAL_LOCATIONS: readonly string[] = [
   "Palu",
   "Kendari",
   "Banda Aceh",
-  "Jambi",
-  "Bengkulu",
   "Pangkalpinang",
   "Tanjungpinang",
   "Serang",
@@ -216,8 +216,8 @@ export function filterLocalLocations(query: string, limit = 7): string[] {
 }
 
 /**
- * Hybrid search: returns local matches immediately, and if fewer than `limit` matches are found,
- * queries Open-Meteo Geocoding API (free, keyless) for worldwide cities/provinces.
+ * Queries the native Rust `engine::knowledge::locations` endpoint (`GET /api/knowledge/locations`)
+ * which performs prefix + substring ranking and Open-Meteo Geocoding fallback in Rust.
  */
 export async function searchRemoteLocations(
   query: string,
@@ -227,43 +227,20 @@ export async function searchRemoteLocations(
   const clean = query.trim();
   if (clean.length < 2) return [];
 
-  const local = filterLocalLocations(clean, limit);
-  if (local.length >= limit) return local;
-
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return local;
-  }
-
   try {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-      clean
-    )}&count=${limit}&language=id&format=json`;
-    const res = await fetch(url, { signal });
-    if (!res.ok) return local;
-
-    const data = await res.json();
-    const results: Array<{ name?: string; admin1?: string; country?: string }> =
-      data?.results || [];
-
-    const merged = [...local];
-    const seen = new Set(local.map((item) => item.toLowerCase()));
-
-    for (const item of results) {
-      if (!item?.name) continue;
-      const label =
-        item.admin1 && item.admin1.toLowerCase() !== item.name.toLowerCase()
-          ? `${item.name}, ${item.admin1}`
-          : item.name;
-      const key = label.toLowerCase();
-      if (!seen.has(key) && !seen.has(item.name.toLowerCase())) {
-        seen.add(key);
-        merged.push(label);
-        if (merged.length >= limit) break;
+    const res = await apiFetch(
+      `/api/knowledge/locations?q=${encodeURIComponent(clean)}&limit=${limit}`,
+      { signal }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json?.data) && json.data.length > 0) {
+        return json.data;
       }
     }
-
-    return merged;
   } catch {
-    return local;
+    // Fallback to local filter when offline or aborted
   }
+
+  return filterLocalLocations(clean, limit);
 }
