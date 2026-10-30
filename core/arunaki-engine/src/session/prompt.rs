@@ -16,14 +16,35 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub fn default_model_ref() -> Value {
+    // 1. Prioritize model from the most recently updated active session
+    let recent_model = with_store(|store| {
+        let mut list: Vec<&Value> = store.sessions.values().collect();
+        list.sort_by_key(|s| s.pointer("/time/updated").and_then(|v| v.as_u64()).unwrap_or(0));
+        list.last().and_then(|s| s.get("model")).cloned()
+    });
+
+    if let Some(m) = recent_model {
+        if let (Some(pid), Some(mid)) = (
+            m.get("providerID").and_then(|v| v.as_str()),
+            m.get("id").and_then(|v| v.as_str()),
+        ) {
+            if !pid.is_empty() && !mid.is_empty() {
+                return json!({
+                    "providerID": pid,
+                    "id": mid
+                });
+            }
+        }
+    }
+
     let cfg = read_arunaki_config();
     let model_str = cfg
-        .pointer("/provider/local-cli/options/defaultModel")
+        .pointer("/provider/antigravity/options/defaultModel")
         .or_else(|| cfg.get("defaultModel"))
         .and_then(|v| v.as_str())
-        .unwrap_or("kiro/auto");
+        .unwrap_or("gemini-3.8-flash-low");
     json!({
-        "providerID": "local-cli",
+        "providerID": "antigravity",
         "id": model_str
     })
 }
@@ -913,12 +934,12 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
     let provider_id = model_ref
         .get("providerID")
         .and_then(|v| v.as_str())
-        .unwrap_or("local-cli")
+        .unwrap_or("antigravity")
         .to_string();
     let model_id = model_ref
         .get("id")
         .and_then(|v| v.as_str())
-        .unwrap_or("kiro/auto")
+        .unwrap_or("gemini-3.8-flash-low")
         .to_string();
 
     run_agent_turn(&session_id, &dir, &provider_id, &model_id, &[], prompt_text, None).await;
