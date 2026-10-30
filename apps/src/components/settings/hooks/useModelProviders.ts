@@ -29,6 +29,9 @@ const CLI_PROVIDER_IDS = [
 ];
 
 export const isCliProvider = (p: Provider): boolean => {
+  if (typeof p.isCli === "boolean") return p.isCli;
+  if (p.category === "cli") return true;
+  if (p.category === "cloud") return false;
   if (CLI_PROVIDER_IDS.includes(p.id)) return true;
   if (p.id.endsWith("-cli") || p.id.includes("local-cli")) return true;
   if (

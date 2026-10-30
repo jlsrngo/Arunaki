@@ -219,6 +219,8 @@ pub fn build_ui_providers_list() -> Vec<Value> {
                 .and_then(|v| v.as_u64())
                 .unwrap_or((idx + 1) as u64);
 
+            let is_cli = super::cloud_manager::is_cli_provider(pid, base_url, pname, api_key);
+
             out.push(json!({
                 "id": pid,
                 "name": pname,
@@ -229,7 +231,9 @@ pub fn build_ui_providers_list() -> Vec<Value> {
                 "headerPrefix": pval.get("headerPrefix").and_then(|v| v.as_str()),
                 "headerTitle": pval.get("headerTitle").and_then(|v| v.as_str()),
                 "active": active,
-                "priority": priority
+                "priority": priority,
+                "isCli": is_cli,
+                "category": if is_cli { "cli" } else { "cloud" }
             }));
         }
     }

@@ -66,7 +66,11 @@ export function SettingsPage() {
         if (rawProviders.length > 0) {
           const savedActiveId = localStorage.getItem("arunaki_active_provider");
           const activeRawP = rawProviders.find((p: any) => p.id === savedActiveId);
-          const isCliActive = savedActiveId ? isCliProvider({ id: savedActiveId, baseUrl: activeRawP?.baseUrl || "", name: activeRawP?.name || "", apiKey: activeRawP?.apiKey || "", type: activeRawP?.type || "", model: "", active: true, priority: 0 }) : false;
+          const isCliActive = savedActiveId
+            ? (typeof activeRawP?.isCli === "boolean"
+                ? activeRawP.isCli
+                : isCliProvider({ id: savedActiveId, baseUrl: activeRawP?.baseUrl || "", name: activeRawP?.name || "", apiKey: activeRawP?.apiKey || "", type: activeRawP?.type || "", model: "", active: true, priority: 0 }))
+            : false;
 
           const activeId = isCliActive
             ? null
@@ -101,6 +105,8 @@ export function SettingsPage() {
               model: modelNames,
               active: isActive,
               priority: p.priority ?? idx + 1,
+              isCli: p.isCli,
+              category: p.category,
             };
           });
 

@@ -9,6 +9,8 @@ export interface Provider {
   headerTitle?: string;
   active: boolean;
   priority: number;
+  isCli?: boolean;
+  category?: "cli" | "cloud";
   lastUsedAt?: string;
   lastErrorAt?: string;
   lastError?: string;

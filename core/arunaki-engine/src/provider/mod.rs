@@ -1,5 +1,6 @@
 pub mod catalog;
 pub mod cli_diagnostics;
+pub mod cloud_manager;
 pub mod config;
 pub mod local_cli;
 pub mod oauth;
@@ -43,6 +44,23 @@ pub fn router() -> Router {
         .route(
             "/providers/fetch-models",
             post(catalog::handle_providers_fetch_models),
+        )
+        // Cloud Provider management & Model Pool routes
+        .route(
+            "/api/providers/cloud/classify",
+            post(cloud_manager::handle_classify_provider),
+        )
+        .route(
+            "/providers/cloud/classify",
+            post(cloud_manager::handle_classify_provider),
+        )
+        .route(
+            "/api/providers/cloud/pool",
+            post(cloud_manager::handle_combine_model_pool),
+        )
+        .route(
+            "/providers/cloud/pool",
+            post(cloud_manager::handle_combine_model_pool),
         )
         // Local-CLI endpoints
         .route(
