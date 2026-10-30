@@ -187,7 +187,7 @@ export async function summarizeSession(
   return res.ok;
 }
 
-export async function getMessages(sessionID: string, opts?: { limit?: number; order?: "asc" | "desc" }) {
+export async function getMessages(sessionID: string, opts?: { limit?: number; order?: "asc" | "desc"; format?: "ui" | "raw" }) {
   const allMessages: any[] = [];
   let nextCursor: string | undefined = undefined;
   const requestedLimit = opts?.limit;
@@ -201,6 +201,9 @@ export async function getMessages(sessionID: string, opts?: { limit?: number; or
     } else {
       params.set("order", opts?.order ?? "asc");
       params.set("limit", String(pageLimit));
+    }
+    if (opts?.format !== "raw") {
+      params.set("format", "ui");
     }
     const res = await engineFetch(`/api/session/${sessionID}/message?${params}`);
     if (!res.ok) throw new Error(`getMessages failed: ${res.status}`);

@@ -8,6 +8,7 @@ pub mod session;
 pub mod stats;
 pub mod summary;
 pub mod tools;
+pub mod ui_mapper;
 pub mod watcher;
 
 #[allow(unused_imports)]
@@ -322,7 +323,16 @@ async fn handle_messages(
         .unwrap_or(200)
         .clamp(1, 500);
 
-    let slice: Vec<Value> = if offset < msgs.len() {
+    let format = q.get("format").map(|s| s.as_str()).unwrap_or("");
+    let slice: Vec<Value> = if format == "ui" {
+        let mapped = ui_mapper::map_messages_for_ui(&msgs);
+        if offset < mapped.len() {
+            let end = (offset + limit).min(mapped.len());
+            mapped[offset..end].to_vec()
+        } else {
+            Vec::new()
+        }
+    } else if offset < msgs.len() {
         let end = (offset + limit).min(msgs.len());
         msgs[offset..end].to_vec()
     } else {

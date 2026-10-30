@@ -54,6 +54,9 @@ function cleanReasoningTags(text: string): { cleanText: string; extractedThought
 
 export function mapEngineMessages(raw: any[]): Message[] {
   if (!Array.isArray(raw)) return [];
+  if (raw.length > 0 && raw.every((m) => m?.isRustMapped)) {
+    return raw as Message[];
+  }
 
   const sortedRaw = [...raw]
     .filter((m) => {
