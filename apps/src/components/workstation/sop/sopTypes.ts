@@ -85,6 +85,13 @@ export type ReconcileAuditMode = "cash_and_bank" | "procurement_three_way";
 
 export const IDR_NUMBER_FORMATTER = new Intl.NumberFormat("id-ID");
 
+const PATH_SPLIT_REGEX = /[\\/]/;
+
+export function getWorkspaceFolderBasename(activeFolder?: string | null): string {
+  if (!activeFolder) return "WORKSPACE";
+  return activeFolder.split(PATH_SPLIT_REGEX).filter(Boolean).pop() || "WORKSPACE";
+}
+
 export const DEFAULT_PLAYBOOK_STEPS: EditablePlaybookStep[] = [
   {
     title: "Read & Parse Source Document",
