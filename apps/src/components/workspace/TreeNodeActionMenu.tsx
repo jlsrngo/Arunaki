@@ -60,7 +60,7 @@ export function TreeNodeActionMenu({
           "p-1 hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] rounded text-[var(--text-muted)] cursor-pointer transition-colors",
           menuOpen
             ? "opacity-100 text-[var(--text-primary)] bg-[var(--bg-hover)]"
-            : "opacity-0 group-hover:opacity-100"
+            : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
         )}
       >
         <MoreVertical className="w-3.5 h-3.5" strokeWidth={1.5} />

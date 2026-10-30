@@ -59,6 +59,7 @@ export const ViewMenu = memo(function ViewMenu({
         >
           <MenuItem
             icon={PanelLeft}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("explorerPanel", "Explorer Panel")}
             shortcut={getEffectiveShortcut("toggle-explorer") || "Ctrl+B"}
             checked={explorerOpen}
@@ -70,6 +71,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <MenuItem
             icon={PanelRight}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("chatPanel", "Chat Panel")}
             shortcut={getEffectiveShortcut("toggle-chat") || "Ctrl+J"}
             checked={chatOpen}
@@ -81,6 +83,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <MenuItem
             icon={WrapText}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("wrapText", "Wrap Text")}
             shortcut={getEffectiveShortcut("toggle-word-wrap") || "Alt+Z"}
             checked={wordWrap}
@@ -104,6 +107,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <MenuItem
             icon={Maximize}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("toggleFullscreen", "Toggle Fullscreen")}
             shortcut={getEffectiveShortcut("fullscreen") || "F11"}
             onClick={() => {
@@ -114,6 +118,7 @@ export const ViewMenu = memo(function ViewMenu({
 
           <MenuItem
             icon={RotateCcw}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("resetZoom", "Reset Zoom")}
             shortcut={getEffectiveShortcut("reset-zoom") || "Ctrl+0"}
             onClick={() => {

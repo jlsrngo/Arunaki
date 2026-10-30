@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import { API_BASE, apiFetch } from "../../lib/api";
+import { Button, Input, Card } from "../ui";
 
 interface PosConnectionStatus {
   connected: boolean;
@@ -280,17 +281,19 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
         {/* Top Actions: Setup Guide & Connection Status */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setGuideInitialStep(1);
               setShowGuideModal(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer"
+            className="rounded-full"
           >
             <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("posSetupGuide", "Setup Guide")}</span>
-          </button>
+          </Button>
 
           <div
             className={cn(
@@ -316,7 +319,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       </div>
 
       {/* Main Connection Form Card */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
+      <Card className="p-5 space-y-4">
         {/* 1. Host URL Server ArunakiZen */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -337,23 +340,23 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <input
+              <Input
                 type="text"
                 value={hostUrl}
                 onChange={(e) => setHostUrl(e.target.value)}
                 placeholder="http://<host-or-ip>:<port>"
-                className="w-full h-9 px-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+                className="h-9 bg-[var(--bg-app)] font-mono"
               />
             </div>
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={handleAutoDetect}
               disabled={autoDetecting}
-              className="h-9 px-3.5 bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-medium rounded-lg border border-[var(--border-color)] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={cn("w-3.5 h-3.5", autoDetecting && "animate-spin")} />
               <span>{autoDetecting ? t("posAutoDetecting", "Mendeteksi...") : t("posAutoDetect", "Deteksi Otomatis")}</span>
-            </button>
+            </Button>
           </div>
           <p className="text-[11px] text-[var(--text-muted)] mt-1">
             {t("posHostUrlHelp", "Port dinamis otomatis dipilih pada rentang 5000-5100")}
@@ -382,12 +385,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
               <Key className="w-3.5 h-3.5" />
             </div>
-            <input
+            <Input
               type={showApiKey ? "text" : "password"}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Ar-••••••••••••••••••••••••••••••••"
-              className="w-full h-9 pl-9 pr-10 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono tracking-wider focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+              className="h-9 pl-9 pr-10 bg-[var(--bg-app)] font-mono tracking-wider"
             />
             <button
               type="button"
@@ -425,12 +428,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
                 <User className="w-3.5 h-3.5" />
               </div>
-              <input
+              <Input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={t("posOperatorUserPlaceholder", "e.g. CASHIER01")}
-                className="w-full h-9 pl-9 pr-3 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-semibold focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+                className="h-9 pl-9 pr-3 bg-[var(--bg-app)] font-semibold"
               />
             </div>
           </div>
@@ -443,12 +446,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
                 <Lock className="w-3.5 h-3.5" />
               </div>
-              <input
+              <Input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t("posOperatorPassPlaceholder", "Cashier password...")}
-                className="w-full h-9 pl-9 pr-10 text-xs bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none transition-colors"
+                className="h-9 pl-9 pr-10 bg-[var(--bg-app)]"
               />
               <button
                 type="button"
@@ -502,27 +505,28 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
 
         {/* 5. Action Buttons (Handshake & Save) */}
         <div className="pt-2 flex items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleTestConnection}
             disabled={testing}
-            className="flex-1 h-9 px-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="flex-1"
           >
             <Wifi className={cn("w-3.5 h-3.5", testing && "animate-pulse")} />
             <span>{testing ? t("posTesting", "Menghubungkan...") : t("posTestHandshake", "Uji Koneksi (Handshake)")}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
             onClick={handleSaveConfig}
             disabled={saving}
-            className="flex-1 h-9 px-4 rounded-lg bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 text-xs font-semibold transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="flex-1"
           >
-            <Check className="w-3.5 h-3.5 text-[var(--bg-card)]" />
+            <Check className="w-3.5 h-3.5" />
             <span>{saving ? t("posSaving", "Menyimpan...") : t("posSaveConfig", "Simpan Pengaturan")}</span>
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
       {/* Interactive Setup Wizard Modal */}
       <ArunakiZenSetupGuideModal
         isOpen={showGuideModal}

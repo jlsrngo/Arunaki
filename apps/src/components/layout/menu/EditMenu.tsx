@@ -57,6 +57,7 @@ export const EditMenu = memo(function EditMenu({
         >
           <MenuItem
             icon={Undo2}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("undo", "Undo")}
             shortcut={getEffectiveShortcut("undo") || "Ctrl+Z"}
             onClick={() => {
@@ -67,6 +68,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Redo2}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("redo", "Redo")}
             shortcut={getEffectiveShortcut("redo") || "Ctrl+Y"}
             onClick={() => {
@@ -79,6 +81,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Scissors}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("cut", "Cut")}
             shortcut={getEffectiveShortcut("cut") || "Ctrl+X"}
             onClick={() => {
@@ -89,6 +92,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Copy}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("copy", "Copy")}
             shortcut={getEffectiveShortcut("copy") || "Ctrl+C"}
             onClick={() => {
@@ -99,6 +103,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Clipboard}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("paste", "Paste")}
             shortcut={getEffectiveShortcut("paste") || "Ctrl+V"}
             onClick={async () => {
@@ -109,6 +114,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={CheckSquare}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("selectAll", "Select All")}
             shortcut={getEffectiveShortcut("select-all") || "Ctrl+A"}
             onClick={() => {
@@ -121,6 +127,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Search}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("findInSession", "Find in Session...")}
             shortcut={getEffectiveShortcut("find-session") || "Ctrl+F"}
             onClick={() => {
@@ -131,6 +138,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Search}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label="Search in Workspace..."
             shortcut={getEffectiveShortcut("workspace-search") || "Ctrl+Shift+F"}
             onClick={() => {
@@ -143,6 +151,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Keyboard}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("keyboardShortcuts", "Keyboard Shortcuts")}
             shortcut={getEffectiveShortcut("shortcuts") || "Ctrl+/"}
             onClick={() => {
@@ -153,6 +162,7 @@ export const EditMenu = memo(function EditMenu({
 
           <MenuItem
             icon={Settings}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("preferencesSettings", "Preferences & Settings...")}
             shortcut={getEffectiveShortcut("settings") || "Ctrl+,"}
             onClick={() => {

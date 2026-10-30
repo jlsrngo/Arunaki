@@ -129,12 +129,12 @@ export const SourceControlPanel = memo(function SourceControlPanel({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-[10px] text-[var(--text-muted)] font-mono opacity-80 group-hover:hidden">
+                <span className="text-[10px] text-[var(--text-muted)] font-mono opacity-80 group-hover:hidden group-focus-within:hidden">
                   +{item.addedCount} -{item.deletedCount}
                 </span>
 
                 {/* Hover Quick Actions */}
-                <div className="hidden group-hover:flex items-center gap-1">
+                <div className="hidden group-hover:flex group-focus-within:flex items-center gap-1">
                   {onRevertChange && (
                     <button
                       type="button"

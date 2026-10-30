@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Calendar,
   Send,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { TaskItem, getTodayString } from "../taskTypes";
+import { Card, Badge, Button } from "../../ui";
 
 interface TaskCardProps {
   task: TaskItem;
@@ -30,7 +32,7 @@ interface TaskCardProps {
   t: (key: any, fallback?: string) => any;
 }
 
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   task,
   draggedTaskId,
   isSendingTelegram,
@@ -53,12 +55,12 @@ export function TaskCard({
       task.columnId !== "done");
 
   return (
-    <div
+    <Card
       draggable
       onDragStart={() => onDragStart(task.id)}
       onClick={() => onEdit(task)}
       className={cn(
-        "group p-3.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer relative space-y-2.5",
+        "group p-3.5 rounded-lg hover:border-[var(--border-strong)] transition-all cursor-pointer relative space-y-2.5",
         task.columnId === "overdue" && "border-l-2 border-l-rose-500",
         task.columnId === "inprogress" && "border-l-2 border-l-sky-400",
         task.columnId === "upcoming" && "border-l-2 border-l-purple-400/60",
@@ -74,45 +76,48 @@ export function TaskCard({
         <div className="flex items-center gap-1 shrink-0">
           {/* Quick Complete Button */}
           {onCompleteTask && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={(e) => {
                 e.stopPropagation();
                 onCompleteTask(task.id);
               }}
               title={isIndonesian ? "Tandai Selesai & Simpan ke Riwayat" : "Mark Complete & Archive to History"}
-              className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
-            </button>
+            </Button>
           )}
 
           {/* Google Calendar Quick Sync */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={(e) => {
               e.stopPropagation();
               onSyncGoogleCalendar(task);
             }}
             title={t("openInGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <Calendar className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-          </button>
+          </Button>
 
           {/* Telegram Dispatch */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={(e) => {
               e.stopPropagation();
               onSendTelegram(task);
             }}
             disabled={isSendingTelegram === task.id}
             title={isIndonesian ? "Kirim pemberitahuan agenda ke Telegram sekarang" : "Send agenda notification to Telegram now"}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <Send className={cn("w-3.5 h-3.5", isSendingTelegram === task.id && "animate-pulse text-[#cf6613]")} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -197,10 +202,10 @@ export function TaskCard({
           )}
 
           {isOverdue && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+            <Badge variant="danger" className="px-1.5 py-0.5 rounded text-[9.5px] font-medium whitespace-nowrap">
               <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
               <span>{isIndonesian ? "Terlewat" : "Overdue"}</span>
-            </span>
+            </Badge>
           )}
 
           {task.telegramReminderEnabled && (
@@ -227,18 +232,18 @@ export function TaskCard({
         {/* Right: Priority Indicator (Compact, Single-Line, No Wrap) */}
         <div className="flex items-center gap-1 shrink-0">
           {task.priority === "high" && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30 whitespace-nowrap">
+            <Badge variant="brand" className="px-1.5 py-0.5 rounded text-[9.5px] uppercase tracking-wider whitespace-nowrap">
               {isIndonesian ? "Mendesak" : "Urgent"}
-            </span>
+            </Badge>
           )}
 
           {task.priority === "medium" && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)] whitespace-nowrap">
+            <Badge variant="outline" className="px-1.5 py-0.5 rounded text-[9.5px] font-medium whitespace-nowrap">
               {isIndonesian ? "Menengah" : "Medium"}
-            </span>
+            </Badge>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
-}
+});

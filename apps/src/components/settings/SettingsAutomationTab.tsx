@@ -13,6 +13,7 @@ import { useI18n } from "../../lib/i18n";
 import { summarizeSession } from "../../lib/engine";
 import { sendDesktopNotification } from "../../lib/notifications";
 import { setSmartCompactionPref } from "../workstation/chat/useChatCompaction";
+import { Card, Button } from "../ui";
 
 export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
   const { t } = useI18n();
@@ -48,7 +49,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
       {/* Interactive Setting Cards */}
       <div className="w-full space-y-4">
         {/* 1. Launch Microsoft Office on Edit */}
-        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
+        <Card className="p-5 flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
             <div
               className={cn(
@@ -94,10 +95,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               )}
             />
           </button>
-        </div>
+        </Card>
 
         {/* 2. Automatic Snapshot Backup Before Modifications */}
-        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
+        <Card className="p-5 flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
             <div
               className={cn(
@@ -138,10 +139,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               )}
             />
           </button>
-        </div>
+        </Card>
 
         {/* 3. Desktop OS Notifications */}
-        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
+        <Card className="p-5 flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
             <div
               className={cn(
@@ -162,8 +163,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               </p>
               {desktopNotification && (
                 <div className="mt-3">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={async () => {
                       const ok = await sendDesktopNotification(
                         "Arunaki Workstation",
@@ -175,11 +178,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                         toast.info("Test notification dispatched to OS notification center.");
                       }
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <Bell className="w-3 h-3 text-[var(--text-primary)]" />
                     <span>{t("testDesktopNotification")}</span>
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -214,10 +216,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               )}
             />
           </button>
-        </div>
+        </Card>
 
         {/* 4. Smart Context Compaction & Token Pruning */}
-        <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-start justify-between gap-4">
+        <Card className="p-5 flex items-start justify-between gap-4">
           <div className="flex gap-3.5">
             <div
               className={cn(
@@ -238,8 +240,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               </p>
               {smartCompaction && (
                 <div className="mt-3 flex items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     disabled={isCompacting}
                     onClick={async () => {
                       const activeChatId = localStorage.getItem("arunaki_active_chat_id");
@@ -263,11 +267,10 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                         setIsCompacting(false);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Sparkles className="w-3 h-3 text-[var(--text-primary)]" />
                     <span>{isCompacting ? "Compacting..." : t("compactActiveSessionNow")}</span>
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -298,7 +301,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
               )}
             />
           </button>
-        </div>
+        </Card>
       </div>
 
       {/* Desktop Diagnostic Bridge Status */}

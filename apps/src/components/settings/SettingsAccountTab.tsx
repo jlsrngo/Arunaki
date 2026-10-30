@@ -3,6 +3,7 @@ import { LogIn, LogOut, ShieldCheck, Mail, Camera, Check, User } from "lucide-re
 import { toast } from "sonner";
 import { API_BASE, apiFetch, isDesktop } from "../../lib/api";
 import { useI18n } from "../../lib/i18n";
+import { Button, Input, Card } from "../ui";
 
 export const SettingsAccountTab = memo(function SettingsAccountTab() {
   const { t } = useI18n();
@@ -112,7 +113,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
       {isLoggedIn ? (
         <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left 2 Cols: Profile Card */}
-          <div className="lg:col-span-2 p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
+          <Card className="lg:col-span-2 p-6 space-y-6">
             <div className="flex items-center gap-4">
               {/* Avatar with Camera Overlay (Monochrome) */}
               <div className="relative group cursor-pointer shrink-0">
@@ -123,7 +124,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                     <span>{userName ? userName[0].toUpperCase() : userEmail ? userEmail[0].toUpperCase() : "U"}</span>
                   )}
                 </div>
-                <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center text-white opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity cursor-pointer">
                   <Camera className="w-5 h-5" />
                   <input
                     type="file"
@@ -168,41 +169,40 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                 {t("fullNameBusiness")}
               </label>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="e.g. John Doe / Acme Corp"
-                  className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+                  className="flex-1"
                 />
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     localStorage.setItem("arunaki_user_name", userName);
                     toast.success("Profile name saved.");
                   }}
-                  className="px-5 py-2.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                 >
                   {t("save")}
-                </button>
+                </Button>
               </div>
             </div>
 
             <div className="pt-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleLogout}
-                className="px-4 py-2 bg-[var(--bg-hover)] hover:bg-[var(--bg-app)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl text-xs font-medium border border-[var(--border-color)] transition-all cursor-pointer flex items-center gap-2"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>{t("signOut")}</span>
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Right 1 Col: License & Device Status (Monochrome) */}
           <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-4">
+            <Card className="p-5 space-y-4">
               <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider text-[var(--text-muted)]">
                 {t("licenseDetails")}
               </h4>
@@ -220,9 +220,9 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                   </p>
                 </div>
               </div>
-            </div>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-between">
+            <Card className="p-5 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-semibold text-[var(--text-primary)]">Local Workspace Vault</h4>
                 <p className="text-[11px] text-[var(--text-muted)] mt-0.5">AES-256 / Offline Isolated — Documents stay on this PC</p>
@@ -230,12 +230,12 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
               <span className="px-2.5 py-1 rounded-full bg-[var(--bg-hover)] text-[var(--text-primary)] text-[10px] font-semibold border border-[var(--border-strong)]">
                 Active (Offline)
               </span>
-            </div>
+            </Card>
           </div>
         </div>
       ) : (
         /* Full Width Clean Login Form (Monochrome, No Emojis) */
-        <div className="w-full p-8 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
+        <Card className="w-full p-8 space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[var(--bg-hover)] flex items-center justify-center border border-[var(--border-strong)] text-[var(--text-primary)] shrink-0">
               <LogIn className="w-5 h-5 text-[var(--text-muted)]" />
@@ -252,10 +252,11 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
 
           {/* Clean Monochrome Social Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => handleOAuthLogin("google")}
-              className="flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-xs font-medium text-[var(--text-primary)] transition-all cursor-pointer"
+              className="py-2.5 bg-[var(--bg-panel)]"
             >
               <svg className="w-4 h-4 text-[var(--text-primary)] fill-current" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -264,18 +265,19 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
               <span>{t("continueGoogle")}</span>
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => handleOAuthLogin("github")}
-              className="flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-xs font-medium text-[var(--text-primary)] transition-all cursor-pointer"
+              className="py-2.5 bg-[var(--bg-panel)]"
             >
               <svg className="w-4 h-4 fill-current text-[var(--text-primary)]" viewBox="0 0 24 24">
                 <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
               </svg>
               <span>{t("continueGithub")}</span>
-            </button>
+            </Button>
           </div>
 
           <div className="flex items-center gap-3 w-full">
@@ -290,12 +292,11 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
                 <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">
                   {t("fullNameBusiness")}
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder="e.g. John Doe / Acme Corp"
                   value={registerName}
                   onChange={(e) => setRegisterName(e.target.value)}
-                  className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
                 />
               </div>
             )}
@@ -304,13 +305,12 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">
                 {t("emailAddress")}
               </label>
-              <input
+              <Input
                 type="email"
                 required
                 placeholder="name@company.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
               />
             </div>
 
@@ -318,24 +318,22 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-1">
                 {t("password")}
               </label>
-              <input
+              <Input
                 type="password"
                 required
                 placeholder="••••••••"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
               />
             </div>
 
             <div className="pt-2 flex items-center justify-between">
-              <button
+              <Button
                 type="submit"
-                className="px-6 py-2.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>{isRegisterMode ? t("registerAndSignIn") : t("signIn")}</span>
-              </button>
+              </Button>
 
               <button
                 type="button"
@@ -354,7 +352,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
               <strong className="text-[var(--text-primary)]">{t("privacyGuaranteeTitle")}</strong> {t("privacyGuaranteeDesc")}
             </span>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

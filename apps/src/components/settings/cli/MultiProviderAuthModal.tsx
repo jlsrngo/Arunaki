@@ -1,5 +1,6 @@
-import { X, Terminal, Scale, Loader2 } from "lucide-react";
+import { Terminal, Scale, Loader2 } from "lucide-react";
 import { LocalCliData } from "./types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Badge } from "../../ui";
 
 interface MultiProviderAuthModalProps {
   target: string | null;
@@ -191,36 +192,29 @@ export function MultiProviderAuthModal({
   })();
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl max-w-xl w-full p-6 relative text-left">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          title={isEn ? "Close" : "Tutup"}
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        <div className="flex items-center gap-2.5 mb-1.5">
-          <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm">
-            {config.badgeLetter}
+    <Dialog open={Boolean(target)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-xl p-6 text-left">
+        <DialogHeader>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm">
+              {config.badgeLetter}
+            </div>
+            <div>
+              <DialogTitle className="text-base">{config.title}</DialogTitle>
+              <DialogDescription>{config.subtitle}</DialogDescription>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">{config.title}</h3>
-            <p className="text-xs text-[var(--text-muted)]">{config.subtitle}</p>
-          </div>
-        </div>
+        </DialogHeader>
 
         {config.accountActiveText && (
-          <div className="my-3 px-3.5 py-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
+          <div className="px-3.5 py-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
               <span className="text-[var(--text-secondary)]">{config.accountActiveText}</span>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-primary)] font-medium">
+            <Badge variant="secondary" className="rounded-full">
               {isEn ? "Connected" : "Terhubung"}
-            </span>
+            </Badge>
           </div>
         )}
 
@@ -235,9 +229,9 @@ export function MultiProviderAuthModal({
                   {config.cliLabel}
                 </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] font-medium">
+              <Badge variant="outline">
                 {config.cliBadge}
-              </span>
+              </Badge>
             </div>
             <p className="text-xs text-[var(--text-muted)] mb-3.5 leading-relaxed">
               {config.cliDesc}
@@ -254,11 +248,12 @@ export function MultiProviderAuthModal({
             </div>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="default"
             onClick={config.onCliAction}
             disabled={isSigningInCli}
-            className="w-full py-2 px-3 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)] font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full py-2 h-9"
           >
             {isSigningInCli ? (
               <>
@@ -273,11 +268,11 @@ export function MultiProviderAuthModal({
                 <span>{config.cliButton}</span>
               </>
             )}
-          </button>
+          </Button>
         </div>
 
         {target !== "nineRouter" && (
-          <div className="mt-3.5 p-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
+          <div className="p-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
               <span className="text-[var(--text-secondary)]">
@@ -286,29 +281,26 @@ export function MultiProviderAuthModal({
                   : "Kelola multi-akun terpusat seperti di 9Router (Google, Claude, Codex, Grok)?"}
               </span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => window.open("http://localhost:20128", "_blank")}
-              className="px-2.5 py-1 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] text-[11px] rounded-lg cursor-pointer shrink-0 font-medium"
             >
               {isEn ? "Open 9Router" : "Buka 9Router"}
-            </button>
+            </Button>
           </div>
         )}
 
-        <div className="mt-4 pt-3.5 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+        <DialogFooter className="justify-between text-[11px] text-[var(--text-muted)]">
           <span>
             {isEn ? "Arunaki Workstation Integration" : "Integrasi Workstation Arunaki"}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-          >
+          <Button variant="ghost" size="sm" onClick={onClose}>
             {isEn ? "Close" : "Tutup"}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

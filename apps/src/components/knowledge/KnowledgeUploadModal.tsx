@@ -1,8 +1,9 @@
 import React, { useState, useRef, memo } from "react";
-import { UploadCloud, FileText, CheckCircle2, X } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2 } from "lucide-react";
 import { Node, Edge, MarkerType } from "@xyflow/react";
 import { cn } from "../../lib/utils";
 import { API_BASE, apiFetch } from "../../lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button } from "../ui";
 
 interface KnowledgeUploadModalProps {
   isOpen: boolean;
@@ -123,8 +124,8 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-lg bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl p-6 space-y-5 border border-[var(--border-strong)]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent onClose={creating ? undefined : handleClose} className="max-w-lg p-6 space-y-4">
         {creating ? (
           /* Loading State */
           <div className="py-10 space-y-6">
@@ -179,24 +180,17 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
         ) : (
           /* Upload Form */
           <>
-            <div className="flex items-center justify-between">
+            <DialogHeader>
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-color)]">
                   <UploadCloud className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Document Node</h3>
-                  <p className="text-xs text-[var(--text-muted)]">This node will be automatically linked to the AI</p>
+                  <DialogTitle className="text-base">Add Document Node</DialogTitle>
+                  <DialogDescription>This node will be automatically linked to the AI</DialogDescription>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            </DialogHeader>
 
             <div
               onDragOver={(e) => {
@@ -247,29 +241,17 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer"
-              >
+            <DialogFooter>
+              <Button variant="ghost" onClick={handleClose}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={createDoc}
-                disabled={!selectedFile}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 transition-all cursor-pointer",
-                  !selectedFile && "opacity-50 cursor-not-allowed"
-                )}
-              >
+              </Button>
+              <Button variant="default" onClick={createDoc} disabled={!selectedFile}>
                 Upload & Create Node
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 });

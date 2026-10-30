@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   BookOpen,
-  X,
   Copy,
   Check,
   ChevronLeft,
@@ -11,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button } from "../ui";
 
 interface ArunakiZenSetupGuideModalProps {
   isOpen: boolean;
@@ -47,35 +47,27 @@ export function ArunakiZenSetupGuideModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 select-none">
-      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-150">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-xl p-6 space-y-5">
         {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-[var(--border-color)] pb-3">
+        <DialogHeader className="border-b border-[var(--border-color)] pb-3 pr-6">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[var(--text-primary)]">
+              <DialogTitle>
                 {tr("zenGuideModalTitle", "ArunakiZen Connection Guide")}
-              </h4>
-              <p className="text-[11px] text-[var(--text-muted)]">
+              </DialogTitle>
+              <DialogDescription>
                 {tr(
                   "zenGuideModalSubtitle",
                   "Connect Arunaki Agent to your ArunakiZen retail transaction engine"
                 )}
-              </p>
+              </DialogDescription>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Stepper Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-color)]">
@@ -236,41 +228,41 @@ export function ArunakiZenSetupGuideModal({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-3">
-          <button
+        <DialogFooter className="justify-between pt-3">
+          <Button
             type="button"
+            variant="secondary"
             disabled={guideStep === 1}
             onClick={() => setGuideStep((s) => Math.max(1, s - 1))}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium hover:bg-[var(--border-strong)] transition-all cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span>{tr("prevStep", "Previous")}</span>
-          </button>
+          </Button>
 
           <span className="text-xs text-[var(--text-muted)] font-mono">
             {guideStep} / 4
           </span>
 
           {guideStep < 4 ? (
-            <button
+            <Button
               type="button"
+              variant="default"
               onClick={() => setGuideStep((s) => Math.min(4, s + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer"
             >
               <span>{tr("nextStep", "Next")}</span>
               <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="default"
               onClick={onClose}
-              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer"
             >
               <span>{tr("gotItDone", "Got it, Close")}</span>
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

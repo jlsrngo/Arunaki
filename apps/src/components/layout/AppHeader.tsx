@@ -142,7 +142,11 @@ export const AppHeader = memo(function AppHeader({
           type="button"
           onClick={toggleQuickTheme}
           data-tauri-drag-region="false"
-          className="w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
+          className={
+            isNeobrutalism
+              ? "neo-icon-badge w-7 h-7 rounded-full bg-[#B388FF] flex items-center justify-center text-[#141413] border border-[#141413] hover:bg-[#CCFF00] transition-colors cursor-pointer"
+              : "w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
+          }
           title={
             isNeobrutalism
               ? t("switchToDark", "Switch to Dark Mode")
@@ -152,7 +156,7 @@ export const AppHeader = memo(function AppHeader({
           }
         >
           {isNeobrutalism ? (
-            <Box className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
+            <Box className="w-3.5 h-3.5 text-[#141413]" strokeWidth={2.25} />
           ) : isLight ? (
             <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
           ) : (
@@ -164,7 +168,11 @@ export const AppHeader = memo(function AppHeader({
           type="button"
           onClick={() => navigate("/settings")}
           data-tauri-drag-region="false"
-          className="w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
+          className={
+            isNeobrutalism
+              ? "neo-icon-badge w-7 h-7 rounded-full bg-[#FF9F43] flex items-center justify-center text-[#141413] border border-[#141413] hover:bg-[#CCFF00] transition-colors cursor-pointer"
+              : "w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
+          }
           title={t("userProfileSettings", "User Profile & Settings")}
         >
           <User className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />

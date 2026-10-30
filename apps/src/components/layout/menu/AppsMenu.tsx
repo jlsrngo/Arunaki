@@ -47,11 +47,12 @@ export const AppsMenu = memo(function AppsMenu({
           </div>
 
           <MenuItem
+            iconColor="bg-[#CCFF00] border border-[#141413]"
             icon={
               <img
                 src="/artcraft/gridcraft/gridcraft.png"
                 alt="GridCraft"
-                className="w-4 h-4 rounded-xs object-contain shrink-0"
+                className="w-3.5 h-3.5 rounded-xs object-contain shrink-0"
               />
             }
             label="GridCraft"
@@ -67,11 +68,12 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
+            iconColor="bg-[#B388FF] border border-[#141413]"
             icon={
               <img
                 src="/artcraft/wordcraft/wordcraft.png"
                 alt="WordCraft"
-                className="w-4 h-4 rounded-xs object-contain shrink-0"
+                className="w-3.5 h-3.5 rounded-xs object-contain shrink-0"
               />
             }
             label="WordCraft"
@@ -87,11 +89,12 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
+            iconColor="bg-[#FF9F43] border border-[#141413]"
             icon={
               <img
                 src="/artcraft/pdfcraft/pdfcraft.png"
                 alt="PdfCraft"
-                className="w-4 h-4 rounded-xs object-contain shrink-0"
+                className="w-3.5 h-3.5 rounded-xs object-contain shrink-0"
               />
             }
             label="PdfCraft"
@@ -107,11 +110,12 @@ export const AppsMenu = memo(function AppsMenu({
           />
 
           <MenuItem
+            iconColor="bg-[#CCFF00] border border-[#141413]"
             icon={
               <img
                 src="/artcraft/deckcraft/deckcraft.png"
                 alt="DeckCraft"
-                className="w-4 h-4 rounded-xs object-contain shrink-0"
+                className="w-3.5 h-3.5 rounded-xs object-contain shrink-0"
               />
             }
             label="DeckCraft"

@@ -54,6 +54,7 @@ export const HelpMenu = memo(function HelpMenu({
         >
           <MenuItem
             icon={BookOpen}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("knowledgeRules", "Knowledge & Rules")}
             onClick={() => {
               onClose();
@@ -63,6 +64,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Keyboard}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("keyboardShortcuts", "Keyboard Shortcuts")}
             shortcut={getEffectiveShortcut("shortcuts") || "Ctrl+/"}
             onClick={() => {
@@ -75,6 +77,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={BookText}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("documentation", "Documentation")}
             rightIcon={ExternalLink}
             onClick={() => {
@@ -85,6 +88,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={ExternalLink}
+            iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
             label={t("githubRepo", "GitHub Repository")}
             onClick={() => {
               onClose();
@@ -94,6 +98,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Bug}
+            iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
             label={t("reportIssue", "Report an Issue")}
             onClick={() => {
               onClose();
@@ -105,6 +110,7 @@ export const HelpMenu = memo(function HelpMenu({
 
           <MenuItem
             icon={Info}
+            iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
             label={t("aboutArunaki", "About Arunaki")}
             onClick={() => {
               onClose();

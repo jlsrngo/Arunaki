@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   BookOpen,
-  X,
   ExternalLink,
   Copy,
   Check,
@@ -11,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Button } from "../ui";
 
 interface TelegramSetupGuideModalProps {
   isOpen: boolean;
@@ -43,35 +43,27 @@ export function TelegramSetupGuideModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] p-6 space-y-5 select-none relative animate-in fade-in zoom-in-95 duration-150">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-xl bg-[var(--bg-panel)] p-6 space-y-5">
         {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-[var(--border-color)] pb-3">
+        <DialogHeader>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[var(--text-primary)]">
+              <DialogTitle>
                 {t("guideModalTitle", "Telegram Bot Setup Guide")}
-              </h4>
-              <p className="text-[11px] text-[var(--text-muted)]">
+              </DialogTitle>
+              <DialogDescription className="text-[11px]">
                 {t(
                   "guideModalSubtitle",
                   "Connect your Telegram bot in 4 simple steps (takes 2-3 minutes)"
                 )}
-              </p>
+              </DialogDescription>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Stepper Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-[var(--bg-app)] rounded-xl border border-[var(--border-color)]">
@@ -291,38 +283,38 @@ export function TelegramSetupGuideModal({
           {/* Navigation Controls */}
           <div className="flex items-center justify-between pt-3 border-t border-[var(--border-color)] mt-3">
             {guideStep > 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setGuideStep(guideStep - 1)}
-                className="px-3 py-1.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-hover)] text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />{" "}
                 {t("previous", "Previous")}
-              </button>
+              </Button>
             ) : (
               <div />
             )}
 
             {guideStep < 4 ? (
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={() => setGuideStep(guideStep + 1)}
-                className="px-4 py-1.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
               >
                 {t("next", "Next")} <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={onClose}
-                className="px-4 py-1.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
               >
                 {t("doneClose", "Done & Close Guide")}
-              </button>
+              </Button>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

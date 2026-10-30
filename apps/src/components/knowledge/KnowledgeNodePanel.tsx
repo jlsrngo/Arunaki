@@ -6,6 +6,12 @@ import { cn } from '../../lib/utils';
 import { apiFetch, API_BASE } from '../../lib/api';
 import { subscribeKnowledgeSync } from '../../lib/knowledgeSync';
 import { filterLocalLocations, searchRemoteLocations } from './locations';
+import { Button, Input, Textarea } from '../ui';
+
+const SYNC_TIME_FORMATTER = new Intl.DateTimeFormat([], {
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export interface KnowledgeDoc {
   id: string;
@@ -240,9 +246,9 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0">
         <h3 className="font-bold text-[var(--text-primary)] text-sm">Edit Node</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer">
+        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}>
           <X className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -260,45 +266,40 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                 <div className="text-xs font-semibold text-[var(--text-primary)]">Node Status</div>
                 <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Grant access to AI</div>
               </div>
-              <button
+              <Button
+                type="button"
+                variant={nodeData.active ? "default" : "outline"}
+                size="sm"
                 onClick={toggleActive}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer",
-                  nodeData.active 
-                    ? "bg-[var(--text-primary)] text-[var(--bg-card)] border border-[var(--text-primary)]" 
-                    : "bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-color)]"
-                )}
               >
                 {nodeData.active ? (
                   <><CheckCircle2 className="w-3.5 h-3.5" /> Active</>
                 ) : (
                   <><XCircle className="w-3.5 h-3.5" /> Inactive</>
                 )}
-              </button>
+              </Button>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[var(--text-muted)]">
                 {isRulesNode ? "Rule / SOP Title" : "Knowledge Title"}
               </label>
-              <input
+              <Input
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder={isRulesNode ? "e.g. Sales Discount Policy" : "e.g. Product Catalog"}
-                className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:border-[var(--border-strong)]"
               />
             </div>
 
             {!isRulesNode && (
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-[var(--text-muted)]">Spreadsheet / Website URL</label>
-                <input
+                <Input
                   type="url"
                   value={urls[0] || ''}
                   onChange={e => setUrls([e.target.value, ...urls.slice(1)])}
                   placeholder="https://docs.google.com/spreadsheets/d/... or https://example.com"
-                  className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:border-[var(--border-strong)]"
                 />
                 
                 {urls[0]?.trim() ? (
@@ -317,7 +318,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                       </div>
                       <span className="text-[10px] text-[var(--text-muted)]">
                         {nodeData?.lastSyncedAt
-                          ? new Date(nodeData.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                          ? SYNC_TIME_FORMATTER.format(new Date(nodeData.lastSyncedAt))
                           : "Auto-Refresh Active"}
                       </span>
                     </div>
@@ -335,7 +336,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                   <label className="text-xs font-semibold text-[var(--text-muted)] block mb-1">
                     Location / Branch (Optional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={city}
                     onChange={(e) => {
@@ -344,7 +345,6 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                     }}
                     onFocus={() => setIsCityDropdownOpen(true)}
                     placeholder="e.g. Jakarta, New York, Warehouse B..."
-                    className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:border-[var(--border-strong)]"
                   />
                   
                   {isCityDropdownOpen && filteredCities.length > 0 && (
@@ -371,11 +371,11 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
             {isRulesNode ? (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-[var(--text-muted)]">SOP & Business Rules</label>
-                <textarea
+                <Textarea
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   placeholder="Enter business guidelines, calculation rules, or standard operating procedures..."
-                  className="w-full h-44 px-3 py-2 bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:border-[var(--border-strong)] resize-none"
+                  className="h-44 resize-none"
                 />
               </div>
             ) : (
@@ -383,12 +383,12 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                 <label className="text-xs font-semibold text-[var(--text-muted)]">
                   Instructions for AI <span className="font-normal opacity-70">(Optional)</span>
                 </label>
-                <textarea
+                <Textarea
                   value={content}
                   onChange={e => setContent(e.target.value)}
                   placeholder="e.g. 'Use wholesale prices for VIP customers', 'Ignore draft rows'..."
                   rows={2}
-                  className="w-full h-16 px-3 py-2 bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:border-[var(--border-strong)] resize-none"
+                  className="h-16 resize-none"
                 />
               </div>
             )}
@@ -399,43 +399,46 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
             {showDeleteConfirm ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-rose-400 font-medium">Delete node?</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded transition-colors cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="destructive"
+                  size="sm"
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     handleDelete();
                   }}
-                  className="px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="destructive"
+                size="icon"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer"
                 title="Delete Node"
               >
                 <Trash2 className="w-4 h-4" />
-              </button>
+              </Button>
             )}
             
-            <button
+            <Button
+              type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
             >
               <Save className="w-4 h-4" />
               <span>{saving ? 'Saving...' : 'Save'}</span>
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

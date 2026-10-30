@@ -3,6 +3,7 @@ import { Plus, Check, CheckCheck, Loader2, Wifi, Bot, Settings2, RefreshCw, Sear
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 import { useI18n } from "../../lib/i18n";
+import { Button, Input } from "../ui";
 
 export interface ProviderFormData {
   name: string;
@@ -272,12 +273,11 @@ export function ProviderForm({
 
             <div>
               <label className="block text-[11px] text-[var(--text-muted)] mb-1 font-medium">{t("displayName")}</label>
-              <input
+              <Input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Kenari Cloud / Local 9Router / OpenRouter"
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
                 required
               />
             </div>
@@ -286,24 +286,22 @@ export function ProviderForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] text-[var(--text-muted)] mb-1 font-medium">{t("baseUrlEndpoint")}</label>
-              <input
+              <Input
                 type="text"
                 value={form.baseUrl}
                 onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
                 placeholder="https://api.your-custom-endpoint.com/v1"
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
                 required
               />
             </div>
 
             <div>
               <label className="block text-[11px] text-[var(--text-muted)] mb-1 font-medium">{t("apiKeyToken")}</label>
-              <input
+              <Input
                 type="password"
                 value={form.apiKey}
                 onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
                 placeholder={t("apiKeyPlaceholder")}
-                className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
               />
             </div>
           </div>
@@ -676,11 +674,11 @@ export function ProviderForm({
       {/* FOOTER ACTIONS & TEST CONNECTION STATUS */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-4 border-t border-[var(--border-color)]">
         <div className="flex items-center gap-3 flex-wrap">
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={onTestConnection}
             disabled={isTestingForm}
-            className="px-4 py-2 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] text-xs rounded-xl font-medium cursor-pointer flex items-center gap-2 border border-[var(--border-strong)] transition-colors"
           >
             {isTestingForm ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-primary)]" />
@@ -688,7 +686,7 @@ export function ProviderForm({
               <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             )}
             <span>{isTestingForm ? t("testingPing") : t("testConnection")}</span>
-          </button>
+          </Button>
 
           {/* Inline Test Result Feedback */}
           {testResult && (
@@ -718,19 +716,19 @@ export function ProviderForm({
         </div>
 
         <div className="flex gap-2.5 w-full sm:w-auto justify-end">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onCancel}
-            className="px-4 py-2 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs rounded-xl font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="px-6 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl font-semibold transition-all cursor-pointer"
+            className="px-6"
           >
             {t("saveProvider")}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

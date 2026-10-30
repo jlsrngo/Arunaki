@@ -19,6 +19,7 @@ import { API_BASE, apiFetch } from "../../lib/api";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import { TelegramSetupGuideModal } from "./TelegramSetupGuideModal";
+import { Button, Input, Card } from "../ui";
 
 interface TelegramStatus {
   connected: boolean;
@@ -269,32 +270,34 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
 
         {/* Single Setup Guide Action Button & Refresh (Monochrome) */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setGuideInitialStep(1);
               setShowGuideModal(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer"
           >
             <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("setupGuide", "Setup Guide")}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-sm"
             onClick={() => fetchConfigAndStatus()}
             disabled={loading}
-            className="p-1.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
             title={t("refresh", "Refresh")}
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Main Telegram Gateway Card (Monochrome) */}
-      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
+      <Card className="p-6 space-y-6">
         {/* Top bar with Channel Info & Status */}
         <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-3.5">
@@ -385,7 +388,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
             </div>
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <input
+                <Input
                   type={showToken ? "text" : "password"}
                   value={botToken}
                   onChange={(e) => {
@@ -393,7 +396,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                     setTestResult(null);
                   }}
                   placeholder={t("botTokenPlaceholder", "e.g. 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ")}
-                  className="w-full px-3.5 py-2 pr-10 text-xs font-mono rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
+                  className="pr-10 font-mono bg-[var(--bg-panel)]"
                 />
                 <button
                   type="button"
@@ -404,11 +407,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 </button>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleTestToken}
                 disabled={testing || !botToken.trim()}
-                className="px-3.5 py-2 text-xs font-medium rounded-xl border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] transition-colors disabled:opacity-50 cursor-pointer shrink-0 flex items-center gap-1.5"
+                className="shrink-0"
               >
                 {testing ? (
                   <>
@@ -418,7 +422,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 ) : (
                   t("testToken", "Test Token")
                 )}
-              </button>
+              </Button>
             </div>
 
             {/* Test result feedback banner (Monochrome) */}
@@ -467,12 +471,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 {t("whitelistHelp", "How to check my Telegram ID")}
               </button>
             </div>
-            <input
+            <Input
               type="text"
               value={allowedUserId}
               onChange={(e) => setAllowedUserId(e.target.value)}
               placeholder={t("whitelistPlaceholder", "e.g. 123456789, @username (or * for all)")}
-              className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
+              className="font-mono bg-[var(--bg-panel)]"
             />
             <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1 leading-relaxed">
               <Info className="w-3 h-3 shrink-0 text-[var(--text-muted)]" />
@@ -505,12 +509,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 </button>
               </div>
             </div>
-            <input
+            <Input
               type="text"
               value={targetFolder}
               onChange={(e) => setTargetFolder(e.target.value)}
               placeholder="e.g. C:\Users\Name\Documents\Project"
-              className="w-full px-3.5 py-2 text-xs font-mono rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--text-primary)] transition-colors"
+              className="font-mono bg-[var(--bg-panel)]"
             />
             <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
               {t("targetFolderDesc", "The directory on this computer where Arunaki will read, modify, and create document files when receiving instructions from Telegram.")}
@@ -519,10 +523,9 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
 
           {/* Submit Action */}
           <div className="pt-2 flex justify-end">
-            <button
+            <Button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
             >
               {saving ? (
                 <>
@@ -532,10 +535,10 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
               ) : (
                 t("saveChanges", "Save Changes")
               )}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
 
       {/* Interactive Setup Wizard Modal (Monochrome) */}
       <TelegramSetupGuideModal

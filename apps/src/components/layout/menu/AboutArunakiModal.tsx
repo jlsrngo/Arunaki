@@ -1,6 +1,9 @@
 import { memo, useState, useEffect, useCallback, useMemo } from "react";
-import { X, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
+import { useTheme } from "../../../lib/theme";
+import { cn } from "../../../lib/utils";
+import { Dialog, DialogContent, Button } from "../../ui";
 
 // Substituted by vite `define` at build time; see apps/vite.config.ts.
 declare const __ARUNAKI_COMMIT__: string;
@@ -25,6 +28,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     os?: string;
   } | null>(null);
   const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
 
   // Close on Escape key
   useEffect(() => {
@@ -117,56 +121,47 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-[2px] p-4 animate-in fade-in duration-150"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-[540px] bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl p-7 select-text"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button top-right (Monochrome) */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 cursor-pointer"
-          aria-label="Close"
-        >
-          <X className="w-4 h-4" strokeWidth={2} />
-        </button>
-
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-[540px] p-7 select-text">
         {/* Content layout: Left circle icon + Right content column */}
         <div className="flex items-start gap-5">
-          {/* Monochrome circular info badge */}
-          <div className="shrink-0 pt-0.5 select-none text-[var(--text-primary)]">
+          {/* Circular info badge */}
+          <div
+            className={cn(
+              "shrink-0 pt-0.5 select-none text-[var(--text-primary)]",
+              isNeobrutalism &&
+                "neo-icon-badge w-11 h-11 rounded-full bg-[#B388FF] border border-[#141413] flex items-center justify-center pt-0"
+            )}
+          >
             <svg
-              className="w-11 h-11"
+              className={cn("w-11 h-11", isNeobrutalism && "w-6 h-6")}
               viewBox="0 0 44 44"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <circle
-                cx="22"
-                cy="22"
-                r="19.5"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              />
-              <circle cx="22" cy="14" r="2.2" fill="currentColor" />
+              {!isNeobrutalism && (
+                <circle
+                  cx="22"
+                  cy="22"
+                  r="19.5"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                />
+              )}
+              <circle cx="22" cy="14" r="2.5" fill="currentColor" />
               <rect
-                x="20.25"
+                x="20"
                 y="18.5"
-                width="3.5"
-                height="13.5"
+                width="4"
+                height="14"
                 rx="1.2"
                 fill="currentColor"
               />
             </svg>
           </div>
 
-          {/* Right column: Title, Specs, Buttons (Monochrome) */}
+          {/* Right column: Title, Specs, Buttons */}
           <div className="flex-1 min-w-0">
-            {/* Title */}
             <h2 className="text-[19px] font-semibold text-[var(--text-primary)] leading-tight mb-4 select-text">
               Arunaki
             </h2>
@@ -185,34 +180,36 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
               ))}
             </div>
 
-            {/* Action buttons bottom-right (Monochrome) */}
+            {/* Action buttons bottom-right */}
             <div className="flex items-center justify-end gap-2.5 mt-6 select-none">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleCopy}
-                className="flex items-center justify-center gap-1.5 min-w-[72px] px-4 py-1.5 bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] active:bg-[var(--bg-panel)] text-[var(--text-primary)] border border-[var(--border-strong)] rounded text-[13px] font-medium transition-colors cursor-pointer"
+                className="min-w-[72px]"
               >
                 {copied ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-[var(--text-primary)]" />
                     <span>{t("done", "Done")}</span>
                   </>
                 ) : (
                   <span>{t("copy", "Copy")}</span>
                 )}
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={onClose}
-                className="min-w-[58px] px-4 py-1.5 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] active:bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] rounded text-[13px] font-medium transition-colors cursor-pointer"
+                className="min-w-[58px]"
               >
                 {t("done", "OK")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 });

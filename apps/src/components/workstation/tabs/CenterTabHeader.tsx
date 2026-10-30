@@ -133,7 +133,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
                     e.stopPropagation();
                     onCloseTab(tab.id);
                   }}
-                  className="w-2 h-2 rounded-full bg-[var(--text-primary)] group-hover:hidden transition-all"
+                  className="w-2 h-2 rounded-full bg-[var(--text-primary)] group-hover:hidden group-focus-within:hidden transition-all"
                   title="Unsaved changes"
                 />
               ) : null}
@@ -145,7 +145,9 @@ export const CenterTabHeader = memo(function CenterTabHeader({
                 }}
                 className={cn(
                   "p-0.5 rounded hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors cursor-pointer",
-                  hasUnsavedChanges ? "hidden group-hover:block" : "opacity-0 group-hover:opacity-100"
+                  hasUnsavedChanges
+                    ? "hidden group-hover:block group-focus-within:block"
+                    : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                 )}
                 title="Close (Middle-click)"
               >

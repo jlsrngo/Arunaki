@@ -1,4 +1,5 @@
 import { RotateCcw, Trash2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, Button } from "../../ui";
 
 interface CleanupSessionsModalProps {
   isOpen: boolean;
@@ -18,8 +19,8 @@ export function CleanupSessionsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isCleaning && onClose()}>
+      <DialogContent hideCloseButton className="max-w-md">
         <div className="flex items-start gap-3.5">
           <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
             <RotateCcw className="w-4 h-4 text-[var(--text-primary)]" />
@@ -39,21 +40,11 @@ export function CleanupSessionsModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
-          <button
-            type="button"
-            disabled={isCleaning}
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer disabled:opacity-50"
-          >
+        <DialogFooter className="mt-1">
+          <Button variant="ghost" disabled={isCleaning} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            disabled={isCleaning}
-            onClick={onConfirm}
-            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="default" disabled={isCleaning} onClick={onConfirm}>
             {isCleaning ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -61,13 +52,13 @@ export function CleanupSessionsModal({
               </>
             ) : (
               <>
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                 <span>Clean Up All {emptyCount}</span>
               </>
             )}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

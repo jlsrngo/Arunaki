@@ -94,12 +94,12 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[10px] text-[var(--text-dim)] opacity-80 group-hover:hidden">
+                  <span className="text-[10px] text-[var(--text-dim)] opacity-80 group-hover:hidden group-focus-within:hidden">
                     +{item.addedCount} -{item.deletedCount}
                   </span>
 
                   {/* Quick Action Buttons on Hover */}
-                  <div className="hidden group-hover:flex items-center gap-1">
+                  <div className="hidden group-hover:flex group-focus-within:flex items-center gap-1">
                     {onRevertChange && (
                       <button
                         type="button"

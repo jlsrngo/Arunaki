@@ -52,7 +52,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full mb-1.5 left-0 w-60 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
+        <div className="neo-popup-card absolute bottom-full mb-1.5 left-0 w-60 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
           <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5 flex items-center justify-between">
             <span>{t("model", "Model")}</span>
             <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold border border-[var(--border-color)]">

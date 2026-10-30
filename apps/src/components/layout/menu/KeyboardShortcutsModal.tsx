@@ -3,7 +3,6 @@ import {
   Keyboard,
   Search,
   RotateCcw,
-  X,
   Pencil,
 } from "lucide-react";
 import {
@@ -18,6 +17,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { useI18n } from "../../../lib/i18n";
+import { useTheme } from "../../../lib/theme";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Input, Badge } from "../../ui";
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
   onClose,
 }: KeyboardShortcutsModalProps) {
   const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customShortcuts, setCustomShortcuts] = useState<Record<string, string>>({});
@@ -115,54 +117,60 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 sm:p-6 animate-in fade-in duration-100 select-none">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl max-w-3xl w-full p-5 sm:p-6 flex flex-col gap-4 text-xs">
-        {/* Header (Monochrome) */}
-        <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3.5">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-3xl p-5 sm:p-6 text-xs">
+        {/* Header */}
+        <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center border border-[var(--border-strong)]">
-              <Keyboard className="w-4 h-4 text-[var(--text-muted)]" />
+            <div
+              className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center border",
+                isNeobrutalism
+                  ? "neo-icon-badge bg-[#FF9F43] text-[#141413] border-[#141413]"
+                  : "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+              )}
+            >
+              <Keyboard
+                className={cn(
+                  "w-4 h-4",
+                  isNeobrutalism ? "text-[#141413]" : "text-[var(--text-muted)]"
+                )}
+              />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-[var(--text-primary)]">
+              <DialogTitle>
                 {t("keyboardShortcuts", "Keyboard Shortcuts")}
-              </h3>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              </DialogTitle>
+              <DialogDescription className="text-[11px] mt-0.5">
                 Click any shortcut badge to reassign key combination.
-              </p>
+              </DialogDescription>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Search & Actions Bar (Monochrome) */}
+        {/* Search & Actions Bar */}
         <div className="flex items-center gap-2.5">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("searchShortcuts", "Search shortcuts...")}
-              className="w-full bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl pl-9 pr-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+              className="pl-9 pr-3 py-2 h-9 rounded-xl bg-[var(--bg-panel)]"
             />
           </div>
           {hasAnyCustom && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={handleResetAll}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl border border-[var(--border-color)] transition-colors text-[11px] font-medium cursor-pointer shrink-0"
+              className="h-9 rounded-xl text-[11px]"
               title="Reset all modified shortcuts to default"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>{t("resetAllShortcuts", "Reset All")}</span>
-            </button>
+            </Button>
           )}
         </div>
 
@@ -200,9 +208,9 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
                               {item.desc}
                             </span>
                             {isCustom && !isRecording && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-strong)] shrink-0 font-medium">
+                              <Badge variant="outline" className="px-1.5 py-0.5 text-[9px]">
                                 Edited
-                              </span>
+                              </Badge>
                             )}
                           </div>
 
@@ -247,8 +255,8 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
           )}
         </div>
 
-        {/* Footer (Monochrome) */}
-        <div className="flex justify-between items-center pt-2.5 border-t border-[var(--border-color)]">
+        {/* Footer */}
+        <DialogFooter className="justify-between pt-2.5">
           <div className="text-[11px] text-[var(--text-muted)]">
             {editingId ? (
               <span className="text-[var(--text-primary)] font-medium">Recording shortcut... Press Escape to cancel</span>
@@ -256,15 +264,11 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
               <span>Click any shortcut keycap to rebind. Saved automatically.</span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] font-medium rounded-lg text-xs transition-colors cursor-pointer border border-[var(--border-strong)]"
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             Done
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 });

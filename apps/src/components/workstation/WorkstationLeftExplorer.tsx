@@ -5,6 +5,7 @@ import { CanvasItem, WorkspaceFile, Workspace } from "./explorer/types";
 import { useNativeFileTree } from "./explorer/useNativeFileTree";
 import { ExplorerRecentCanvases } from "./explorer/ExplorerRecentCanvases";
 import { useI18n } from "../../lib/i18n";
+import { Dialog, DialogContent, DialogFooter, Button } from "../ui";
 
 export type { CanvasItem, WorkspaceFile, Workspace };
 
@@ -243,14 +244,9 @@ function WorkstationLeftExplorerComponent({
       />
 
       {/* Custom Confirmation Modal replacing native browser confirm */}
-      {deleteTarget && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDeleteTarget(null);
-          }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
-        >
-          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl max-w-[480px] w-full p-6 border border-[var(--border-strong)] animate-in zoom-in-95 duration-150">
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        {deleteTarget && (
+          <DialogContent hideCloseButton className="max-w-[480px] p-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-white" strokeWidth={2} />
@@ -272,26 +268,18 @@ function WorkstationLeftExplorerComponent({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-[var(--border-color)]">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-hover)] hover:bg-[var(--border-color)] border border-[var(--border-strong)] transition-all cursor-pointer active:scale-95"
-              >
+            <DialogFooter className="mt-2">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
                 {t("cancel", "Cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
-              >
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t("deleteItemAction", "Delete")}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </aside>
   );
 }

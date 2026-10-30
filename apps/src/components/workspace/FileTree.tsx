@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -58,7 +58,7 @@ export default function FileTree({
     return buildTree(files);
   }, [nativeTree, files]);
 
-  const handleItemClick = async (filePath: string, fileName: string) => {
+  const handleItemClick = useCallback(async (filePath: string, fileName: string) => {
     try {
       // One path, not two. This used to fall back to apiFetch(`/files/:id/content`) when the desktop
       // bridge was missing - a route the engine has never had. It 500'd, was swallowed by an empty
@@ -82,7 +82,7 @@ export default function FileTree({
     } catch (err: any) {
       console.error("Error opening file:", err);
     }
-  };
+  }, [onFileClick]);
 
   const commitInlineCreate = () => {
     const val = inlineName.trim();
@@ -220,7 +220,7 @@ export default function FileTree({
                   node={node}
                   depth={0}
                   collapseSignal={collapseSignal}
-                  onFileClick={(p, n) => handleItemClick(p, n)}
+                  onFileClick={handleItemClick}
                   onDeletePath={onDeletePath}
                   onRenamePath={onRenamePath}
                   onAnalyzeFile={onAnalyzeFile}

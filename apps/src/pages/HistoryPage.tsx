@@ -6,6 +6,7 @@ import { HistorySessionItem } from "../components/history/HistorySessionItem";
 import { EmptySessionModal } from "../components/history/modals/EmptySessionModal";
 import { DeleteSessionModal } from "../components/history/modals/DeleteSessionModal";
 import { CleanupSessionsModal } from "../components/history/modals/CleanupSessionsModal";
+import { Button } from "../components/ui";
 
 const INITIAL_HISTORY_VISIBLE = 20;
 const HISTORY_LOAD_STEP = 20;
@@ -48,25 +49,58 @@ export function HistoryPage() {
     [visibleLimit, filteredSessions.length]
   );
 
+  const handleSearchChange = useCallback(
+    (q: string) => {
+      setSearchQuery(q);
+      setVisibleLimit(INITIAL_HISTORY_VISIBLE);
+    },
+    [setSearchQuery]
+  );
+
+  const handleTabChange = useCallback(
+    (t: typeof activeTab) => {
+      setActiveTab(t);
+      setVisibleLimit(INITIAL_HISTORY_VISIBLE);
+    },
+    [setActiveTab]
+  );
+
+  const handleRequestCleanup = useCallback(() => {
+    setCleanupConfirmModal(true);
+  }, [setCleanupConfirmModal]);
+
+  const handleCloseEmptyModal = useCallback(() => {
+    setEmptySessionModal(null);
+  }, [setEmptySessionModal]);
+
+  const handleOpenAnyway = useCallback(
+    (sess: Parameters<typeof handleOpenSession>[0]) => {
+      handleOpenSession(sess, true);
+    },
+    [handleOpenSession]
+  );
+
+  const handleCloseDeleteModal = useCallback(() => {
+    setDeleteModal(null);
+  }, [setDeleteModal]);
+
+  const handleCloseCleanupModal = useCallback(() => {
+    setCleanupConfirmModal(false);
+  }, [setCleanupConfirmModal]);
+
   let renderedCount = 0;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[var(--bg-app)] text-[var(--text-primary)] overflow-hidden select-none transition-colors duration-150">
       <HistoryFilterBar
         searchQuery={searchQuery}
-        onSearchChange={(q) => {
-          setSearchQuery(q);
-          setVisibleLimit(INITIAL_HISTORY_VISIBLE);
-        }}
+        onSearchChange={handleSearchChange}
         activeTab={activeTab}
-        onTabChange={(t) => {
-          setActiveTab(t);
-          setVisibleLimit(INITIAL_HISTORY_VISIBLE);
-        }}
+        onTabChange={handleTabChange}
         totalCount={totalCount}
         activeCount={activeCount}
         emptyCount={emptyCount}
-        onRequestCleanup={() => setCleanupConfirmModal(true)}
+        onRequestCleanup={handleRequestCleanup}
       />
 
       {/* Scrollable History List */}
@@ -127,8 +161,8 @@ export function HistoryPage() {
                         <HistorySessionItem
                           key={session.id}
                           session={session}
-                          onClick={() => handleOpenSession(session)}
-                          onDelete={(sess) => setDeleteModal(sess)}
+                          onSelect={handleOpenSession}
+                          onDelete={setDeleteModal}
                         />
                       ))}
                     </div>
@@ -139,13 +173,15 @@ export function HistoryPage() {
 
             {filteredSessions.length > visibleLimit && (
               <div className="flex justify-center pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setVisibleLimit((prev) => prev + HISTORY_LOAD_STEP)}
-                  className="px-4 py-1.5 rounded-full text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] transition-colors cursor-pointer"
+                  className="rounded-full"
                 >
                   Load more sessions ({filteredSessions.length - visibleLimit} remaining)
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -154,14 +190,14 @@ export function HistoryPage() {
 
       <EmptySessionModal
         session={emptySessionModal}
-        onClose={() => setEmptySessionModal(null)}
+        onClose={handleCloseEmptyModal}
         onDelete={handleDeleteSession}
-        onOpenAnyway={(sess) => handleOpenSession(sess, true)}
+        onOpenAnyway={handleOpenAnyway}
       />
 
       <DeleteSessionModal
         session={deleteModal}
-        onClose={() => setDeleteModal(null)}
+        onClose={handleCloseDeleteModal}
         onConfirm={handleDeleteSession}
       />
 
@@ -169,7 +205,7 @@ export function HistoryPage() {
         isOpen={cleanupConfirmModal}
         emptyCount={emptyCount}
         isCleaning={isCleaning}
-        onClose={() => setCleanupConfirmModal(false)}
+        onClose={handleCloseCleanupModal}
         onConfirm={handleCleanupEmptySessions}
       />
     </div>

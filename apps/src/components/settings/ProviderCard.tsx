@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Loader2, Wifi, Trash2, ArrowUp, ArrowDown, Settings2, Info, X, Terminal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
 import type { Provider } from "./ModelProviderSettings";
 import { formatToastError } from "./constants";
+import { Card, Button, Badge } from "../ui";
+
+function getSelectedModels(modelStr: string): string[] {
+  if (!modelStr) return [];
+  return modelStr.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 interface ProviderCardProps {
   provider: Provider;
@@ -18,7 +24,7 @@ interface ProviderCardProps {
   onDelete: (id: string) => void;
 }
 
-export function ProviderCard({
+export const ProviderCard = memo(function ProviderCard({
   provider: p,
   index,
   totalProviders,
@@ -33,17 +39,12 @@ export function ProviderCard({
   const { t } = useI18n();
   const [showTestDetails, setShowTestDetails] = useState(false);
 
-  const getSelectedModels = (modelStr: string): string[] => {
-    if (!modelStr) return [];
-    return modelStr.split(",").map((s) => s.trim()).filter(Boolean);
-  };
-
   const selectedModels = getSelectedModels(p.model);
 
   return (
-    <div
+    <Card
       className={cn(
-        "p-4 rounded-2xl border transition-all space-y-3",
+        "p-4 rounded-2xl transition-all space-y-3",
         p.active
           ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
           : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100"
@@ -126,9 +127,9 @@ export function ProviderCard({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="font-bold text-[var(--text-primary)] text-sm">{p.name}</h4>
-              <span className="text-[10px] font-mono px-2 py-0.5 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md text-[var(--text-muted)]">
+              <Badge variant="outline" className="font-mono">
                 {p.type}
-              </span>
+              </Badge>
 
               {/* Clickable Inline Test Result Badge */}
               {result && (
@@ -165,10 +166,12 @@ export function ProviderCard({
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => onTestConnection(p.id)}
             disabled={isTesting}
-            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-medium"
             title={t("testPing")}
           >
             {isTesting ? (
@@ -177,23 +180,27 @@ export function ProviderCard({
               <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             )}
             <span>{isTesting ? t("testing") : t("testPing")}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => onEdit(p)}
-            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer font-medium flex items-center gap-1.5"
           >
             <Settings2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("configure")}</span>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost-destructive"
+            size="icon"
             onClick={() => onDelete(p.id)}
-            className="p-2 text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-hover)] rounded-xl cursor-pointer transition-colors"
             title={t("deleteProvider")}
           >
             <Trash2 className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -236,6 +243,6 @@ export function ProviderCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
-}
+});

@@ -1,37 +1,42 @@
 import { memo } from "react";
 import { MessageSquare, Clock, Folder, Trash2, ArrowUpRight, MessageSquareDashed } from "lucide-react";
 import { ChatSession } from "./historyUtils";
+import { Card, Badge, Button } from "../ui";
+
+const SESSION_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function getFolderBasename(directory?: string): string {
+  if (!directory) return "";
+  return directory.replace(/\\/g, "/").split("/").filter(Boolean).pop() || directory;
+}
 
 interface HistorySessionItemProps {
   session: ChatSession;
-  onClick: () => void;
+  onSelect: (session: ChatSession) => void;
   onDelete: (session: ChatSession) => void;
 }
 
 export const HistorySessionItem = memo(function HistorySessionItem({
   session,
-  onClick,
+  onSelect,
   onDelete,
 }: HistorySessionItemProps) {
   const dateStr = session.createdAt
-    ? new Date(session.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? SESSION_DATE_FORMATTER.format(new Date(session.createdAt))
     : "";
 
-  const folderName = session.directory
-    ? session.directory.replace(/\\/g, "/").split("/").filter(Boolean).pop() || session.directory
-    : "";
-
+  const folderName = getFolderBasename(session.directory);
   const isEmpty = session.messageCount === 0;
 
   return (
-    <div
-      onClick={onClick}
-      className={`group flex items-center justify-between p-3.5 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border rounded-xl cursor-pointer transition-all duration-150 ${
+    <Card
+      onClick={() => onSelect(session)}
+      className={`group flex items-center justify-between p-3.5 hover:bg-[var(--bg-hover)] rounded-xl cursor-pointer transition-all duration-150 ${
         isEmpty
           ? "border-[var(--border-color)] opacity-75 hover:opacity-100"
           : "border-[var(--border-color)] hover:border-[var(--border-strong)]"
@@ -71,12 +76,8 @@ export const HistorySessionItem = memo(function HistorySessionItem({
               <>
                 <span>•</span>
                 <span
-                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium truncate transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-[var(--text-muted)] group-hover:text-[var(--text-primary)] font-medium truncate transition-colors"
                   title={`Open folder: ${session.directory}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClick();
-                  }}
                 >
                   <Folder className="w-3 h-3 shrink-0" strokeWidth={1.5} />
                   <span className="truncate">{folderName}</span>
@@ -90,44 +91,46 @@ export const HistorySessionItem = memo(function HistorySessionItem({
       {/* Right side: Badge & Actions */}
       <div className="flex items-center gap-2 shrink-0">
         {session.isLoadingStats ? (
-          <span className="px-2 py-0.5 text-[10px] text-[var(--text-dim)] bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md animate-pulse">
+          <Badge variant="outline" className="animate-pulse">
             Checking...
-          </span>
+          </Badge>
         ) : isEmpty ? (
-          <span className="px-2 py-0.5 text-[10px] font-medium text-[var(--text-dim)] bg-[var(--bg-app)] border border-[var(--border-color)] rounded-md">
+          <Badge variant="outline">
             Empty (0 msgs)
-          </span>
+          </Badge>
         ) : typeof session.messageCount === "number" ? (
-          <span className="px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-md">
+          <Badge variant="secondary">
             {session.messageCount} msgs
-          </span>
+          </Badge>
         ) : null}
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-          <button
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={(e) => {
               e.stopPropagation();
-              onClick();
+              onSelect(session);
             }}
             title="Resume conversation"
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost-destructive"
+            size="icon-sm"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(session);
             }}
             title="Delete session"
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-rose-600 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 });

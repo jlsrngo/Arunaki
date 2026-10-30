@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { ChevronRight, ChevronDown, Folder, FolderOpen } from "lucide-react";
 import { TreeNode, getFileIcon, formatSize } from "./tree-utils";
 import { TreeNodeActionMenu } from "./TreeNodeActionMenu";
@@ -15,7 +15,7 @@ interface TreeNodeItemProps {
   activeAgentAction?: { toolName: string; args?: any } | null;
 }
 
-export function TreeNodeItem({
+export const TreeNodeItem = memo(function TreeNodeItem({
   node,
   depth,
   collapseSignal,
@@ -41,18 +41,33 @@ export function TreeNodeItem({
     }
   }, [collapseSignal]);
 
-  const handleCommitRename = () => {
+  const handleCommitRename = useCallback(() => {
     const trimmed = editName.trim();
     if (trimmed && trimmed !== node.name && onRenamePath) {
       onRenamePath(node.nativePath || node.name, node.name, trimmed);
     }
     setIsRenaming(false);
-  };
+  }, [editName, node.name, node.nativePath, onRenamePath]);
 
-  const handleCancelRename = () => {
+  const handleCancelRename = useCallback(() => {
     setEditName(node.name);
     setIsRenaming(false);
-  };
+  }, [node.name]);
+
+  const handleStartRename = useCallback(() => {
+    setEditName(node.name);
+    setIsRenaming(true);
+  }, [node.name]);
+
+  const handleDelete = useCallback(() => {
+    if (node.nativePath && onDeletePath) {
+      onDeletePath(node.nativePath, node.name);
+    }
+  }, [node.nativePath, node.name, onDeletePath]);
+
+  const handleAnalyze = useCallback(() => {
+    onAnalyzeFile?.(node.name, node.nativePath);
+  }, [node.name, node.nativePath, onAnalyzeFile]);
 
   const isAgentTarget = Boolean(
     activeAgentAction?.args?.filename &&
@@ -102,15 +117,8 @@ export function TreeNodeItem({
             node={node}
             canRename={Boolean(node.nativePath && onRenamePath)}
             canDelete={Boolean(node.nativePath && onDeletePath)}
-            onStartRename={() => {
-              setEditName(node.name);
-              setIsRenaming(true);
-            }}
-            onDelete={() => {
-              if (node.nativePath && onDeletePath) {
-                onDeletePath(node.nativePath, node.name);
-              }
-            }}
+            onStartRename={handleStartRename}
+            onDelete={handleDelete}
           />
         </div>
 
@@ -178,7 +186,7 @@ export function TreeNodeItem({
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        <span className="text-[10px] text-[var(--text-dim)] font-mono group-hover:hidden pr-1">
+        <span className="text-[10px] text-[var(--text-dim)] font-mono group-hover:hidden group-focus-within:hidden pr-1">
           {node.size ? formatSize(node.size) : node.file ? formatSize(node.file.size) : ""}
         </span>
 
@@ -186,22 +194,11 @@ export function TreeNodeItem({
           node={node}
           canRename={Boolean(node.nativePath && onRenamePath)}
           canDelete={Boolean(node.nativePath && onDeletePath)}
-          onStartRename={() => {
-            setEditName(node.name);
-            setIsRenaming(true);
-          }}
-          onDelete={() => {
-            if (node.nativePath && onDeletePath) {
-              onDeletePath(node.nativePath, node.name);
-            }
-          }}
-          onAnalyze={
-            onAnalyzeFile
-              ? () => onAnalyzeFile(node.name, node.nativePath)
-              : undefined
-          }
+          onStartRename={handleStartRename}
+          onDelete={handleDelete}
+          onAnalyze={onAnalyzeFile ? handleAnalyze : undefined}
         />
       </div>
     </div>
   );
-}
+});

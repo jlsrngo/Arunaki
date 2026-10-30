@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { FolderOpen, X } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { tauriPickFolder } from "../../lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button, Input } from "../ui";
 
 interface ConnectFolderModalProps {
   isOpen: boolean;
@@ -43,62 +44,44 @@ export function ConnectFolderModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)]">
-        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)] mb-4">
-          <h3 className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-2">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent onClose={onClose} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="w-4 h-4 text-[var(--text-muted)]" />
             Buka Folder Kerja
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded cursor-pointer transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={handleConnectFolderSubmit} className="space-y-4">
           <div>
             <label className="block text-xs text-[var(--text-muted)] mb-1.5 font-medium">
               Local Folder Path
             </label>
-            <input
+            <Input
               type="text"
               value={folderInputPath}
               onChange={(e) => setFolderInputPath(e.target.value)}
               placeholder="Example: E:\DocumentWorkspaces\Garment"
-              className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-md px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)]"
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--border-color)]">
-            <button
-              type="button"
-              onClick={openElectronDialog}
-              className="px-4 py-2 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md text-xs font-semibold cursor-pointer transition-colors"
-            >
-              <FolderOpen className="w-3.5 h-3.5 mr-1.5 inline" />
-              Pilih Folder…
-            </button>
+          <DialogFooter className="justify-between">
+            <Button type="button" variant="secondary" onClick={openElectronDialog}>
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>Pilih Folder…</span>
+            </Button>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md text-xs font-semibold cursor-pointer transition-colors"
-              >
+              <Button type="button" variant="ghost" onClick={onClose}>
                 Batal
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-md text-xs font-semibold cursor-pointer transition-opacity"
-              >
+              </Button>
+              <Button type="submit" variant="default">
                 Buka
-              </button>
+              </Button>
             </div>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

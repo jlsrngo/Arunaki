@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Monitor, ChevronDown, ChevronUp, Maximize2, Minimize2 } from "lucide-react";
 
+const MIRROR_TIME_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 interface LiveMirrorCardProps {
   screenshotUrl: string;
   title?: string;
@@ -30,7 +36,7 @@ export function LiveMirrorCard({
             <span className="text-xs font-semibold text-[var(--text-primary)]">{title}</span>
             {timestamp && (
               <span className="text-[10px] text-[var(--text-dim)] ml-2">
-                {new Date(timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {MIRROR_TIME_FORMATTER.format(new Date(timestamp))}
               </span>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Plus, Loader2, Cpu, Info, Terminal, Trash2 } from "lucide-react";
 import { API_BASE, apiFetch, directoryQuery } from "../../lib/api";
 import { toast } from "sonner";
@@ -7,6 +7,20 @@ import { ProviderCard } from "./ProviderCard";
 import { ProviderForm } from "./ProviderForm";
 import { Provider, ProviderFormData, FormTestResult } from "./types";
 import { PROVIDER_TYPES, DEFAULT_MODELS, formatToastError } from "./constants";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../ui";
+
+function getSelectedModels(modelStr: string): string[] {
+  if (!modelStr) return [];
+  return modelStr.split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 export type { Provider };
 
@@ -133,7 +147,7 @@ export function ModelProviderSettings({
   const [formAvailableModels, setFormAvailableModels] = useState<string[]>(DEFAULT_MODELS["9router"] || []);
   const [providerToDelete, setProviderToDelete] = useState<string | null>(null);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setForm({
       name: "",
       type: "9router",
@@ -149,12 +163,7 @@ export function ModelProviderSettings({
     setFormTestResult(null);
     setShowAddForm(false);
     setEditingId(null);
-  };
-
-  const getSelectedModels = (modelStr: string): string[] => {
-    if (!modelStr) return [];
-    return modelStr.split(",").map((s) => s.trim()).filter(Boolean);
-  };
+  }, []);
 
   const handleToggleModelSelection = (m: string) => {
     const current = getSelectedModels(form.model);
@@ -204,7 +213,12 @@ export function ModelProviderSettings({
     setFormTestResult(null);
   };
 
-  const handleEdit = (p: Provider) => {
+  const internalProvidersRef = useRef<Provider[]>(internalProviders);
+  internalProvidersRef.current = internalProviders;
+  const cloudProvidersRef = useRef<Provider[]>(cloudProviders);
+  cloudProvidersRef.current = cloudProviders;
+
+  const handleEdit = useCallback((p: Provider) => {
     setEditingId(p.id);
     const savedSelected = localStorage.getItem("arunaki_provider_models_" + p.id) || p.model;
     const cleanKey = p.apiKey?.includes("•") ? "" : p.apiKey;
@@ -228,7 +242,7 @@ export function ModelProviderSettings({
     setFormNewModelInput("");
     setFormTestResult(null);
     setShowAddForm(true);
-  };
+  }, [availableCatalogModels, customModelsMap]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,9 +294,9 @@ export function ModelProviderSettings({
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     setProviderToDelete(id);
-  };
+  }, []);
 
   const executeDelete = async (id: string) => {
     setInternalProviders((prev) => prev.filter((p) => p.id !== id));
@@ -296,7 +310,7 @@ export function ModelProviderSettings({
     }
   };
 
-  const handleToggleActive = (provider: Provider) => {
+  const handleToggleActive = useCallback((provider: Provider) => {
     const isCurrentlyActive = Boolean(provider.active);
     const targetState = !isCurrentlyActive;
 
@@ -321,7 +335,7 @@ export function ModelProviderSettings({
       const lastCli = localStorage.getItem("arunaki_last_active_cli");
       const targetCli = (lastCli && cliTargets.includes(lastCli))
         ? lastCli
-        : (internalProviders.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
+        : (internalProvidersRef.current.find((p) => cliTargets.includes(p.id))?.id || "antigravity");
 
       localStorage.setItem("arunaki_active_provider", targetCli);
 
@@ -403,10 +417,10 @@ export function ModelProviderSettings({
         onRefresh();
       });
     }
-  };
+  }, [onRefresh, onUpdateProviders, t]);
 
-  const handleMoveProviderPriority = (index: number, direction: "up" | "down") => {
-    const list = [...cloudProviders];
+  const handleMoveProviderPriority = useCallback((index: number, direction: "up" | "down") => {
+    const list = [...cloudProvidersRef.current];
     const targetIdx = direction === "up" ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= list.length) return;
 
@@ -447,7 +461,7 @@ export function ModelProviderSettings({
       toast.error("Failed to persist provider priority.");
       onRefresh();
     });
-  };
+  }, [onRefresh, onUpdateProviders]);
 
   const handleFetchModelsInForm = async () => {
     if (!form.baseUrl) {
@@ -520,11 +534,11 @@ export function ModelProviderSettings({
     toast.success(`Model "${clean}" added to selection.`);
   };
 
-  const handleTestConnection = async (id: string) => {
+  const handleTestConnection = useCallback(async (id: string) => {
     setTestingId(id);
     const startMs = Date.now();
     try {
-      const provider = providers.find((p) => p.id === id);
+      const provider = internalProvidersRef.current.find((p) => p.id === id);
       const selectedModels = provider?.model
         ? provider.model.split(",").map((s) => s.trim()).filter(Boolean)
         : [];
@@ -573,7 +587,7 @@ export function ModelProviderSettings({
     } finally {
       setTestingId(null);
     }
-  };
+  }, []);
 
   const handleTestFormConnection = async () => {
     setIsTestingForm(true);
@@ -639,16 +653,18 @@ export function ModelProviderSettings({
         </div>
 
         {!showAddForm && (
-          <button
+          <Button
+            type="button"
+            variant="default"
+            size="lg"
             onClick={() => {
               resetForm();
               setShowAddForm(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t("addProvider")}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -729,15 +745,17 @@ export function ModelProviderSettings({
         <div className="p-8 text-center bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] space-y-3">
           <Cpu className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-50" />
           <p className="text-xs text-[var(--text-muted)]">{t("noProvidersConfigured")}</p>
-          <button
+          <Button
+            type="button"
+            variant="default"
+            size="lg"
             onClick={() => {
               resetForm();
               setShowAddForm(true);
             }}
-            className="px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] rounded-xl text-xs font-semibold cursor-pointer"
           >
             {t("addFirstProvider")}
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="space-y-3 w-full">
@@ -760,47 +778,47 @@ export function ModelProviderSettings({
       )}
 
       {/* Custom Confirmation Modal replacing native browser confirm */}
-      {providerToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)]">
-            <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-rose-600 border border-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-4 h-4 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
-                  Delete Provider Configuration
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
-                  Are you sure you want to delete this provider configuration? This will remove the API key and stored settings for this provider.
-                </p>
-              </div>
+      <Dialog
+        open={Boolean(providerToDelete)}
+        onOpenChange={(open) => !open && setProviderToDelete(null)}
+      >
+        <DialogContent className="max-w-md p-5" hideCloseButton>
+          <div className="flex items-start gap-3.5">
+            <div className="w-9 h-9 rounded-xl bg-rose-600 border border-rose-600 flex items-center justify-center shrink-0">
+              <Trash2 className="w-4 h-4 text-white" />
             </div>
-
-            <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
-              <button
-                type="button"
-                onClick={() => setProviderToDelete(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const id = providerToDelete;
-                  setProviderToDelete(null);
-                  executeDelete(id);
-                }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
-            </div>
+            <DialogHeader className="flex-1 min-w-0">
+              <DialogTitle>Delete Provider Configuration</DialogTitle>
+              <DialogDescription className="mt-1.5 leading-relaxed">
+                Are you sure you want to delete this provider configuration? This will remove the API key and stored settings for this provider.
+              </DialogDescription>
+            </DialogHeader>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="mt-5 pt-4 border-t border-[var(--border-color)]">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setProviderToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (!providerToDelete) return;
+                const id = providerToDelete;
+                setProviderToDelete(null);
+                void executeDelete(id);
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

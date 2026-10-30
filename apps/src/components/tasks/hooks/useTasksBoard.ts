@@ -360,108 +360,124 @@ export function useTasksBoard() {
     };
   }, [loadTasks]);
 
+  const draggedTaskIdRef = useRef<string | null>(null);
+  draggedTaskIdRef.current = draggedTaskId;
+
   // Actions
-  const openNewTaskModal = (col: TaskItem["columnId"] = "today") => {
+  const openNewTaskModal = useCallback((col: TaskItem["columnId"] = "today") => {
     setEditingTask(null);
     setInitialColumn(col);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const openEditTaskModal = (task: TaskItem) => {
+  const openEditTaskModal = useCallback((task: TaskItem) => {
     setEditingTask(task);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteTask = async (id: string) => {
-    const updated = tasks.filter((t) => t.id !== id);
+  const handleDeleteTask = useCallback(async (id: string) => {
+    const updated = tasksRef.current.filter((tItem) => tItem.id !== id);
     await saveTasks(updated);
     toast.success(isIndonesian ? "Agenda dihapus" : "Task deleted");
-  };
+  }, [isIndonesian, saveTasks]);
 
-  const handleCompleteTask = async (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id
-        ? { ...t, columnId: "done" as const, updatedAt: new Date().toISOString() }
-        : t
+  const handleCompleteTask = useCallback(async (id: string) => {
+    const updated = tasksRef.current.map((tItem) =>
+      tItem.id === id
+        ? { ...tItem, columnId: "done" as const, updatedAt: new Date().toISOString() }
+        : tItem
     );
     await saveTasks(updated);
     toast.success(
       isIndonesian
-        ? "Agenda selesai dan disimpan ke Riwayat!"
-        : "Task completed and archived to History!"
+        ? "Agenda berhasil ditandai selesai & disimpan ke Riwayat"
+        : "Task marked as completed & saved to Archive"
     );
-  };
+  }, [isIndonesian, saveTasks]);
 
-  const handleRestoreTask = async (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id
-        ? { ...t, columnId: "today" as const, targetDate: getTodayString(), updatedAt: new Date().toISOString() }
-        : t
+  const handleRestoreTask = useCallback(async (id: string) => {
+    const targetTask = tasksRef.current.find((tItem) => tItem.id === id);
+    if (!targetTask) return;
+    const curToday = getTodayString();
+    const destColumn =
+      targetTask.targetDate && targetTask.targetDate > curToday
+        ? ("upcoming" as const)
+        : ("today" as const);
+
+    const updated = tasksRef.current.map((tItem) =>
+      tItem.id === id
+        ? {
+            ...tItem,
+            columnId: destColumn,
+            updatedAt: new Date().toISOString(),
+          }
+        : tItem
     );
     await saveTasks(updated);
     toast.success(
       isIndonesian
-        ? "Agenda dipulihkan kembali ke papan Hari Ini"
-        : "Task restored back to Today board"
+        ? `Agenda dipulihkan ke kolom ${destColumn === "upcoming" ? "Akan Datang" : "Hari Ini"}`
+        : "Task restored to active board"
     );
-  };
+  }, [isIndonesian, saveTasks]);
 
-  const handleToggleSubtask = async (taskId: string, subtaskId: string) => {
-    const updated = tasks.map((t) => {
-      if (t.id === taskId) {
-        const subtasks = (t.subtasks || []).map((st) =>
+  const handleToggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const updated = tasksRef.current.map((tItem) => {
+      if (tItem.id === taskId) {
+        const subtasks = (tItem.subtasks || []).map((st) =>
           st.id === subtaskId ? { ...st, completed: !st.completed } : st
         );
-        return { ...t, subtasks };
+        return { ...tItem, subtasks };
       }
-      return t;
+      return tItem;
     });
     await saveTasks(updated);
-  };
+  }, [saveTasks]);
 
-  const handleDragStart = (taskId: string) => {
+  const handleDragStart = useCallback((taskId: string) => {
     setDraggedTaskId(taskId);
-  };
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-  };
+  }, []);
 
-  const handleDrop = async (targetColumn: TaskItem["columnId"]) => {
-    if (!draggedTaskId) return;
+  const handleDrop = useCallback(async (targetColumn: TaskItem["columnId"]) => {
+    const currentDraggedId = draggedTaskIdRef.current;
+    if (!currentDraggedId) return;
     const curToday = getTodayString();
     const curTomorrow = getTomorrowString();
 
-    const updated = tasks.map((t) => {
-      if (t.id === draggedTaskId) {
-        let newDate = t.targetDate;
+    const updated = tasksRef.current.map((tItem) => {
+      if (tItem.id === currentDraggedId) {
+        let newDate = tItem.targetDate;
         if (targetColumn === "today") {
           newDate = curToday;
         } else if (targetColumn === "upcoming") {
-          if (!t.targetDate || t.targetDate <= curToday) {
+          if (!tItem.targetDate || tItem.targetDate <= curToday) {
             newDate = curTomorrow;
           }
         }
         return {
-          ...t,
+          ...tItem,
           columnId: targetColumn,
           targetDate: newDate,
           updatedAt: new Date().toISOString(),
         };
       }
-      return t;
+      return tItem;
     });
     setDraggedTaskId(null);
     await saveTasks(updated);
-  };
+  }, [saveTasks]);
 
-  const handleOpenFileInWorkstation = (fileName: string) => {
+  const handleOpenFileInWorkstation = useCallback((fileName: string) => {
     window.dispatchEvent(
       new CustomEvent("arunaki-open-file", {
         detail: { filePath: fileName },
       })
     );
-  };
+  }, []);
 
   return {
     activeFolder,

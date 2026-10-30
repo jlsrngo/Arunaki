@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  X,
   Clock,
   Calendar,
   Send,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Button, Input, Textarea } from "../../ui";
 import {
   TaskItem,
   Subtask,
@@ -141,9 +141,10 @@ export function TaskModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div
-        className="w-full max-w-4xl bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl flex flex-col max-h-[94vh] overflow-hidden"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        onClose={onClose}
+        className="max-w-4xl bg-[var(--bg-panel)] p-0 gap-0 rounded-xl max-h-[94vh] overflow-hidden"
         onClick={() => {
           setIsTimeDropdownOpen(false);
           setIsColumnDropdownOpen(false);
@@ -151,23 +152,16 @@ export function TaskModal({
         }}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/50">
+        <DialogHeader className="px-5 py-3 bg-[var(--bg-card)]/50">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#cf6613]" />
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] tracking-wide">
+            <DialogTitle className="tracking-wide">
               {editingTask
                 ? t("taskEditModalTitle", isIndonesian ? "Edit Agenda Operasional" : "Edit Operational Agenda")
                 : t("taskCreateModalTitle", isIndonesian ? "Catat Agenda Operasional" : "Record Operational Agenda")}
-            </h3>
+            </DialogTitle>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Modal Body: 4-Column Responsive Layout, Zero Need to Scroll */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
@@ -176,12 +170,12 @@ export function TaskModal({
             <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
               {t("taskTitleLabel", isIndonesian ? "Judul Agenda Operasional" : "Operational Agenda Title")} <span className="text-[#cf6613]">*</span>
             </label>
-            <input
+            <Input
               type="text"
               placeholder={t("taskTitlePlaceholder", isIndonesian ? "Contoh: Rekonsiliasi faktur pajak supplier PT Maju..." : "e.g. Reconciliation of input tax invoices for current period...")}
               value={modalTitle}
               onChange={(e) => setModalTitle(e.target.value)}
-              className="w-full px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+              className="bg-[var(--bg-card)]"
             />
           </div>
 
@@ -557,12 +551,12 @@ export function TaskModal({
                     </span>
                   )}
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder={t("taskAttachedDocumentPlaceholder", isIndonesian ? "Contoh: faktur_pajak.xlsx..." : "e.g. tax_invoice.xlsx or bank_statement.pdf...")}
                   value={modalFile}
                   onChange={(e) => setModalFile(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                  className="bg-[var(--bg-card)] font-mono"
                 />
                 {projectFiles.length > 0 && (
                   <div className="flex items-center gap-1 overflow-x-auto pt-0.5 pb-0.5">
@@ -590,12 +584,12 @@ export function TaskModal({
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)]">
                   {t("taskInstructions", isIndonesian ? "Instruksi Kerja / Catatan" : "Work Instructions / Notes")}
                 </label>
-                <textarea
+                <Textarea
                   rows={3}
                   placeholder={t("taskInstructionsPlaceholder", isIndonesian ? "Tuliskan catatan kerja, target rekonsiliasi, nominal biaya..." : "Specify context, instructions, or deliverables...")}
                   value={modalDescription}
                   onChange={(e) => setModalDescription(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
+                  className="bg-[var(--bg-card)] resize-none"
                 />
               </div>
             </div>
@@ -611,7 +605,7 @@ export function TaskModal({
 
               {/* Subtask Input */}
               <div className="flex items-center gap-1.5">
-                <input
+                <Input
                   type="text"
                   placeholder={t("addSubtaskPlaceholder", isIndonesian ? "Tambah subtugas (Tekan Enter)..." : "Add subtask item (Press Enter)...")}
                   value={newSubtaskInput}
@@ -622,15 +616,15 @@ export function TaskModal({
                       handleAddSubtask();
                     }
                   }}
-                  className="flex-1 px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                  className="flex-1 bg-[var(--bg-card)]"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={handleAddSubtask}
-                  className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-color)] border border-[var(--border-color)] text-xs font-medium transition-colors cursor-pointer shrink-0"
                 >
                   {t("addSubtaskBtn", isIndonesian ? "Tambah" : "Add")}
-                </button>
+                </Button>
               </div>
 
               {/* Subtask List Container */}
@@ -678,22 +672,23 @@ export function TaskModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-card)]/50">
+        <DialogFooter className="justify-between px-5 py-2.5 bg-[var(--bg-card)]/50">
           <div className="flex items-center gap-2">
             {editingTask && onDelete ? (
-              <button
+              <Button
                 type="button"
+                variant="destructive"
                 onClick={() => onDelete(editingTask.id)}
-                className="px-3 py-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t("taskDeleteBtn", isIndonesian ? "Hapus Agenda" : "Delete Agenda")}</span>
-              </button>
+              </Button>
             ) : null}
 
             {/* Google Calendar Quick Sync Button */}
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 const gcalUrl = buildGoogleCalendarUrl({
                   title: modalTitle || "Agenda Operasional",
@@ -706,16 +701,16 @@ export function TaskModal({
                 });
                 openExternalUrl(gcalUrl);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium border border-[var(--border-color)] flex items-center gap-1.5 transition-colors cursor-pointer"
               title={t("syncGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
             >
               <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
               <span className="hidden sm:inline">{t("syncGoogleCalendar", isIndonesian ? "Sinkron Google Calendar" : "Sync to Google Calendar")}</span>
-            </button>
+            </Button>
 
             {editingTask && editingTask.columnId !== "done" && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={async () => {
                   const reminderDateTime = `${modalDate}T${modalTime}:00`;
                   const gcalUrl = buildGoogleCalendarUrl({
@@ -745,35 +740,30 @@ export function TaskModal({
                     false
                   );
                 }}
-                className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-medium border border-[var(--border-strong)] flex items-center gap-1.5 transition-colors cursor-pointer"
                 title={isIndonesian ? "Tandai selesai & pindahkan ke riwayat arsip" : "Mark as completed and archive"}
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-[var(--text-primary)]" />
                 <span className="hidden sm:inline">{isIndonesian ? "Tandai Selesai" : "Mark Completed"}</span>
-              </button>
+              </Button>
             )}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
-            >
+            <Button type="button" variant="secondary" onClick={onClose}>
               {t("taskCancelBtn", isIndonesian ? "Batal" : "Cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="default"
               onClick={handleSave}
-              className="px-4 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium transition-colors cursor-pointer"
             >
               {editingTask
                 ? t("taskSaveBtn", isIndonesian ? "Simpan Perubahan" : "Save Changes")
                 : t("taskCreateBtn", isIndonesian ? "Catat Agenda" : "Create Task")}
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

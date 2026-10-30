@@ -1,5 +1,4 @@
-import { memo, useState } from "react";
-import { toast } from "sonner";
+import { memo, useState, useCallback, useMemo } from "react";
 import {
   useTasksBoard,
   DEFAULT_COLUMNS,
@@ -8,9 +7,12 @@ import {
   TaskModal,
   TasksHistoryView,
   TaskItem,
-  getTodayString,
+  TaskViewMode,
   openExternalUrl,
 } from "../components/tasks";
+
+// The 4 active Kanban columns (hoisted out of render)
+const ACTIVE_COLUMNS = DEFAULT_COLUMNS.filter((c) => c.id !== "done");
 
 /**
  * TasksBoardPage
@@ -44,6 +46,8 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     openNewTaskModal,
     openEditTaskModal,
     handleDeleteTask,
+    handleCompleteTask,
+    handleRestoreTask,
     handleToggleSubtask,
     handleDragStart,
     handleDragOver,
@@ -53,104 +57,93 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     t,
   } = useTasksBoard();
 
-  // Quick complete a task from the board and move it directly to History
-  const handleCompleteTask = async (taskId: string) => {
-    const updated = tasks.map((taskItem) =>
-      taskItem.id === taskId
-        ? {
-            ...taskItem,
-            columnId: "done" as const,
-            updatedAt: new Date().toISOString(),
-          }
-        : taskItem
-    );
-    await saveTasks(updated);
-    toast.success(
-      isIndonesian
-        ? "Agenda berhasil ditandai selesai & disimpan ke Riwayat"
-        : "Task marked as completed & saved to Archive"
-    );
-  };
-
-  // Restore task from full-page History back to the active board
-  const handleRestoreTask = async (taskId: string) => {
-    const targetTask = tasks.find((tItem) => tItem.id === taskId);
-    if (!targetTask) return;
-    const curToday = getTodayString();
-    const destColumn =
-      targetTask.targetDate && targetTask.targetDate > curToday
-        ? ("upcoming" as const)
-        : ("today" as const);
-
-    const updated = tasks.map((tItem) =>
-      tItem.id === taskId
-        ? {
-            ...tItem,
-            columnId: destColumn,
-            updatedAt: new Date().toISOString(),
-          }
-        : tItem
-    );
-    await saveTasks(updated);
-    toast.success(
-      isIndonesian
-        ? `Agenda dipulihkan ke kolom ${destColumn === "upcoming" ? "Akan Datang" : "Hari Ini"}`
-        : "Task restored to active board"
-    );
-  };
-
   // Filter tasks based on search query
-  const filteredTasks = tasks.filter((task) => {
-    if (task.columnId === "done") return false; // Done tasks live in full-page History
-
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      task.title.toLowerCase().includes(q) ||
-      (task.description && task.description.toLowerCase().includes(q)) ||
-      (task.attachedFile && task.attachedFile.toLowerCase().includes(q))
-    );
-  });
-
-  // The 4 active Kanban columns
-  const activeColumns = DEFAULT_COLUMNS.filter((c) => c.id !== "done");
-
-  const handleSaveModal = async (
-    taskData: Omit<TaskItem, "id" | "createdAt" | "updatedAt">,
-    autoOpenGCal: boolean
-  ) => {
-    const nowIso = new Date().toISOString();
-
-    if (editingTask) {
-      const updated = tasks.map((tItem) =>
-        tItem.id === editingTask.id
-          ? { ...tItem, ...taskData, updatedAt: nowIso }
-          : tItem
+  const filteredTasks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return tasks.filter((task) => {
+      if (task.columnId === "done") return false; // Done tasks live in full-page History
+      if (!q) return true;
+      return (
+        task.title.toLowerCase().includes(q) ||
+        (task.description && task.description.toLowerCase().includes(q)) ||
+        (task.attachedFile && task.attachedFile.toLowerCase().includes(q))
       );
-      await saveTasks(updated);
-    } else {
-      const newTask: TaskItem = {
-        ...taskData,
-        id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-      await saveTasks([newTask, ...tasks]);
-    }
+    });
+  }, [tasks, searchQuery]);
 
-    if (autoOpenGCal && taskData.gcalUrl) {
-      void openExternalUrl(taskData.gcalUrl);
-    }
+  const handleSaveModal = useCallback(
+    async (
+      taskData: Omit<TaskItem, "id" | "createdAt" | "updatedAt">,
+      autoOpenGCal: boolean
+    ) => {
+      const nowIso = new Date().toISOString();
 
+      if (editingTask) {
+        const updated = tasks.map((tItem) =>
+          tItem.id === editingTask.id
+            ? { ...tItem, ...taskData, updatedAt: nowIso }
+            : tItem
+        );
+        await saveTasks(updated);
+      } else {
+        const newTask: TaskItem = {
+          ...taskData,
+          id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+        await saveTasks([newTask, ...tasks]);
+      }
+
+      if (autoOpenGCal && taskData.gcalUrl) {
+        void openExternalUrl(taskData.gcalUrl);
+      }
+
+      setIsModalOpen(false);
+    },
+    [editingTask, tasks, saveTasks, setIsModalOpen]
+  );
+
+  const handleBackToBoard = useCallback(() => {
+    setActiveView("board");
+  }, []);
+
+  const handleOpenHistory = useCallback(() => {
+    setActiveView("history");
+  }, []);
+
+  const handleViewModeChange = useCallback(
+    (mode: TaskViewMode) => {
+      if (mode === "history") {
+        setActiveView("history");
+      } else {
+        setViewMode(mode);
+      }
+    },
+    [setViewMode]
+  );
+
+  const handleAddTodayTask = useCallback(() => {
+    openNewTaskModal("today");
+  }, [openNewTaskModal]);
+
+  const handleSendTelegram = useCallback(
+    (task: TaskItem) => {
+      void sendTelegramReminder(task, true);
+    },
+    [sendTelegramReminder]
+  );
+
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
-  };
+  }, [setIsModalOpen]);
 
   // Switch to full page history if selected
   if (activeView === "history") {
     return (
       <TasksHistoryView
         tasks={tasks}
-        onBackToBoard={() => setActiveView("board")}
+        onBackToBoard={handleBackToBoard}
         onRestoreTask={handleRestoreTask}
         onDeleteTask={handleDeleteTask}
         onSyncGoogleCalendar={syncToGoogleCalendar}
@@ -170,24 +163,18 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
-        onViewModeChange={(mode) => {
-          if (mode === "history") {
-            setActiveView("history");
-          } else {
-            setViewMode(mode);
-          }
-        }}
+        onViewModeChange={handleViewModeChange}
         isLoading={isLoading}
         onRefresh={loadTasks}
-        onOpenHistory={() => setActiveView("history")}
-        onAddNewTask={() => openNewTaskModal("today")}
+        onOpenHistory={handleOpenHistory}
+        onAddNewTask={handleAddTodayTask}
         isIndonesian={isIndonesian}
         t={t}
       />
 
       {/* 2. Interactive Kanban Columns Grid - Full Height Stretching */}
       <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pt-4 pb-2 custom-scrollbar">
-        {activeColumns.map((col) => {
+        {ACTIVE_COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((task) => task.columnId === col.id);
           return (
             <TasksBoardColumn
@@ -203,7 +190,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
               onEditTask={openEditTaskModal}
               onCompleteTask={handleCompleteTask}
               onSyncGoogleCalendar={syncToGoogleCalendar}
-              onSendTelegram={(task) => sendTelegramReminder(task, true)}
+              onSendTelegram={handleSendTelegram}
               onOpenFileInWorkstation={handleOpenFileInWorkstation}
               onToggleSubtask={handleToggleSubtask}
               isIndonesian={isIndonesian}
@@ -220,7 +207,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
           initialColumn={initialColumn}
           editingTask={editingTask}
           projectFiles={projectFiles}
-          onClose={() => setIsModalOpen(false)}
+          onClose={handleCloseModal}
           onSave={handleSaveModal}
           onDelete={handleDeleteTask}
           isIndonesian={isIndonesian}

@@ -1,5 +1,6 @@
 import { AlertCircle, Trash2 } from "lucide-react";
 import { ChatSession } from "../historyUtils";
+import { Dialog, DialogContent, DialogFooter, Button } from "../../ui";
 
 interface EmptySessionModalProps {
   session: ChatSession | null;
@@ -17,8 +18,8 @@ export function EmptySessionModal({
   if (!session) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)]">
+    <Dialog open={Boolean(session)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent hideCloseButton className="max-w-md">
         <div className="flex items-start gap-3.5">
           <div className="w-9 h-9 rounded-xl bg-[var(--bg-hover)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
             <AlertCircle className="w-5 h-5 text-[var(--text-primary)]" strokeWidth={1.5} />
@@ -45,31 +46,19 @@ export function EmptySessionModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-[var(--border-color)]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-          >
+        <DialogFooter className="mt-1">
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(session)}
-            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white border border-rose-600 transition-colors cursor-pointer flex items-center gap-1.5"
-          >
+          </Button>
+          <Button variant="destructive" onClick={() => onDelete(session)}>
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Session</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenAnyway(session)}
-            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 transition-opacity cursor-pointer"
-          >
+          </Button>
+          <Button variant="default" onClick={() => onOpenAnyway(session)}>
             Open Anyway
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

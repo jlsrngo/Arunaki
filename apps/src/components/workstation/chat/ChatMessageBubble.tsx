@@ -2,12 +2,24 @@ import { memo, useState, useEffect, useMemo, type MouseEvent } from "react";
 import { Check, Copy, RotateCcw, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
+import { useTheme } from "../../../lib/theme";
 import { API_BASE } from "../../../lib/api";
 import { getFileIcon } from "../../workspace/tree-utils";
 import { MessageThoughtBadge, StepItem, LiveActionIndicator, getActiveActionText } from "../LiveExecutionBadge";
 import { ChatMessageContent } from "./ChatMessageContent";
 import { QuestionPromptCard } from "./QuestionPromptCard";
 import { Message, QuestionData } from "./types";
+
+const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat([], {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const IMAGE_MENTION_REGEX = /(?:@)?([a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi;
+const IMAGE_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif)$/i;
+const IMAGE_OR_SVG_EXT_REGEX = /\.(png|jpg|jpeg|webp|gif|svg)$/i;
+const THINK_TAG_REGEX = /<\/?think\??>/gi;
+const EXTERNAL_SOURCE_REGEX = /^\[(Telegram|WhatsApp|Platform)\s*([^\]]*)\]:\s*([\s\S]*)$/i;
 
 interface ChatMessageBubbleProps {
   msg: Message;
@@ -31,6 +43,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
   // CRITICAL: React Rules of Hooks - all hooks unconditionally declared at the top before any condition or early return!
   const [copied, setCopied] = useState(false);
   const [liveElapsedSec, setLiveElapsedSec] = useState(0);
+  const { isNeobrutalism } = useTheme();
 
   useEffect(() => {
     if (!isStreaming) return;
@@ -44,7 +57,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   const imageMentions = useMemo(() => {
     const contentStr = msg?.content || "";
-    const matches = contentStr.match(/(?:@)?([a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi) || [];
+    const matches = contentStr.match(IMAGE_MENTION_REGEX) || [];
     return Array.from(new Set(matches.map((m) => m.replace(/^@/, ""))));
   }, [msg?.content]);
 
@@ -56,8 +69,8 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           const isImg =
             f.uri.startsWith("data:image/") ||
             f.mime?.startsWith("image/") ||
-            /\.(png|jpg|jpeg|webp|gif)$/i.test(f.name || "") ||
-            /\.(png|jpg|jpeg|webp|gif)$/i.test(f.uri);
+            IMAGE_EXT_REGEX.test(f.name || "") ||
+            IMAGE_EXT_REGEX.test(f.uri);
           if (isImg) {
             fromFiles.push({
               name: f.name || "Attached image",
@@ -86,21 +99,21 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
       const isImg =
         f.uri.startsWith("data:image/") ||
         f.mime?.startsWith("image/") ||
-        /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(f.name || "") ||
-        /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(f.uri);
+        IMAGE_OR_SVG_EXT_REGEX.test(f.name || "") ||
+        IMAGE_OR_SVG_EXT_REGEX.test(f.uri);
       return !isImg;
     });
   }, [msg?.files]);
 
   const displayContent = useMemo(() => {
-    const raw = (msg?.content || "").replace(/<\/?think\??>/gi, "");
+    const raw = (msg?.content || "").replace(THINK_TAG_REGEX, "");
     if (imageMentions.length === 0) return isStreaming ? raw : raw.trim();
-    return raw.replace(/(?:@)?([a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi, "").trim();
+    return raw.replace(IMAGE_MENTION_REGEX, "").trim();
   }, [msg?.content, imageMentions, isStreaming]);
 
   const externalSource = useMemo(() => {
     if (!isUser || !displayContent) return null;
-    const m = displayContent.match(/^\[(Telegram|WhatsApp|Platform)\s*([^\]]*)\]:\s*([\s\S]*)$/i);
+    const m = displayContent.match(EXTERNAL_SOURCE_REGEX);
     if (!m) return null;
     return {
       platform: m[1],
@@ -113,7 +126,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     if (!msg?.createdAt) return "";
     try {
       const date = new Date(msg.createdAt);
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return MESSAGE_TIME_FORMATTER.format(date);
     } catch {
       return "";
     }
@@ -431,7 +444,9 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               className={cn(
                 "p-3 rounded-2xl text-xs leading-relaxed w-full min-w-0 max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere] overflow-hidden font-sans relative",
                 isUser
-                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-br-xs border border-[var(--border-strong)]"
+                  ? isNeobrutalism
+                    ? "bg-[#CCFF00] text-[#141413] rounded-br-xs border border-[#141413]"
+                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-br-xs border border-[var(--border-strong)]"
                   : "bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-bl-xs border border-[var(--border-color)]"
               )}
             >
@@ -487,7 +502,14 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   <Send className="w-3 h-3 text-[var(--text-secondary)] shrink-0" />
                   <span className="font-semibold text-[var(--text-primary)]">{externalSource.platform}</span>
                   {externalSource.sender && (
-                    <span className="font-mono text-[9px] px-1 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)]">
+                    <span
+                      className={cn(
+                        "font-mono text-[9px] px-1.5 py-0.5 rounded border",
+                        isNeobrutalism
+                          ? "bg-[#B388FF] text-[#141413] border-[#141413] font-semibold"
+                          : "bg-[var(--bg-panel)] border-[var(--border-color)] text-[var(--text-secondary)]"
+                      )}
+                    >
                       {externalSource.sender}
                     </span>
                   )}
@@ -529,7 +551,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         >
           <span className="opacity-70">{timeString}</span>
 
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
             <button
               type="button"
               onClick={handleCopy}

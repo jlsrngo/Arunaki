@@ -1,5 +1,6 @@
 import { Search, X, Trash2, MessageSquare, MessageSquareDashed } from "lucide-react";
 import { FilterTab } from "./hooks/useHistorySessions";
+import { Button, Input } from "../ui";
 
 interface HistoryFilterBarProps {
   searchQuery: string;
@@ -36,16 +37,17 @@ export function HistoryFilterBar({
 
         {/* Batch Clean Up Button for Empty Sessions */}
         {emptyCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onRequestCleanup}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" />
             <span>
               Clean up {emptyCount} empty {emptyCount === 1 ? "session" : "sessions"}
             </span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -53,15 +55,15 @@ export function HistoryFilterBar({
       <div className="relative mb-3">
         <Search
           size={14}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-dim)]"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-dim)] pointer-events-none"
           strokeWidth={1.5}
         />
-        <input
+        <Input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by title, prompt snippet, or project folder..."
-          className="w-full pl-9 pr-3.5 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl text-xs text-[var(--text-primary)] placeholder:text-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] font-sans transition-colors"
+          className="pl-9 pr-8 py-2.5 bg-[var(--bg-card)]"
         />
         {searchQuery && (
           <button
@@ -76,41 +78,32 @@ export function HistoryFilterBar({
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant={activeTab === "all" ? "secondary" : "ghost"}
+          size="sm"
           onClick={() => onTabChange("all")}
-          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
-            activeTab === "all"
-              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-              : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
-          }`}
         >
           All ({totalCount})
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant={activeTab === "active" ? "secondary" : "ghost"}
+          size="sm"
           onClick={() => onTabChange("active")}
-          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === "active"
-              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-              : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
-          }`}
         >
           <MessageSquare className="w-3 h-3" />
           <span>Active Conversations ({activeCount})</span>
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant={activeTab === "empty" ? "secondary" : "ghost"}
+          size="sm"
           onClick={() => onTabChange("empty")}
-          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border flex items-center gap-1.5 ${
-            activeTab === "empty"
-              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-              : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
-          }`}
         >
           <MessageSquareDashed className="w-3 h-3" />
           <span>Empty Stubs ({emptyCount})</span>
-        </button>
+        </Button>
       </div>
     </div>
   );

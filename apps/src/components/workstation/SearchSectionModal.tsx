@@ -2,6 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { Search, MessageSquare, Clock, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { listSessions } from "../../lib/engine";
+import { Dialog, DialogContent, Badge } from "../ui";
+
+const SEARCH_SESSION_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 interface ChatSession {
   id: string;
@@ -66,13 +74,10 @@ export function SearchSectionModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl overflow-hidden flex flex-col h-[460px] min-h-[460px] max-h-[85vh] transform-gpu will-change-transform"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        hideCloseButton
+        className="max-w-2xl p-0 gap-0 overflow-hidden h-[460px] min-h-[460px] max-h-[85vh] transform-gpu will-change-transform"
       >
         {/* Header Search Bar */}
         <div className="p-3.5 border-b border-[var(--border-color)] flex items-center gap-3 bg-[var(--bg-panel)] shrink-0">
@@ -107,12 +112,7 @@ export function SearchSectionModal({
             filteredSessions.map((session) => {
               const displayTitle = session.title || "New Conversation";
               const dateStr = session.updatedAt
-                ? new Date(session.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                ? SEARCH_SESSION_DATE_FORMATTER.format(new Date(session.updatedAt))
                 : "";
 
               return (
@@ -147,11 +147,11 @@ export function SearchSectionModal({
         {/* Footer info */}
         <div className="px-4 py-2 border-t border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between text-[11px] text-[var(--text-dim)] shrink-0">
           <span>Select session to open</span>
-          <span className="font-mono text-[10px] bg-[var(--bg-hover)] text-[var(--text-muted)] px-1.5 py-0.5 rounded">
+          <Badge variant="secondary" className="font-mono text-[10px]">
             ESC to close
-          </span>
+          </Badge>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

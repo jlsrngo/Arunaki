@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
+import { useTheme } from "../../lib/theme";
 
 interface AppFooterProps {
   activeFolder: string;
@@ -27,13 +28,14 @@ export const AppFooter = memo(function AppFooter({
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
 
   const navItems = [
-    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare },
-    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban },
-    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen },
-    { label: t("navHistory", "History"), path: "/history", icon: History },
-    { label: t("navSettings", "Settings"), path: "/settings", icon: Settings },
+    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare, neoColor: "bg-[#CCFF00]" },
+    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban, neoColor: "bg-[#FF9F43]" },
+    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen, neoColor: "bg-[#B388FF]" },
+    { label: t("navHistory", "History"), path: "/history", icon: History, neoColor: "bg-[#CCFF00]" },
+    { label: t("navSettings", "Settings"), path: "/settings", icon: Settings, neoColor: "bg-[#FF9F43]" },
   ];
 
   const handleNavigateWorkstation = useCallback(() => {
@@ -96,11 +98,16 @@ export const AppFooter = memo(function AppFooter({
               className={cn(
                 "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer",
                 isActive
-                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]"
+                  ? isNeobrutalism
+                    ? `${item.neoColor} text-[#141413] border border-[#141413] font-semibold`
+                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
             >
-              <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <Icon
+                className={cn("w-3.5 h-3.5", isNeobrutalism && "neo-icon-drop")}
+                strokeWidth={isNeobrutalism ? 2 : 1.75}
+              />
               <span className="leading-none">{item.label}</span>
             </button>
           );
@@ -123,7 +130,29 @@ export const AppFooter = memo(function AppFooter({
           }
         >
           {isOnline ? (
-            <Wifi className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
+            isNeobrutalism ? (
+              <svg
+                className="w-4 h-4 shrink-0 neo-icon-drop"
+                viewBox="0 0 24 24"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {/* Outer Arc - Warm Orange */}
+                <path d="M2 8.82a15 15 0 0 1 20 0" stroke="#141413" strokeWidth="3.5" />
+                <path d="M2 8.82a15 15 0 0 1 20 0" stroke="#FF9F43" strokeWidth="2" />
+                {/* Middle Arc - Lavender Purple */}
+                <path d="M5 12.859a10 10 0 0 1 14 0" stroke="#141413" strokeWidth="3.5" />
+                <path d="M5 12.859a10 10 0 0 1 14 0" stroke="#B388FF" strokeWidth="2" />
+                {/* Inner Arc - Acid Lime */}
+                <path d="M8.5 16.429a5 5 0 0 1 7 0" stroke="#141413" strokeWidth="3.5" />
+                <path d="M8.5 16.429a5 5 0 0 1 7 0" stroke="#CCFF00" strokeWidth="2" />
+                {/* Bottom Dot - Acid Lime with Ink Ring */}
+                <circle cx="12" cy="20" r="1.6" fill="#CCFF00" stroke="#141413" strokeWidth="1.2" />
+              </svg>
+            ) : (
+              <Wifi className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
+            )
           ) : (
             <WifiOff className="w-3.5 h-3.5 text-white shrink-0" />
           )}

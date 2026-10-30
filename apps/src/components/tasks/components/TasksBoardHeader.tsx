@@ -1,6 +1,8 @@
+import { memo } from "react";
 import { Kanban, Search, RefreshCw, History, Plus } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { TaskViewMode } from "../taskTypes";
+import { Button, Input, Badge } from "../../ui";
 
 interface TasksBoardHeaderProps {
   totalTasks: number;
@@ -17,7 +19,7 @@ interface TasksBoardHeaderProps {
   t: (key: any, fallback?: string) => any;
 }
 
-export function TasksBoardHeader({
+export const TasksBoardHeader = memo(function TasksBoardHeader({
   totalTasks,
   activeFolder,
   searchQuery,
@@ -43,9 +45,9 @@ export function TasksBoardHeader({
             <h1 className="text-sm font-semibold text-[var(--text-primary)] tracking-wide whitespace-nowrap">
               {t("tasksBoardTitle", isIndonesian ? "Agenda Operasional" : "Operational Agenda")}
             </h1>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)] shrink-0">
+            <Badge variant="secondary" className="rounded-full font-mono shrink-0">
               {totalTasks} {t("tasksCount", isIndonesian ? "Agenda" : "Tasks")}
-            </span>
+            </Badge>
           </div>
           <p className="text-[11px] text-[var(--text-muted)] font-mono truncate max-w-[240px] sm:max-w-[340px]">
             {activeFolder || t("noActiveFolder", isIndonesian ? "Folder Lokal Belum Terpilih" : "No Local Folder Selected")}
@@ -58,12 +60,12 @@ export function TasksBoardHeader({
         {/* Search Input */}
         <div className="relative w-36 sm:w-44 md:w-52 shrink-0">
           <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
+          <Input
             type="text"
             placeholder={t("taskSearchPlaceholder", isIndonesian ? "Cari agenda..." : "Search agenda...")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+            className="pl-8 pr-3 py-1.5 rounded-lg bg-[var(--bg-card)]"
           />
         </div>
 
@@ -108,37 +110,43 @@ export function TasksBoardHeader({
         </div>
 
         {/* Refresh Button */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon-sm"
           onClick={onRefresh}
           disabled={isLoading}
           title={t("taskRefreshBoard", isIndonesian ? "Muat ulang agenda" : "Refresh board")}
-          className="p-1.5 sm:p-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer shrink-0"
+          className="shrink-0"
         >
           <RefreshCw className={cn("w-3.5 h-3.5 text-[var(--text-secondary)]", isLoading && "animate-spin")} />
-        </button>
+        </Button>
 
         {/* History Archive Modal Button */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onOpenHistory}
           title={t("agendaHistory", isIndonesian ? "Riwayat & Arsip Agenda" : "Agenda History & Archive")}
-          className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+          className="shrink-0"
         >
           <History className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
           <span className="hidden sm:inline">{t("agendaHistory", isIndonesian ? "Riwayat" : "History")}</span>
-        </button>
+        </Button>
 
         {/* Add Agenda Button */}
-        <button
+        <Button
           type="button"
+          variant="brand"
+          size="sm"
           onClick={onAddNewTask}
-          className="px-3 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+          className="shrink-0 whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("createNewTask", isIndonesian ? "Tambah Agenda" : "New Agenda")}</span>
-        </button>
+        </Button>
       </div>
     </div>
   );
-}
+});

@@ -20,6 +20,7 @@ export const ThemeSubmenu = memo(function ThemeSubmenu({ onClose }: ThemeSubmenu
 
       <MenuItem
         icon={Sun}
+        iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
         label={t("light", "Light")}
         checked={theme === "light"}
         onClick={() => {
@@ -30,6 +31,7 @@ export const ThemeSubmenu = memo(function ThemeSubmenu({ onClose }: ThemeSubmenu
 
       <MenuItem
         icon={Moon}
+        iconColor="bg-[#B388FF] text-[#141413] border border-[#141413]"
         label={t("dark", "Dark")}
         checked={theme === "dark"}
         onClick={() => {
@@ -40,6 +42,7 @@ export const ThemeSubmenu = memo(function ThemeSubmenu({ onClose }: ThemeSubmenu
 
       <MenuItem
         icon={Box}
+        iconColor="bg-[#CCFF00] text-[#141413] border border-[#141413]"
         label={t("neobrutalism", "Neo-Brutalism")}
         checked={theme === "neobrutalism"}
         onClick={() => {
@@ -50,6 +53,7 @@ export const ThemeSubmenu = memo(function ThemeSubmenu({ onClose }: ThemeSubmenu
 
       <MenuItem
         icon={Laptop}
+        iconColor="bg-[#FF9F43] text-[#141413] border border-[#141413]"
         label={t("systemTheme", "System Theme")}
         checked={theme === "system"}
         onClick={() => {

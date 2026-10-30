@@ -4,6 +4,7 @@ import { engineFetch } from "../../lib/engine";
 import { getFileIcon } from "../workspace/tree-utils";
 import { CenterTab } from "./tabs/types";
 import { cn } from "../../lib/utils";
+import { Dialog, DialogContent, Badge } from "../ui";
 
 interface WorkspaceFileItem {
   name: string;
@@ -257,13 +258,10 @@ export function QuickOpenFileModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden flex flex-col max-h-[68vh] transform-gpu"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        hideCloseButton
+        className="max-w-lg p-0 gap-0 rounded-xl overflow-hidden max-h-[68vh] transform-gpu"
       >
         {/* Top Search Input Bar */}
         <div className="px-3.5 py-3 border-b border-[var(--border-color)] flex items-center gap-2.5 bg-[var(--bg-panel)] shrink-0">
@@ -290,10 +288,10 @@ export function QuickOpenFileModal({
             </button>
           )}
           {folderName && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--bg-hover)] border border-[var(--border-color)] text-[10px] font-mono text-[var(--text-muted)] shrink-0 max-w-[140px] truncate">
-              <FolderOpen className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+            <Badge variant="secondary" className="hidden sm:inline-flex font-mono max-w-[140px] truncate">
+              <FolderOpen className="w-3 h-3 shrink-0" />
               <span className="truncate">{folderName}</span>
-            </span>
+            </Badge>
           )}
         </div>
 
@@ -368,7 +366,7 @@ export function QuickOpenFileModal({
                           e.stopPropagation();
                           onCloseTab(entry.tabId!);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 p-0.5 rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -379,7 +377,7 @@ export function QuickOpenFileModal({
             })
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

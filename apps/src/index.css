@@ -71,72 +71,80 @@
   }
 
   [data-theme="neobrutalism"], .neobrutalism {
-    /* Authentic Neo-Brutalism Palette (Warm Cream Canvas + Canary Yellow + Coral Red + Sky Cyan + Bold Ink Outlines) */
+    /* Authentic Neo-Brutalism Triadic Palette (Acid Lime #CCFF00 + Warm Orange #FF9F43 + Lavender Purple #B388FF + Warm Cream Canvas + Crisp Thin 1px Ink Outlines) */
     --bg-app: #F6EFEA;
     --bg-main: #FBF7F4;
-    --bg-header: #FFE119;
+    --bg-header: #CCFF00;
     --bg-panel: #F3EBE4;
     --bg-panel-sub: #EAE0D7;
     --bg-editor: #FBF7F4;
     --bg-card: #FFFDFB;
     --bg-elevated: #FFFDFB;
-    --bg-hover: #FFE119;
-    --bg-active: #72DDF7;
+    --bg-hover: #CCFF00;
+    --bg-active: #B388FF;
     --bg-input: #FFFFFF;
-    --border: #141413;
-    --border-color: #141413;
-    --border-subtle: #141413;
-    --border-strong: #000000;
-    --border-primary: #000000;
+    --border: #2C2A26;
+    --border-color: #2C2A26;
+    --border-subtle: #D8CFC4;
+    --border-strong: #141413;
+    --border-primary: #141413;
     --text-primary: #141413;
     --text-secondary: #222220;
     --text-muted: #45433E;
     --text-dim: #6E6A63;
-    --accent: #FF5964;
-    --scrollbar-thumb: #141413;
-    --scrollbar-thumb-hover: #FF5964;
+    --accent: #FF9F43;
+    --scrollbar-thumb: #2C2A26;
+    --scrollbar-thumb-hover: #FF9F43;
     color-scheme: light;
   }
 
-  /* Neo-Brutalism Bold Structural Ink Outlines & Pop Accents (Zero Shadows) */
-  [data-theme="neobrutalism"] header,
-  [data-theme="neobrutalism"] footer {
-    border-color: #141413 !important;
-    border-width: 2px !important;
-  }
-
+  /* Neo-Brutalism Clean Thin 1px Ink Outlines & Triadic Pop Accents */
   [data-theme="neobrutalism"] footer {
     background-color: #FBF7F4 !important;
   }
 
-  [data-theme="neobrutalism"] button[class*="border"],
-  [data-theme="neobrutalism"] input[class*="border"],
-  [data-theme="neobrutalism"] textarea[class*="border"],
-  [data-theme="neobrutalism"] div[class*="rounded-xl"][class*="border"],
-  [data-theme="neobrutalism"] div[class*="rounded-2xl"][class*="border"] {
-    border-width: 2px !important;
-    border-color: #141413 !important;
+  /* Angled hard drop-shadow strictly on Neo-Brutalism Icon Badges & SVG Icons */
+  [data-theme="neobrutalism"] .neo-icon-badge {
+    box-shadow: 2px 2px 0px #141413 !important;
   }
 
-  /* Primary CTA buttons in Neo-Brutalism turn Canary Yellow (#FFE119) with Bold Ink Text */
+  [data-theme="neobrutalism"] .neo-icon-drop {
+    filter: drop-shadow(1.5px 1.5px 0px #141413);
+  }
+
+  /* Neo-Brutalism Popups, Dropdown Menus & Modals */
+  [data-theme="neobrutalism"] [role="menu"],
+  [data-theme="neobrutalism"] .neo-popup-card,
+  [data-theme="neobrutalism"] [data-sonner-toaster] [data-sonner-toast] {
+    background-color: #FFFDFB !important;
+    border: 1px solid #141413 !important;
+    box-shadow: 3px 3px 0px #141413 !important;
+  }
+
+  [data-theme="neobrutalism"] [role="menu"] [role="menuitem"]:hover {
+    background-color: #CCFF00 !important;
+    color: #141413 !important;
+  }
+
+  /* Primary CTA buttons in Neo-Brutalism turn Acid Lime (#CCFF00) with Crisp 1px Ink Border */
   [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"],
   [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"] {
-    background-color: #FFE119 !important;
+    background-color: #CCFF00 !important;
     color: #141413 !important;
-    border: 2px solid #141413 !important;
-    font-weight: 700 !important;
+    border: 1px solid #141413 !important;
+    font-weight: 600 !important;
   }
 
   [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"]:hover,
   [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"]:hover {
-    background-color: #FFD000 !important;
+    background-color: #FF9F43 !important;
   }
 
-  /* Status Pills & Badges in Coral Red (#FF5964) with Bold Ink Border */
+  /* Status Pills & Badges in Warm Orange (#FF9F43) with Crisp 1px Ink Border */
   [data-theme="neobrutalism"] span[class*="bg-[#cf6613]"] {
-    background-color: #FF5964 !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #141413 !important;
+    background-color: #FF9F43 !important;
+    color: #141413 !important;
+    border: 1px solid #141413 !important;
   }
 
   html, body, #root {
