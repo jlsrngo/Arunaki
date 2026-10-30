@@ -42,3 +42,4 @@ export function isArtCraftBinaryTab(tab?: CenterTab | null): boolean {
   const nameOrPath = `${tab.title || ""} ${tab.path || ""} ${tab.fileType || ""}`.toLowerCase();
   return /\.(docx|doc|odt|rtf|xlsx|xls|xlsm|xlsb|pptx|ppt|odp)(\b|$)/i.test(nameOrPath);
 }
+
