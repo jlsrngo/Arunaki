@@ -59,13 +59,45 @@ export const PRIORITY_CONFIGS = [
 
 export function getTodayString(): string {
   const d = new Date();
-  return d.toISOString().split("T")[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function getTomorrowString(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Automatically rolls over tasks whose target date has arrived or passed.
+ * Specifically:
+ * - If a task is in 'tomorrow' and targetDate <= today, promote to 'today'.
+ * - Returns whether any task was modified along with the updated tasks array.
+ */
+export function reconcileTasksRollover(tasks: TaskItem[]): { updated: TaskItem[]; hasChanges: boolean } {
+  const today = getTodayString();
+  let hasChanges = false;
+
+  const updated = tasks.map((task) => {
+    // If task is in 'tomorrow' and targetDate is today or earlier, promote to 'today'
+    if (task.columnId === "tomorrow" && task.targetDate && task.targetDate <= today) {
+      hasChanges = true;
+      return {
+        ...task,
+        columnId: "today" as const,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return task;
+  });
+
+  return { updated, hasChanges };
 }
 
 /**

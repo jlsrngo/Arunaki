@@ -31,6 +31,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
     isHistoryModalOpen,
     setIsHistoryModalOpen,
     editingTask,
+    initialColumn,
     isSendingTelegram,
     draggedTaskId,
     loadTasks,
@@ -149,6 +150,7 @@ export const TasksBoardPage = memo(function TasksBoardPage() {
       {isModalOpen && (
         <TaskModal
           isOpen={isModalOpen}
+          initialColumn={initialColumn}
           editingTask={editingTask}
           projectFiles={projectFiles}
           onClose={() => setIsModalOpen(false)}

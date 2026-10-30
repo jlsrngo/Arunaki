@@ -32,41 +32,43 @@ export function TasksBoardHeader({
   t,
 }: TasksBoardHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--border-color)]">
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
+      {/* Left side: Icon + Title + Count Badge + Folder Path */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center shrink-0">
           <Kanban className="w-4 h-4 text-white" />
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold text-white tracking-wide">
-              {t("tasksBoardTitle", isIndonesian ? "Agenda Operasional & Papan Tugas" : "Operational Agenda & Task Board")}
+            <h1 className="text-sm font-semibold text-white tracking-wide whitespace-nowrap">
+              {t("tasksBoardTitle", isIndonesian ? "Agenda Operasional" : "Operational Agenda")}
             </h1>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)] shrink-0">
               {totalTasks} {t("tasksCount", isIndonesian ? "Agenda" : "Tasks")}
             </span>
           </div>
-          <p className="text-[11px] text-[var(--text-muted)] font-mono truncate max-w-[280px] sm:max-w-[420px]">
+          <p className="text-[11px] text-[var(--text-muted)] font-mono truncate max-w-[240px] sm:max-w-[340px]">
             {activeFolder || t("noActiveFolder", isIndonesian ? "Folder Lokal Belum Terpilih" : "No Local Folder Selected")}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+      {/* Right side: Search + Tab Pills + Action Buttons */}
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap min-w-0 justify-end">
         {/* Search Input */}
-        <div className="relative flex-1 sm:w-56">
+        <div className="relative w-36 sm:w-44 md:w-52 shrink-0">
           <Search className="w-3.5 h-3.5 text-white/50 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder={t("taskSearchPlaceholder", isIndonesian ? "Cari agenda operasional..." : "Search operational agenda...")}
+            placeholder={t("taskSearchPlaceholder", isIndonesian ? "Cari agenda..." : "Search agenda...")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-xs text-white placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
           />
         </div>
 
-        {/* View Mode Filters */}
-        <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-xs">
+        {/* View Mode Filters: Compact Segmented Control */}
+        <div className="flex items-center p-0.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-xs shrink-0">
           <button
             type="button"
             onClick={() => onViewModeChange("all")}
@@ -77,7 +79,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeAll", isIndonesian ? "Semua Kolom" : "All Columns")}
+            {t("viewModeAll", isIndonesian ? "Semua" : "All")}
           </button>
           <button
             type="button"
@@ -89,7 +91,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeActive", isIndonesian ? "Agenda Aktif" : "Active Agendas")}
+            {t("viewModeActive", isIndonesian ? "Aktif" : "Active")}
           </button>
           <button
             type="button"
@@ -101,7 +103,7 @@ export function TasksBoardHeader({
                 : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            {t("viewModeHistory", isIndonesian ? "Riwayat Selesai" : "Completed History")}
+            {t("viewModeHistory", isIndonesian ? "Selesai" : "Completed")}
           </button>
         </div>
 
@@ -111,7 +113,7 @@ export function TasksBoardHeader({
           onClick={onRefresh}
           disabled={isLoading}
           title={t("taskRefreshBoard", isIndonesian ? "Muat ulang agenda" : "Refresh board")}
-          className="p-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] transition-colors cursor-pointer"
+          className="p-1.5 sm:p-2 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] transition-colors cursor-pointer shrink-0"
         >
           <RefreshCw className={cn("w-3.5 h-3.5 text-white/80", isLoading && "animate-spin")} />
         </button>
@@ -121,17 +123,17 @@ export function TasksBoardHeader({
           type="button"
           onClick={onOpenHistory}
           title={t("agendaHistory", isIndonesian ? "Riwayat & Arsip Agenda" : "Agenda History & Archive")}
-          className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
         >
           <History className="w-3.5 h-3.5 text-white/80" />
-          <span className="hidden md:inline">{t("agendaHistory", isIndonesian ? "Riwayat Agenda" : "History")}</span>
+          <span className="hidden sm:inline">{t("agendaHistory", isIndonesian ? "Riwayat" : "History")}</span>
         </button>
 
         {/* Add Agenda Button */}
         <button
           type="button"
           onClick={onAddNewTask}
-          className="px-3 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+          className="px-3 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("createNewTask", isIndonesian ? "Tambah Agenda" : "New Agenda")}</span>

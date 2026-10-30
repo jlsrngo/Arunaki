@@ -8,6 +8,7 @@ import {
   TaskViewMode,
   getTodayString,
   getTomorrowString,
+  reconcileTasksRollover,
   buildGoogleCalendarUrl,
   openExternalUrl,
 } from "../taskTypes";
@@ -29,6 +30,7 @@ export function useTasksBoard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [initialColumn, setInitialColumn] = useState<TaskItem["columnId"]>("today");
 
   const [isSendingTelegram, setIsSendingTelegram] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -45,6 +47,35 @@ export function useTasksBoard() {
     window.addEventListener("arunaki-folder-change", handleFolderChange);
     return () => window.removeEventListener("arunaki-folder-change", handleFolderChange);
   }, []);
+
+  // Save tasks to disk (.arunaki/tasks.json)
+  const saveTasks = useCallback(async (newTasks: TaskItem[]) => {
+    setTasks(newTasks);
+
+    if (activeFolder) {
+      localStorage.setItem(`arunaki_tasks_${activeFolder}`, JSON.stringify(newTasks));
+    }
+
+    if (!activeFolder) {
+      localStorage.setItem("arunaki_offline_tasks", JSON.stringify(newTasks));
+      return;
+    }
+
+    try {
+      const payloadStr = JSON.stringify(newTasks, null, 2);
+      await apiFetch("/api/desktop/write-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filePath: ".arunaki/tasks.json",
+          directory: activeFolder,
+          content: payloadStr,
+        }),
+      });
+    } catch (err) {
+      console.error("[TasksBoard] Failed to save tasks to disk:", err);
+    }
+  }, [activeFolder]);
 
   // Load project files for attachment suggestion
   const loadProjectFiles = useCallback(async () => {
@@ -79,13 +110,20 @@ export function useTasksBoard() {
     }
   }, [activeFolder]);
 
-  // Load tasks from .arunaki/tasks.json
+  // Load tasks from .arunaki/tasks.json with automatic day rollover
   const loadTasks = useCallback(async () => {
     if (!activeFolder) {
       const savedOffline = localStorage.getItem("arunaki_offline_tasks");
       if (savedOffline) {
         try {
-          setTasks(JSON.parse(savedOffline));
+          const parsed = JSON.parse(savedOffline);
+          if (Array.isArray(parsed)) {
+            const { updated, hasChanges } = reconcileTasksRollover(parsed);
+            setTasks(updated);
+            if (hasChanges) {
+              localStorage.setItem("arunaki_offline_tasks", JSON.stringify(updated));
+            }
+          }
         } catch {
           setTasks([]);
         }
@@ -110,7 +148,11 @@ export function useTasksBoard() {
           try {
             const parsed = JSON.parse(data.content);
             if (Array.isArray(parsed)) {
-              setTasks(parsed);
+              const { updated, hasChanges } = reconcileTasksRollover(parsed);
+              setTasks(updated);
+              if (hasChanges) {
+                void saveTasks(updated);
+              }
               return;
             }
           } catch {
@@ -122,7 +164,19 @@ export function useTasksBoard() {
       // Fallback: Read from localStorage if file doesn't exist
       const local = localStorage.getItem(`arunaki_tasks_${activeFolder}`);
       if (local) {
-        setTasks(JSON.parse(local));
+        try {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) {
+            const { updated, hasChanges } = reconcileTasksRollover(parsed);
+            setTasks(updated);
+            if (hasChanges) {
+              void saveTasks(updated);
+            }
+            return;
+          }
+        } catch {
+          setTasks([]);
+        }
       } else {
         setTasks([]);
       }
@@ -132,36 +186,7 @@ export function useTasksBoard() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeFolder]);
-
-  // Save tasks to disk (.arunaki/tasks.json)
-  const saveTasks = useCallback(async (newTasks: TaskItem[]) => {
-    setTasks(newTasks);
-
-    if (activeFolder) {
-      localStorage.setItem(`arunaki_tasks_${activeFolder}`, JSON.stringify(newTasks));
-    }
-
-    if (!activeFolder) {
-      localStorage.setItem("arunaki_offline_tasks", JSON.stringify(newTasks));
-      return;
-    }
-
-    try {
-      const payloadStr = JSON.stringify(newTasks, null, 2);
-      await apiFetch("/api/desktop/write-file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filePath: ".arunaki/tasks.json",
-          directory: activeFolder,
-          content: payloadStr,
-        }),
-      });
-    } catch (err) {
-      console.error("[TasksBoard] Failed to save tasks to disk:", err);
-    }
-  }, [activeFolder]);
+  }, [activeFolder, saveTasks]);
 
   // 1-Click Sync to Google Calendar
   const syncToGoogleCalendar = useCallback((task: TaskItem) => {
@@ -248,13 +273,20 @@ export function useTasksBoard() {
     }
   }, [activeFolder, isIndonesian, saveTasks, t]);
 
-  // Background Reminder Worker (Runs every 20 seconds)
+  // Background Reminder Worker & Date Rollover (Runs every 20 seconds)
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
       const currentTasks = tasksRef.current;
 
-      for (const task of currentTasks) {
+      // 1. Check Date Rollover (e.g. crossing midnight while app is open)
+      const { updated, hasChanges } = reconcileTasksRollover(currentTasks);
+      if (hasChanges) {
+        void saveTasks(updated);
+      }
+
+      // 2. Check Telegram Reminders
+      for (const task of updated) {
         if (!task.telegramReminderEnabled) continue;
         if (task.columnId === "done") continue;
         if (task.notifiedAt) continue;
@@ -281,7 +313,7 @@ export function useTasksBoard() {
     }, 20000);
 
     return () => clearInterval(interval);
-  }, [sendTelegramReminder, t]);
+  }, [saveTasks, sendTelegramReminder, t]);
 
   // Initial load
   useEffect(() => {
@@ -308,8 +340,9 @@ export function useTasksBoard() {
   }, [loadTasks]);
 
   // Actions
-  const openNewTaskModal = (_col: TaskItem["columnId"] = "today") => {
+  const openNewTaskModal = (col: TaskItem["columnId"] = "today") => {
     setEditingTask(null);
+    setInitialColumn(col);
     setIsModalOpen(true);
   };
 
@@ -349,9 +382,15 @@ export function useTasksBoard() {
     if (!draggedTaskId) return;
     const updated = tasks.map((t) => {
       if (t.id === draggedTaskId) {
+        const newDate = targetColumn === "today"
+          ? getTodayString()
+          : targetColumn === "tomorrow"
+          ? getTomorrowString()
+          : t.targetDate;
         return {
           ...t,
           columnId: targetColumn,
+          targetDate: newDate,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -383,6 +422,7 @@ export function useTasksBoard() {
     isHistoryModalOpen,
     setIsHistoryModalOpen,
     editingTask,
+    initialColumn,
     isSendingTelegram,
     draggedTaskId,
     loadTasks,

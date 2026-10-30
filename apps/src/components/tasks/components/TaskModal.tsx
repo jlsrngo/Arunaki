@@ -27,6 +27,7 @@ import {
 
 interface TaskModalProps {
   isOpen: boolean;
+  initialColumn?: TaskItem["columnId"];
   editingTask: TaskItem | null;
   projectFiles: string[];
   onClose: () => void;
@@ -38,6 +39,7 @@ interface TaskModalProps {
 
 export function TaskModal({
   isOpen,
+  initialColumn = "today",
   editingTask,
   projectFiles,
   onClose,
@@ -46,10 +48,24 @@ export function TaskModal({
   isIndonesian,
   t,
 }: TaskModalProps) {
+  const today = getTodayString();
   const [modalTitle, setModalTitle] = useState(() => editingTask?.title || "");
   const [modalDescription, setModalDescription] = useState(() => editingTask?.description || "");
-  const [modalColumn, setModalColumn] = useState<TaskItem["columnId"]>(() => editingTask?.columnId || "today");
-  const [modalDate, setModalDate] = useState(() => editingTask?.targetDate || getTodayString());
+  const [modalColumn, setModalColumn] = useState<TaskItem["columnId"]>(() => {
+    if (editingTask) {
+      if (editingTask.columnId === "tomorrow" && editingTask.targetDate && editingTask.targetDate <= today) {
+        return "today";
+      }
+      return editingTask.columnId;
+    }
+    return initialColumn;
+  });
+  const [modalDate, setModalDate] = useState(() => {
+    if (editingTask) {
+      return editingTask.targetDate || today;
+    }
+    return initialColumn === "tomorrow" ? getTomorrowString() : today;
+  });
   const [modalTime, setModalTime] = useState(() => editingTask?.reminderTime || "09:00");
   const [customTimeInput, setCustomTimeInput] = useState(() => editingTask?.reminderTime || "09:00");
   const [modalTelegram, setModalTelegram] = useState(() => editingTask ? Boolean(editingTask.telegramReminderEnabled) : true);
@@ -236,7 +252,17 @@ export function TaskModal({
                 <input
                   type="date"
                   value={modalDate}
-                  onChange={(e) => setModalDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setModalDate(newDate);
+                    const curToday = getTodayString();
+                    const curTomorrow = getTomorrowString();
+                    if (newDate === curToday && modalColumn === "tomorrow") {
+                      setModalColumn("today");
+                    } else if (newDate === curTomorrow && modalColumn === "today") {
+                      setModalColumn("tomorrow");
+                    }
+                  }}
                   className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[var(--border-strong)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                 />
               </div>
