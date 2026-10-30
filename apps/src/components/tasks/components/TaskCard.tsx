@@ -180,34 +180,39 @@ export function TaskCard({
         </div>
       )}
 
-      {/* Footer Badges, Google Calendar Pill & Overdue Alert */}
-      <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/60 text-[10.5px] text-[var(--text-muted)]">
-        <div className="flex items-center gap-1.5">
+      {/* Footer Badges & Status Indicators */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--border-color)]/60 text-[10.5px]">
+        {/* Left: Scheduled Time, Overdue Alert & Telegram Bell */}
+        <div className="flex items-center gap-1.5 min-w-0">
           {task.reminderTime ? (
-            <span className="flex items-center gap-1 text-[var(--text-secondary)] font-mono">
-              <Clock className="w-3 h-3 text-[var(--text-muted)]" />
+            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-secondary)] font-mono whitespace-nowrap">
+              <Clock className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
               {task.reminderTime}
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-[var(--text-muted)]">
-              <Calendar className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)] whitespace-nowrap">
+              <Calendar className="w-3 h-3 shrink-0" />
               {task.targetDate}
             </span>
           )}
 
           {isOverdue && (
-            <span className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
-              <AlertTriangle className="w-2.5 h-2.5" />
-              {t("taskOverdue", isIndonesian ? "Terlewat" : "Overdue")}
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+              <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+              <span>{isIndonesian ? "Terlewat" : "Overdue"}</span>
             </span>
           )}
 
           {task.telegramReminderEnabled && (
             <span
-              title={task.notifiedAt ? (isIndonesian ? "Pemberitahuan Telegram sudah terkirim" : "Telegram notification delivered") : (isIndonesian ? "Pengingat Telegram aktif" : "Telegram reminder active")}
+              title={
+                task.notifiedAt
+                  ? (isIndonesian ? "Pemberitahuan Telegram sudah terkirim" : "Telegram notification delivered")
+                  : (isIndonesian ? "Pengingat Telegram aktif" : "Telegram reminder active")
+              }
               className={cn(
-                "p-0.5 rounded",
-                task.notifiedAt ? "text-white" : "text-[#cf6613]"
+                "inline-flex items-center p-0.5 rounded shrink-0",
+                task.notifiedAt ? "text-white/80" : "text-[#cf6613]"
               )}
             >
               {task.notifiedAt ? (
@@ -219,24 +224,17 @@ export function TaskCard({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {/* Clickable Google Calendar Pill */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSyncGoogleCalendar(task);
-            }}
-            title={t("openInGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[#cf6613]/20 text-[9.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] hover:border-[#cf6613]/40 transition-colors cursor-pointer"
-          >
-            <Calendar className="w-2.5 h-2.5 text-[#cf6613]" />
-            <span>Google Cal</span>
-          </button>
-
+        {/* Right: Priority Indicator (Compact, Single-Line, No Wrap) */}
+        <div className="flex items-center gap-1 shrink-0">
           {task.priority === "high" && (
-            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
-              {t("taskPriorityHigh", isIndonesian ? "Mendesak / Kritis" : "Urgent / Critical")}
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30 whitespace-nowrap">
+              {isIndonesian ? "Mendesak" : "Urgent"}
+            </span>
+          )}
+
+          {task.priority === "medium" && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-white/5 text-[var(--text-secondary)] border border-[var(--border-color)] whitespace-nowrap">
+              {isIndonesian ? "Menengah" : "Medium"}
             </span>
           )}
         </div>
