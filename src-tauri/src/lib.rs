@@ -10,38 +10,14 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 1. Spawn background Axum engine & Local-CLI bridge on localhost
-    let host = "127.0.0.1".to_string();
-    let port = 4096;
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create background Tokio runtime for Arunaki Engine");
-        rt.block_on(async move {
-            let probe_url = format!("http://{}:{}/api/health", host, port);
-            let already_up = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_millis(400))
-                .build()
-                .unwrap()
-                .get(&probe_url)
-                .send()
-                .await
-                .map(|r| r.status().is_success())
-                .unwrap_or(false);
-
-            if !already_up {
-                let (listener, _url, actual_port) =
-                    arunaki_engine::init_engine_and_bind(&host, port).await;
-                arunaki_engine::run_axum_server(listener, actual_port).await;
-            } else {
-                println!("[arunaki-desktop] Engine already running on port {}, reusing instance.", port);
-                let _ = arunaki_engine::bridge::ensure_bridge_running().await;
-            }
-        });
-    });
-
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.show();
+                let _ = main_window.unminimize();
+                let _ = main_window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -77,7 +53,38 @@ pub fn run() {
             system::system_ping
         ])
         .setup(|app| {
-            // Completely disable all native Microsoft Edge WebView2 browser features
+            // 1. Spawn background Axum engine & Local-CLI bridge on localhost (only runs in single active instance)
+            let host = "127.0.0.1".to_string();
+            let port = 4096;
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .expect("Failed to create background Tokio runtime for Arunaki Engine");
+                rt.block_on(async move {
+                    let probe_url = format!("http://{}:{}/api/health", host, port);
+                    let already_up = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_millis(400))
+                        .build()
+                        .unwrap()
+                        .get(&probe_url)
+                        .send()
+                        .await
+                        .map(|r| r.status().is_success())
+                        .unwrap_or(false);
+
+                    if !already_up {
+                        let (listener, _url, actual_port) =
+                            arunaki_engine::init_engine_and_bind(&host, port).await;
+                        arunaki_engine::run_axum_server(listener, actual_port).await;
+                    } else {
+                        println!("[arunaki-desktop] Engine already running on port {}, reusing instance.", port);
+                        let _ = arunaki_engine::bridge::ensure_bridge_running().await;
+                    }
+                });
+            });
+
+            // 2. Completely disable all native Microsoft Edge WebView2 browser features
             // (Print Ctrl+P, Find bar Ctrl+F/F3, Reload F5/Ctrl+R, Context Menu, Autofill, Zoom, DevTools, Status Bar)
             #[cfg(windows)]
             if let Some(main_window) = app.get_webview_window("main") {
