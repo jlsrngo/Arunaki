@@ -110,8 +110,11 @@ pub fn get_active_session_folder() -> Option<String> {
         })
 }
 
-pub fn get_active_session_info() -> Option<(String, String)> {
-    ACTIVE_SESSION
+pub fn get_active_session_info(target_dir: Option<&str>) -> Option<(String, String)> {
+    let norm_target = target_dir.map(|f| f.trim().replace('/', "\\").to_lowercase());
+
+    // 1. Check in-memory active session reported by UI
+    let in_mem = ACTIVE_SESSION
         .get_or_init(|| Mutex::new(None))
         .lock()
         .ok()
@@ -120,7 +123,49 @@ pub fn get_active_session_info() -> Option<(String, String)> {
             let sid = v.get("sessionID").or_else(|| v.get("sessionId")).and_then(|s| s.as_str())?;
             let dir = v.get("directory").or_else(|| v.get("workspacePath")).and_then(|d| d.as_str())?;
             Some((sid.to_string(), dir.to_string()))
-        })
+        });
+
+    if let Some((sid, dir)) = in_mem {
+        let norm_dir = dir.trim().replace('/', "\\").to_lowercase();
+        if let Some(ref target) = norm_target {
+            if target.is_empty() || &norm_dir == target {
+                return Some((sid, dir));
+            }
+        } else {
+            return Some((sid, dir));
+        }
+    }
+
+    // 2. Fallback: Lookup the most recently active session for target_dir in sessions-store.json!
+    let store = crate::session::session::load_store();
+    let mut candidate: Option<(String, String, u64)> = None;
+
+    for (sid, sval) in store.sessions {
+        if sid.starts_with("ses_tg_") {
+            continue;
+        }
+
+        let dir = sval.get("directory").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let norm_dir = dir.trim().replace('/', "\\").to_lowercase();
+
+        if let Some(ref target) = norm_target {
+            if !target.is_empty() && &norm_dir != target {
+                continue;
+            }
+        }
+
+        let updated = sval
+            .pointer("/time/updated")
+            .and_then(|v| v.as_u64())
+            .or_else(|| sval.pointer("/time/created").and_then(|v| v.as_u64()))
+            .unwrap_or(0);
+
+        if candidate.as_ref().map(|c| updated > c.2).unwrap_or(true) {
+            candidate = Some((sid, dir, updated));
+        }
+    }
+
+    candidate.map(|(sid, dir, _)| (sid, dir))
 }
 
 async fn handle_get_config() -> Response {
@@ -277,7 +322,8 @@ async fn handle_test_platform(
     Json(json!({ "ok": true, "success": true })).into_response()
 }
 
-async fn handle_set_active(Json(body): Json<Value>) -> Response {
+async fn handle_set_active(body_bytes: axum::body::Bytes) -> Response {
+    let body: Value = serde_json::from_slice(&body_bytes).unwrap_or_else(|_| json!({}));
     let m = ACTIVE_SESSION.get_or_init(|| Mutex::new(None));
     if let Ok(mut guard) = m.lock() {
         *guard = Some(body);

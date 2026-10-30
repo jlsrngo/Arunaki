@@ -68,7 +68,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
           localStorage.setItem(`arunaki_active_chat_id_${activeFolder}`, latest.id);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       isCancelled = true;
     };
@@ -98,7 +98,7 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
           localStorage.removeItem("arunaki_active_chat_id");
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       isCancelled = true;
     };
@@ -128,8 +128,8 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         preferredChatId && preferredChatId.startsWith("ses_")
           ? preferredChatId
           : savedFolderSession.startsWith("ses_")
-          ? savedFolderSession
-          : "";
+            ? savedFolderSession
+            : "";
 
       activeChatIdRef.current = nextChatId;
       setActiveChatId(nextChatId);
@@ -179,8 +179,9 @@ export function useWorkstationSession({ isWorkstationRoute }: UseWorkstationSess
         // Sync active session with messaging gateway so incoming Telegram prompts route directly into this desktop chat
         engineFetch("/api/messaging/active-session", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionID: activeChatId, directory: activeFolder }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } else {
       localStorage.removeItem("arunaki_active_chat_id");

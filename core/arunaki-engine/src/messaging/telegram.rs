@@ -276,15 +276,9 @@ pub async fn handle_telegram_message(client: &reqwest::Client, token: &str, msg:
                 format!("[Telegram {}]", sender_id)
             };
 
-            let active_info = get_active_session_info();
+            let active_info = get_active_session_info(Some(&target_dir));
             let (target_sid, dir_to_use) = if let Some((active_sid, active_dir)) = active_info {
-                if active_dir.trim().is_empty()
-                    || active_dir.to_lowercase() == target_dir.to_lowercase()
-                {
-                    (active_sid, target_dir.clone())
-                } else {
-                    (format!("ses_tg_{}", now_ms()), target_dir.clone())
-                }
+                (active_sid, if active_dir.trim().is_empty() { target_dir.clone() } else { active_dir })
             } else {
                 (format!("ses_tg_{}", now_ms()), target_dir.clone())
             };
