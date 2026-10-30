@@ -532,12 +532,18 @@ pub async fn run_agent_turn(
 
     // Determine target base URL & API key
     let cfg = read_arunaki_config();
-    let base_url = cfg
+    let is_local_bridge = provider_id == "antigravity" || provider_id == "local-cli";
+    let mut base_url = cfg
         .pointer(&format!("/provider/{}/options/baseURL", provider_id))
         .or_else(|| cfg.pointer(&format!("/provider/{}/api", provider_id)))
         .and_then(|v| v.as_str())
         .map(|s| s.trim_end_matches('/').to_string())
-        .unwrap_or_else(|| format!("http://127.0.0.1:{}/v1", LOCAL_CLI_BRIDGE_PORT));
+        .unwrap_or_else(|| crate::bridge::get_bridge_base_url());
+
+    if is_local_bridge {
+        let active_port = crate::bridge::ensure_bridge_running().await;
+        base_url = format!("http://127.0.0.1:{}/v1", active_port);
+    }
     let api_key = cfg
         .pointer(&format!("/provider/{}/options/apiKey", provider_id))
         .and_then(|v| v.as_str())
@@ -582,9 +588,37 @@ pub async fn run_agent_turn(
             .send()
             .await;
 
-        let Ok(r) = resp else {
-            final_text = "Error: Failed to reach AI provider.".to_string();
-            break;
+        let r = match resp {
+            Ok(r) => r,
+            Err(e) => {
+                crate::paths::log_engine(
+                    "ai",
+                    &format!("⚠️ Connection error to AI endpoint {}: {}", base_url, e),
+                );
+                if is_local_bridge || base_url.contains(&format!(":{}", LOCAL_CLI_BRIDGE_PORT)) {
+                    crate::paths::log_engine("ai", "🔄 Auto-healing Local-CLI Bridge and retrying turn...");
+                    let new_port = crate::bridge::ensure_bridge_running().await;
+                    base_url = format!("http://127.0.0.1:{}/v1", new_port);
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                    match client
+                        .post(format!("{}/chat/completions", base_url))
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", format!("Bearer {}", api_key))
+                        .json(&req_body)
+                        .send()
+                        .await
+                    {
+                        Ok(retried_r) => retried_r,
+                        Err(retry_err) => {
+                            final_text = format!("Error: Failed to reach AI provider ({}).", retry_err);
+                            break;
+                        }
+                    }
+                } else {
+                    final_text = format!("Error: Failed to reach AI provider ({}).", e);
+                    break;
+                }
+            }
         };
         if !r.status().is_success() {
             let err_txt = r.text().await.unwrap_or_default();
@@ -927,9 +961,13 @@ pub async fn run_agent_turn(
     );
 }
 
-pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String {
+pub async fn run_session_prompt_sync(
+    session_id: &str,
+    workspace_dir: &str,
+    prompt_text: &str,
+    user_tag: Option<&str>,
+) -> String {
     let dir = normalize_workspace_path(workspace_dir);
-    let session_id = format!("ses_tg_{}", now_ms());
     let model_ref = default_model_ref();
     let provider_id = model_ref
         .get("providerID")
@@ -942,12 +980,90 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
         .unwrap_or("gemini-3.8-flash-low")
         .to_string();
 
-    run_agent_turn(&session_id, &dir, &provider_id, &model_id, &[], prompt_text, None).await;
+    let created_ms = now_ms();
+    let user_msg_id = gen_id("msg");
+    let full_prompt = match user_tag {
+        Some(tag) => format!("{}: {}", tag, prompt_text),
+        None => prompt_text.to_string(),
+    };
 
+    let user_msg = json!({
+        "id": user_msg_id,
+        "sessionID": session_id,
+        "type": "user",
+        "role": "user",
+        "text": full_prompt,
+        "time": {
+            "created": created_ms
+        }
+    });
+
+    // 1. Record user message in store and retrieve history
+    let history = with_store(|store| {
+        // Ensure session exists in store.sessions so it appears in sidebar history
+        if !store.sessions.contains_key(session_id) {
+            let p_preview: String = if prompt_text.chars().count() > 40 {
+                format!("{}...", prompt_text.chars().take(40).collect::<String>())
+            } else {
+                prompt_text.to_string()
+            };
+            let title = match user_tag {
+                Some(tag) => format!("{} - {}", tag, p_preview),
+                None => derive_session_title(prompt_text),
+            };
+            let session = json!({
+                "id": session_id,
+                "version": "1.0.0",
+                "time": {
+                    "created": created_ms,
+                    "updated": created_ms
+                },
+                "title": title,
+                "directory": dir,
+                "location": {
+                    "directory": dir
+                }
+            });
+            store.sessions.insert(session_id.to_string(), session);
+        } else if let Some(s) = store.sessions.get_mut(session_id) {
+            s["time"]["updated"] = json!(created_ms);
+        }
+
+        let msgs = store.messages.entry(session_id.to_string()).or_default();
+        let hist = msgs.clone();
+        msgs.push(user_msg.clone());
+        save_store(store);
+        hist
+    });
+
+    // 2. Emit UI events so desktop workstation updates in real-time
+    emit_event(
+        &dir,
+        "session.prompt.started",
+        json!({
+            "sessionID": session_id,
+            "messageID": user_msg_id,
+            "prompt": full_prompt
+        }),
+    );
+
+    // 3. Execute agent turn
+    run_agent_turn(
+        session_id,
+        &dir,
+        &provider_id,
+        &model_id,
+        &history,
+        &full_prompt,
+        None,
+    )
+    .await;
+
+    // 4. Retrieve final response text
     with_store(|store| {
         store
             .messages
-            .get(&session_id)
+            .get(session_id)
             .and_then(|msgs| msgs.last())
             .and_then(|last| last.get("content"))
             .and_then(|c| c.as_array())
@@ -958,6 +1074,11 @@ pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String
             .unwrap_or("Done.")
             .to_string()
     })
+}
+
+pub async fn run_direct_prompt(workspace_dir: &str, prompt_text: &str) -> String {
+    let session_id = format!("ses_tg_{}", now_ms());
+    run_session_prompt_sync(&session_id, workspace_dir, prompt_text, None).await
 }
 
 #[cfg(test)]

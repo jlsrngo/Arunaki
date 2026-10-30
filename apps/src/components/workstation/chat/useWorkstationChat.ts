@@ -132,6 +132,7 @@ export function useWorkstationChat({
     },
     enabled: !!activeChatId,
     refetchOnWindowFocus: true,
+    refetchInterval: () => (isStreaming ? false : 2000),
   });
 
   const {

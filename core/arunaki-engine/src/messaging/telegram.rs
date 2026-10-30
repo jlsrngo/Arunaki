@@ -1,7 +1,7 @@
-use super::{get_active_session_folder, read_config};
+use super::{get_active_session_folder, get_active_session_info, read_config};
 use crate::files::collect_files_recursive;
-use crate::paths::now_iso;
-use crate::session::run_direct_prompt;
+use crate::paths::{now_iso, now_ms};
+use crate::session::run_session_prompt_sync;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -269,7 +269,27 @@ pub async fn handle_telegram_message(client: &reqwest::Client, token: &str, msg:
                 .json(&json!({ "chat_id": chat_id, "action": "typing" }))
                 .send()
                 .await;
-            run_direct_prompt(&target_dir, &text).await
+
+            let user_tag = if !sender_username.is_empty() {
+                format!("[Telegram @{}]", sender_username)
+            } else {
+                format!("[Telegram {}]", sender_id)
+            };
+
+            let active_info = get_active_session_info();
+            let (target_sid, dir_to_use) = if let Some((active_sid, active_dir)) = active_info {
+                if active_dir.trim().is_empty()
+                    || active_dir.to_lowercase() == target_dir.to_lowercase()
+                {
+                    (active_sid, target_dir.clone())
+                } else {
+                    (format!("ses_tg_{}", now_ms()), target_dir.clone())
+                }
+            } else {
+                (format!("ses_tg_{}", now_ms()), target_dir.clone())
+            };
+
+            run_session_prompt_sync(&target_sid, &dir_to_use, &text, Some(&user_tag)).await
         }
     };
 

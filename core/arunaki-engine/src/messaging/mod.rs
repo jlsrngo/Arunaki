@@ -103,9 +103,23 @@ pub fn get_active_session_folder() -> Option<String> {
         .ok()
         .and_then(|g| g.clone())
         .and_then(|v| {
-            v.get("workspacePath")
+            v.get("directory")
+                .or_else(|| v.get("workspacePath"))
                 .and_then(|w| w.as_str())
                 .map(|s| s.to_string())
+        })
+}
+
+pub fn get_active_session_info() -> Option<(String, String)> {
+    ACTIVE_SESSION
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .ok()
+        .and_then(|g| g.clone())
+        .and_then(|v| {
+            let sid = v.get("sessionID").or_else(|| v.get("sessionId")).and_then(|s| s.as_str())?;
+            let dir = v.get("directory").or_else(|| v.get("workspacePath")).and_then(|d| d.as_str())?;
+            Some((sid.to_string(), dir.to_string()))
         })
 }
 

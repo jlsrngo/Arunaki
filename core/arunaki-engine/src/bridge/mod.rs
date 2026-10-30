@@ -123,6 +123,63 @@ pub async fn start_bridge_server(preferred_port: u16) -> Result<u16, String> {
     Ok(actual_port)
 }
 
+/// Returns the current base URL for the Local-CLI Bridge, reading dynamic port if available.
+pub fn get_bridge_base_url() -> String {
+    let info_path = crate::paths::arunaki_dot_dir().join("bridge-info.json");
+    if let Ok(content) = std::fs::read_to_string(&info_path) {
+        if let Ok(val) = serde_json::from_str::<Value>(&content) {
+            if let Some(url) = val.get("url").and_then(|v| v.as_str()) {
+                return url.trim_end_matches('/').to_string();
+            }
+        }
+    }
+    format!("http://127.0.0.1:{}/v1", LOCAL_CLI_BRIDGE_PORT)
+}
+
+/// Ensures the Local-CLI Bridge server is responsive. If not responding, starts it immediately.
+pub async fn ensure_bridge_running() -> u16 {
+    let info_path = crate::paths::arunaki_dot_dir().join("bridge-info.json");
+    let recorded_port = std::fs::read_to_string(&info_path)
+        .ok()
+        .and_then(|c| serde_json::from_str::<Value>(&c).ok())
+        .and_then(|v| v.get("port").and_then(|p| p.as_u64()))
+        .map(|p| p as u16)
+        .unwrap_or(LOCAL_CLI_BRIDGE_PORT);
+
+    let probe_ports = if recorded_port == LOCAL_CLI_BRIDGE_PORT {
+        vec![LOCAL_CLI_BRIDGE_PORT]
+    } else {
+        vec![recorded_port, LOCAL_CLI_BRIDGE_PORT]
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build();
+
+    if let Ok(c) = client {
+        for &port in &probe_ports {
+            let probe_url = format!("http://127.0.0.1:{}/health", port);
+            if let Ok(resp) = c.get(&probe_url).send().await {
+                if resp.status().is_success() {
+                    return port;
+                }
+            }
+        }
+    }
+
+    crate::paths::log_engine("bridge", "⚠️ Bridge probe failed or offline. Auto-starting Local-CLI Bridge...");
+    match start_bridge_server(LOCAL_CLI_BRIDGE_PORT).await {
+        Ok(port) => {
+            crate::paths::log_engine("bridge", &format!("✅ Local-CLI Bridge active and listening on port {}", port));
+            port
+        }
+        Err(e) => {
+            crate::paths::log_engine("bridge", &format!("❌ Failed to start bridge: {}", e));
+            LOCAL_CLI_BRIDGE_PORT
+        }
+    }
+}
+
 async fn handle_health() -> impl IntoResponse {
     let creds = get_all_credentials();
     Json(json!({

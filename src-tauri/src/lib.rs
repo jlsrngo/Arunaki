@@ -36,6 +36,7 @@ pub fn run() {
                 arunaki_engine::run_axum_server(listener, actual_port).await;
             } else {
                 println!("[arunaki-desktop] Engine already running on port {}, reusing instance.", port);
+                let _ = arunaki_engine::bridge::ensure_bridge_running().await;
             }
         });
     });
