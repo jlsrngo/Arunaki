@@ -287,6 +287,8 @@ pub async fn execute_send_telegram_alert(
         .to_string();
     let details = args
         .get("details")
+        .or_else(|| args.get("content"))
+        .or_else(|| args.get("summary_markdown"))
         .and_then(|v| v.as_str())
         .unwrap_or("A discrepancy was flagged during administrative audit.")
         .to_string();

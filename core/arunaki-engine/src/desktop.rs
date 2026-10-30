@@ -1463,15 +1463,22 @@ async fn handle_governance_manage(Json(payload): Json<Value>) -> impl IntoRespon
     Json(res)
 }
 async fn handle_telegram_dispatch(Json(payload): Json<Value>) -> impl IntoResponse {
-    let workspace = payload.get("workspace_dir")
+    let workspace = payload
+        .get("workspace_dir")
+        .or_else(|| payload.get("directory"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .or_else(|| get_active_workspace_root())
         .unwrap_or_else(|| ".".to_string());
-    let session_id = payload.get("session_id")
+    let session_id = payload
+        .get("session_id")
         .and_then(|v| v.as_str())
         .unwrap_or("telegram_session");
-    let kind = payload.get("kind").and_then(|v| v.as_str()).unwrap_or("report");
+    let kind = payload
+        .get("kind")
+        .or_else(|| payload.get("type"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("alert");
     let res = if kind == "alert" {
         crate::tool::telegram::execute_send_telegram_alert(session_id, &workspace, &payload).await
     } else {

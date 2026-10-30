@@ -238,15 +238,36 @@ export function useTasksBoard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           directory: activeFolder,
+          workspace_dir: activeFolder,
           type: "alert",
+          kind: "alert",
+          severity: task.priority === "high" ? "HIGH" : "NORMAL",
           title: alertTitle,
+          details: messageDetails,
           content: messageDetails,
+          summary_markdown: messageDetails,
         }),
       });
 
+      const resJson = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error || `HTTP ${res.status}`);
+        throw new Error(resJson?.error || `HTTP ${res.status}`);
+      }
+
+      const delivered = resJson?.delivered_live ?? resJson?.record?.delivered_live ?? true;
+      const deliveryStatus = resJson?.delivery_status || resJson?.record?.delivery_status || "";
+
+      if (delivered === false) {
+        console.warn("[TasksBoard] Telegram not delivered live:", deliveryStatus);
+        if (isManual && toastId) {
+          toast.error(
+            isIndonesian
+              ? `Gagal terkirim ke Telegram: ${deliveryStatus}. Pastikan Anda sudah klik Start di bot Telegram dan mengisi ID numerik di Settings.`
+              : `Telegram dispatch notice: ${deliveryStatus}. Ensure you started the bot and entered your numeric ID.`,
+            { id: toastId, duration: 6000 }
+          );
+        }
+        return;
       }
 
       const nowIso = new Date().toISOString();
@@ -357,6 +378,34 @@ export function useTasksBoard() {
     toast.success(isIndonesian ? "Agenda dihapus" : "Task deleted");
   };
 
+  const handleCompleteTask = async (id: string) => {
+    const updated = tasks.map((t) =>
+      t.id === id
+        ? { ...t, columnId: "done" as const, updatedAt: new Date().toISOString() }
+        : t
+    );
+    await saveTasks(updated);
+    toast.success(
+      isIndonesian
+        ? "Agenda selesai dan disimpan ke Riwayat!"
+        : "Task completed and archived to History!"
+    );
+  };
+
+  const handleRestoreTask = async (id: string) => {
+    const updated = tasks.map((t) =>
+      t.id === id
+        ? { ...t, columnId: "today" as const, targetDate: getTodayString(), updatedAt: new Date().toISOString() }
+        : t
+    );
+    await saveTasks(updated);
+    toast.success(
+      isIndonesian
+        ? "Agenda dipulihkan kembali ke papan Hari Ini"
+        : "Task restored back to Today board"
+    );
+  };
+
   const handleToggleSubtask = async (taskId: string, subtaskId: string) => {
     const updated = tasks.map((t) => {
       if (t.id === taskId) {
@@ -380,13 +429,19 @@ export function useTasksBoard() {
 
   const handleDrop = async (targetColumn: TaskItem["columnId"]) => {
     if (!draggedTaskId) return;
+    const curToday = getTodayString();
+    const curTomorrow = getTomorrowString();
+
     const updated = tasks.map((t) => {
       if (t.id === draggedTaskId) {
-        const newDate = targetColumn === "today"
-          ? getTodayString()
-          : targetColumn === "tomorrow"
-          ? getTomorrowString()
-          : t.targetDate;
+        let newDate = t.targetDate;
+        if (targetColumn === "today") {
+          newDate = curToday;
+        } else if (targetColumn === "upcoming") {
+          if (!t.targetDate || t.targetDate <= curToday) {
+            newDate = curTomorrow;
+          }
+        }
         return {
           ...t,
           columnId: targetColumn,
@@ -432,6 +487,8 @@ export function useTasksBoard() {
     openNewTaskModal,
     openEditTaskModal,
     handleDeleteTask,
+    handleCompleteTask,
+    handleRestoreTask,
     handleToggleSubtask,
     handleDragStart,
     handleDragOver,

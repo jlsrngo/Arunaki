@@ -5,4 +5,5 @@ export * from "./components/TaskCard";
 export * from "./components/TasksBoardColumn";
 export * from "./components/TaskModal";
 export * from "./components/TasksHistoryModal";
+export * from "./components/TasksHistoryView";
 

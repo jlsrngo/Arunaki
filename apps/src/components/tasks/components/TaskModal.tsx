@@ -10,6 +10,7 @@ import {
   Trash2,
   ExternalLink,
   Link,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
@@ -223,7 +224,7 @@ export function TaskModal({
                         onClick={() => {
                           setModalColumn(col.id);
                           if (col.id === "today") setModalDate(getTodayString());
-                          if (col.id === "tomorrow") setModalDate(getTomorrowString());
+                          if (col.id === "upcoming" && modalDate <= getTodayString()) setModalDate(getTomorrowString());
                           setIsColumnDropdownOpen(false);
                         }}
                         className={cn(
@@ -256,11 +257,12 @@ export function TaskModal({
                     const newDate = e.target.value;
                     setModalDate(newDate);
                     const curToday = getTodayString();
-                    const curTomorrow = getTomorrowString();
-                    if (newDate === curToday && modalColumn === "tomorrow") {
+                    if (newDate === curToday && modalColumn === "upcoming") {
                       setModalColumn("today");
-                    } else if (newDate === curTomorrow && modalColumn === "today") {
-                      setModalColumn("tomorrow");
+                    } else if (newDate > curToday && modalColumn === "today") {
+                      setModalColumn("upcoming");
+                    } else if (newDate < curToday && modalColumn !== "done") {
+                      setModalColumn("overdue");
                     }
                   }}
                   className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[var(--border-strong)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
@@ -704,6 +706,46 @@ export function TaskModal({
               <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
               <span className="hidden sm:inline">{t("syncGoogleCalendar", isIndonesian ? "Sinkron Google Calendar" : "Sync to Google Calendar")}</span>
             </button>
+
+            {editingTask && editingTask.columnId !== "done" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const reminderDateTime = `${modalDate}T${modalTime}:00`;
+                  const gcalUrl = buildGoogleCalendarUrl({
+                    title: modalTitle.trim() || editingTask.title,
+                    targetDate: modalDate,
+                    reminderTime: modalTime,
+                    description: modalDescription.trim(),
+                    attachedFile: modalFile,
+                    priority: modalPriority,
+                    subtasks: modalSubtasks,
+                  });
+                  await onSave(
+                    {
+                      title: modalTitle.trim() || editingTask.title,
+                      description: modalDescription.trim(),
+                      columnId: "done",
+                      targetDate: modalDate,
+                      reminderTime: modalTime,
+                      reminderDateTime,
+                      telegramReminderEnabled: modalTelegram,
+                      notifiedAt: editingTask?.notifiedAt || null,
+                      priority: modalPriority,
+                      attachedFile: modalFile,
+                      subtasks: modalSubtasks,
+                      gcalUrl,
+                    },
+                    false
+                  );
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+                title={isIndonesian ? "Tandai selesai & pindahkan ke riwayat arsip" : "Mark as completed and archive"}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                <span className="hidden sm:inline">{isIndonesian ? "Tandai Selesai" : "Mark Completed"}</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">

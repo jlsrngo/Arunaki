@@ -10,7 +10,7 @@ export interface TaskItem {
   id: string;
   title: string;
   description: string;
-  columnId: "today" | "tomorrow" | "inprogress" | "done";
+  columnId: "overdue" | "today" | "inprogress" | "upcoming" | "done" | "tomorrow";
   targetDate: string; // YYYY-MM-DD
   reminderTime: string; // HH:mm (e.g. "14:30")
   reminderDateTime: string; // ISO format or YYYY-MM-DDTHH:mm
@@ -26,7 +26,7 @@ export interface TaskItem {
 
 export interface ColumnConfig {
   id: TaskItem["columnId"];
-  titleId: "colToday" | "colTomorrow" | "colInProgress" | "colDone";
+  titleId: "colOverdue" | "colToday" | "colInProgress" | "colUpcoming" | "colDone" | "colTomorrow";
   defaultTitle: string;
   titleEn: string;
 }
@@ -34,10 +34,10 @@ export interface ColumnConfig {
 export type TaskViewMode = "all" | "active" | "history";
 
 export const DEFAULT_COLUMNS: ColumnConfig[] = [
+  { id: "overdue", titleId: "colOverdue", defaultTitle: "Terlewatkan", titleEn: "Overdue" },
   { id: "today", titleId: "colToday", defaultTitle: "Hari Ini", titleEn: "Today" },
-  { id: "tomorrow", titleId: "colTomorrow", defaultTitle: "Besok", titleEn: "Tomorrow" },
   { id: "inprogress", titleId: "colInProgress", defaultTitle: "Sedang Dikerjakan", titleEn: "In Progress" },
-  { id: "done", titleId: "colDone", defaultTitle: "Selesai", titleEn: "Completed" },
+  { id: "upcoming", titleId: "colUpcoming", defaultTitle: "Akan Datang", titleEn: "Incoming" },
 ];
 
 export const TIME_PRESETS = [
@@ -74,10 +74,21 @@ export function getTomorrowString(): string {
   return `${year}-${month}-${day}`;
 }
 
+export function getYesterdayString(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Automatically rolls over tasks whose target date has arrived or passed.
  * Specifically:
- * - If a task is in 'tomorrow' and targetDate <= today, promote to 'today'.
+ * - Migrates legacy 'tomorrow' to 'today' (if <= today) or 'upcoming' (if > today).
+ * - Promotes 'upcoming' to 'today' when targetDate <= today.
+ * - Detects overdue tasks in 'today' whose targetDate < today -> shifts to 'overdue'.
  * - Returns whether any task was modified along with the updated tasks array.
  */
 export function reconcileTasksRollover(tasks: TaskItem[]): { updated: TaskItem[]; hasChanges: boolean } {
@@ -85,8 +96,19 @@ export function reconcileTasksRollover(tasks: TaskItem[]): { updated: TaskItem[]
   let hasChanges = false;
 
   const updated = tasks.map((task) => {
-    // If task is in 'tomorrow' and targetDate is today or earlier, promote to 'today'
-    if (task.columnId === "tomorrow" && task.targetDate && task.targetDate <= today) {
+    // 1. Backward-compatibility: Migrate legacy 'tomorrow' column
+    if ((task.columnId as any) === "tomorrow") {
+      hasChanges = true;
+      const targetCol: TaskItem["columnId"] = task.targetDate && task.targetDate <= today ? "today" : "upcoming";
+      return {
+        ...task,
+        columnId: targetCol,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    // 2. Promotion: If in 'upcoming' and targetDate has arrived (<= today) -> promote to 'today'
+    if (task.columnId === "upcoming" && task.targetDate && task.targetDate <= today) {
       hasChanges = true;
       return {
         ...task,
@@ -94,6 +116,17 @@ export function reconcileTasksRollover(tasks: TaskItem[]): { updated: TaskItem[]
         updatedAt: new Date().toISOString(),
       };
     }
+
+    // 3. Overdue detection: If in 'today' and targetDate is before today -> shift to 'overdue'
+    if (task.columnId === "today" && task.targetDate && task.targetDate < today) {
+      hasChanges = true;
+      return {
+        ...task,
+        columnId: "overdue" as const,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     return task;
   });
 

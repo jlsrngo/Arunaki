@@ -10,6 +10,7 @@ import {
   ExternalLink,
   CheckSquare,
   Square,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { TaskItem, getTodayString } from "../taskTypes";
@@ -24,6 +25,7 @@ interface TaskCardProps {
   onSendTelegram: (task: TaskItem) => void;
   onOpenFileInWorkstation: (fileName: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  onCompleteTask?: (id: string) => void;
   isIndonesian: boolean;
   t: (key: any, fallback?: string) => any;
 }
@@ -38,15 +40,17 @@ export function TaskCard({
   onSendTelegram,
   onOpenFileInWorkstation,
   onToggleSubtask,
+  onCompleteTask,
   isIndonesian,
   t,
 }: TaskCardProps) {
   const totalSubtasks = task.subtasks?.length || 0;
   const completedSubtasks = task.subtasks?.filter((s) => s.completed).length || 0;
   const isOverdue =
-    task.targetDate &&
-    task.targetDate < getTodayString() &&
-    task.columnId !== "done";
+    task.columnId === "overdue" ||
+    (task.targetDate &&
+      task.targetDate < getTodayString() &&
+      task.columnId !== "done");
 
   return (
     <div
@@ -55,7 +59,10 @@ export function TaskCard({
       onClick={() => onEdit(task)}
       className={cn(
         "group p-3.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-sm relative space-y-2.5",
-        task.priority === "high" && "border-l-2 border-l-[#cf6613]",
+        task.columnId === "overdue" && "border-l-2 border-l-rose-500",
+        task.columnId === "inprogress" && "border-l-2 border-l-sky-400",
+        task.columnId === "upcoming" && "border-l-2 border-l-purple-400/60",
+        task.priority === "high" && task.columnId !== "overdue" && "border-l-2 border-l-[#cf6613]",
         draggedTaskId === task.id && "opacity-40"
       )}
     >
@@ -65,6 +72,21 @@ export function TaskCard({
           {task.title}
         </h3>
         <div className="flex items-center gap-1 shrink-0">
+          {/* Quick Complete Button */}
+          {onCompleteTask && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCompleteTask(task.id);
+              }}
+              title={isIndonesian ? "Tandai Selesai & Simpan ke Riwayat" : "Mark Complete & Archive to History"}
+              className="p-1 rounded hover:bg-white/15 text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-white/70 hover:text-white" />
+            </button>
+          )}
+
           {/* Google Calendar Quick Sync */}
           <button
             type="button"
