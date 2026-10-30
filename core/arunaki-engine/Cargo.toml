@@ -30,3 +30,4 @@ tao = "0.37"
 wry = "0.57"
 mime_guess = "2.0"
 tower = { version = "0.5", features = ["util"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

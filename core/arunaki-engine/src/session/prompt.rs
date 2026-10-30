@@ -311,15 +311,25 @@ pub async fn run_agent_turn(
 
     // 1. Base system prompt from prompt/default.txt + environment block (OpenCode SystemPrompt.environment parity)
     let base_prompt_template = include_str!("prompt/default.txt");
+    let now = chrono::Local::now();
+    let today_date_str = now.format("%Y-%m-%d").to_string();
+    let day_of_week = now.format("%A").to_string();
+    let current_time_str = now.format("%H:%M").to_string();
+
     let mut sys_prompt = format!(
         "{}\n\nHere is some useful information about the environment you are running in:\n\
         <env>\n\
           Working directory: {}\n\
           Platform: {}\n\
+          Today's date: {} ({})\n\
+          Current local time: {}\n\
         </env>",
         base_prompt_template.trim(),
         workspace_dir,
-        std::env::consts::OS
+        std::env::consts::OS,
+        today_date_str,
+        day_of_week,
+        current_time_str
     );
 
     // 2. Workspace Instruction File (.arunaki/ARUNAKI.md)

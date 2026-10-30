@@ -62,6 +62,31 @@ Ketika pengguna mengetik perintah singkat di chat, AI secara otomatis memproses 
 
 ---
 
+## Full LLM Tool Capability & Clean Prompt Architecture (CRITICAL RULE — ZERO UI GAP)
+
+**Setiap fitur baru yang dibuat atau diperbarui di Arunaki WAJIB bisa dieksekusi secara otonom oleh LLM melalui chat (Desktop & Telegram) dengan kemampuan penuh setara tombol UI.**
+
+DILARANG membuat fitur yang hanya bisa diklik lewat antarmuka grafis (UI-only) sementara LLM tidak memiliki alat (tools) atau parameter untuk mengeksekusinya. Setiap pengembang / AI agent WAJIB mematuhi 4 Prinsip Arsitektur LLM Bersih (OpenCode Standard):
+
+1. **Complete Tool Definition & Typed Schemas (`core/arunaki-engine/src/tool/`)**:
+   - Setiap kemampuan yang ada di UI (contoh: membuat jadwal, menentukan target tanggal, mengatur jam pengingat, memilih prioritas, mengubah kolom, atau menghapus agenda) WAJIB diekspos sebagai tool parameter dengan tipe data eksplisit, enum, dan deskripsi tujuan yang jelas.
+   - Parameter tidak boleh di-hardcode ke nilai default statis di backend saat tool dijalankan jika pengguna atau UI menyediakan opsi untuk itu.
+
+2. **Real-Time Environment Awareness (`<env>`)**:
+   - LLM membutuhkan data faktual untuk memahami istilah waktu relatif pengguna (*"besok"*, *"lusa"*, *"jam 1 siang"*, *"hari ini"*).
+   - Backend prompt builder (`core/arunaki-engine/src/session/prompt.rs`) WAJIB selalu menyuplai tanggal hari ini (`Today's date`), hari dalam minggu (`Day of week`), dan jam lokal saat ini (`Current local time`) di dalam tag `<env>`.
+
+3. **Clean Prompt Architecture (OpenCode Standard — DILARANG TEMPEL CONTOH KASUS)**:
+   - System prompt (`default.txt`) harus berisi prinsip operasional tingkat tinggi yang bersih, generik, dan universal.
+   - **DILARANG KERAS menempelkan contoh chat kasus spesifik pengguna (e.g. kalimat bahasa Indonesia ad-hoc, nama orang tertentu, atau angka acak dari pekerjaan sebelumnya) ke dalam system prompt.** Hal tersebut tidak scalable untuk jangka panjang.
+   - Spesifikasi detail dan kapabilitas tool didokumentasikan di dalam schema definition tool masing-masing, bukan dicekoki lewat contoh tempelan di prompt.
+
+4. **Bi-directional Live Synchronization (Disk + SSE/Event)**:
+   - Ketika LLM memanggil tool (misal menambah task ke `.arunaki/tasks.json`), tool backend wajib menyimpan perubahan secara atomik ke disk DAN memancarkan event (`emit_event`, e.g. `tasks.updated`).
+   - Dengan begitu, UI Panel Tengah langsung ter-update seketika secara *real-time* tanpa perlu refresh atau reload.
+
+---
+
 ## Project Folder Isolation & Safe File Modifications (CRITICAL)
 
 **Agent only accesses the active project folder. NOT the entire computer.**
