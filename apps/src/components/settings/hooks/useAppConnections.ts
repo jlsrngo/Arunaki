@@ -69,39 +69,16 @@ export function useAppConnections() {
 
   const handleAutoDetect = useCallback(async () => {
     setAutoDetecting(true);
-    let detectedUrl: string | null = null;
-
     try {
+      // Port probing runs in the engine (parallel TCP), not via browser fetch().
+      let detectedUrl: string | null = null;
       try {
-        const probeRes = await apiFetch(`${API_BASE}/desktop/pos-detect`);
-        if (probeRes.ok) {
-          const json = await probeRes.json();
-          if (json?.data?.hostUrl) {
-            detectedUrl = json.data.hostUrl;
-          }
+        const res = await apiFetch(`${API_BASE}/desktop/pos-detect`, { method: "POST" });
+        if (res.ok) {
+          const json = await res.json();
+          detectedUrl = json?.data?.hostUrl || null;
         }
       } catch {}
-
-      if (!detectedUrl) {
-        const portsToProbe = [8000, 3000, 8080, 5000, 80, 8088];
-        for (const port of portsToProbe) {
-          try {
-            const probeUrl = `http://127.0.0.1:${port}/api/pos/v1/ping`;
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 600);
-            const pingRes = await fetch(probeUrl, {
-              method: "GET",
-              signal: controller.signal,
-            }).catch(() => null);
-            clearTimeout(timeoutId);
-
-            if (pingRes && (pingRes.ok || pingRes.status === 401 || pingRes.status === 403)) {
-              detectedUrl = `http://127.0.0.1:${port}`;
-              break;
-            }
-          } catch {}
-        }
-      }
 
       if (detectedUrl) {
         setHostUrl(detectedUrl);

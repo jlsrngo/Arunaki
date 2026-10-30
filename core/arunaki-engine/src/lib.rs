@@ -5,6 +5,7 @@ pub mod desktop;
 pub mod files;
 pub mod knowledge;
 pub mod messaging;
+pub mod network;
 pub mod paths;
 pub mod permission;
 pub mod provider;
@@ -120,6 +121,7 @@ pub fn build_router() -> Router {
         .merge(files::router())
         .merge(provider::router())
         .merge(messaging::router())
+        .merge(network::router())
         .merge(session::router())
         .merge(question::router())
         .merge(permission::router())
