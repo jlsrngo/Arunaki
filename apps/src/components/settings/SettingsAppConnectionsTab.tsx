@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { memo } from "react";
 import {
   Store,
   Wifi,
@@ -12,527 +12,276 @@ import {
   ShieldCheck,
   Building2,
   BookOpen,
-  HelpCircle,
 } from "lucide-react";
 import { ArunakiZenSetupGuideModal } from "./ArunakiZenSetupGuideModal";
-import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import { useI18n } from "../../lib/i18n";
-import { API_BASE, apiFetch } from "../../lib/api";
 import { Button, Input, Card } from "../ui";
-
-interface PosConnectionStatus {
-  connected: boolean;
-  store?: string;
-  operator?: {
-    nama: string;
-    kode: string;
-    level: string;
-  };
-  permissions?: Record<string, string>;
-  message?: string;
-}
-
-const STORAGE_KEY = "arunaki_pos_config";
+import { useAppConnections } from "./hooks/useAppConnections";
 
 export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab() {
-  const { t } = useI18n();
-
-  // All React Hooks declared unconditionally at top level
-  const [hostUrl, setHostUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const [status, setStatus] = useState<PosConnectionStatus>({
-    connected: false,
-  });
-
-  const [autoDetecting, setAutoDetecting] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showGuideModal, setShowGuideModal] = useState(false);
-  const [guideInitialStep, setGuideInitialStep] = useState(1);
-
-  // Load saved config on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.hostUrl) setHostUrl(parsed.hostUrl);
-        if (parsed.apiKey) setApiKey(parsed.apiKey);
-        if (parsed.username) setUsername(parsed.username);
-        if (parsed.password) setPassword(parsed.password);
-        if (parsed.status) setStatus(parsed.status);
-      } else {
-        // Query backend engine pos-config if available
-        apiFetch(`${API_BASE}/desktop/pos-config`)
-          .then(async (res) => {
-            if (res.ok) {
-              const json = await res.json();
-              if (json?.data) {
-                if (json.data.hostUrl) setHostUrl(json.data.hostUrl);
-                if (json.data.apiKey) setApiKey(json.data.apiKey);
-                if (json.data.username) setUsername(json.data.username);
-                if (json.data.password) setPassword(json.data.password);
-                if (json.data.status) setStatus(json.data.status);
-              }
-            }
-          })
-          .catch(() => {});
-      }
-    } catch (e) {
-      console.warn("Failed to read ArunakiZen config from localStorage:", e);
-    }
-  }, []);
-
-  // Auto Detect ArunakiZen Port
-  const handleAutoDetect = useCallback(async () => {
-    setAutoDetecting(true);
-    let detectedUrl: string | null = null;
-
-    try {
-      // 1. Try querying backend engine endpoint if available
-      try {
-        const res = await apiFetch(`${API_BASE}/pos/status`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json?.data?.url) {
-            detectedUrl = json.data.url;
-            if (json?.data?.apiKey && !apiKey) setApiKey(json.data.apiKey);
-          }
-        }
-      } catch {}
-
-      // 2. Direct probe hunting ports 5000 - 5010
-      if (!detectedUrl) {
-        const ports = [5000, 5001, 5002, 5003, 5004, 5005];
-        for (const port of ports) {
-          const candidate = `http://127.0.0.1:${port}`;
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 600);
-            const res = await fetch(`${candidate}/api/health`, {
-              signal: controller.signal,
-            }).catch(() => null);
-            clearTimeout(timeoutId);
-            if (res && (res.ok || res.status === 401)) {
-              detectedUrl = candidate;
-              break;
-            }
-          } catch {}
-        }
-      }
-
-      if (detectedUrl) {
-        setHostUrl(detectedUrl);
-        toast.success(`${t("posToastPortDetected", "ArunakiZen detected at:")} ${detectedUrl}`);
-      } else {
-        toast.info(t("posToastPortNotFound", "No active local ArunakiZen server detected. Start ArunakiZen or enter your server Host URL manually."));
-      }
-    } finally {
-      setAutoDetecting(false);
-    }
-  }, [t]);
-
-  // Handshake connection test
-  const handleTestConnection = useCallback(async () => {
-    const cleanHost = hostUrl.trim().replace(/\/+$/, "");
-    const cleanKey = apiKey.trim();
-    const cleanUser = username.trim();
-
-    if (!cleanHost || !cleanKey || !cleanUser || !password) {
-      toast.error(t("posFillRequired", "Please fill in Host URL, API Key, Operator Username, and Password."));
-      return;
-    }
-
-    setTesting(true);
-    try {
-      // Handshake endpoint in ArunakiZen is /api/external/auth/handshake (or /external/auth/handshake)
-      let res: Response | null = null;
-      let data: any = null;
-
-      try {
-        res = await fetch(`${cleanHost}/api/external/auth/handshake`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${cleanKey}`,
-          },
-          body: JSON.stringify({
-            username: cleanUser,
-            password: password,
-            api_key: cleanKey,
-          }),
-        });
-        if (res.ok) {
-          data = await res.json();
-        }
-      } catch (e) {
-        // Fallback without /api prefix
-        try {
-          res = await fetch(`${cleanHost}/external/auth/handshake`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${cleanKey}`,
-            },
-            body: JSON.stringify({
-              username: cleanUser,
-              password: password,
-              api_key: cleanKey,
-            }),
-          });
-          if (res.ok) {
-            data = await res.json();
-          }
-        } catch {}
-      }
-
-      if (!res || !res.ok || !data?.success) {
-        const errorMsg = data?.error || data?.message || (res ? `HTTP ${res.status}` : t("posConnectionFailed", "Connection failed or ArunakiZen server not reachable"));
-        throw new Error(errorMsg);
-      }
-
-      const newStatus: PosConnectionStatus = {
-        connected: true,
-        store: data.store || "ArunakiZen Store",
-        operator: data.operator || { nama: cleanUser, kode: "KS", level: "KS" },
-        permissions: data.permissions || {},
-        message: data.message,
-      };
-
-      setStatus(newStatus);
-
-      // Persist verified config
-      const verifiedPayload = {
-        hostUrl: cleanHost,
-        apiKey: cleanKey,
-        username: cleanUser,
-        password: password,
-        status: newStatus,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(verifiedPayload));
-      apiFetch(`${API_BASE}/desktop/pos-config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(verifiedPayload),
-      }).catch(() => {});
-
-      toast.success(
-        `${t("posHandshakeSuccess", "Successfully connected to ArunakiZen as operator")} '${newStatus.operator?.nama}' (${newStatus.store})`
-      );
-    } catch (err: any) {
-      setStatus({ connected: false });
-      toast.error(`${t("posHandshakeFailed", "Connection handshake failed")}: ${err.message}`);
-    } finally {
-      setTesting(false);
-    }
-  }, [hostUrl, apiKey, username, password, t]);
-
-  // Save Settings
-  const handleSaveConfig = useCallback(() => {
-    setSaving(true);
-    try {
-      const cleanHost = hostUrl.trim().replace(/\/+$/, "");
-      const cleanKey = apiKey.trim();
-      const cleanUser = username.trim();
-
-      const configPayload = {
-        hostUrl: cleanHost,
-        apiKey: cleanKey,
-        username: cleanUser,
-        password: password,
-        status: status,
-      };
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(configPayload));
-      apiFetch(`${API_BASE}/desktop/pos-config`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(configPayload),
-      }).catch(() => {});
-
-      toast.success(t("posConfigSavedSuccess", "ArunakiZen configuration saved successfully."));
-    } catch (err: any) {
-      toast.error(`${t("posToastSaveFailed", "Failed to save configuration")}: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [hostUrl, apiKey, username, password, status, t]);
+  const {
+    hostUrl,
+    setHostUrl,
+    apiKey,
+    setApiKey,
+    username,
+    setUsername,
+    password,
+    setPassword,
+    showApiKey,
+    setShowApiKey,
+    showPassword,
+    setShowPassword,
+    status,
+    autoDetecting,
+    testing,
+    saving,
+    showGuideModal,
+    setShowGuideModal,
+    guideInitialStep,
+    setGuideInitialStep,
+    handleAutoDetect,
+    handleTestConnection,
+    handleSave,
+  } = useAppConnections();
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner & Tab Description */}
-      <div className="flex items-start justify-between pb-4 border-b border-[var(--border-color)]">
-        <div>
-          <h2 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            <Store className="w-4 h-4 text-[var(--text-primary)]" />
-            <span>{t("arunakiZenTitle", "Engine Kasir ArunakiZen")}</span>
-          </h2>
-          <p className="text-xs text-[var(--text-muted)] mt-1 max-w-2xl leading-relaxed">
-            {t("arunakiZenDesc", "Engine kasir dan sistem retail ArunakiZen offline-first. Memungkinkan Agen Arunaki mengecek stok fisik barang secara real-time, membuat faktur penjualan resmi (R43), dan memantau status kas shift kasir.")}
-          </p>
-        </div>
+    <div className="space-y-6 max-w-4xl">
+      {/* Header & Status Card */}
+      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)]">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center border transition-colors",
+                status.connected
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+                  : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
+              )}
+            >
+              <Store className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-[var(--text-primary)] text-sm">
+                  ArunakiZen POS & ERP Integration
+                </h3>
+                <span
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                    status.connected
+                      ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+                      : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
+                  )}
+                >
+                  {status.connected ? "Active & Linked" : "Standby / Unlinked"}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {status.connected && status.store
+                  ? `Linked to ${status.store} · Operator: ${status.operator?.nama || "Admin"}`
+                  : "Allow Arunaki to query inventory, reconcile invoices, and sync business tables directly with ArunakiZen POS."}
+              </p>
+            </div>
+          </div>
 
-        {/* Top Actions: Setup Guide & Connection Status */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setGuideInitialStep(1);
-              setShowGuideModal(true);
-            }}
-            className="rounded-full"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-            <span>{t("posSetupGuide", "Setup Guide")}</span>
-          </Button>
-
-          <div
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border select-none shrink-0 transition-all",
-              status.connected
-                ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-                : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)]"
-            )}
-          >
-          {status.connected ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-[var(--text-primary)] animate-pulse" />
-              <span>{t("posStatusConnected", "Connected")}</span>
-            </>
-          ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
-              <span>{t("posStatusDisconnected", "Not connected")}</span>
-            </>
-          )}
-        </div>
-        </div>
-      </div>
-
-      {/* Main Connection Form Card */}
-      <Card className="p-5 space-y-4">
-        {/* 1. Host URL Server ArunakiZen */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-[var(--text-primary)]">
-              {t("posHostUrlLabel", "Host URL Server ArunakiZen")}
-            </label>
-            <button
+          <div className="flex items-center gap-2">
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setGuideInitialStep(1);
                 setShowGuideModal(true);
               }}
-              className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
+              className="h-8 text-xs font-medium border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] gap-1.5"
             >
-              <HelpCircle className="w-3 h-3" />
-              <span>{t("needPortHelp", "How to detect port? View guide")}</span>
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type="text"
-                value={hostUrl}
-                onChange={(e) => setHostUrl(e.target.value)}
-                placeholder="http://<host-or-ip>:<port>"
-                className="h-9 bg-[var(--bg-app)] font-mono"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleAutoDetect}
-              disabled={autoDetecting}
-            >
-              <RefreshCw className={cn("w-3.5 h-3.5", autoDetecting && "animate-spin")} />
-              <span>{autoDetecting ? t("posAutoDetecting", "Mendeteksi...") : t("posAutoDetect", "Deteksi Otomatis")}</span>
+              <BookOpen className="w-3.5 h-3.5" />
+              Setup Guide
             </Button>
           </div>
-          <p className="text-[11px] text-[var(--text-muted)] mt-1">
-            {t("posHostUrlHelp", "Port dinamis otomatis dipilih pada rentang 5000-5100")}
-          </p>
         </div>
 
-        {/* 2. Integration API Key */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-[var(--text-primary)]">
-              {t("posApiKeyLabel", "API Key Integrasi (Bearer Token)")}
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                setGuideInitialStep(2);
-                setShowGuideModal(true);
-              }}
-              className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <HelpCircle className="w-3 h-3" />
-              <span>{t("needApiKeyHelp", "Where to get token? View guide")}</span>
-            </button>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
-              <Key className="w-3.5 h-3.5" />
+        {status.connected && (
+          <div className="mt-4 pt-3 border-t border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-[var(--bg-panel)] p-2.5 rounded-lg border border-[var(--border-color)] flex items-center gap-2.5">
+              <Building2 className="w-4 h-4 text-[var(--text-muted)]" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Store / Cabang</p>
+                <p className="text-xs font-medium text-[var(--text-primary)] truncate">{status.store || "Central Store"}</p>
+              </div>
             </div>
-            <Input
-              type={showApiKey ? "text" : "password"}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Ar-••••••••••••••••••••••••••••••••"
-              className="h-9 pl-9 pr-10 bg-[var(--bg-app)] font-mono tracking-wider"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-            >
-              {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
+
+            <div className="bg-[var(--bg-panel)] p-2.5 rounded-lg border border-[var(--border-color)] flex items-center gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-[var(--text-muted)]" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Operator Level</p>
+                <p className="text-xs font-medium text-[var(--text-primary)] truncate">{status.operator?.level || "Admin"}</p>
+              </div>
+            </div>
+
+            <div className="bg-[var(--bg-panel)] p-2.5 rounded-lg border border-[var(--border-color)] flex items-center gap-2.5">
+              <Wifi className="w-4 h-4 text-[var(--text-muted)]" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Access Scope</p>
+                <p className="text-xs font-medium text-[var(--text-primary)] truncate">Read Sales & Inventory</p>
+              </div>
+            </div>
           </div>
-          <p className="text-[11px] text-[var(--text-muted)] mt-1">
-            {t("posApiKeyHelp", "Diambil dari Pengaturan ArunakiZen > Integrasi & API Key")}
-          </p>
+        )}
+      </Card>
+
+      {/* Configuration Form Card */}
+      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)] space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+          <div>
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+              API Connection & Credentials
+            </h4>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              Enter the local IP/port or domain of your ArunakiZen desktop/server instance.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAutoDetect}
+            disabled={autoDetecting}
+            className="text-xs gap-1.5"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", autoDetecting && "animate-spin")} />
+            Auto-Detect Port
+          </Button>
         </div>
 
-        {/* 3. Operator Kasir Credentials (Dual-Layer) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-[var(--text-primary)]">
-                {t("posOperatorUserLabel", "Kode / Username Operator Kasir")}
-              </label>
+        <form onSubmit={handleSave} className="space-y-4">
+          {/* Host URL */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+              <Wifi className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              Host URL / Server Endpoint
+              <span className="text-rose-500">*</span>
+            </label>
+            <Input
+              type="text"
+              value={hostUrl}
+              onChange={(e) => setHostUrl(e.target.value)}
+              placeholder="http://127.0.0.1:8000"
+              className="font-mono text-xs"
+            />
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Usually <code className="bg-[var(--bg-panel)] px-1 py-0.5 rounded">http://127.0.0.1:8000</code> or your store's LAN IP.
+            </p>
+          </div>
+
+          {/* API Key */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              API Key / Access Token
+            </label>
+            <div className="relative">
+              <Input
+                type={showApiKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="zen_live_xxxxxxxxxxxxxxxxxxxxxxxx"
+                className="font-mono text-xs pr-10"
+              />
               <button
                 type="button"
-                onClick={() => {
-                  setGuideInitialStep(3);
-                  setShowGuideModal(true);
-                }}
-                className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline cursor-pointer flex items-center gap-1"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 transition-colors cursor-pointer"
               >
-                <HelpCircle className="w-3 h-3" />
-                <span>{t("needCashierHelp", "Need operator ID? View guide")}</span>
+                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
-                <User className="w-3.5 h-3.5" />
-              </div>
+          </div>
+
+          {/* Username & Password */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                Operator Username
+              </label>
               <Input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={t("posOperatorUserPlaceholder", "e.g. CASHIER01")}
-                className="h-9 pl-9 pr-3 bg-[var(--bg-app)] font-semibold"
+                placeholder="admin"
+                className="font-mono text-xs"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-              {t("posOperatorPassLabel", "Kata Sandi Operator Kasir")}
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-muted)]">
-                <Lock className="w-3.5 h-3.5" />
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                Operator Password / PIN
+              </label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="font-mono text-xs pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-              <Input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("posOperatorPassPlaceholder", "Cashier password...")}
-                className="h-9 pl-9 pr-10 bg-[var(--bg-app)]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              >
-                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
             </div>
           </div>
-        </div>
 
-        <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-          {t("posOperatorHelp", "Seluruh transaksi penjualan dan pemotongan stok wajib terikat ke identitas operator kasir sah.")}
-        </p>
+          {/* Action Buttons */}
+          <div className="pt-4 flex items-center justify-between border-t border-[var(--border-color)]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={testing || !hostUrl.trim()}
+              className="text-xs gap-1.5"
+            >
+              <Wifi className={cn("w-3.5 h-3.5", testing && "animate-spin")} />
+              {testing ? "Testing Handshake..." : "Test Connection"}
+            </Button>
 
-        {/* 4. Live Connected Information Card (When Handshake is Verified) */}
-        {status.connected && (
-          <div className="p-3.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>{t("posConnectedStore", "Toko Terhubung")}:</span>
-              </span>
-              <strong className="text-[var(--text-primary)] font-semibold">{status.store || "ArunakiZen Store"}</strong>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5" />
-                <span>{t("posOperatorActive", "Operator Aktif")}:</span>
-              </span>
-              <span className="text-[var(--text-primary)] font-medium">
-                {status.operator?.nama} ({status.operator?.kode}) — Level: {status.operator?.level}
-              </span>
-            </div>
-
-            {status.permissions && Object.keys(status.permissions).length > 0 && (
-              <div className="pt-1.5 border-t border-[var(--border-color)] flex items-center justify-between text-[11px]">
-                <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>{t("posAccessPermissions", "Hak Akses Diberikan")}:</span>
-                </span>
-                <span className="text-[var(--text-secondary)] font-mono text-[10px]">
-                  R43 Penjualan, Cek Stok, Terima Piutang
-                </span>
-              </div>
-            )}
+            <Button
+              type="submit"
+              variant="default"
+              size="sm"
+              disabled={saving}
+              className="px-5 font-semibold text-xs gap-1.5"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Save Configuration
+                </>
+              )}
+            </Button>
           </div>
-        )}
-
-        {/* 5. Action Buttons (Handshake & Save) */}
-        <div className="pt-2 flex items-center gap-3">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="flex-1"
-          >
-            <Wifi className={cn("w-3.5 h-3.5", testing && "animate-pulse")} />
-            <span>{testing ? t("posTesting", "Menghubungkan...") : t("posTestHandshake", "Uji Koneksi (Handshake)")}</span>
-          </Button>
-
-          <Button
-            type="button"
-            onClick={handleSaveConfig}
-            disabled={saving}
-            className="flex-1"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>{saving ? t("posSaving", "Menyimpan...") : t("posSaveConfig", "Simpan Pengaturan")}</span>
-          </Button>
-        </div>
+        </form>
       </Card>
-      {/* Interactive Setup Wizard Modal */}
+
+      {/* Guide Modal */}
       <ArunakiZenSetupGuideModal
         isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
         initialStep={guideInitialStep}
         hostUrl={hostUrl}
-        onClose={() => setShowGuideModal(false)}
       />
     </div>
   );

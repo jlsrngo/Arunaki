@@ -1,17 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
 import { Panel } from '@xyflow/react';
 import { X, Save, Trash2, CheckCircle2, XCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '../../lib/utils';
-import { apiFetch, API_BASE } from '../../lib/api';
-import { subscribeKnowledgeSync } from '../../lib/knowledgeSync';
-import { filterLocalLocations, searchRemoteLocations } from './locations';
 import { Button, Input, Textarea } from '../ui';
-
-const SYNC_TIME_FORMATTER = new Intl.DateTimeFormat([], {
-  hour: '2-digit',
-  minute: '2-digit',
-});
+import { useKnowledgeNodeDetail } from './hooks/useKnowledgeNodeDetail';
 
 export interface KnowledgeDoc {
   id: string;
@@ -33,208 +23,36 @@ interface KnowledgeNodePanelProps {
 }
 
 export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: KnowledgeNodePanelProps) {
-  const [nodeData, setNodeData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  
-  // Form state
-  const [title, setTitle] = useState('');
-  const [urls, setUrls] = useState<string[]>([]);
-  const [city, setCity] = useState('');
-  const [content, setContent] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
-  const cityDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
-        setIsCityDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!nodeId || nodeId === 'main-ai-node') {
-      setNodeData(null);
-      return;
-    }
-
-    const fetchNode = async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch(`${API_BASE}/knowledge/${nodeId}`);
-        if (res.ok) {
-          const { data } = await res.json();
-          setNodeData(data);
-          setTitle(data.title);
-
-          // Auto-purge any legacy raw CSV dump or internal placeholder
-          let cleanContent = data.content || '';
-          if (
-            cleanContent.startsWith('```csv') ||
-            cleanContent.includes('JavaScript tidak diaktifkan') ||
-            cleanContent === 'Enter knowledge content here...'
-          ) {
-            cleanContent = '';
-          }
-          setContent(cleanContent);
-
-          setCity(data.city || '');
-          try {
-            const parsed = JSON.parse(data.urls || '[]');
-            setUrls(Array.isArray(parsed) ? parsed : []);
-          } catch {
-            setUrls([]);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNode();
-  }, [nodeId]);
-
-  useEffect(() => {
-    if (!nodeId || nodeId === 'main-ai-node') return;
-    const unsubscribe = subscribeKnowledgeSync(() => {
-      apiFetch(`${API_BASE}/knowledge/${nodeId}`)
-        .then((res) => res.json())
-        .then((json) => {
-          if (json?.data) {
-            setNodeData(json.data);
-          }
-        })
-        .catch(() => {});
-    });
-    return unsubscribe;
-  }, [nodeId]);
-
-  const [remoteCities, setRemoteCities] = useState<string[]>([]);
-
-  useEffect(() => {
-    const clean = city.trim();
-    if (clean.length < 2) {
-      setRemoteCities([]);
-      return;
-    }
-
-    const localMatches = filterLocalLocations(clean, 7);
-    if (localMatches.length >= 7) {
-      setRemoteCities([]);
-      return;
-    }
-
-    const abortCtrl = new AbortController();
-    const timer = setTimeout(() => {
-      searchRemoteLocations(clean, 7, abortCtrl.signal)
-        .then((results) => {
-          if (!abortCtrl.signal.aborted) {
-            setRemoteCities(results);
-          }
-        })
-        .catch(() => {});
-    }, 250);
-
-    return () => {
-      clearTimeout(timer);
-      abortCtrl.abort();
-    };
-  }, [city]);
-
-  const filteredCities = useMemo(() => {
-    if (!city || city.trim().length < 2) return [];
-    const localMatches = filterLocalLocations(city, 7);
-    if (remoteCities.length > 0) return remoteCities;
-    return localMatches;
-  }, [city, remoteCities]);
+  const {
+    nodeData,
+    loading,
+    title,
+    setTitle,
+    urls,
+    setUrls,
+    city,
+    setCity,
+    content,
+    setContent,
+    saving,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    isCityDropdownOpen,
+    setIsCityDropdownOpen,
+    cityDropdownRef,
+    filteredCities,
+    handleSave,
+    handleDelete,
+    toggleActive,
+    isRulesNode,
+  } = useKnowledgeNodeDetail({
+    nodeId,
+    onClose,
+    onUpdate,
+    onDelete,
+  });
 
   if (!nodeId || nodeId === 'main-ai-node') return null;
-
-  const handleSave = async () => {
-    if (!nodeData) return;
-    setSaving(true);
-    try {
-      let finalContent = content;
-      if (
-        finalContent.startsWith('```csv') ||
-        finalContent.trim() === "Enter knowledge content here..." ||
-        finalContent.includes("JavaScript tidak diaktifkan")
-      ) {
-        finalContent = "";
-      }
-
-      const res = await apiFetch(`${API_BASE}/knowledge/${nodeId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          title,
-          content: finalContent,
-          urls: urls.map((u) => u.trim()).filter(Boolean),
-          city,
-        }),
-      });
-      if (res.ok) {
-        const { data } = await res.json();
-        onUpdate(nodeId, data);
-        toast.success("Knowledge node saved successfully!");
-        onClose();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.error?.message || "Failed to save node");
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e.message || "Failed to save node");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      const res = await apiFetch(`${API_BASE}/knowledge/${nodeId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        onDelete(nodeId);
-        onClose();
-        toast.success("Knowledge node deleted");
-      } else {
-        toast.error("Failed to delete node");
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e.message || "Failed to delete node");
-    }
-  };
-
-  const toggleActive = async () => {
-    try {
-      const res = await apiFetch(`${API_BASE}/knowledge/${nodeId}/toggle`, {
-        method: 'PATCH',
-      });
-      if (res.ok) {
-        const { data } = await res.json();
-        setNodeData(data);
-        onUpdate(nodeId, data);
-        toast.success(data.active ? "Node activated for AI" : "Node deactivated");
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e.message || "Failed to toggle status");
-    }
-  };
-
-  if (!nodeId || nodeId === 'main-ai-node') {
-    return null;
-  }
-
-  const isRulesNode = (nodeData?.type || '').toLowerCase() === 'rules';
 
   return (
     <Panel 
@@ -252,196 +70,203 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
       </div>
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-[var(--border-strong)] border-t-[var(--text-primary)] rounded-full animate-spin" />
-        </div>
+        <div className="p-8 text-center text-[var(--text-muted)] text-sm">Loading node details...</div>
       ) : nodeData ? (
-        <>
-          {/* Form */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            
-            {/* Status Toggle */}
-            <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)]">
-              <div>
-                <div className="text-xs font-semibold text-[var(--text-primary)]">Node Status</div>
-                <div className="text-[10px] text-[var(--text-muted)] mt-0.5">Grant access to AI</div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Status Toggle */}
+          <div className="flex items-center justify-between p-3 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)]">
+            <div>
+              <div className="font-semibold text-xs text-[var(--text-primary)]">AI Knowledge Scope</div>
+              <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                {nodeData.active ? 'Active (Included in AI prompt)' : 'Inactive (Excluded from prompt)'}
               </div>
-              <Button
-                type="button"
-                variant={nodeData.active ? "default" : "outline"}
-                size="sm"
-                onClick={toggleActive}
-              >
-                {nodeData.active ? (
-                  <><CheckCircle2 className="w-3.5 h-3.5" /> Active</>
-                ) : (
-                  <><XCircle className="w-3.5 h-3.5" /> Inactive</>
-                )}
-              </Button>
             </div>
+            <Button
+              type="button"
+              variant={nodeData.active ? "default" : "outline"}
+              size="sm"
+              onClick={toggleActive}
+              className="gap-1.5 h-7 text-xs"
+            >
+              {nodeData.active ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Active
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-3.5 h-3.5" />
+                  Inactive
+                </>
+              )}
+            </Button>
+          </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--text-muted)]">
-                {isRulesNode ? "Rule / SOP Title" : "Knowledge Title"}
+          {/* Form fields */}
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block text-[var(--text-secondary)] font-medium mb-1">
+                {isRulesNode ? 'Operating Context / Rule Title' : 'Title'}
               </label>
               <Input
                 type="text"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder={isRulesNode ? "e.g. Sales Discount Policy" : "e.g. Product Catalog"}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Workspace Context"
+                className="w-full text-xs font-medium"
               />
             </div>
 
-            {!isRulesNode && (
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">Spreadsheet / Website URL</label>
-                <Input
-                  type="url"
-                  value={urls[0] || ''}
-                  onChange={e => setUrls([e.target.value, ...urls.slice(1)])}
-                  placeholder="https://docs.google.com/spreadsheets/d/... or https://example.com"
-                />
-                
-                {urls[0]?.trim() ? (
-                  <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] text-[11px]">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0",
-                            nodeData?.syncStatus === "failed" ? "bg-[#cf6613]" : "bg-[var(--text-primary)] animate-pulse"
-                          )}
-                        />
-                        <span className="font-medium text-[var(--text-primary)]">
-                          {nodeData?.syncStatus === "failed" ? "Sync Warning (Using Cache)" : "Auto-Synced Catalog"}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-[var(--text-muted)]">
-                        {nodeData?.lastSyncedAt
-                          ? SYNC_TIME_FORMATTER.format(new Date(nodeData.lastSyncedAt))
-                          : "Auto-Refresh Active"}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-[var(--text-muted)] leading-tight">
-                      Pre-loaded locally in background. AI reads prices & stock instantly without manual refresh.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-[var(--text-dim)]">
-                    Supports Google Sheets & Web Pages (auto-refreshed in background on launch)
-                  </div>
-                )}
-
-                <div className="relative" ref={cityDropdownRef}>
-                  <label className="text-xs font-semibold text-[var(--text-muted)] block mb-1">
-                    Location / Branch (Optional)
-                  </label>
-                  <Input
-                    type="text"
-                    value={city}
-                    onChange={(e) => {
-                      setCity(e.target.value);
-                      setIsCityDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsCityDropdownOpen(true)}
-                    placeholder="e.g. Jakarta, New York, Warehouse B..."
-                  />
-                  
-                  {isCityDropdownOpen && filteredCities.length > 0 && (
-                    <div className="absolute left-0 top-full mt-1.5 w-full max-h-40 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
-                      {filteredCities.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => {
-                            setCity(opt);
-                            setIsCityDropdownOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
-                        >
-                          <span className="truncate">{opt}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+            {/* Location / City Tagging */}
+            <div className="relative" ref={cityDropdownRef}>
+              <label className="block text-[var(--text-secondary)] font-medium mb-1">
+                Location / City (Optional Tagging)
+              </label>
+              <Input
+                type="text"
+                value={city}
+                onChange={(e) => {
+                  setCity(e.target.value);
+                  setIsCityDropdownOpen(true);
+                }}
+                onFocus={() => {
+                  if (filteredCities.length > 0) setIsCityDropdownOpen(true);
+                }}
+                placeholder="Type city name..."
+                className="w-full text-xs"
+              />
+              {isCityDropdownOpen && filteredCities.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-lg z-50 py-1">
+                  {filteredCities.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setCity(c);
+                        setIsCityDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                    >
+                      {c}
+                    </button>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {isRulesNode ? (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">SOP & Business Rules</label>
-                <Textarea
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  placeholder="Enter business guidelines, calculation rules, or standard operating procedures..."
-                  className="h-44 resize-none"
-                />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">
-                  Instructions for AI <span className="font-normal opacity-70">(Optional)</span>
-                </label>
-                <Textarea
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  placeholder="e.g. 'Use wholesale prices for VIP customers', 'Ignore draft rows'..."
-                  rows={2}
-                  className="h-16 resize-none"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Footer Actions */}
-          <div className="p-4 border-t border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-panel)] shrink-0">
-            {showDeleteConfirm ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-rose-400 font-medium">Delete node?</span>
+            {/* URLs list */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[var(--text-secondary)] font-medium">Reference URLs</label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => setUrls([...urls, ''])}
+                  className="h-auto p-0 text-[10px]"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    handleDelete();
-                  }}
-                >
-                  Delete
+                  + Add URL
                 </Button>
               </div>
-            ) : (
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={() => setShowDeleteConfirm(true)}
-                title="Delete Node"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-            
+              <div className="space-y-1.5">
+                {urls.map((u, i) => (
+                  <div key={i} className="flex gap-1.5 items-center">
+                    <Input
+                      type="text"
+                      value={u}
+                      onChange={(e) => {
+                        const next = [...urls];
+                        next[i] = e.target.value;
+                        setUrls(next);
+                      }}
+                      placeholder="https://..."
+                      className="flex-1 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={() => setUrls(urls.filter((_, idx) => idx !== i))}
+                      className="text-[var(--text-muted)] hover:text-rose-500"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Content Field */}
+            <div>
+              <label className="block text-[var(--text-secondary)] font-medium mb-1">
+                Knowledge Instructions & Context
+              </label>
+              <Textarea
+                rows={6}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter system prompt instructions, guidelines, or factual rules here..."
+                className="w-full text-xs font-mono"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Footer Actions */}
+      <div className="p-4 border-t border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-2 shrink-0">
+        {showDeleteConfirm ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-rose-500 font-semibold">Confirm delete?</span>
             <Button
               type="button"
-              onClick={handleSave}
-              disabled={saving}
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              className="h-7 text-xs"
             >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Saving...' : 'Save'}</span>
+              Yes, Delete
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="h-7 text-xs"
+            >
+              Cancel
             </Button>
           </div>
-        </>
-      ) : null}
+        ) : (
+          <Button
+            type="button"
+            variant="ghost-destructive"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-xs"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" />
+            Delete
+          </Button>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} className="text-xs">
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="text-xs"
+          >
+            <Save className="w-3.5 h-3.5 mr-1.5" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </div>
     </Panel>
   );
 }
