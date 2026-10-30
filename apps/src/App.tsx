@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { AppLayout } from "./components/layout/AppLayout";
-import { useTheme, getSystemTheme } from "./lib/theme";
+import { useTheme } from "./lib/theme";
 import { DEFAULT_MODELS } from "./components/settings/constants";
 import { API_BASE, apiFetch, directoryQuery } from "./lib/api";
 
@@ -89,13 +89,13 @@ if (typeof window !== "undefined") {
 }
 
 export default function App() {
-  const { theme } = useTheme();
-  const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
+  const { isLight } = useTheme();
+  const toasterTheme = isLight ? 'light' : 'dark';
 
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster 
-        theme={effectiveTheme as 'light' | 'dark'} 
+        theme={toasterTheme} 
         position="bottom-left" 
         offset="28px"
         visibleToasts={1}

@@ -157,7 +157,8 @@ These rules from ARCHITECTURE.md and INTELLIGENCE.md are non-negotiable and appl
 8. **Update WORKFLOW.md** — Mark completed items with ✅ and move to next phase.
 9. **Update documentation** — Update file .md yang terdampak oleh perubahan.
 10. **Write dev-log** — Buat file di `docs/dev-logs/dev-log-YYYY-MM-DD-[task-name].md`.
-11. **Commit & push** — Setelah selesai 1 pekerjaan, selalu commit dan push ke GitHub. Jangan menumpuk banyak perubahan dalam 1 commit.
+11. **Build & Sync Release Binary (`dist-portable`)** — Setiap selesai pekerjaan yang mengubah kode frontend (`apps`) atau backend (`core`/`src-tauri`), WAJIB langsung menjalankan `npm run build -w apps`, menyalin hasil build ke `dist-portable/web`, mengompilasi binary release (`cargo build --release -p arunaki-desktop` / `--workspace`), dan memperbarui `dist-portable/arunaki.exe` (serta `arunaki-engine.exe` / `arunaki-docs.exe` jika berubah) tanpa perlu ditanyakan lagi ke pengguna.
+12. **Commit & push** — Setelah selesai 1 pekerjaan, selalu langsung commit dan push ke GitHub tanpa perlu menunggu instruksi terpisah. Jangan menumpuk banyak perubahan dalam 1 commit.
 
 ---
 

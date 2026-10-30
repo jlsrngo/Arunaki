@@ -1,6 +1,6 @@
 import { memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Sun, Moon, Minus, Square, X } from "lucide-react";
+import { User, Sun, Moon, Box, Minus, Square, X } from "lucide-react";
 import { ArunakiLogo } from "../common/ArunakiLogo";
 import { useTheme } from "../../lib/theme";
 import { useI18n } from "../../lib/i18n";
@@ -36,7 +36,7 @@ export const AppHeader = memo(function AppHeader({
   onCloseFolder,
 }: AppHeaderProps) {
   const navigate = useNavigate();
-  const { setTheme, isLight } = useTheme();
+  const { theme, setTheme, isLight, isNeobrutalism } = useTheme();
   const { t } = useI18n();
 
   const handleNavigateWorkstation = useCallback(() => {
@@ -52,8 +52,14 @@ export const AppHeader = memo(function AppHeader({
   }, [navigate]);
 
   const toggleQuickTheme = useCallback(() => {
-    setTheme(isLight ? "dark" : "light");
-  }, [isLight, setTheme]);
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("neobrutalism");
+    } else {
+      setTheme("dark");
+    }
+  }, [theme, setTheme]);
 
   const handleMinimize = useCallback(async () => {
     if ((window as any).arunakiDesktop?.minimize) {
@@ -138,15 +144,19 @@ export const AppHeader = memo(function AppHeader({
           data-tauri-drag-region="false"
           className="w-7 h-7 rounded-full bg-[var(--bg-hover)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] transition-colors cursor-pointer"
           title={
-            isLight
+            isNeobrutalism
               ? t("switchToDark", "Switch to Dark Mode")
+              : isLight
+              ? t("switchToNeobrutalism", "Switch to Neo-Brutalism")
               : t("switchToLight", "Switch to Light Mode")
           }
         >
-          {isLight ? (
-            <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
-          ) : (
+          {isNeobrutalism ? (
+            <Box className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
+          ) : isLight ? (
             <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
+          ) : (
+            <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={2.25} />
           )}
         </button>
 

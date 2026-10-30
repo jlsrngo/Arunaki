@@ -57,6 +57,7 @@ export const translations = {
     theme: "Theme",
     light: "Light",
     dark: "Dark",
+    neobrutalism: "Neo-Brutalism",
     systemTheme: "System Theme",
     language: "Language",
     english: "English",
@@ -308,6 +309,7 @@ export const translations = {
     networkOffline: "Network offline",
     switchToDark: "Switch to Dark Mode",
     switchToLight: "Switch to Light Mode",
+    switchToNeobrutalism: "Switch to Neo-Brutalism",
     userProfileSettings: "User Profile & Settings",
 
     // Workstation Explorer
@@ -554,6 +556,7 @@ export const translations = {
     theme: "Tema Tampilan",
     light: "Terang",
     dark: "Gelap",
+    neobrutalism: "Neo-Brutalism",
     systemTheme: "Ikuti Sistem",
     language: "Bahasa",
     english: "English",
@@ -800,6 +803,7 @@ export const translations = {
     networkOffline: "Jaringan terputus",
     switchToDark: "Beralih ke Mode Gelap",
     switchToLight: "Beralih ke Mode Terang",
+    switchToNeobrutalism: "Beralih ke Neo-Brutalism",
     userProfileSettings: "Profil Pengguna & Pengaturan",
 
     // Workstation Explorer

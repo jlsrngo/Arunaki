@@ -70,6 +70,75 @@
     color-scheme: light;
   }
 
+  [data-theme="neobrutalism"], .neobrutalism {
+    /* Authentic Neo-Brutalism Palette (Warm Cream Canvas + Canary Yellow + Coral Red + Sky Cyan + Bold Ink Outlines) */
+    --bg-app: #F6EFEA;
+    --bg-main: #FBF7F4;
+    --bg-header: #FFE119;
+    --bg-panel: #F3EBE4;
+    --bg-panel-sub: #EAE0D7;
+    --bg-editor: #FBF7F4;
+    --bg-card: #FFFDFB;
+    --bg-elevated: #FFFDFB;
+    --bg-hover: #FFE119;
+    --bg-active: #72DDF7;
+    --bg-input: #FFFFFF;
+    --border: #141413;
+    --border-color: #141413;
+    --border-subtle: #141413;
+    --border-strong: #000000;
+    --border-primary: #000000;
+    --text-primary: #141413;
+    --text-secondary: #222220;
+    --text-muted: #45433E;
+    --text-dim: #6E6A63;
+    --accent: #FF5964;
+    --scrollbar-thumb: #141413;
+    --scrollbar-thumb-hover: #FF5964;
+    color-scheme: light;
+  }
+
+  /* Neo-Brutalism Bold Structural Ink Outlines & Pop Accents (Zero Shadows) */
+  [data-theme="neobrutalism"] header,
+  [data-theme="neobrutalism"] footer {
+    border-color: #141413 !important;
+    border-width: 2px !important;
+  }
+
+  [data-theme="neobrutalism"] footer {
+    background-color: #FBF7F4 !important;
+  }
+
+  [data-theme="neobrutalism"] button[class*="border"],
+  [data-theme="neobrutalism"] input[class*="border"],
+  [data-theme="neobrutalism"] textarea[class*="border"],
+  [data-theme="neobrutalism"] div[class*="rounded-xl"][class*="border"],
+  [data-theme="neobrutalism"] div[class*="rounded-2xl"][class*="border"] {
+    border-width: 2px !important;
+    border-color: #141413 !important;
+  }
+
+  /* Primary CTA buttons in Neo-Brutalism turn Canary Yellow (#FFE119) with Bold Ink Text */
+  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"],
+  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"] {
+    background-color: #FFE119 !important;
+    color: #141413 !important;
+    border: 2px solid #141413 !important;
+    font-weight: 700 !important;
+  }
+
+  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"]:hover,
+  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"]:hover {
+    background-color: #FFD000 !important;
+  }
+
+  /* Status Pills & Badges in Coral Red (#FF5964) with Bold Ink Border */
+  [data-theme="neobrutalism"] span[class*="bg-[#cf6613]"] {
+    background-color: #FF5964 !important;
+    color: #FFFFFF !important;
+    border: 1.5px solid #141413 !important;
+  }
+
   html, body, #root {
     height: 100%;
     width: 100%;

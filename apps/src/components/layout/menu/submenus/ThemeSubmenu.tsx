@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Sun, Moon, Laptop } from "lucide-react";
+import { Sun, Moon, Laptop, Box } from "lucide-react";
 import { useTheme } from "../../../../lib/theme";
 import { useI18n } from "../../../../lib/i18n";
 import { MenuItem } from "../items/MenuItem";
@@ -34,6 +34,16 @@ export const ThemeSubmenu = memo(function ThemeSubmenu({ onClose }: ThemeSubmenu
         checked={theme === "dark"}
         onClick={() => {
           setTheme("dark");
+          onClose();
+        }}
+      />
+
+      <MenuItem
+        icon={Box}
+        label={t("neobrutalism", "Neo-Brutalism")}
+        checked={theme === "neobrutalism"}
+        onClick={() => {
+          setTheme("neobrutalism");
           onClose();
         }}
       />

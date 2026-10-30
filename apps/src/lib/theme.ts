@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ThemeMode = "dark" | "light" | "system";
+export type ThemeMode = "dark" | "light" | "neobrutalism" | "system";
 
 const THEME_STORAGE_KEY = "arunaki_theme";
 
@@ -14,7 +14,7 @@ export function getSystemTheme(): "dark" | "light" {
 export function getStoredTheme(): ThemeMode {
   if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
-  if (stored === "dark" || stored === "light" || stored === "system") {
+  if (stored === "dark" || stored === "light" || stored === "neobrutalism" || stored === "system") {
     return stored;
   }
   return "dark";
@@ -26,19 +26,21 @@ export function applyTheme(theme: ThemeMode): void {
   const effectiveTheme = theme === "system" ? getSystemTheme() : theme;
 
   root.setAttribute("data-theme", effectiveTheme);
-  if (effectiveTheme === "light") {
+  root.classList.remove("light", "dark", "neobrutalism");
+  if (effectiveTheme === "neobrutalism") {
+    root.classList.add("light", "neobrutalism");
+  } else if (effectiveTheme === "light") {
     root.classList.add("light");
-    root.classList.remove("dark");
   } else {
     root.classList.add("dark");
-    root.classList.remove("light");
   }
 
   localStorage.setItem(THEME_STORAGE_KEY, theme);
   window.dispatchEvent(new CustomEvent("arunaki-theme-change", { detail: theme }));
 
   if (typeof (window as any).arunakiDesktop?.setTheme === "function") {
-    (window as any).arunakiDesktop.setTheme(effectiveTheme).catch(() => {});
+    const nativeTheme = effectiveTheme === "dark" ? "dark" : "light";
+    (window as any).arunakiDesktop.setTheme(nativeTheme).catch(() => {});
   }
 }
 
@@ -76,5 +78,11 @@ export function useTheme() {
     applyTheme(newTheme);
   };
 
-  return { theme, setTheme, isLight: (theme === "system" ? getSystemTheme() : theme) === "light" };
+  const effectiveTheme = theme === "system" ? getSystemTheme() : theme;
+  return {
+    theme,
+    setTheme,
+    isLight: effectiveTheme === "light" || effectiveTheme === "neobrutalism",
+    isNeobrutalism: effectiveTheme === "neobrutalism",
+  };
 }

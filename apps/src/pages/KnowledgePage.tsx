@@ -14,7 +14,7 @@ import { KnowledgeNodePanel } from "../components/knowledge/KnowledgeNodePanel";
 import { KnowledgeToolbar } from "../components/knowledge/KnowledgeToolbar";
 import { KnowledgeUploadModal } from "../components/knowledge/KnowledgeUploadModal";
 import { FloatingEdge } from "../components/knowledge/FloatingEdge";
-import { useTheme, getSystemTheme } from "../lib/theme";
+import { useTheme } from "../lib/theme";
 import { useKnowledgeGraph } from "../components/knowledge/hooks/useKnowledgeGraph";
 
 const nodeTypes = {
@@ -28,9 +28,7 @@ const edgeTypes = {
 };
 
 function FlowEditor() {
-  const { theme } = useTheme();
-  const isLight =
-    theme === "light" || (theme === "system" && getSystemTheme() === "light");
+  const { isLight } = useTheme();
 
   const [uploadOpen, setUploadOpen] = useState(false);
 
