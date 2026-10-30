@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
             isFullScreen ? "h-screen w-screen" : "h-full w-full min-h-[160px]"
           }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center mb-3 text-amber-500 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center mb-3 text-amber-500">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <h2 className="text-sm font-semibold mb-1 text-[var(--text-primary)]">
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             onClick={this.handleReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-medium text-[var(--text-primary)] transition-colors cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs font-medium text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reload & Recover</span>

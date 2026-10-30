@@ -37,22 +37,22 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
       <button
         type="button"
         onClick={onToggle}
-        className="h-8 px-3 flex items-center justify-between text-xs font-semibold text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer w-full group"
+        className="h-8 px-3 flex items-center justify-between text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer w-full group"
       >
         <span className="flex items-center gap-1.5">
-          <GitCompare className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={1.5} />
-          <span className="text-xs font-semibold text-white">
+          <GitCompare className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={1.5} />
+          <span className="text-xs font-semibold text-[var(--text-primary)]">
             Changes
           </span>
           {count > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)]">
               {count}
             </span>
           )}
         </span>
         <ChevronDown
           className={cn(
-            "w-3.5 h-3.5 text-[var(--text-dim)] group-hover:text-white transition-transform duration-200 shrink-0",
+            "w-3.5 h-3.5 text-[var(--text-dim)] group-hover:text-[var(--text-primary)] transition-transform duration-200 shrink-0",
             !isOpen && "-rotate-90"
           )}
           strokeWidth={1.5}
@@ -75,17 +75,17 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-                  <span className="text-white truncate font-medium">{item.fileName}</span>
+                  <span className="text-[var(--text-primary)] truncate font-medium">{item.fileName}</span>
                   {item.status === "new" || item.status === "added" || (!item.beforeContent && item.afterContent) ? (
                     <span
-                      className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                      className="px-1.5 py-0.5 rounded bg-[var(--text-primary)] text-[var(--bg-card)] text-[10px] font-bold leading-none shrink-0 select-none"
                       title="New file"
                     >
                       N
                     </span>
                   ) : (
                     <span
-                      className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none shadow-xs"
+                      className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none shrink-0 select-none"
                       title="Modified"
                     >
                       M
@@ -107,7 +107,7 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                           e.stopPropagation();
                           onRevertChange(item);
                         }}
-                        className="p-1 rounded hover:bg-rose-600 text-rose-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-rose-600 text-rose-500 hover:text-white transition-colors"
                         title="Revert to last saved"
                       >
                         <RotateCcw className="w-3 h-3" />
@@ -121,7 +121,7 @@ export const ExplorerSourceControl = memo(function ExplorerSourceControl({
                           e.stopPropagation();
                           onAcceptChange(item);
                         }}
-                        className="p-1 rounded hover:bg-white/20 text-white transition-colors"
+                        className="p-1 rounded hover:bg-[var(--bg-card)] text-[var(--text-primary)] transition-colors"
                         title="Save changes"
                       >
                         <Check className="w-3 h-3" strokeWidth={2.5} />

@@ -40,6 +40,8 @@ export function parseContentBlocks(rawContent: string): ContentBlock[] {
     .replace(/\\mathbf\{([^}]+)\}/g, "**$1**")
     .replace(/\$\$([\s\S]*?)\$\$/g, "$1")
     .replace(/\$([^\$\n]+)\$/g, "$1")
+    // Prevent CommonMark from treating platform prefixes (e.g. [Telegram @user]: ...) as invisible link reference definitions
+    .replace(/^\[([^\]\n]+)\]:\s*/gm, "\\[$1\\]: ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!content.includes("|")) {
@@ -114,7 +116,7 @@ const MARKDOWN_COMPONENTS = {
     const str = typeof first === "string" ? first : "";
     if (str.trimStart().startsWith("⚠️")) {
       return (
-        <div className="my-2 p-2.5 rounded-xl border border-[#cf6613] bg-[#cf6613] text-white text-[11px] leading-relaxed flex items-start gap-2 shadow-xs">
+        <div className="my-2 p-2.5 rounded-xl border border-[#cf6613] bg-[#cf6613] text-white text-[11px] leading-relaxed flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 select-none mt-0.5" strokeWidth={1.5} />
           <div className="flex-1 whitespace-pre-wrap break-words [word-break:break-word] text-[var(--text-primary)]">
             {Array.isArray(children)
@@ -148,12 +150,12 @@ const MARKDOWN_COMPONENTS = {
     <li className="leading-snug break-words [word-break:break-word]">{children}</li>
   ),
   code: ({ children }: any) => (
-    <code className="bg-[var(--bg-panel)] text-[var(--text-primary)] px-1.5 py-0.5 rounded font-mono text-[11px] border border-[var(--border-color)] break-words [word-break:break-word]">
+    <code className="bg-[var(--bg-panel-sub)] text-[var(--text-primary)] px-1.5 py-0.5 rounded font-mono text-[11px] border border-[var(--border-color)] break-words [word-break:break-word]">
       {children}
     </code>
   ),
   pre: ({ children }: any) => (
-    <pre className="bg-[var(--bg-panel)] p-2.5 rounded-lg overflow-x-auto max-w-full my-2 font-mono text-[11px] border border-[var(--border-color)] text-[var(--text-primary)]">
+    <pre className="bg-[var(--bg-panel-sub)] p-2.5 rounded-lg overflow-x-auto max-w-full my-2 font-mono text-[11px] border border-[var(--border-color)] text-[var(--text-primary)] [&_code]:bg-transparent [&_code]:p-0 [&_code]:border-0">
       {children}
     </pre>
   ),
@@ -197,7 +199,7 @@ export const ChatMessageContent = memo(function ChatMessageContent({
           return (
             <div
               key={bIdx}
-              className="my-2 max-w-full overflow-hidden rounded-none border border-[var(--border-color)] bg-[var(--bg-panel)] select-text shadow-none"
+              className="my-2 max-w-full overflow-hidden rounded-none border border-[var(--border-color)] bg-[var(--bg-panel)] select-text"
             >
               <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] text-[11px] text-[var(--text-muted)] select-none">
                 <span className="font-medium text-[11px] text-[var(--text-secondary)]">

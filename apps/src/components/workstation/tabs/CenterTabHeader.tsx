@@ -121,7 +121,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
               className={cn(
                 "group h-full flex items-center gap-2 px-3 text-xs font-sans cursor-pointer transition-colors border-r border-[var(--border-color)] select-none shrink-0 relative",
                 isActive
-                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] border-t-2 border-t-[var(--text-primary)] font-medium shadow-2xs"
+                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] border-t-2 border-t-[var(--text-primary)] font-medium"
                   : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] border-t-2 border-t-transparent"
               )}
             >
@@ -180,7 +180,7 @@ export const CenterTabHeader = memo(function CenterTabHeader({
             <button
               type="button"
               onClick={onSave}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-card)] font-medium font-sans text-[11px] transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-card)] font-medium font-sans text-[11px] transition-all cursor-pointer"
               title="Save Changes (Ctrl+S)"
             >
               <Save className="w-3 h-3" />

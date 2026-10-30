@@ -45,7 +45,7 @@ export function ProviderCard({
       className={cn(
         "p-4 rounded-2xl border transition-all space-y-3",
         p.active
-          ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
+          ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
           : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100"
       )}
     >
@@ -95,29 +95,29 @@ export function ProviderCard({
                 : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
             }
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border shrink-0 mt-0.5 shadow-xs select-none",
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border shrink-0 mt-0.5 select-none",
               p.active
-                ? "bg-white text-zinc-950 border-white hover:bg-zinc-200"
-                : "bg-zinc-900/90 text-zinc-400 hover:text-zinc-200 border-zinc-700 hover:border-zinc-500"
+                ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)] hover:opacity-90"
+                : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
             )}
           >
             {/* Switch Track & Thumb */}
             <div
               className={cn(
                 "w-7 h-4 rounded-full p-0.5 transition-colors flex items-center shrink-0",
-                p.active ? "bg-zinc-950" : "bg-zinc-700"
+                p.active ? "bg-[var(--bg-app)]" : "bg-[var(--bg-hover)]"
               )}
             >
               <div
                 className={cn(
-                  "w-3 h-3 rounded-full transition-transform duration-150 shadow-xs",
-                  p.active ? "bg-white translate-x-3" : "bg-zinc-400 translate-x-0"
+                  "w-3 h-3 rounded-full transition-transform duration-150",
+                  p.active ? "bg-[var(--text-primary)] translate-x-3" : "bg-[var(--text-muted)] translate-x-0"
                 )}
               />
             </div>
             <span>{p.active ? "ON" : "OFF"}</span>
             {p.active && (
-              <span className="text-[10px] font-medium opacity-70 border-l border-zinc-950/20 pl-1.5">
+              <span className="text-[10px] font-medium opacity-70 border-l border-[var(--bg-app)]/20 pl-1.5">
                 Primary
               </span>
             )}
@@ -140,10 +140,10 @@ export function ProviderCard({
                     "text-[10px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 font-mono cursor-pointer transition-all hover:scale-105",
                     result.success
                       ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
-                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                      : "bg-[var(--bg-panel)] text-[var(--text-secondary)] border-[var(--border-color)]"
                   )}
                 >
-                  <span className={cn("w-1.5 h-1.5 rounded-full", result.success ? "bg-white" : "bg-zinc-500")} />
+                  <span className={cn("w-1.5 h-1.5 rounded-full", result.success ? "bg-[var(--text-primary)]" : "bg-[var(--text-muted)]")} />
                   <span>{result.success ? `${t("connected")} (${result.timeMs}ms)` : `${t("failed")}: ${formatToastError(result.error) || result.status}`}</span>
                   <Info className="w-2.5 h-2.5 text-[var(--text-muted)]" />
                 </button>
@@ -168,7 +168,7 @@ export function ProviderCard({
           <button
             onClick={() => onTestConnection(p.id)}
             disabled={isTesting}
-            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-medium shadow-xs"
+            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-medium"
             title={t("testPing")}
           >
             {isTesting ? (
@@ -181,7 +181,7 @@ export function ProviderCard({
 
           <button
             onClick={() => onEdit(p)}
-            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer font-medium flex items-center gap-1.5 shadow-xs"
+            className="px-3 py-1.5 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] border border-[var(--border-strong)] text-xs rounded-xl transition-colors cursor-pointer font-medium flex items-center gap-1.5"
           >
             <Settings2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("configure")}</span>

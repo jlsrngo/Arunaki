@@ -152,7 +152,7 @@ function WorkstationLeftExplorerComponent({
               <button
                 type="button"
                 onClick={onOpenFolderModal}
-                className="text-[var(--text-muted)] hover:text-white p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
                 title={t("openFolder", "Open Folder...")}
               >
                 <FolderOpen className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -215,7 +215,7 @@ function WorkstationLeftExplorerComponent({
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
           <Folder className="w-9 h-9 text-[var(--text-muted)] opacity-35 mb-3 stroke-[1.5]" />
-          <p className="text-xs font-semibold text-white mb-1">
+          <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">
             {t("noFolderOpened", "No folder opened")}
           </p>
           <p className="text-[11px] text-[var(--text-muted)] max-w-[200px] leading-relaxed mb-4">
@@ -225,9 +225,9 @@ function WorkstationLeftExplorerComponent({
             <button
               type="button"
               onClick={onOpenFolderModal}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-white transition-all shadow-xs cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-[var(--text-primary)] transition-all cursor-pointer active:scale-95"
             >
-              <FolderOpen className="w-3.5 h-3.5 text-white" strokeWidth={1.5} />
+              <FolderOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={1.5} />
               <span>{t("openFolder", "Open Folder...")}</span>
             </button>
           )}
@@ -248,42 +248,42 @@ function WorkstationLeftExplorerComponent({
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteTarget(null);
           }}
-          className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
         >
-          <div className="bg-[#18181b] text-neutral-100 rounded-2xl max-w-[480px] w-full p-6 border border-[#27272a] shadow-2xl animate-in zoom-in-95 duration-150">
+          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl max-w-[480px] w-full p-6 border border-[var(--border-strong)] animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center shrink-0 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-white tracking-tight">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
                   {t("deleteItemTitle", "Delete File")}
                 </h3>
-                <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
+                <p className="text-xs text-[var(--text-secondary)] mt-2 leading-relaxed">
                   {t("deleteItemDesc", "Are you sure you want to delete")}{" "}
-                  <span className="font-semibold text-white font-mono px-1.5 py-0.5 rounded bg-[#27272a] border border-[#3f3f46] break-all">
+                  <span className="font-semibold text-[var(--text-primary)] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-panel-sub)] border border-[var(--border-color)] break-all">
                     "{deleteTarget.name}"
                   </span>
                   ?
                 </p>
-                <p className="text-[11px] text-neutral-400 mt-1.5 leading-normal">
+                <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-normal">
                   {t("deleteItemWarning", "This will permanently delete this item from your filesystem.")}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-[#27272a]">
+            <div className="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-[var(--border-color)]">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium text-neutral-200 hover:text-white bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] transition-all cursor-pointer shadow-xs active:scale-95"
+                className="px-4 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-hover)] hover:bg-[var(--border-color)] border border-[var(--border-strong)] transition-all cursor-pointer active:scale-95"
               >
                 {t("cancel", "Cancel")}
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t("deleteItemAction", "Delete")}</span>

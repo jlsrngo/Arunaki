@@ -123,14 +123,14 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="w-full max-w-lg bg-[var(--bg-card)] text-[var(--text-primary)] rounded-3xl p-6 space-y-5 border border-[var(--border-color)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="w-full max-w-lg bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl p-6 space-y-5 border border-[var(--border-strong)]">
         {creating ? (
           /* Loading State */
           <div className="py-10 space-y-6">
             <div className="flex items-center justify-center gap-3">
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-              <span className="text-sm font-semibold text-gray-900">
+              <div className="w-5 h-5 border-2 border-[var(--border-strong)] border-t-[var(--text-primary)] rounded-full animate-spin" />
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
                 {extractStep === "uploading" && "Uploading file..."}
                 {extractStep === "extracting" && "Extracting text from document..."}
                 {extractStep === "saving" && "Saving to Knowledge Graph..."}
@@ -152,10 +152,10 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
                       className={cn(
                         "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border shrink-0",
                         isDone
-                          ? "bg-emerald-500 border-emerald-500 text-white"
+                          ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg-card)]"
                           : isCurrent
-                            ? "border-gray-900 text-gray-900 bg-gray-50"
-                            : "border-gray-200 text-gray-400 bg-gray-50"
+                            ? "border-[#cf6613] text-[#cf6613] bg-[var(--bg-panel)]"
+                            : "border-[var(--border-color)] text-[var(--text-dim)] bg-[var(--bg-panel)]"
                       )}
                     >
                       {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
@@ -163,7 +163,7 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
                     <span
                       className={cn(
                         "text-xs font-medium",
-                        isDone ? "text-emerald-600" : isCurrent ? "text-gray-900" : "text-gray-400"
+                        isDone ? "text-[var(--text-primary)]" : isCurrent ? "text-[#cf6613]" : "text-[var(--text-dim)]"
                       )}
                     >
                       {step === "uploading" && "Upload file"}
@@ -181,18 +181,18 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
           <>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-gray-100 text-gray-700">
+                <div className="p-2 rounded-xl bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-color)]">
                   <UploadCloud className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Add Document Node</h3>
-                  <p className="text-xs text-gray-500">This node will be automatically linked to the AI</p>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Document Node</h3>
+                  <p className="text-xs text-[var(--text-muted)]">This node will be automatically linked to the AI</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleClose}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -209,10 +209,10 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
               className={cn(
                 "border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all",
                 dragOver
-                  ? "border-gray-900 bg-gray-50"
+                  ? "border-[var(--border-strong)] bg-[var(--bg-hover)]"
                   : selectedFile
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-gray-200 hover:border-gray-400 hover:bg-gray-50/50"
+                    ? "border-[#cf6613] bg-[var(--bg-panel)]"
+                    : "border-[var(--border-color)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-panel)]"
               )}
             >
               <input
@@ -224,34 +224,34 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
               />
               {selectedFile ? (
                 <>
-                  <FileText className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-gray-900">{selectedFile.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                  <FileText className="w-10 h-10 text-[#cf6613] mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedFile.name}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedFile(null);
                     }}
-                    className="mt-2 text-xs text-gray-500 hover:text-gray-700 underline cursor-pointer"
+                    className="mt-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] underline cursor-pointer"
                   >
                     Change file
                   </button>
                 </>
               ) : (
                 <>
-                  <UploadCloud className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-gray-700">Click or drag a document file here</p>
-                  <p className="text-xs text-gray-400 mt-1">Supports PDF, DOCX, TXT, Markdown, CSV</p>
+                  <UploadCloud className="w-10 h-10 text-[var(--text-dim)] mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Click or drag a document file here</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Supports PDF, DOCX, TXT, Markdown, CSV</p>
                 </>
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-color)]">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer"
               >
                 Cancel
               </button>
@@ -260,7 +260,7 @@ export const KnowledgeUploadModal = memo(function KnowledgeUploadModal({
                 onClick={createDoc}
                 disabled={!selectedFile}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-semibold bg-gray-900 text-white hover:bg-gray-800 transition-all cursor-pointer",
+                  "px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 transition-all cursor-pointer",
                   !selectedFile && "opacity-50 cursor-not-allowed"
                 )}
               >

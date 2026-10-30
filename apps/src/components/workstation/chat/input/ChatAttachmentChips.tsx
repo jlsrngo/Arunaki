@@ -24,7 +24,7 @@ export const ChatAttachmentChips = memo(function ChatAttachmentChips({
       {attachedFiles.map((file, idx) => (
         <div
           key={file.id || idx}
-          className="group relative flex items-center gap-2 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl p-1.5 pr-2.5 shadow-xs"
+          className="group relative flex items-center gap-2 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl p-1.5 pr-2.5"
         >
           {file.isImage ? (
             <img

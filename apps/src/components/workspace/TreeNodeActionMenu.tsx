@@ -69,7 +69,7 @@ export function TreeNodeActionMenu({
       {menuOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 z-50 animate-in fade-in duration-100 text-xs space-y-0.5"
+          className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1 z-50 animate-in fade-in duration-100 text-xs space-y-0.5"
         >
           {canRename && (
             <button

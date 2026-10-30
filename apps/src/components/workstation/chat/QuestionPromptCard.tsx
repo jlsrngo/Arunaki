@@ -68,13 +68,13 @@ export const QuestionPromptCard = memo(function QuestionPromptCard({
 
     return (
       <div
-        className="my-2.5 w-full max-w-xl min-w-0 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-xs text-left"
+        className="my-2.5 w-full max-w-xl min-w-0 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] text-left"
         data-testid="question-prompt-card-answered"
       >
         <div className="flex items-center justify-between px-3.5 py-2 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] text-[11px] select-none">
           <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white shrink-0 select-none shadow-xs">
-              <Check className="h-2.5 w-2.5 text-black stroke-[3.5]" />
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--text-primary)] shrink-0 select-none">
+              <Check className="h-2.5 w-2.5 text-[var(--bg-card)] stroke-[3.5]" />
             </span>
             <span className="text-xs font-semibold text-[var(--text-secondary)]">
               {formatHeader(firstQuestion.header) || "Clarification Resolved"}
@@ -109,15 +109,15 @@ export const QuestionPromptCard = memo(function QuestionPromptCard({
 
   return (
     <div
-      className="my-2.5 w-full max-w-xl min-w-0 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-xs text-left transition-all duration-200"
+      className="my-2.5 w-full max-w-xl min-w-0 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] text-left transition-all duration-200"
       data-testid="question-prompt-card"
     >
       {/* Table Header Bar */}
       <div className="flex items-center justify-between px-3.5 py-2 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] text-[11px] select-none">
         <div className="flex items-center gap-2 text-[var(--text-primary)]">
-          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white shrink-0 select-none shadow-xs">
+          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--text-primary)] shrink-0 select-none">
             <svg
-              className="h-2.5 w-2.5 text-black"
+              className="h-2.5 w-2.5 text-[var(--bg-card)]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

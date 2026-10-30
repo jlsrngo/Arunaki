@@ -122,7 +122,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[540px] bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-2xl p-7 select-text"
+        className="relative w-full max-w-[540px] bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl p-7 select-text"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button top-right (Monochrome) */}

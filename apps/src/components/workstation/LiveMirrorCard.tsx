@@ -24,7 +24,7 @@ export function LiveMirrorCard({
       {/* Header Bar */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)]">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[var(--text-primary)] animate-pulse" />
           <Monitor size={16} className="text-[var(--text-muted)]" />
           <div>
             <span className="text-xs font-semibold text-[var(--text-primary)]">{title}</span>
@@ -65,10 +65,10 @@ export function LiveMirrorCard({
             alt="Desktop Live Mirror"
             className="max-h-full max-w-full object-contain rounded border border-[var(--border-color)]"
           />
-          <div className="w-full mt-1.5 px-2 flex justify-between text-[11px] text-gray-400">
+          <div className="w-full mt-1.5 px-2 flex justify-between text-[11px] text-[var(--text-muted)]">
             <span className="truncate">{subtitle}</span>
-            <span className="text-white font-mono text-[10px] flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span className="text-[var(--text-primary)] font-mono text-[10px] flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)] animate-pulse" />
               Live Connected
             </span>
           </div>

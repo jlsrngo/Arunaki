@@ -262,7 +262,7 @@ export function QuickOpenFileModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[68vh] transform-gpu"
+        className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden flex flex-col max-h-[68vh] transform-gpu"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Search Input Bar */}

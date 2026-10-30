@@ -53,7 +53,7 @@ export const EditMenu = memo(function EditMenu({
           aria-label={t("edit", "Edit")}
           onKeyDown={menuKeyDown}
           ref={menuAutoFocus}
-          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute top-full left-0 mt-1 min-w-[245px] max-w-[300px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-1.5 z-50 max-h-[70vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
         >
           <MenuItem
             icon={Undo2}

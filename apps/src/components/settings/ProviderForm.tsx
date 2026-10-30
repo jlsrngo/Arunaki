@@ -238,7 +238,7 @@ export function ProviderForm({
               </button>
 
               {isTypeDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-full max-h-48 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
+                <div className="absolute left-0 top-full mt-1.5 w-full max-h-48 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
                   {providerTypes.map((pt, ptIdx) => {
                     const isSelected = form.type === pt.value;
                     const isOther = pt.value === "openai-compatible";
@@ -333,7 +333,7 @@ export function ProviderForm({
                 onDrop={(e) => handleDrop(e, idx)}
                 onDragEnd={() => setDraggedIdx(null)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl text-xs font-mono text-[var(--text-primary)] shadow-xs transition-all select-none cursor-grab active:cursor-grabbing",
+                  "flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-xl text-xs font-mono text-[var(--text-primary)] transition-all select-none cursor-grab active:cursor-grabbing",
                   draggedIdx === idx && "opacity-40 border-dashed scale-95"
                 )}
                 title="Drag to reorder model priority"
@@ -397,7 +397,7 @@ export function ProviderForm({
               <button
                 type="button"
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                className="bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg px-2.5 py-1 text-xs text-[var(--text-primary)] font-medium flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                className="bg-[var(--bg-input)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg px-2.5 py-1 text-xs text-[var(--text-primary)] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                 title={t("filterModels")}
               >
                 <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
@@ -411,7 +411,7 @@ export function ProviderForm({
               </button>
 
               {isCategoryDropdownOpen && (
-                <div className="absolute right-0 sm:left-0 top-full mt-1.5 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100 scrollbar-thin">
+                <div className="absolute right-0 sm:left-0 top-full mt-1.5 w-56 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100 scrollbar-thin">
                   <div className="px-2 py-1 text-[10px] font-semibold text-[var(--text-muted)] border-b border-[var(--border-color)] mb-1">
                     {t("filterModels")}
                   </div>
@@ -599,7 +599,7 @@ export function ProviderForm({
                     className={cn(
                       "p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer group",
                       isSelected
-                        ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)] shadow-xs"
+                        ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
                         : "bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]"
                     )}
                   >
@@ -680,7 +680,7 @@ export function ProviderForm({
             type="button"
             onClick={onTestConnection}
             disabled={isTestingForm}
-            className="px-4 py-2 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] text-xs rounded-xl font-medium cursor-pointer flex items-center gap-2 border border-[var(--border-strong)] transition-colors shadow-xs"
+            className="px-4 py-2 bg-[var(--bg-hover)] hover:opacity-80 text-[var(--text-primary)] text-xs rounded-xl font-medium cursor-pointer flex items-center gap-2 border border-[var(--border-strong)] transition-colors"
           >
             {isTestingForm ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-primary)]" />
@@ -727,7 +727,7 @@ export function ProviderForm({
           </button>
           <button
             type="submit"
-            className="px-6 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl font-semibold transition-all cursor-pointer shadow-xs"
+            className="px-6 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 text-xs rounded-xl font-semibold transition-all cursor-pointer"
           >
             {t("saveProvider")}
           </button>

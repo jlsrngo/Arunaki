@@ -111,7 +111,7 @@ export default function App() {
             width: 'fit-content',
             maxWidth: '260px',
           },
-          className: '!border !px-2.5 !py-1 !text-[10.5px] !rounded-full !w-fit !max-w-[260px] !min-h-0 !h-[26px] !flex !items-center !gap-1.5 !whitespace-nowrap !overflow-hidden !shadow-md',
+          className: '!border !px-2.5 !py-1 !text-[10.5px] !rounded-full !w-fit !max-w-[260px] !min-h-0 !h-[26px] !flex !items-center !gap-1.5 !whitespace-nowrap !overflow-hidden !',
           classNames: {
             title: '!text-[var(--text-primary)] !font-medium !text-[10.5px] !leading-none !truncate !whitespace-nowrap',
             description: '!hidden',

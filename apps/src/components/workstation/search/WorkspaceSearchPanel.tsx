@@ -161,7 +161,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
     return (
       <>
         {before}
-        <span className="bg-[#cf6613]/35 text-white font-semibold rounded-xs px-0.5">
+        <span className="bg-[#cf6613]/25 text-[var(--text-primary)] font-semibold rounded-xs px-0.5">
           {match}
         </span>
         {after}
@@ -176,11 +176,11 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
       aria-label="Workspace Search Panel"
     >
       {/* Top Header (Exact Parity with Explorer & SourceControlPanel) */}
-      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-app)]">
+      <div className="h-9 px-3 box-border border-b border-[var(--border-color)] flex items-center justify-between shrink-0 bg-[var(--bg-panel)]">
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-1 overflow-hidden">
-          <Search className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={1.8} />
+          <Search className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" strokeWidth={1.8} />
           <span
-            className="text-xs font-semibold text-white tracking-wide truncate whitespace-nowrap"
+            className="text-xs font-semibold text-[var(--text-primary)] tracking-wide truncate whitespace-nowrap"
             title="Search"
           >
             Search
@@ -191,7 +191,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
           <button
             type="button"
             onClick={() => runSearch(query, caseSensitive)}
-            className="p-1 rounded-md text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             title={t("refresh", "Refresh")}
           >
             <RotateCw className={cn("w-3.5 h-3.5", isSearching && "animate-spin")} />
@@ -200,7 +200,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
             <button
               type="button"
               onClick={onToggle || onClose}
-              className="p-1 rounded-md text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+              className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
               title={`${t("closePanel", "Close Panel")} (Ctrl+B)`}
             >
               <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
@@ -210,8 +210,8 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
       </div>
 
       {/* Search Input Bar */}
-      <div className="p-2.5 border-b border-[var(--border-color)] bg-[var(--bg-panel)]/20 shrink-0">
-        <div className="flex items-center bg-[#181818] border border-[var(--border-strong)] focus-within:border-white/60 rounded-md px-2 h-7 gap-1.5 transition-colors">
+      <div className="p-2.5 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0">
+        <div className="flex items-center bg-[var(--bg-input)] border border-[var(--border-strong)] focus-within:border-[var(--text-primary)] rounded-md px-2 h-7 gap-1.5 transition-colors">
           <Search className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
           <input
             ref={inputRef}
@@ -219,7 +219,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search files or document text..."
-            className="flex-1 min-w-0 bg-transparent text-xs text-white placeholder-[var(--text-muted)] focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none"
           />
           {query && (
             <button
@@ -228,7 +228,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="p-0.5 rounded text-[var(--text-muted)] hover:text-white cursor-pointer"
+              className="p-0.5 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
               title="Clear search"
             >
               <X className="w-3 h-3" />
@@ -240,8 +240,8 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
             className={cn(
               "p-0.5 rounded transition-colors cursor-pointer",
               caseSensitive
-                ? "bg-white text-black"
-                : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]"
+                ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             )}
             title="Match Case (Aa)"
           >
@@ -256,17 +256,17 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
               {totalContentMatches} {totalContentMatches === 1 ? "result" : "results"} in{" "}
               {contentGroups.length} {contentGroups.length === 1 ? "file" : "files"}
             </span>
-            {isSearching && <Loader2 className="w-3 h-3 animate-spin text-white" />}
+            {isSearching && <Loader2 className="w-3 h-3 animate-spin text-[var(--text-primary)]" />}
           </div>
         )}
       </div>
 
       {/* Results List */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-1 bg-[var(--bg-panel)]">
         {!activeFolder ? (
           <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--text-muted)]">
             <Search className="w-8 h-8 opacity-30 mb-2 stroke-[1.5]" />
-            <p className="text-xs font-semibold text-white mb-1">No folder opened</p>
+            <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">No folder opened</p>
             <p className="text-[11px] leading-relaxed max-w-[200px]">
               Open a project folder to search across documents.
             </p>
@@ -290,7 +290,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
                     <span className="shrink-0">
                       {getFileIcon(f.name) || <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />}
                     </span>
-                    <span className="text-white truncate text-[12px]">{f.name}</span>
+                    <span className="text-[var(--text-primary)] truncate text-[12px]">{f.name}</span>
                   </div>
                   {f.size !== undefined && (
                     <span className="text-[10px] font-mono text-[var(--text-muted)] shrink-0">
@@ -323,7 +323,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
                         <span className="shrink-0">
                           {getFileIcon(f.name) || <FileText className="w-3.5 h-3.5 text-[var(--text-muted)]" />}
                         </span>
-                        <span className="text-white truncate text-[12px]">
+                        <span className="text-[var(--text-primary)] truncate text-[12px]">
                           {renderHighlightedText(f.name, query)}
                         </span>
                       </div>
@@ -361,13 +361,13 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
                             )}
                           </span>
                           <span
-                            className="text-xs font-medium text-white truncate"
+                            className="text-xs font-medium text-[var(--text-primary)] truncate"
                             title={group.filePath}
                           >
                             {group.fileName}
                           </span>
                         </div>
-                        <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-white shrink-0">
+                        <span className="px-1.5 py-0.2 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-primary)] shrink-0">
                           {group.lines.length}
                         </span>
                       </button>
@@ -385,7 +385,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
                               <span className="text-[10px] text-[var(--text-muted)] shrink-0 select-none">
                                 {line.lineNumber}:
                               </span>
-                              <span className="text-neutral-300 truncate flex-1">
+                              <span className="text-[var(--text-secondary)] truncate flex-1">
                                 {renderHighlightedText(line.text, query)}
                               </span>
                             </button>
@@ -400,7 +400,7 @@ export const WorkspaceSearchPanel = memo(function WorkspaceSearchPanel({
 
             {!isSearching && matchingFiles.length === 0 && contentGroups.length === 0 && (
               <div className="flex flex-col items-center justify-center p-6 text-center text-[var(--text-muted)]">
-                <p className="text-xs font-semibold text-white mb-1">No results found</p>
+                <p className="text-xs font-semibold text-[var(--text-primary)] mb-1">No results found</p>
                 <p className="text-[11px] leading-relaxed max-w-[200px]">
                   No files or document text matched "{query.trim()}".
                 </p>

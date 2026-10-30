@@ -1003,6 +1003,10 @@ pub async fn run_session_prompt_sync(
         "type": "user",
         "role": "user",
         "text": full_prompt,
+        "content": [{
+            "type": "text",
+            "text": full_prompt
+        }],
         "time": {
             "created": created_ms
         }

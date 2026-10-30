@@ -28,7 +28,7 @@ const CenterEditorGutter = memo(function CenterEditorGutter({
   return (
     <div
       ref={gutterRef}
-      className="w-[50px] shrink-0 select-none bg-[var(--bg-panel)] border-r border-[var(--border-color)] overflow-hidden text-right py-2 pr-3.5 font-mono text-[12px] text-[var(--text-dim)] transition-colors pointer-events-none"
+      className="w-[50px] shrink-0 select-none bg-[var(--bg-editor)] border-r border-[var(--border-subtle)] overflow-hidden text-right py-2 pr-3.5 font-mono text-[12px] text-[var(--text-dim)] transition-colors pointer-events-none"
     >
       {items.map((lineNum) => {
         const isAdded = addedLineNums.has(lineNum);
@@ -135,8 +135,8 @@ export const CenterEditorView = memo(function CenterEditorView({
   }, [wordWrap, lines, textareaWidth]);
 
   return (
-    <div className="h-full w-full flex flex-col bg-[var(--bg-card)] overflow-hidden transition-colors">
-      <div className="flex-1 min-w-0 flex overflow-hidden bg-[var(--bg-card)] relative font-mono text-[13px]">
+    <div className="h-full w-full flex flex-col bg-[var(--bg-editor)] overflow-hidden transition-colors">
+      <div className="flex-1 min-w-0 flex overflow-hidden bg-[var(--bg-editor)] relative font-mono text-[13px]">
         {/* Memoized gutter that only re-renders when lineCount or active line changes */}
         <CenterEditorGutter
           lineCount={lineCount}

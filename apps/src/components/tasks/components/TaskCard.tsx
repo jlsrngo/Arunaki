@@ -58,7 +58,7 @@ export function TaskCard({
       onDragStart={() => onDragStart(task.id)}
       onClick={() => onEdit(task)}
       className={cn(
-        "group p-3.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-sm relative space-y-2.5",
+        "group p-3.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer relative space-y-2.5",
         task.columnId === "overdue" && "border-l-2 border-l-rose-500",
         task.columnId === "inprogress" && "border-l-2 border-l-sky-400",
         task.columnId === "upcoming" && "border-l-2 border-l-purple-400/60",
@@ -68,7 +68,7 @@ export function TaskCard({
     >
       {/* Title and Action Buttons */}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-xs font-medium text-white leading-snug line-clamp-2">
+        <h3 className="text-xs font-medium text-[var(--text-primary)] leading-snug line-clamp-2">
           {task.title}
         </h3>
         <div className="flex items-center gap-1 shrink-0">
@@ -81,9 +81,9 @@ export function TaskCard({
                 onCompleteTask(task.id);
               }}
               title={isIndonesian ? "Tandai Selesai & Simpan ke Riwayat" : "Mark Complete & Archive to History"}
-              className="p-1 rounded hover:bg-white/15 text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+              className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-white/70 hover:text-white" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" />
             </button>
           )}
 
@@ -95,9 +95,9 @@ export function TaskCard({
               onSyncGoogleCalendar(task);
             }}
             title={t("openInGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
-            <Calendar className="w-3.5 h-3.5 text-white/70" />
+            <Calendar className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
           </button>
 
           {/* Telegram Dispatch */}
@@ -109,7 +109,7 @@ export function TaskCard({
             }}
             disabled={isSendingTelegram === task.id}
             title={isIndonesian ? "Kirim pemberitahuan agenda ke Telegram sekarang" : "Send agenda notification to Telegram now"}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <Send className={cn("w-3.5 h-3.5", isSendingTelegram === task.id && "animate-pulse text-[#cf6613]")} />
           </button>
@@ -131,12 +131,12 @@ export function TaskCard({
             onOpenFileInWorkstation(task.attachedFile);
           }}
           title={isIndonesian ? `Buka ${task.attachedFile} di Workstation` : `Open ${task.attachedFile} in Workstation`}
-          className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-hover)] text-[10.5px] text-[var(--text-secondary)] hover:text-white border border-[var(--border-color)] truncate transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-hover)] text-[10.5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] truncate transition-colors cursor-pointer"
         >
           {task.attachedFile.endsWith(".xlsx") || task.attachedFile.endsWith(".csv") ? (
-            <FileSpreadsheet className="w-3 h-3 text-white shrink-0" />
+            <FileSpreadsheet className="w-3 h-3 text-[var(--text-primary)] shrink-0" />
           ) : (
-            <FileText className="w-3 h-3 text-white shrink-0" />
+            <FileText className="w-3 h-3 text-[var(--text-primary)] shrink-0" />
           )}
           <span className="truncate">{task.attachedFile}</span>
           <ExternalLink className="w-2.5 h-2.5 text-[var(--text-muted)] ml-auto shrink-0" />
@@ -152,7 +152,7 @@ export function TaskCard({
           </div>
           <div className="w-full h-1 bg-[var(--bg-hover)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-white transition-all duration-300"
+              className="h-full bg-[var(--text-primary)] transition-all duration-300"
               style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}
             />
           </div>
@@ -164,10 +164,10 @@ export function TaskCard({
                   e.stopPropagation();
                   onToggleSubtask(task.id, st.id);
                 }}
-                className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-secondary)] hover:text-white"
+                className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 {st.completed ? (
-                  <CheckSquare className="w-3 h-3 text-white shrink-0" />
+                  <CheckSquare className="w-3 h-3 text-[var(--text-primary)] shrink-0" />
                 ) : (
                   <Square className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
                 )}
@@ -212,7 +212,7 @@ export function TaskCard({
               }
               className={cn(
                 "inline-flex items-center p-0.5 rounded shrink-0",
-                task.notifiedAt ? "text-white/80" : "text-[#cf6613]"
+                task.notifiedAt ? "text-[var(--text-secondary)]" : "text-[#cf6613]"
               )}
             >
               {task.notifiedAt ? (
@@ -233,7 +233,7 @@ export function TaskCard({
           )}
 
           {task.priority === "medium" && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-white/5 text-[var(--text-secondary)] border border-[var(--border-color)] whitespace-nowrap">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border-color)] whitespace-nowrap">
               {isIndonesian ? "Menengah" : "Medium"}
             </span>
           )}

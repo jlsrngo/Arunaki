@@ -61,7 +61,7 @@ export const AppFooter = memo(function AppFooter({
               : `${t("noFolderOpened", "No folder opened")} (${t("openFolder", "Open Folder...")})`
           }
           className={cn(
-            "flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] truncate max-w-full transition-colors cursor-pointer hover:border-[var(--border-strong)] hover:text-white"
+            "flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] truncate max-w-full transition-colors cursor-pointer hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           )}
         >
           <Folder className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
@@ -74,7 +74,7 @@ export const AppFooter = memo(function AppFooter({
       </div>
 
       {/* Center: Main Navigation Floating Capsule (Spacious & Modern) */}
-      <div className="flex items-center gap-1.5 p-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-sm">
+      <div className="flex items-center gap-1.5 p-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -96,7 +96,7 @@ export const AppFooter = memo(function AppFooter({
               className={cn(
                 "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer",
                 isActive
-                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] shadow-xs"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
             >
@@ -111,9 +111,9 @@ export const AppFooter = memo(function AppFooter({
       <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px] justify-end">
         <div
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none shadow-xs",
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none",
             isOnline
-              ? "bg-[var(--bg-card)] border-[var(--border-strong)] text-white"
+              ? "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-primary)]"
               : "bg-rose-600 border-rose-600 text-white font-medium"
           )}
           title={
@@ -123,14 +123,14 @@ export const AppFooter = memo(function AppFooter({
           }
         >
           {isOnline ? (
-            <Wifi className="w-3.5 h-3.5 text-white shrink-0" />
+            <Wifi className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
           ) : (
-            <WifiOff className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <WifiOff className="w-3.5 h-3.5 text-white shrink-0" />
           )}
           <span
             className={cn(
               "text-[11px] font-medium",
-              isOnline ? "text-white" : "text-rose-400"
+              isOnline ? "text-[var(--text-primary)]" : "text-white"
             )}
           >
             {isOnline ? t("online", "Online") : t("offline", "Offline")}

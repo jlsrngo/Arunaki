@@ -368,19 +368,19 @@ function renderStepIcon(step: StepItem) {
       return <PackageSearch size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
     }
     if (t.includes("void") || t.includes("cancel") || t.includes("batal")) {
-      return <RotateCcw size={12} className="text-white shrink-0 mt-0.5" />;
+      return <RotateCcw size={12} className="text-[var(--text-primary)] shrink-0 mt-0.5" />;
     }
     if (t.includes("order") || t.includes("sale") || t.includes("penjualan") || t.includes("transaksi")) {
-      return <Receipt size={12} className="text-white shrink-0 mt-0.5" />;
+      return <Receipt size={12} className="text-[var(--text-primary)] shrink-0 mt-0.5" />;
     }
     if (t.includes("print") || t.includes("receipt") || t.includes("struk") || t.includes("nota")) {
-      return <Printer size={12} className="text-white shrink-0 mt-0.5" />;
+      return <Printer size={12} className="text-[var(--text-primary)] shrink-0 mt-0.5" />;
     }
     if (t.includes("drawer") || t.includes("laci")) {
       return <Vault size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
     }
     if (t.includes("shift") || t.includes("kasir") || t.includes("summary")) {
-      return <Calculator size={12} className="text-white shrink-0 mt-0.5" />;
+      return <Calculator size={12} className="text-[var(--text-primary)] shrink-0 mt-0.5" />;
     }
     if (t.includes("stock") || t.includes("stok")) {
       return <Boxes size={12} className="text-[#e59344] shrink-0 mt-0.5" />;
@@ -395,7 +395,7 @@ function renderStepIcon(step: StepItem) {
   // Office & Documents
   const l = (step.label || "").toLowerCase();
   if (t.includes("excel") || t.includes("csv") || t.includes("xlsx") || t.includes("xls") || t.includes("grid") || l.includes("gridcraft")) {
-    return <FileSpreadsheet size={12} className="text-white shrink-0 mt-0.5" />;
+    return <FileSpreadsheet size={12} className="text-[var(--text-primary)] shrink-0 mt-0.5" />;
   }
   if (t.includes("word") || t.includes("docx") || t.includes("doc") || l.includes("wordcraft")) {
     return <FileText size={12} className="text-blue-400 shrink-0 mt-0.5" />;
@@ -524,7 +524,7 @@ export function MessageThoughtBadge({
     <div className="w-full min-w-0 mb-1 font-sans select-none animate-in fade-in duration-150">
       {/* 1. Live / Completed Function Calling Card */}
       {hasToolExecution && (
-        <div className="mb-2 max-w-full w-full min-w-0 font-mono text-[11px] rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] overflow-hidden select-none shadow-xs">
+        <div className="mb-2 max-w-full w-full min-w-0 font-mono text-[11px] rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] overflow-hidden select-none">
           <button
             type="button"
             onClick={() => setToolCardExpanded(!isToolCardOpen)}
@@ -532,13 +532,13 @@ export function MessageThoughtBadge({
           >
             <div className="flex items-center gap-2 min-w-0">
               {hasRunningTool ? (
-                <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />
+                <Loader2 size={12} className="animate-spin text-[#cf6613] shrink-0" />
               ) : failedToolCount > 0 && completedToolCount === 0 ? (
-                <X size={12} className="text-rose-400 shrink-0" />
+                <X size={12} className="text-rose-500 shrink-0" />
               ) : (
-                <Check size={12} className="text-white shrink-0" />
+                <Check size={12} className="text-[var(--text-primary)] shrink-0" />
               )}
-              <span className="font-semibold text-white truncate">
+              <span className="font-semibold text-[var(--text-primary)] truncate">
                 {hasRunningTool
                   ? `Executing ${toolSteps.length} ${taskCategory} task${toolSteps.length > 1 ? "s" : ""}...`
                   : failedToolCount > 0 && completedToolCount === 0
@@ -550,7 +550,7 @@ export function MessageThoughtBadge({
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
                 {completedToolCount}/{toolSteps.length}
               </span>
-              <span className="text-[var(--text-muted)] hover:text-white transition-colors">
+              <span className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                 {isToolCardOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </span>
             </div>
@@ -567,17 +567,17 @@ export function MessageThoughtBadge({
                     className="flex items-center gap-2 text-[11px] py-0.5 px-1 rounded hover:bg-[var(--bg-hover)] transition-colors"
                   >
                     {isRunning ? (
-                      <Loader2 size={11} className="animate-spin text-amber-400 shrink-0" />
+                      <Loader2 size={11} className="animate-spin text-[#cf6613] shrink-0" />
                     ) : isFailed ? (
-                      <X size={11} className="text-rose-400 shrink-0" />
+                      <X size={11} className="text-rose-500 shrink-0" />
                     ) : (
-                      <Check size={11} className="text-white shrink-0" />
+                      <Check size={11} className="text-[var(--text-primary)] shrink-0" />
                     )}
                     {renderStepIcon(step)}
-                    <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-300/80 line-through" : isRunning ? "text-white font-medium" : "text-[var(--text-muted)]")}>
+                    <span className={cn("truncate max-w-[80%]", isFailed ? "text-rose-500/80 line-through" : isRunning ? "text-[var(--text-primary)] font-medium" : "text-[var(--text-muted)]")}>
                       {step.label}
                     </span>
-                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-amber-400 animate-pulse" : isFailed ? "text-rose-400 font-medium" : "text-[var(--text-dim)]")}>
+                    <span className={cn("text-[10px] ml-auto font-mono shrink-0", isRunning ? "text-[#cf6613] animate-pulse" : isFailed ? "text-rose-500 font-medium" : "text-[var(--text-dim)]")}>
                       {isRunning ? "running..." : isFailed ? "failed" : "done"}
                     </span>
                   </div>

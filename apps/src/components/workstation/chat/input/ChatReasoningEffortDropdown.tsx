@@ -36,7 +36,7 @@ export const ChatReasoningEffortDropdown = memo(function ChatReasoningEffortDrop
       <button
         type="button"
         onClick={onToggle}
-        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors"
         title={t("reasoningEffort", "Reasoning Effort")}
       >
         <span>{currentEffortLabel}</span>
@@ -49,7 +49,7 @@ export const ChatReasoningEffortDropdown = memo(function ChatReasoningEffortDrop
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full mb-1.5 left-0 w-28 rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
+        <div className="absolute bottom-full mb-1.5 left-0 w-28 rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
           <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5">
             {t("reasoningEffort", "Reasoning Effort")}
           </div>

@@ -644,7 +644,7 @@ export function ModelProviderSettings({
               resetForm();
               setShowAddForm(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t("addProvider")}</span>
@@ -666,19 +666,19 @@ export function ModelProviderSettings({
         if (!isCliDiverted && cloudProviders.some((p) => p.active)) return null;
 
         return (
-          <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="p-3.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
-              <Terminal className="w-4 h-4 text-zinc-200 shrink-0" />
+              <Terminal className="w-4 h-4 text-[var(--text-primary)] shrink-0" />
               <div>
-                <span className="font-semibold text-white">
+                <span className="font-semibold text-[var(--text-primary)]">
                   {t("chatRoutingDivertedToCli", "Chat Routing Diverted to CLI:")}
                 </span>{" "}
-                <span className="text-zinc-200 font-mono font-medium">
+                <span className="text-[var(--text-secondary)] font-mono font-medium">
                   {activeProviderId && cliTargets[activeProviderId] ? cliTargets[activeProviderId] : "Local CLI Agent"}
                 </span>
               </div>
             </div>
-            <span className="text-[11px] text-zinc-400">
+            <span className="text-[11px] text-[var(--text-muted)]">
               {t("turnOnCloudProviderNotice", "Turn ON any provider below to switch back to Cloud API routing.")}
             </span>
           </div>
@@ -762,13 +762,13 @@ export function ModelProviderSettings({
       {/* Custom Confirmation Modal replacing native browser confirm */}
       {providerToDelete && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)] shadow-2xl">
+          <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl max-w-md w-full p-5 border border-[var(--border-strong)]">
             <div className="flex items-start gap-3.5">
               <div className="w-9 h-9 rounded-xl bg-rose-600 border border-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-white tracking-tight">
+                <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
                   Delete Provider Configuration
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
@@ -781,7 +781,7 @@ export function ModelProviderSettings({
               <button
                 type="button"
                 onClick={() => setProviderToDelete(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -792,7 +792,7 @@ export function ModelProviderSettings({
                   setProviderToDelete(null);
                   executeDelete(id);
                 }}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete</span>

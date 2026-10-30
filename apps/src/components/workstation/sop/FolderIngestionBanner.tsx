@@ -131,7 +131,7 @@ export const FolderIngestionBanner = memo(function FolderIngestionBanner({
           <FolderSearch className="w-3.5 h-3.5 text-[#cf6613]" />
         </div>
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <span className="text-[11px] font-semibold text-white">
+          <span className="text-[11px] font-semibold text-[var(--text-primary)]">
             {pendingDocs.length} new administrative document{pendingDocs.length > 1 ? "s" : ""} detected
           </span>
           <div className="flex items-center gap-1">
@@ -169,7 +169,7 @@ export const FolderIngestionBanner = memo(function FolderIngestionBanner({
           type="button"
           onClick={handleDismiss}
           disabled={processing}
-          className="w-6 h-6 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+          className="w-6 h-6 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center transition-colors cursor-pointer"
           title="Dismiss notification"
         >
           <X className="w-3.5 h-3.5" />

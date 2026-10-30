@@ -192,63 +192,63 @@ export function MultiProviderAuthModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-left">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl max-w-xl w-full p-6 relative text-left">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           title={isEn ? "Close" : "Tutup"}
         >
           <X className="w-4 h-4" />
         </button>
 
         <div className="flex items-center gap-2.5 mb-1.5">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-sm">
             {config.badgeLetter}
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white">{config.title}</h3>
-            <p className="text-xs text-zinc-400">{config.subtitle}</p>
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">{config.title}</h3>
+            <p className="text-xs text-[var(--text-muted)]">{config.subtitle}</p>
           </div>
         </div>
 
         {config.accountActiveText && (
-          <div className="my-3 px-3.5 py-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
+          <div className="my-3 px-3.5 py-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.7)]" />
-              <span className="text-zinc-300">{config.accountActiveText}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
+              <span className="text-[var(--text-secondary)]">{config.accountActiveText}</span>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] text-[var(--text-primary)] font-medium">
               {isEn ? "Connected" : "Terhubung"}
             </span>
           </div>
         )}
 
-        <div className="flex flex-col justify-between p-4.5 rounded-xl border border-zinc-800 hover:border-zinc-600 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all group">
+        <div className="flex flex-col justify-between p-4.5 rounded-xl border border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-panel)] transition-all group">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                <div className="w-7 h-7 rounded-lg bg-[var(--bg-card)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)]">
                   <Terminal className="w-4 h-4" />
                 </div>
-                <span className="font-semibold text-sm text-white">
+                <span className="font-semibold text-sm text-[var(--text-primary)]">
                   {config.cliLabel}
                 </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 font-medium">
+              <span className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] font-medium">
                 {config.cliBadge}
               </span>
             </div>
-            <p className="text-xs text-zinc-400 mb-3.5 leading-relaxed">
+            <p className="text-xs text-[var(--text-muted)] mb-3.5 leading-relaxed">
               {config.cliDesc}
             </p>
 
-            <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-300 text-[11px] leading-relaxed mb-4">
-              <div className="flex items-start gap-1.5 font-medium text-white mb-1">
-                <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-400" />
+            <div className="p-3 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[11px] leading-relaxed mb-4">
+              <div className="flex items-start gap-1.5 font-medium text-[var(--text-primary)] mb-1">
+                <Scale className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-muted)]" />
                 <span>{config.cliTradeoffTitle}</span>
               </div>
-              <p className="text-[10.5px] text-zinc-400 leading-normal">
+              <p className="text-[10.5px] text-[var(--text-muted)] leading-normal">
                 {config.cliTradeoffText}
               </p>
             </div>
@@ -258,11 +258,11 @@ export function MultiProviderAuthModal({
             type="button"
             onClick={config.onCliAction}
             disabled={isSigningInCli}
-            className="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 hover:text-white border border-zinc-700 font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+            className="w-full py-2 px-3 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)] font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isSigningInCli ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-300" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>
                   {isEn ? "Opening Terminal..." : "Membuka Terminal..."}
                 </span>
@@ -277,10 +277,10 @@ export function MultiProviderAuthModal({
         </div>
 
         {target !== "nineRouter" && (
-          <div className="mt-3.5 p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+          <div className="mt-3.5 p-2.5 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.6)]" />
-              <span className="text-zinc-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)]" />
+              <span className="text-[var(--text-secondary)]">
                 {isEn
                   ? "Manage multi-accounts centrally like in 9Router (Google, Claude, Codex, Grok)?"
                   : "Kelola multi-akun terpusat seperti di 9Router (Google, Claude, Codex, Grok)?"}
@@ -289,21 +289,21 @@ export function MultiProviderAuthModal({
             <button
               type="button"
               onClick={() => window.open("http://localhost:20128", "_blank")}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-[11px] rounded-lg cursor-pointer shrink-0 font-medium"
+              className="px-2.5 py-1 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] text-[11px] rounded-lg cursor-pointer shrink-0 font-medium"
             >
               {isEn ? "Open 9Router" : "Buka 9Router"}
             </button>
           </div>
         )}
 
-        <div className="mt-4 pt-3.5 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
+        <div className="mt-4 pt-3.5 border-t border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
           <span>
             {isEn ? "Arunaki Workstation Integration" : "Integrasi Workstation Arunaki"}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             {isEn ? "Close" : "Tutup"}
           </button>

@@ -44,7 +44,7 @@ export function TelegramSetupGuideModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] shadow-2xl p-6 space-y-5 select-none relative animate-in fade-in zoom-in-95 duration-150">
+      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] p-6 space-y-5 select-none relative animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="flex items-start justify-between border-b border-[var(--border-color)] pb-3">
           <div className="flex items-center gap-2.5">
@@ -88,7 +88,7 @@ export function TelegramSetupGuideModal({
               className={cn(
                 "flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center",
                 guideStep === s.step
-                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-xs border border-[var(--border-strong)]"
+                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >

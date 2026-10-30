@@ -89,7 +89,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
                 autoOpenOffice ? "translate-x-5 bg-[var(--bg-app)]" : "translate-x-0 bg-[var(--text-muted)]"
               )}
             />
@@ -133,7 +133,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
                 autoBackup ? "translate-x-5 bg-[var(--bg-app)]" : "translate-x-0 bg-[var(--text-muted)]"
               )}
             />
@@ -177,7 +177,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <Bell className="w-3 h-3 text-white" />
+                    <Bell className="w-3 h-3 text-[var(--text-primary)]" />
                     <span>{t("testDesktopNotification")}</span>
                   </button>
                 </div>
@@ -207,7 +207,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
                 desktopNotification
                   ? "translate-x-5 bg-[var(--bg-app)]"
                   : "translate-x-0 bg-[var(--text-muted)]"
@@ -265,7 +265,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
                     }}
                     className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] text-[11px] font-medium border border-[var(--border-color)] transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <Sparkles className="w-3 h-3 text-white" />
+                    <Sparkles className="w-3 h-3 text-[var(--text-primary)]" />
                     <span>{isCompacting ? "Compacting..." : t("compactActiveSessionNow")}</span>
                   </button>
                 </div>
@@ -291,7 +291,7 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
                 smartCompaction
                   ? "translate-x-5 bg-[var(--bg-app)]"
                   : "translate-x-0 bg-[var(--text-muted)]"
@@ -325,16 +325,16 @@ export const SettingsAutomationTab = memo(function SettingsAutomationTab() {
         </div>
         <span
           className={cn(
-            "px-3 py-1 rounded-full text-[10px] font-semibold border flex items-center gap-1.5 shadow-xs",
+            "px-3 py-1 rounded-full text-[10px] font-semibold border flex items-center gap-1.5",
             isDesktop
-              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
-              : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60"
+              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+              : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
           )}
         >
           <span
             className={cn(
               "w-1.5 h-1.5 rounded-full shrink-0",
-              isDesktop ? "bg-white" : "bg-zinc-500"
+              isDesktop ? "bg-[var(--text-primary)]" : "bg-[var(--text-muted)]"
             )}
           />
           {isDesktop ? t("connected") : "Web Browser Mode"}

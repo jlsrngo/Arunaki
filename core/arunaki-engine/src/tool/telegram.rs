@@ -178,7 +178,7 @@ async fn send_via_telegram_api(bot_token: &str, chat_id: &str, text: &str) -> Re
 
     let mut target_id = chat_id.trim().to_string();
 
-    // If target_id is username-based (e.g. "@nestapa99"), Telegram sendMessage API will reject it with 400 Bad Request.
+    // If target_id is username-based (e.g. "@username"), Telegram sendMessage API will reject it with 400 Bad Request.
     // Try to auto-resolve numeric chat_id from Telegram getUpdates!
     if target_id.starts_with('@') || (!target_id.is_empty() && !target_id.chars().all(|c| c.is_ascii_digit() || c == '-')) {
         let clean_guard = target_id.trim_start_matches('@').to_lowercase();

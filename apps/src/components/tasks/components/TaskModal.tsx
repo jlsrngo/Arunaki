@@ -143,7 +143,7 @@ export function TaskModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-4xl bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl shadow-2xl flex flex-col max-h-[94vh] overflow-hidden"
+        className="w-full max-w-4xl bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl flex flex-col max-h-[94vh] overflow-hidden"
         onClick={() => {
           setIsTimeDropdownOpen(false);
           setIsColumnDropdownOpen(false);
@@ -154,7 +154,7 @@ export function TaskModal({
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/50">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#cf6613]" />
-            <h3 className="text-sm font-semibold text-white tracking-wide">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] tracking-wide">
               {editingTask
                 ? t("taskEditModalTitle", isIndonesian ? "Edit Agenda Operasional" : "Edit Operational Agenda")
                 : t("taskCreateModalTitle", isIndonesian ? "Catat Agenda Operasional" : "Record Operational Agenda")}
@@ -163,7 +163,7 @@ export function TaskModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+            className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -181,7 +181,7 @@ export function TaskModal({
               placeholder={t("taskTitlePlaceholder", isIndonesian ? "Contoh: Rekonsiliasi faktur pajak supplier PT Maju..." : "e.g. Reconciliation of input tax invoices for current period...")}
               value={modalTitle}
               onChange={(e) => setModalTitle(e.target.value)}
-              className="w-full px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+              className="w-full px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
             />
           </div>
 
@@ -200,7 +200,7 @@ export function TaskModal({
                   setIsTimeDropdownOpen(false);
                   setIsPriorityDropdownOpen(false);
                 }}
-                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
                 <span className="truncate">
                   {DEFAULT_COLUMNS.find((c) => c.id === modalColumn)
@@ -215,7 +215,7 @@ export function TaskModal({
               {isColumnDropdownOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-0 top-full mt-1.5 w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-0.5"
+                  className="absolute left-0 top-full mt-1.5 w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-0.5"
                 >
                   <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)]/60 mb-1 flex items-center justify-between">
                     <span>{t("selectColumn", isIndonesian ? "Pilih Kolom" : "Select Column")}</span>
@@ -236,12 +236,12 @@ export function TaskModal({
                         className={cn(
                           "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
                           isSelected
-                            ? "bg-[var(--bg-hover)] text-white font-semibold"
-                            : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                         )}
                       >
                         <span>{isIndonesian ? col.defaultTitle : col.titleEn}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />}
                       </button>
                     );
                   })}
@@ -255,7 +255,7 @@ export function TaskModal({
                 {t("taskTargetDateLabel", isIndonesian ? "Tanggal Target" : "Target Date")}
               </label>
               <div className="relative">
-                <Calendar className="w-3.5 h-3.5 text-white/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="date"
                   value={modalDate}
@@ -271,7 +271,7 @@ export function TaskModal({
                       setModalColumn("overdue");
                     }
                   }}
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[var(--border-strong)] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono text-xs focus:outline-none focus:border-[var(--border-strong)] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
                 />
               </div>
             </div>
@@ -290,7 +290,7 @@ export function TaskModal({
                   setIsColumnDropdownOpen(false);
                   setIsPriorityDropdownOpen(false);
                 }}
-                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white font-mono text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] font-mono text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
                 <span>{modalTime} WIB</span>
                 <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
@@ -299,7 +299,7 @@ export function TaskModal({
               {isTimeDropdownOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-0 top-full mt-1.5 w-64 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1.5"
+                  className="absolute left-0 top-full mt-1.5 w-64 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1.5"
                 >
                   <div className="px-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)]/60 pb-1 flex items-center justify-between">
                     <span>{t("selectTimeSlot", isIndonesian ? "Pilih Jadwal Jam" : "Select Time Slot")}</span>
@@ -321,8 +321,8 @@ export function TaskModal({
                           className={cn(
                             "w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition-colors",
                             isSelected
-                              ? "bg-[var(--bg-hover)] text-white font-semibold"
-                              : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold"
+                              : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                           )}
                         >
                           <span className="font-mono">{slot.label}</span>
@@ -330,7 +330,7 @@ export function TaskModal({
                             <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)]">
                               {isIndonesian ? slot.badge : (slot.badgeEn || slot.badge)}
                             </span>
-                            {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                            {isSelected && <Check className="w-3 h-3 text-[var(--text-primary)] shrink-0" />}
                           </div>
                         </button>
                       );
@@ -343,7 +343,7 @@ export function TaskModal({
                       placeholder="HH:mm"
                       value={customTimeInput}
                       onChange={(e) => setCustomTimeInput(e.target.value)}
-                      className="flex-1 px-2 py-1 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded text-xs font-mono text-white placeholder:text-[var(--text-muted)] focus:outline-none"
+                      className="flex-1 px-2 py-1 bg-[var(--bg-panel)] border border-[var(--border-color)] rounded text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                     />
                     <button
                       type="button"
@@ -378,7 +378,7 @@ export function TaskModal({
                   setIsTimeDropdownOpen(false);
                   setIsColumnDropdownOpen(false);
                 }}
-                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-white text-xs flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] hover:border-[var(--border-strong)] rounded-lg text-[var(--text-primary)] text-xs flex items-center justify-between transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-1.5 truncate">
                   <span className={cn("w-2 h-2 rounded-full shrink-0", PRIORITY_CONFIGS.find((p) => p.id === modalPriority)?.dot)} />
@@ -396,7 +396,7 @@ export function TaskModal({
               {isPriorityDropdownOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-0 top-full mt-1.5 w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-0.5"
+                  className="absolute left-0 top-full mt-1.5 w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-0.5"
                 >
                   <div className="px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-color)]/60 mb-1 flex items-center justify-between">
                     <span>{t("selectPriority", isIndonesian ? "Pilih Prioritas" : "Select Priority")}</span>
@@ -415,19 +415,19 @@ export function TaskModal({
                         className={cn(
                           "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors",
                           isSelected
-                            ? "bg-[var(--bg-hover)] text-white font-semibold"
-                            : "text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-hover)]"
+                            ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                         )}
                       >
                         <div className="flex items-center gap-2">
                           <span className={cn("w-2 h-2 rounded-full", p.dot)} />
-                          <span className="text-white">{isIndonesian ? p.title : p.titleEn}</span>
+                          <span className="text-[var(--text-primary)]">{isIndonesian ? p.title : p.titleEn}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] px-1.5 py-0.2 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-muted)] font-medium">
                             {isIndonesian ? p.badge : p.badgeEn}
                           </span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />}
                         </div>
                       </button>
                     );
@@ -446,7 +446,7 @@ export function TaskModal({
                   <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs font-semibold text-white truncate">
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)] truncate">
                     {t("taskTelegramReminder", isIndonesian ? "Pengingat Telegram Eksekutif" : "Executive Telegram Reminder")}
                   </h4>
                   <p className="text-[10px] text-[var(--text-muted)] truncate">
@@ -471,7 +471,7 @@ export function TaskModal({
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-semibold text-white">Google Calendar</h4>
+                      <h4 className="text-xs font-semibold text-[var(--text-primary)]">Google Calendar</h4>
                       <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-[#cf6613]/15 text-[#cf6613] border border-[#cf6613]/30">
                         Auto-Link
                       </span>
@@ -495,7 +495,7 @@ export function TaskModal({
                       toast.success(t("gcalLinkCopied", isIndonesian ? "Tautan Google Calendar berhasil disalin!" : "Google Calendar link copied!"));
                     }}
                     title={t("copyCalendarLink", isIndonesian ? "Salin tautan Google Calendar" : "Copy Google Calendar link")}
-                    className="px-2 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-white text-[11px] border border-[var(--border-color)] flex items-center gap-1 transition-colors cursor-pointer"
+                    className="px-2 py-0.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[11px] border border-[var(--border-color)] flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <Link className="w-2.5 h-2.5" />
                     <span>{t("copyCalendarLink", isIndonesian ? "Salin" : "Copy Link")}</span>
@@ -515,7 +515,7 @@ export function TaskModal({
                       openExternalUrl(gcalUrl);
                       toast.success(t("openingGCal", isIndonesian ? "Membuka Google Calendar..." : "Opening Google Calendar..."));
                     }}
-                    className="px-2 py-0.5 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
+                    className="px-2 py-0.5 rounded bg-[#cf6613] hover:bg-[#b8550f] text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <ExternalLink className="w-2.5 h-2.5" />
                     <span>{t("openCalendar", isIndonesian ? "Buka Kalender" : "Open Calendar")}</span>
@@ -524,7 +524,7 @@ export function TaskModal({
               </div>
 
               <div className="flex items-center justify-between pt-1 border-t border-[var(--border-color)]/60 text-[10px]">
-                <label className="flex items-center gap-1.5 cursor-pointer text-[var(--text-secondary)] hover:text-white truncate">
+                <label className="flex items-center gap-1.5 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] truncate">
                   <input
                     type="checkbox"
                     checked={modalAutoOpenGCal}
@@ -548,7 +548,7 @@ export function TaskModal({
               <div className="space-y-1">
                 <label className="block text-[11px] font-medium text-[var(--text-secondary)] flex items-center justify-between">
                   <span className="flex items-center gap-1">
-                    <Paperclip className="w-3 h-3 text-white/70" />
+                    <Paperclip className="w-3 h-3 text-[var(--text-muted)]" />
                     {t("taskAttachedDocument", isIndonesian ? "Dokumen Terkait (Opsional)" : "Linked Project Document (Optional)")}
                   </span>
                   {projectFiles.length > 0 && (
@@ -562,7 +562,7 @@ export function TaskModal({
                   placeholder={t("taskAttachedDocumentPlaceholder", isIndonesian ? "Contoh: faktur_pajak.xlsx..." : "e.g. tax_invoice.xlsx or bank_statement.pdf...")}
                   value={modalFile}
                   onChange={(e) => setModalFile(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
                 />
                 {projectFiles.length > 0 && (
                   <div className="flex items-center gap-1 overflow-x-auto pt-0.5 pb-0.5">
@@ -574,8 +574,8 @@ export function TaskModal({
                         className={cn(
                           "px-1.5 py-0.2 rounded text-[9.5px] font-mono border transition-colors cursor-pointer shrink-0 truncate max-w-[130px]",
                           modalFile === file
-                            ? "bg-white text-black border-white font-semibold"
-                            : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-white border-[var(--border-color)]"
+                            ? "bg-[var(--text-primary)] text-[var(--bg-card)] border-[var(--text-primary)] font-semibold"
+                            : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)]"
                         )}
                       >
                         {file}
@@ -595,7 +595,7 @@ export function TaskModal({
                   placeholder={t("taskInstructionsPlaceholder", isIndonesian ? "Tuliskan catatan kerja, target rekonsiliasi, nominal biaya..." : "Specify context, instructions, or deliverables...")}
                   value={modalDescription}
                   onChange={(e) => setModalDescription(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] resize-none"
                 />
               </div>
             </div>
@@ -622,12 +622,12 @@ export function TaskModal({
                       handleAddSubtask();
                     }
                   }}
-                  className="flex-1 px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-white text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+                  className="flex-1 px-2.5 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-xs placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]"
                 />
                 <button
                   type="button"
                   onClick={handleAddSubtask}
-                  className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] text-white hover:bg-[var(--border-color)] border border-[var(--border-color)] text-xs font-medium transition-colors cursor-pointer shrink-0"
+                  className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-color)] border border-[var(--border-color)] text-xs font-medium transition-colors cursor-pointer shrink-0"
                 >
                   {t("addSubtaskBtn", isIndonesian ? "Tambah" : "Add")}
                 </button>
@@ -658,7 +658,7 @@ export function TaskModal({
                           }}
                           className="w-3.5 h-3.5 accent-[#cf6613] cursor-pointer shrink-0"
                         />
-                        <span className={cn("truncate text-xs", st.completed ? "line-through text-[var(--text-muted)]" : "text-white")}>
+                        <span className={cn("truncate text-xs", st.completed ? "line-through text-[var(--text-muted)]" : "text-[var(--text-primary)]")}>
                           {st.title}
                         </span>
                       </label>
@@ -706,7 +706,7 @@ export function TaskModal({
                 });
                 openExternalUrl(gcalUrl);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-white text-xs font-medium border border-[var(--border-color)] flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium border border-[var(--border-color)] flex items-center gap-1.5 transition-colors cursor-pointer"
               title={t("syncGoogleCalendar", isIndonesian ? "Sinkron ke Google Calendar" : "Sync to Google Calendar")}
             >
               <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
@@ -745,10 +745,10 @@ export function TaskModal({
                     false
                   );
                 }}
-                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] text-xs font-medium border border-[var(--border-strong)] flex items-center gap-1.5 transition-colors cursor-pointer"
                 title={isIndonesian ? "Tandai selesai & pindahkan ke riwayat arsip" : "Mark as completed and archive"}
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[var(--text-primary)]" />
                 <span className="hidden sm:inline">{isIndonesian ? "Tandai Selesai" : "Mark Completed"}</span>
               </button>
             )}
@@ -758,14 +758,14 @@ export function TaskModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-white text-xs font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-medium border border-[var(--border-color)] transition-colors cursor-pointer"
             >
               {t("taskCancelBtn", isIndonesian ? "Batal" : "Cancel")}
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium transition-colors cursor-pointer shadow-sm"
+              className="px-4 py-1.5 rounded-lg bg-[#cf6613] hover:bg-[#b8550f] text-white text-xs font-medium transition-colors cursor-pointer"
             >
               {editingTask
                 ? t("taskSaveBtn", isIndonesian ? "Simpan Perubahan" : "Save Changes")

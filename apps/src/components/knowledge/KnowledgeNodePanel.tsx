@@ -235,10 +235,10 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
       position="top-right" 
       onMouseDown={(e) => e.stopPropagation()} 
       onClick={(e) => e.stopPropagation()} 
-      className="max-h-[calc(100vh-8rem)] w-80 mt-4 mr-4 bg-[var(--bg-card)] dark:bg-[#141416] text-[var(--text-primary)] rounded-2xl border border-[var(--border-strong)] dark:border-[#2e2e35] flex flex-col overflow-hidden pointer-events-auto shadow-2xl z-50"
+      className="max-h-[calc(100vh-8rem)] w-80 mt-4 mr-4 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl border border-[var(--border-strong)] flex flex-col overflow-hidden pointer-events-auto z-50"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] dark:border-[#222226] bg-[var(--bg-panel)] dark:bg-[#18181b] shrink-0">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-panel)] shrink-0">
         <h3 className="font-bold text-[var(--text-primary)] text-sm">Edit Node</h3>
         <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] cursor-pointer">
           <X className="w-4 h-4" />
@@ -308,7 +308,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                         <span
                           className={cn(
                             "w-1.5 h-1.5 rounded-full shrink-0",
-                            nodeData?.syncStatus === "failed" ? "bg-amber-500" : "bg-white animate-pulse"
+                            nodeData?.syncStatus === "failed" ? "bg-[#cf6613]" : "bg-[var(--text-primary)] animate-pulse"
                           )}
                         />
                         <span className="font-medium text-[var(--text-primary)]">
@@ -348,7 +348,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                   />
                   
                   {isCityDropdownOpen && filteredCities.length > 0 && (
-                    <div className="absolute left-0 top-full mt-1.5 w-full max-h-40 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
+                    <div className="absolute left-0 top-full mt-1.5 w-full max-h-40 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1.5 space-y-0.5 z-50 animate-in fade-in duration-100">
                       {filteredCities.map((opt) => (
                         <button
                           key={opt}
@@ -402,7 +402,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-white rounded transition-colors cursor-pointer"
+                  className="px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -412,7 +412,7 @@ export function KnowledgeNodePanel({ nodeId, onClose, onUpdate, onDelete }: Know
                     setShowDeleteConfirm(false);
                     handleDelete();
                   }}
-                  className="px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
+                  className="px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Delete
                 </button>

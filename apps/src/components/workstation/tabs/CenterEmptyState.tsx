@@ -32,9 +32,9 @@ export const CenterEmptyState = memo(function CenterEmptyState({
           <button
             type="button"
             onClick={onOpenFolder}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-white transition-all shadow-xs cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--bg-card)] border border-[var(--border-strong)] text-xs font-semibold text-[var(--text-primary)] transition-all cursor-pointer active:scale-95"
           >
-            <FolderOpen className="w-3.5 h-3.5 text-white" strokeWidth={1.5} />
+            <FolderOpen className="w-3.5 h-3.5 text-[var(--text-primary)]" strokeWidth={1.5} />
             <span>{t("openFolder", "Open Folder...")}</span>
           </button>
         )}

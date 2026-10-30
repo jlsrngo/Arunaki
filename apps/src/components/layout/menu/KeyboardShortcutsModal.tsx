@@ -116,7 +116,7 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
 
   return (
     <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 sm:p-6 animate-in fade-in duration-100 select-none">
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-2xl max-w-3xl w-full p-5 sm:p-6 flex flex-col gap-4 text-xs">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl max-w-3xl w-full p-5 sm:p-6 flex flex-col gap-4 text-xs">
         {/* Header (Monochrome) */}
         <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3.5">
           <div className="flex items-center gap-3">
@@ -216,7 +216,7 @@ export const KeyboardShortcutsModal = memo(function KeyboardShortcutsModal({
                                 type="button"
                                 onClick={() => setEditingId(item.id)}
                                 className={cn(
-                                  "group/btn flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-mono text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer shadow-2xs",
+                                  "group/btn flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[11px] font-mono text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer",
                                   isCustom && "border-[var(--border-strong)] text-[var(--text-primary)] font-semibold"
                                 )}
                                 title="Click to reassign this shortcut"

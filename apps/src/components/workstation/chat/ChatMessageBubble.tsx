@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useMemo, type MouseEvent } from "react";
-import { Check, Copy, RotateCcw, FileText } from "lucide-react";
+import { Check, Copy, RotateCcw, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../../lib/utils";
 import { API_BASE } from "../../../lib/api";
@@ -97,6 +97,17 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
     if (imageMentions.length === 0) return isStreaming ? raw : raw.trim();
     return raw.replace(/(?:@)?([a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif))\b/gi, "").trim();
   }, [msg?.content, imageMentions, isStreaming]);
+
+  const externalSource = useMemo(() => {
+    if (!isUser || !displayContent) return null;
+    const m = displayContent.match(/^\[(Telegram|WhatsApp|Platform)\s*([^\]]*)\]:\s*([\s\S]*)$/i);
+    if (!m) return null;
+    return {
+      platform: m[1],
+      sender: m[2]?.trim() || "",
+      body: m[3]?.trim() || "",
+    };
+  }, [isUser, displayContent]);
 
   const timeString = useMemo(() => {
     if (!msg?.createdAt) return "";
@@ -294,7 +305,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   const handleCopy = (e: MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(msg.content || "");
+    navigator.clipboard.writeText(externalSource ? externalSource.body : (msg.content || ""));
     setCopied(true);
     toast.success("Copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
@@ -302,8 +313,8 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
 
   const handleResend = (e: MouseEvent) => {
     e.stopPropagation();
-    if (onResend && msg.content) {
-      onResend(msg.content);
+    if (onResend) {
+      onResend(externalSource ? externalSource.body : (msg.content || ""));
     }
   };
 
@@ -356,7 +367,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                       {attachedImages.map((img, i) => (
                         <div
                           key={i}
-                          className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 shadow-xs cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
+                          className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
                           onClick={() => onPreviewImage?.(img.url)}
                           title="Click to view full image"
                         >
@@ -429,7 +440,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   {attachedImages.map((img, i) => (
                     <div
                       key={i}
-                      className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 shadow-xs cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
+                      className="group/img relative rounded-xl overflow-hidden border border-[var(--border-strong)] bg-black/25 cursor-pointer hover:border-[var(--border-primary)] transition-all p-1"
                       onClick={() => onPreviewImage?.(img.url)}
                       title="Click to view full image"
                     >
@@ -459,7 +470,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   {attachedOtherFiles.map((file, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)] shadow-xs"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-panel)]"
                     >
                       <div className="text-[var(--text-muted)] shrink-0">
                         {getFileIcon(file.name || "file.txt") || <FileText className="w-4 h-4" />}
@@ -471,9 +482,23 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                   ))}
                 </div>
               )}
+              {externalSource && (
+                <div className="flex items-center gap-1.5 pb-1 mb-1.5 border-b border-[var(--border-strong)]/40 text-[10px] select-none">
+                  <Send className="w-3 h-3 text-[var(--text-secondary)] shrink-0" />
+                  <span className="font-semibold text-[var(--text-primary)]">{externalSource.platform}</span>
+                  {externalSource.sender && (
+                    <span className="font-mono text-[9px] px-1 py-0.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-[var(--text-secondary)]">
+                      {externalSource.sender}
+                    </span>
+                  )}
+                </div>
+              )}
               {displayContent ? (
                 <div className="relative">
-                  <ChatMessageContent content={displayContent} isUser={isUser} />
+                  <ChatMessageContent
+                    content={externalSource ? externalSource.body : displayContent}
+                    isUser={isUser}
+                  />
                   {isStreaming && !isUser && (
                     <span className="inline-block w-1.5 h-3.5 bg-[var(--text-primary)]/80 ml-0.5 animate-pulse align-middle" />
                   )}

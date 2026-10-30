@@ -71,7 +71,7 @@ export const HistorySessionItem = memo(function HistorySessionItem({
               <>
                 <span>•</span>
                 <span
-                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-white font-medium truncate transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] font-medium truncate transition-colors cursor-pointer"
                   title={`Open folder: ${session.directory}`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -98,7 +98,7 @@ export const HistorySessionItem = memo(function HistorySessionItem({
             Empty (0 msgs)
           </span>
         ) : typeof session.messageCount === "number" ? (
-          <span className="px-2 py-0.5 text-[10px] font-medium text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-md">
+          <span className="px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] bg-[var(--bg-hover)] border border-[var(--border-strong)] rounded-md">
             {session.messageCount} msgs
           </span>
         ) : null}
@@ -111,7 +111,7 @@ export const HistorySessionItem = memo(function HistorySessionItem({
               onClick();
             }}
             title="Resume conversation"
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>

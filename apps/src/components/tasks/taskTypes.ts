@@ -52,8 +52,8 @@ export const TIME_PRESETS = [
 ];
 
 export const PRIORITY_CONFIGS = [
-  { id: "low" as const, title: "Normal", titleEn: "Normal", badge: "Standar", badgeEn: "Standard", dot: "bg-white/40" },
-  { id: "medium" as const, title: "Prioritas Menengah", titleEn: "Medium Priority", badge: "Menengah", badgeEn: "Elevated", dot: "bg-white" },
+  { id: "low" as const, title: "Normal", titleEn: "Normal", badge: "Standar", badgeEn: "Standard", dot: "bg-[var(--text-muted)]" },
+  { id: "medium" as const, title: "Prioritas Menengah", titleEn: "Medium Priority", badge: "Menengah", badgeEn: "Elevated", dot: "bg-[var(--text-primary)]" },
   { id: "high" as const, title: "Mendesak / Kritis", titleEn: "Urgent / Critical", badge: "Tinggi", badgeEn: "High Urgency", dot: "bg-[#cf6613]" },
 ];
 

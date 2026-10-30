@@ -39,7 +39,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
       <button
         type="button"
         onClick={onToggle}
-        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors shadow-xs max-w-[180px]"
+        className="text-[10px] bg-[var(--bg-hover)] hover:bg-[var(--bg-panel)] text-[var(--text-primary)] px-2 py-0.5 rounded-full font-medium border border-[var(--border-color)] hover:border-[var(--border-strong)] flex items-center gap-1 cursor-pointer transition-colors max-w-[180px]"
         title={t("model", "Model")}
       >
         <span className="truncate">{activeLabel}</span>
@@ -52,7 +52,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full mb-1.5 left-0 w-60 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] shadow-2xl p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
+        <div className="absolute bottom-full mb-1.5 left-0 w-60 max-h-64 overflow-y-auto rounded-xl bg-[var(--bg-card)] border border-[var(--border-strong)] p-1 space-y-0.5 z-50 animate-in fade-in duration-100">
           <div className="px-2 py-1 text-[10px] font-medium text-[var(--text-muted)] border-b border-[var(--border-color)] mb-0.5 flex items-center justify-between">
             <span>{t("model", "Model")}</span>
             <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] font-semibold border border-[var(--border-color)]">
@@ -89,7 +89,7 @@ export const ChatModelPickerDropdown = memo(function ChatModelPickerDropdown({
                       retired
                     </span>
                   )}
-                  {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                  {isSelected && <Check className="w-3 h-3 text-[var(--text-primary)] shrink-0" />}
                 </div>
               </button>
             );

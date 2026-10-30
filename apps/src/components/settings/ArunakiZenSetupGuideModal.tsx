@@ -48,7 +48,7 @@ export function ArunakiZenSetupGuideModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 select-none">
-      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] shadow-2xl p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-150">
+      <div className="max-w-xl w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-strong)] p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="flex items-start justify-between border-b border-[var(--border-color)] pb-3">
           <div className="flex items-center gap-2.5">
@@ -92,7 +92,7 @@ export function ArunakiZenSetupGuideModal({
               className={cn(
                 "flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center",
                 guideStep === s.step
-                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-xs border border-[var(--border-strong)]"
+                  ? "bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -133,7 +133,7 @@ export function ArunakiZenSetupGuideModal({
                       className="flex items-center gap-1 text-[11px] text-[var(--text-primary)] hover:underline cursor-pointer"
                     >
                       {copiedCode === "url" ? (
-                        <Check className="w-3 h-3 text-white" />
+                        <Check className="w-3 h-3 text-[var(--text-primary)]" />
                       ) : (
                         <Copy className="w-3 h-3 text-[var(--text-muted)]" />
                       )}
@@ -223,7 +223,7 @@ export function ArunakiZenSetupGuideModal({
                 )}
               </p>
               <div className="flex items-center gap-2 p-3 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
-                <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[var(--text-primary)] shrink-0" />
                 <span>
                   {tr(
                     "zenReadySummary",
@@ -264,7 +264,7 @@ export function ArunakiZenSetupGuideModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--text-primary)] text-[var(--bg-app)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer"
             >
               <span>{tr("gotItDone", "Got it, Close")}</span>
             </button>

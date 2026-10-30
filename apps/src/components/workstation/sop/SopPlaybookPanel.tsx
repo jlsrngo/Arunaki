@@ -349,7 +349,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                 className={cn(
                   "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
                   isSelected
-                    ? "bg-[var(--bg-hover)] text-white"
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                 )}
                 title={`${pb.title} (${pb.category})`}
@@ -362,7 +362,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
                     className={cn(
                       "truncate text-xs transition-colors",
                       isSelected
-                        ? "font-medium text-white"
+                        ? "font-medium text-[var(--text-primary)]"
                         : "font-normal text-[var(--text-primary)]"
                     )}
                   >
@@ -410,7 +410,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               className={cn(
                 "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
                 selectedId === "__reconcile__"
-                  ? "bg-[var(--bg-hover)] text-white"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
               title="Open 3-Way Reconciliation Audit in Center Panel"
@@ -434,7 +434,7 @@ export const SopPlaybookPanel = memo(function SopPlaybookPanel({
               className={cn(
                 "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-left text-xs transition-colors group cursor-pointer",
                 selectedId === "__executive__"
-                  ? "bg-[var(--bg-hover)] text-white"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
               )}
               title="Open Executive Brief Synthesis in Center Panel"

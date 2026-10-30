@@ -286,7 +286,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
               setGuideInitialStep(1);
               setShowGuideModal(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer"
           >
             <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("posSetupGuide", "Setup Guide")}</span>
@@ -296,13 +296,13 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             className={cn(
               "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border select-none shrink-0 transition-all",
               status.connected
-                ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+                ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                 : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)]"
             )}
           >
           {status.connected ? (
             <>
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[var(--text-primary)] animate-pulse" />
               <span>{t("posStatusConnected", "Connected")}</span>
             </>
           ) : (
@@ -473,7 +473,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 <Building2 className="w-3.5 h-3.5" />
                 <span>{t("posConnectedStore", "Toko Terhubung")}:</span>
               </span>
-              <strong className="text-white font-semibold">{status.store || "ArunakiZen Store"}</strong>
+              <strong className="text-[var(--text-primary)] font-semibold">{status.store || "ArunakiZen Store"}</strong>
             </div>
 
             <div className="flex items-center justify-between">
@@ -481,7 +481,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 <User className="w-3.5 h-3.5" />
                 <span>{t("posOperatorActive", "Operator Aktif")}:</span>
               </span>
-              <span className="text-white font-medium">
+              <span className="text-[var(--text-primary)] font-medium">
                 {status.operator?.nama} ({status.operator?.kode}) — Level: {status.operator?.level}
               </span>
             </div>
@@ -492,7 +492,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>{t("posAccessPermissions", "Hak Akses Diberikan")}:</span>
                 </span>
-                <span className="text-white/80 font-mono text-[10px]">
+                <span className="text-[var(--text-secondary)] font-mono text-[10px]">
                   R43 Penjualan, Cek Stok, Terima Piutang
                 </span>
               </div>
@@ -506,7 +506,7 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             type="button"
             onClick={handleTestConnection}
             disabled={testing}
-            className="flex-1 h-9 px-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-9 px-4 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Wifi className={cn("w-3.5 h-3.5", testing && "animate-pulse")} />
             <span>{testing ? t("posTesting", "Menghubungkan...") : t("posTestHandshake", "Uji Koneksi (Handshake)")}</span>
@@ -516,9 +516,9 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             type="button"
             onClick={handleSaveConfig}
             disabled={saving}
-            className="flex-1 h-9 px-4 rounded-lg bg-white text-black hover:bg-neutral-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-9 px-4 rounded-lg bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 text-xs font-semibold transition-opacity flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <Check className="w-3.5 h-3.5 text-black" />
+            <Check className="w-3.5 h-3.5 text-[var(--bg-card)]" />
             <span>{saving ? t("posSaving", "Menyimpan...") : t("posSaveConfig", "Simpan Pengaturan")}</span>
           </button>
         </div>

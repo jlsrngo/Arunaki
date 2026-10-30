@@ -35,14 +35,14 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer relative group",
             isTabActive("explorer")
-              ? "text-white bg-[var(--bg-hover)] shadow-xs"
-              : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
+              ? "text-[var(--text-primary)] bg-[var(--bg-hover)]"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]/60"
           )}
           title="Explorer"
           aria-label="Explorer"
         >
           {isTabActive("explorer") && (
-            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[var(--text-primary)] rounded-r" />
           )}
           <Files className="w-5 h-5 stroke-[1.6]" />
         </button>
@@ -54,18 +54,18 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer relative group",
             isTabActive("source-control")
-              ? "text-white bg-[var(--bg-hover)] shadow-xs"
-              : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
+              ? "text-[var(--text-primary)] bg-[var(--bg-hover)]"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]/60"
           )}
           title={t("documentChanges", "Document Changes")}
           aria-label={t("documentChanges", "Document Changes")}
         >
           {isTabActive("source-control") && (
-            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[var(--text-primary)] rounded-r" />
           )}
           <GitBranch className="w-5 h-5 stroke-[1.6]" />
           {changesCount > 0 && (
-            <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#0078d4] text-white text-[10px] font-bold leading-none flex items-center justify-center text-center shadow-xs pointer-events-none select-none">
+            <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#0078d4] text-white text-[10px] font-bold leading-none flex items-center justify-center text-center pointer-events-none select-none">
               <span className="inline-block transform -translate-y-[0.5px]">
                 {changesCount > 99 ? "99+" : changesCount}
               </span>
@@ -80,14 +80,14 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer relative group",
             isTabActive("search")
-              ? "text-white bg-[var(--bg-hover)] shadow-xs"
-              : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
+              ? "text-[var(--text-primary)] bg-[var(--bg-hover)]"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]/60"
           )}
           title="Search"
           aria-label="Search"
         >
           {isTabActive("search") && (
-            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[var(--text-primary)] rounded-r" />
           )}
           <Search className="w-5 h-5 stroke-[1.6]" />
         </button>
@@ -99,14 +99,14 @@ export const WorkstationActivityBar = memo(function WorkstationActivityBar({
           className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer relative group",
             isTabActive("sop")
-              ? "text-white bg-[var(--bg-hover)] shadow-xs"
-              : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]/60"
+              ? "text-[var(--text-primary)] bg-[var(--bg-hover)]"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]/60"
           )}
           title={t("sopPlaybooks", "SOP Playbooks")}
           aria-label={t("sopPlaybooks", "SOP Playbooks")}
         >
           {isTabActive("sop") && (
-            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-white rounded-r" />
+            <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[var(--text-primary)] rounded-r" />
           )}
           <ClipboardCheck className="w-5 h-5 stroke-[1.6]" />
         </button>

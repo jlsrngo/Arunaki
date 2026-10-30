@@ -67,7 +67,7 @@ export function TasksHistoryView({
           <button
             type="button"
             onClick={onBackToBoard}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-primary)] text-xs font-medium cursor-pointer transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{isIndonesian ? "Kembali ke Papan Agenda" : "Back to Agenda Board"}</span>
@@ -75,10 +75,10 @@ export function TasksHistoryView({
 
           <div className="flex items-center gap-2 pl-2 border-l border-[var(--border-color)]">
             <div className="w-7 h-7 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-color)] flex items-center justify-center">
-              <History className="w-3.5 h-3.5 text-white" />
+              <History className="w-3.5 h-3.5 text-[var(--text-primary)]" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-white tracking-wide">
+              <h1 className="text-sm font-semibold text-[var(--text-primary)] tracking-wide">
                 {isIndonesian ? "Riwayat & Arsip Agenda Selesai" : "Completed Agendas & Archive"}
               </h1>
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
@@ -90,13 +90,13 @@ export function TasksHistoryView({
 
         {/* Search in History */}
         <div className="relative w-48 sm:w-64">
-          <Search className="w-3.5 h-3.5 text-white/50 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder={isIndonesian ? "Cari riwayat agenda..." : "Search completed agendas..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-xs text-white placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
+            className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-colors"
           />
         </div>
       </div>
@@ -105,9 +105,9 @@ export function TasksHistoryView({
       {completedTasks.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
           <div className="w-12 h-12 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center mb-3">
-            <History className="w-6 h-6 text-white/30" />
+            <History className="w-6 h-6 text-[var(--text-dim)]" />
           </div>
-          <h3 className="text-sm font-medium text-white mb-1">
+          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-1">
             {isIndonesian ? "Belum Ada Agenda yang Selesai" : "No Completed Agendas Yet"}
           </h3>
           <p className="text-xs text-[var(--text-muted)] max-w-sm mb-4">
@@ -126,8 +126,8 @@ export function TasksHistoryView({
       ) : (
         <div className="flex-1 flex gap-4 pt-4 overflow-hidden min-h-0">
           {/* Left Column: List of completed tasks */}
-          <div className="w-full sm:w-80 md:w-96 flex flex-col h-full bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm shrink-0">
-            <div className="px-3.5 py-2.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 flex items-center justify-between text-xs font-semibold text-white">
+          <div className="w-full sm:w-80 md:w-96 flex flex-col h-full bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden shrink-0">
+            <div className="px-3.5 py-2.5 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 flex items-center justify-between text-xs font-semibold text-[var(--text-primary)]">
               <span>{isIndonesian ? "Daftar Riwayat" : "Archive List"}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-color)]">
                 {filteredHistory.length}
@@ -151,14 +151,14 @@ export function TasksHistoryView({
                       className={cn(
                         "p-3 rounded-lg border transition-all cursor-pointer text-left relative",
                         isSelected
-                          ? "bg-[var(--bg-hover)] border-white/30 shadow-md"
+                          ? "bg-[var(--bg-hover)] border-[var(--border-strong)]"
                           : "bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--border-strong)]"
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2 min-w-0">
-                          <CheckCircle2 className="w-4 h-4 text-white shrink-0 mt-0.5" />
-                          <h4 className="text-xs font-medium text-white line-clamp-1 truncate">
+                          <CheckCircle2 className="w-4 h-4 text-[var(--text-primary)] shrink-0 mt-0.5" />
+                          <h4 className="text-xs font-medium text-[var(--text-primary)] line-clamp-1 truncate">
                             {task.title}
                           </h4>
                         </div>
@@ -189,15 +189,15 @@ export function TasksHistoryView({
           </div>
 
           {/* Right Column: Full Detail Inspection View */}
-          <div className="flex-1 flex flex-col h-full bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+          <div className="flex-1 flex flex-col h-full bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             {selectedTask ? (
               <div className="flex-1 flex flex-col h-full overflow-hidden">
                 {/* Detail Header */}
                 <div className="px-6 py-4 border-b border-[var(--border-color)] bg-[var(--bg-card)]/50 flex items-start justify-between gap-4 shrink-0">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-white border border-white/20">
-                        <CheckCircle2 className="w-3 h-3 text-white" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]">
+                        <CheckCircle2 className="w-3 h-3 text-[var(--text-primary)]" />
                         {isIndonesian ? "Selesai" : "Completed"}
                       </span>
                       {selectedTask.priority === "high" && (
@@ -209,7 +209,7 @@ export function TasksHistoryView({
                         {selectedTask.targetDate} {selectedTask.reminderTime ? `• ${selectedTask.reminderTime} WIB` : ""}
                       </span>
                     </div>
-                    <h2 className="text-base font-semibold text-white tracking-wide">
+                    <h2 className="text-base font-semibold text-[var(--text-primary)] tracking-wide">
                       {selectedTask.title}
                     </h2>
                   </div>
@@ -220,7 +220,7 @@ export function TasksHistoryView({
                       type="button"
                       onClick={() => onSyncGoogleCalendar(selectedTask)}
                       title={t("openInGoogleCalendar", isIndonesian ? "Buka di Google Calendar" : "Open in Google Calendar")}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] transition-colors cursor-pointer"
                     >
                       <Calendar className="w-3.5 h-3.5 text-[#cf6613]" />
                       <span className="hidden md:inline">Google Calendar</span>
@@ -230,7 +230,7 @@ export function TasksHistoryView({
                       type="button"
                       onClick={() => onRestoreTask(selectedTask.id)}
                       title={isIndonesian ? "Kembalikan ke Papan Kerja Hari Ini" : "Restore to Today Board"}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-medium text-white transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-hover)] hover:bg-[var(--border-color)] border border-[var(--border-strong)] text-xs font-medium text-[var(--text-primary)] transition-colors cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>{isIndonesian ? "Pulihkan ke Papan" : "Restore to Board"}</span>
@@ -271,15 +271,15 @@ export function TasksHistoryView({
                       >
                         <div className="flex items-center gap-2.5 truncate">
                           {selectedTask.attachedFile.endsWith(".xlsx") || selectedTask.attachedFile.endsWith(".csv") ? (
-                            <FileSpreadsheet className="w-4 h-4 text-white" />
+                            <FileSpreadsheet className="w-4 h-4 text-[var(--text-primary)]" />
                           ) : (
-                            <FileText className="w-4 h-4 text-white" />
+                            <FileText className="w-4 h-4 text-[var(--text-primary)]" />
                           )}
-                          <span className="text-xs text-white font-medium truncate">
+                          <span className="text-xs text-[var(--text-primary)] font-medium truncate">
                             {selectedTask.attachedFile}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] group-hover:text-white">
+                        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] group-hover:text-[var(--text-primary)]">
                           <span>{isIndonesian ? "Buka di Workstation" : "Open in Workstation"}</span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </div>
@@ -300,8 +300,8 @@ export function TasksHistoryView({
                       </div>
                       <div className="space-y-1.5 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)]">
                         {selectedTask.subtasks.map((st) => (
-                          <div key={st.id} className="flex items-center gap-2 py-1 text-xs text-white">
-                            <CheckSquare className="w-3.5 h-3.5 text-white shrink-0" />
+                          <div key={st.id} className="flex items-center gap-2 py-1 text-xs text-[var(--text-primary)]">
+                            <CheckSquare className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
                             <span className={cn(st.completed && "line-through text-[var(--text-muted)]")}>
                               {st.title}
                             </span>
@@ -314,7 +314,7 @@ export function TasksHistoryView({
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] p-8">
-                <AlertCircle className="w-8 h-8 text-white/20 mb-2" />
+                <AlertCircle className="w-8 h-8 text-[var(--text-dim)] mb-2" />
                 <p>{isIndonesian ? "Pilih agenda di sebelah kiri untuk melihat rincian detail" : "Select an agenda from the left to inspect full details"}</p>
               </div>
             )}

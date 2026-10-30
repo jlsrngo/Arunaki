@@ -116,7 +116,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
             <div className="flex items-center gap-4">
               {/* Avatar with Camera Overlay (Monochrome) */}
               <div className="relative group cursor-pointer shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-[var(--bg-hover)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-2xl overflow-hidden shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--bg-hover)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--text-primary)] font-bold text-2xl overflow-hidden">
                   {userAvatar ? (
                     <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
@@ -331,7 +331,7 @@ export const SettingsAccountTab = memo(function SettingsAccountTab() {
             <div className="pt-2 flex items-center justify-between">
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+                className="px-6 py-2.5 bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>{isRegisterMode ? t("registerAndSignIn") : t("signIn")}</span>

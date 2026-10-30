@@ -138,8 +138,8 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
               isLocked
                 ? "bg-[#cf6613] text-white border-[#cf6613] font-bold"
                 : currentStatus === "VERIFIED"
-                ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)] font-semibold"
-                : "bg-[var(--bg-app)] text-[var(--text-dim)] border-[var(--border-color)]"
+                ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold"
+                : "bg-[var(--bg-panel-sub)] text-[var(--text-secondary)] border-[var(--border-strong)] font-medium"
             )}
           >
             {isLocked ? (
@@ -155,7 +155,7 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
               type="button"
               disabled={busy}
               onClick={() => handleUpdateGovernance("VERIFIED", true)}
-              className="h-4.5 px-1.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white text-[9px] font-medium flex items-center gap-1 border border-[var(--border-strong)] transition-colors cursor-pointer"
+              className="h-4.5 px-1.5 rounded bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] text-[9px] font-medium flex items-center gap-1 border border-[var(--border-strong)] transition-colors cursor-pointer"
               title="Apply Official Digital Approval Stamp & Mark Verified"
             >
               <Stamp className="w-2.5 h-2.5 text-[#cf6613]" />
@@ -175,7 +175,7 @@ export const CenterBreadcrumbs = memo(function CenterBreadcrumbs({
             className={cn(
               "h-4.5 px-1.5 rounded text-[9px] font-medium flex items-center gap-1 border transition-colors cursor-pointer",
               isLocked
-                ? "bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-white border-[var(--border-strong)]"
+                ? "bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-primary)] border-[var(--border-strong)]"
                 : "bg-[#cf6613] hover:bg-[#b8580f] text-white border-[#cf6613]"
             )}
             title={

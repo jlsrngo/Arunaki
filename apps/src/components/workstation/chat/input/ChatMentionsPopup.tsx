@@ -21,7 +21,7 @@ export const ChatMentionsPopup = memo(function ChatMentionsPopup({
   if (!showMentions || mentionResults.length === 0) return null;
 
   return (
-    <div className="absolute bottom-full left-0 right-0 mb-2 z-50 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden shadow-2xl transform-gpu will-change-transform">
+    <div className="absolute bottom-full left-0 right-0 mb-2 z-50 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl overflow-hidden transform-gpu will-change-transform">
       <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] bg-[var(--bg-hover)] border-b border-[var(--border-color)]">
         {t("selectFileToAttach", "Select file to attach")}
       </div>

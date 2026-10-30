@@ -493,7 +493,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   <Scale className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
                     3-Way Reconciliation & Anomaly Guard
                   </h2>
                   <p className="text-xs text-[var(--text-muted)]">
@@ -523,11 +523,11 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 className={cn(
                   "p-3 rounded-lg border text-left transition-all cursor-pointer",
                   auditMode === "cash_and_bank"
-                    ? "bg-[var(--bg-hover)] border-[#cf6613] text-white"
-                    : "bg-[var(--bg-app)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
+                    ? "bg-[var(--bg-hover)] border-[#cf6613] text-[var(--text-primary)]"
+                    : "bg-[var(--bg-app)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 )}
               >
-                <div className="text-xs font-semibold text-white mb-0.5">
+                <div className="text-xs font-semibold text-[var(--text-primary)] mb-0.5">
                   POS vs Bank vs Cash Ledger
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)]">
@@ -540,11 +540,11 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 className={cn(
                   "p-3 rounded-lg border text-left transition-all cursor-pointer",
                   auditMode === "procurement_three_way"
-                    ? "bg-[var(--bg-hover)] border-[#cf6613] text-white"
-                    : "bg-[var(--bg-app)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-white"
+                    ? "bg-[var(--bg-hover)] border-[#cf6613] text-[var(--text-primary)]"
+                    : "bg-[var(--bg-app)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 )}
               >
-                <div className="text-xs font-semibold text-white mb-0.5">
+                <div className="text-xs font-semibold text-[var(--text-primary)] mb-0.5">
                   PO vs Goods Receipt vs Supplier Invoice
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)]">
@@ -559,7 +559,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
               <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
                 <div className="flex items-center gap-2">
                   {auditResult.audit_status === "BALANCED" ? (
-                    <ShieldCheck className="w-5 h-5 text-white" />
+                    <ShieldCheck className="w-5 h-5 text-[var(--text-primary)]" />
                   ) : (
                     <ShieldAlert className="w-5 h-5 text-rose-500" />
                   )}
@@ -567,7 +567,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                     className={cn(
                       "text-sm font-bold",
                       auditResult.audit_status === "BALANCED"
-                        ? "text-white"
+                        ? "text-[var(--text-primary)]"
                         : "text-rose-400"
                     )}
                   >
@@ -581,7 +581,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                     <button
                       type="button"
                       onClick={() => onOpenFileTab("reconciliation_discrepancy_memo.docx")}
-                      className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-white flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer"
                     >
                       <FileText className="w-3.5 h-3.5 text-[#cf6613]" />
                       <span>Open Audit Memo (.docx)</span>
@@ -598,7 +598,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                         `Anomalies: ${auditResult.anomalies_count} | Variance: Rp ${auditResult.totals.absolute_variance.toLocaleString("id-ID")}`
                       )
                     }
-                    className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-white flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                     <span>Send Alert to Telegram</span>
@@ -611,7 +611,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   <div className="text-[11px] text-[var(--text-muted)]">
                     {auditResult.labels.source_a}
                   </div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
+                  <div className="text-sm font-mono font-bold text-[var(--text-primary)] mt-1">
                     Rp {auditResult.totals.source_a.toLocaleString("id-ID")}
                   </div>
                 </div>
@@ -619,7 +619,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   <div className="text-[11px] text-[var(--text-muted)]">
                     {auditResult.labels.source_b}
                   </div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
+                  <div className="text-sm font-mono font-bold text-[var(--text-primary)] mt-1">
                     Rp {auditResult.totals.source_b.toLocaleString("id-ID")}
                   </div>
                 </div>
@@ -632,7 +632,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       "text-sm font-mono font-bold mt-1",
                       auditResult.totals.absolute_variance > 0
                         ? "text-rose-400"
-                        : "text-white"
+                        : "text-[var(--text-primary)]"
                     )}
                   >
                     Rp {auditResult.totals.absolute_variance.toLocaleString("id-ID")}
@@ -642,14 +642,14 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
 
               {auditResult.anomalies.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-white">Detected Anomalies</h4>
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)]">Detected Anomalies</h4>
                   {auditResult.anomalies.map((anom, idx) => (
                     <div
                       key={idx}
                       className="p-3 rounded-lg bg-[var(--bg-app)] border border-rose-500/40 space-y-1"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
                           {anom.title}
                         </span>
@@ -686,7 +686,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   <Presentation className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
                     Executive Multi-Format Synthesis
                   </h2>
                   <p className="text-xs text-[var(--text-muted)]">
@@ -699,7 +699,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   type="text"
                   value={execPeriod}
                   onChange={(e) => setExecPeriod(e.target.value)}
-                  className="h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[#cf6613]"
+                  className="h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#cf6613]"
                   placeholder="Reporting Period"
                 />
                 <button
@@ -722,7 +722,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           {execKpi && (
             <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
                   Executive KPI Snapshot — {execKpi.period}
                 </span>
                 <div className="flex items-center gap-2">
@@ -731,7 +731,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       <button
                         type="button"
                         onClick={() => onOpenFileTab("executive_summary_memo.docx")}
-                        className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-white flex items-center gap-1.5 cursor-pointer"
+                        className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer"
                       >
                         <FileText className="w-3.5 h-3.5 text-[#cf6613]" />
                         <span>Open Memo (.docx)</span>
@@ -739,7 +739,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       <button
                         type="button"
                         onClick={() => onOpenFileTab("executive_presentation_deck.pptx")}
-                        className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-white flex items-center gap-1.5 cursor-pointer"
+                        className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer"
                       >
                         <Presentation className="w-3.5 h-3.5 text-[#cf6613]" />
                         <span>Open Slides (.pptx)</span>
@@ -757,7 +757,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                         `Net Income: Rp ${execKpi.net_operating_income.toLocaleString("id-ID")} (${execKpi.operating_margin_pct.toFixed(1)}%)`
                       )
                     }
-                    className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-white flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-primary)] flex items-center gap-1.5 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5 text-[#cf6613]" />
                     <span>Send to Telegram</span>
@@ -768,13 +768,13 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)]">
                   <div className="text-[11px] text-[var(--text-muted)]">Gross Revenue</div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
+                  <div className="text-sm font-mono font-bold text-[var(--text-primary)] mt-1">
                     Rp {execKpi.gross_revenue.toLocaleString("id-ID")}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)]">
                   <div className="text-[11px] text-[var(--text-muted)]">Operating Expenses</div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
+                  <div className="text-sm font-mono font-bold text-[var(--text-primary)] mt-1">
                     Rp {execKpi.operating_expenses.toLocaleString("id-ID")}
                   </div>
                 </div>
@@ -782,7 +782,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   <div className="text-[11px] text-[var(--text-muted)]">
                     Net Operating Income ({execKpi.operating_margin_pct.toFixed(1)}%)
                   </div>
-                  <div className="text-sm font-mono font-bold text-white mt-1">
+                  <div className="text-sm font-mono font-bold text-[var(--text-primary)] mt-1">
                     Rp {execKpi.net_operating_income.toLocaleString("id-ID")}
                   </div>
                 </div>
@@ -803,7 +803,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
         {/* Top Studio Toolbar (Icon-only Generate & Add buttons) */}
         <div className="p-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-xs font-semibold text-white">Playbook Studio</h3>
+            <h3 className="text-xs font-semibold text-[var(--text-primary)]">Playbook Studio</h3>
             <p className="text-[11px] text-[var(--text-muted)] truncate">
               Generate workflows from your active folder documents or build a custom SOP routine.
             </p>
@@ -836,7 +836,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 "w-8 h-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer",
                 !activeFolder
                   ? "bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border-color)] cursor-not-allowed"
-                  : "bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+                  : "bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
               )}
             >
               <Plus className="w-4 h-4" />
@@ -854,7 +854,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]">
                       {isEditing ? category || "Operations" : playbook?.category || "Operations"}
                     </span>
                     <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
@@ -862,7 +862,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       {playbook?.estimated_minutes || 2}m estimated
                     </span>
                   </div>
-                  <h2 className="text-base font-semibold text-white leading-snug">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)] leading-snug">
                     {isEditing
                       ? title || "New Custom Playbook"
                       : playbook?.title || "Playbook"}
@@ -878,7 +878,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       type="button"
                       onClick={() => setIsEditing(true)}
                       title="Edit Playbook"
-                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <Pencil className="w-3.5 h-3.5 text-[#cf6613]" />
                     </button>
@@ -886,7 +886,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                       type="button"
                       onClick={handleDeletePlaybook}
                       title="Delete Playbook"
-                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-white flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-rose-600 hover:border-rose-500 text-[var(--text-primary)] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -933,7 +933,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                           );
                         }}
                         title="Cancel Editing"
-                        className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-white flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-app)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center transition-colors cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -954,7 +954,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
         {/* EDIT / CREATE MODE IN CENTER PANEL (WITH DRAG & DROP REORDERING) */}
         {isEditing ? (
           <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
-            <h3 className="text-sm font-semibold text-white border-b border-[var(--border-color)] pb-2.5">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] border-b border-[var(--border-color)] pb-2.5">
               Playbook Configuration & Steps
             </h3>
 
@@ -968,7 +968,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Sync LAPORAN-HARIAN.txt to REKAP 10-2026.xlsx"
-                  className="w-full h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[#cf6613]"
+                  className="w-full h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#cf6613]"
                 />
               </div>
               <div className="space-y-1.5">
@@ -980,7 +980,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="e.g. Finance & Sales"
-                  className="w-full h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[#cf6613]"
+                  className="w-full h-9 px-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#cf6613]"
                 />
               </div>
             </div>
@@ -994,14 +994,14 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what documents this playbook reads and updates..."
-                className="w-full p-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[#cf6613] resize-none"
+                className="w-full p-3 rounded-lg bg-[var(--bg-app)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#cf6613] resize-none"
               />
             </div>
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-xs font-semibold text-white">
+                  <label className="text-xs font-semibold text-[var(--text-primary)]">
                     Execution Pipeline Steps ({steps.length})
                   </label>
                   <p className="text-[11px] text-[var(--text-muted)]">
@@ -1057,8 +1057,8 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white flex items-center gap-2 cursor-grab active:cursor-grabbing">
-                        <GripVertical className="w-4 h-4 text-[var(--text-muted)] hover:text-white" />
+                      <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                        <GripVertical className="w-4 h-4 text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
                         <span className="w-5 h-5 rounded-full bg-[#cf6613] text-white text-[11px] font-bold flex items-center justify-center">
                           {idx + 1}
                         </span>
@@ -1071,7 +1071,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                             setSteps((prev) => prev.filter((_, i) => i !== idx))
                           }
                           title="Remove Step"
-                          className="w-7 h-7 rounded border border-[var(--border-strong)] text-white/80 hover:text-white hover:bg-rose-600 hover:border-rose-500 flex items-center justify-center cursor-pointer"
+                          className="w-7 h-7 rounded border border-[var(--border-strong)] text-[var(--text-secondary)] hover:text-white hover:bg-rose-600 hover:border-rose-500 flex items-center justify-center cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1095,7 +1095,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                             );
                           }}
                           placeholder="e.g. Read & Parse LAPORAN-HARIAN.txt"
-                          className="w-full h-8 px-2.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-white focus:outline-none focus:border-[#cf6613]"
+                          className="w-full h-8 px-2.5 rounded bg-[var(--bg-panel)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#cf6613]"
                         />
                       </div>
                       <div className="space-y-1">
@@ -1148,7 +1148,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
           playbook && (
             <div className="p-5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Execution Pipeline ({playbook.steps.length} Steps)
                 </h3>
                 <span className="text-xs text-[var(--text-muted)]">
@@ -1191,7 +1191,7 @@ export const SopPlaybookCenterView = memo(function SopPlaybookCenterView({
                         {idx + 1}
                       </div>
                       <div className="space-y-1 min-w-0">
-                        <div className="text-sm font-semibold text-white">
+                        <div className="text-sm font-semibold text-[var(--text-primary)]">
                           {st.title}
                         </div>
                         <p className="text-xs text-[var(--text-muted)] leading-relaxed">

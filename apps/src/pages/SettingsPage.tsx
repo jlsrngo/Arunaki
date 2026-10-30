@@ -148,7 +148,7 @@ export function SettingsPage() {
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer border whitespace-nowrap h-10 select-none",
                   isActive
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-xs font-semibold"
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold"
                     : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border-transparent"
                 )}
               >

@@ -107,7 +107,7 @@ function FlowEditor() {
           />
           <Controls className="!bg-[var(--bg-panel)] border !border-[var(--border-strong)] rounded-xl overflow-hidden !bottom-8 !left-4 [&_button]:!bg-[var(--bg-panel)] [&_button]:!text-[var(--text-primary)] [&_button]:!border-b-[var(--border-color)] [&_button:hover]:!bg-[var(--bg-hover)]" />
           <MiniMap
-            className="rounded-xl !bg-[var(--bg-card)] border !border-[var(--border-color)] shadow-md overflow-hidden !bottom-8 !right-4 transition-colors"
+            className="rounded-xl !bg-[var(--bg-card)] border !border-[var(--border-color)] overflow-hidden !bottom-8 !right-4 transition-colors"
             maskColor={
               isLight ? "rgba(15, 23, 42, 0.08)" : "rgba(0, 0, 0, 0.65)"
             }

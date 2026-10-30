@@ -39,7 +39,7 @@ export function HistoryFilterBar({
           <button
             type="button"
             onClick={onRequestCleanup}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-white bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] hover:border-[var(--border-strong)] transition-all cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-400" />
             <span>
@@ -67,7 +67,7 @@ export function HistoryFilterBar({
           <button
             type="button"
             onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-dim)] hover:text-white p-0.5 cursor-pointer"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-dim)] hover:text-[var(--text-primary)] p-0.5 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -81,7 +81,7 @@ export function HistoryFilterBar({
           onClick={() => onTabChange("all")}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
             activeTab === "all"
-              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
               : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
           }`}
         >
@@ -92,7 +92,7 @@ export function HistoryFilterBar({
           onClick={() => onTabChange("active")}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border flex items-center gap-1.5 ${
             activeTab === "active"
-              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
               : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
           }`}
         >
@@ -104,7 +104,7 @@ export function HistoryFilterBar({
           onClick={() => onTabChange("empty")}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border flex items-center gap-1.5 ${
             activeTab === "empty"
-              ? "bg-[var(--bg-hover)] text-white border-[var(--border-strong)]"
+              ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
               : "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]/50"
           }`}
         >

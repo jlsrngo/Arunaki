@@ -435,7 +435,7 @@ export const ChatInputBox = memo(function ChatInputBox({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-5 h-5 rounded-md bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center cursor-pointer transition-colors border border-[var(--border-color)] hover:border-[var(--border-strong)] shadow-xs"
+            className="w-5 h-5 rounded-md bg-[var(--bg-hover)] hover:bg-[var(--border-strong)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center cursor-pointer transition-colors border border-[var(--border-color)] hover:border-[var(--border-strong)]"
             title={t("attachFile", "Attach file or image")}
             aria-label="Attach file"
           >
@@ -491,7 +491,7 @@ export const ChatInputBox = memo(function ChatInputBox({
               <button
                 type="button"
                 onClick={onCancelStream}
-                className="relative w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0 group"
+                className="relative w-7 h-7 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 group"
                 title={t("stopGenerating", "Stop generating")}
               >
                 <span className="absolute -inset-[1.5px] rounded-full border-2 border-red-400 border-t-transparent animate-spin pointer-events-none" />

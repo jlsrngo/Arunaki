@@ -443,7 +443,7 @@ export function SettingsCliConnectionsTab({
       <ol className="space-y-0.5 text-[10px] text-[var(--text-muted)]">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-1.5">
-            <span className="text-zinc-600">{i + 1}.</span>
+            <span className="text-[var(--text-dim)]">{i + 1}.</span>
             <span className="flex items-center gap-1 flex-wrap">
               <span>{s.text}</span>
               {s.href && (
@@ -451,7 +451,7 @@ export function SettingsCliConnectionsTab({
                   href={s.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] underline underline-offset-2"
                 >
                   {isEn ? "open" : "buka"}
                 </a>
@@ -487,12 +487,12 @@ export function SettingsCliConnectionsTab({
     const ping = pingResults[id];
     const busy = connectingTarget === id;
     const dot = state.signedIn
-      ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+      ? "bg-[var(--text-primary)]"
       : state.installed
       ? "bg-amber-400"
       : loading
       ? "bg-[#cf6613] animate-pulse"
-      : "bg-zinc-700";
+      : "bg-[var(--text-dim)]";
 
     return (
       <div
@@ -500,7 +500,7 @@ export function SettingsCliConnectionsTab({
         className={cn(
           "rounded-xl border transition-all duration-200",
           state.active
-            ? "bg-[var(--bg-panel)] border-[var(--border-strong)] shadow-xs"
+            ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
             : "bg-[var(--bg-card)] border-[var(--border-color)]"
         )}
       >
@@ -519,18 +519,20 @@ export function SettingsCliConnectionsTab({
             }
             className={cn(
               "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-              state.active ? "border-white bg-white hover:bg-zinc-200" : "border-zinc-600 hover:border-white bg-transparent"
+              state.active
+                ? "border-[var(--text-primary)] bg-[var(--text-primary)] hover:opacity-90"
+                : "border-[var(--border-strong)] hover:border-[var(--text-primary)] bg-transparent"
             )}
           >
             {busy ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--text-muted)]" />
             ) : state.active ? (
               <>
-                <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] group-hover/circle:hidden" />
-                <X className="w-3.5 h-3.5 text-zinc-950 stroke-[3] hidden group-hover/circle:inline" />
+                <Check className="w-3.5 h-3.5 text-[var(--bg-app)] stroke-[3] group-hover/circle:hidden" />
+                <X className="w-3.5 h-3.5 text-[var(--bg-app)] stroke-[3] hidden group-hover/circle:inline" />
               </>
             ) : (
-              <span className="w-2 h-2 rounded-full bg-zinc-600 group-hover/circle:bg-white transition-colors" />
+              <span className="w-2 h-2 rounded-full bg-[var(--text-dim)] group-hover/circle:bg-[var(--text-primary)] transition-colors" />
             )}
           </button>
 
@@ -577,7 +579,7 @@ export function SettingsCliConnectionsTab({
                   href={d.entitlement.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] underline underline-offset-2"
                 >
                   {isEn ? "See plans" : "Lihat paket"}
                 </a>
@@ -600,19 +602,19 @@ export function SettingsCliConnectionsTab({
             onClick={() => handleTestPing(id, d.name)}
             disabled={testingPingTarget === id}
             className={cn(
-              "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shadow-xs border",
+              "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
               ping
                 ? ping.success
-                  ? "bg-zinc-800 text-zinc-200 border-zinc-600"
-                  : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                  ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+                  : "bg-[var(--bg-app)] text-[var(--text-muted)] border-[var(--border-color)]"
+                : "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-color)]"
             )}
             title={isEn ? "Test Ping connection & latency" : "Uji koneksi ping & latensi"}
           >
           {testingPingTarget === id ? (
-            <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />
+            <Loader2 className="w-3 h-3 animate-spin text-[var(--text-muted)]" />
           ) : (
-            <Wifi className="w-3 h-3 text-zinc-400" />
+            <Wifi className="w-3 h-3 text-[var(--text-muted)]" />
           )}
           <span>
             {testingPingTarget === id
@@ -621,7 +623,7 @@ export function SettingsCliConnectionsTab({
           </span>
           {ping && !testingPingTarget && (
             <span
-              className={ping.success ? "text-white font-medium" : "text-amber-400"}
+              className={ping.success ? "text-[var(--text-primary)] font-medium" : "text-amber-500"}
               title={ping.success ? undefined : isEn ? "Last check failed" : "Pemeriksaan terakhir gagal"}
             >
               {ping.timeMs}ms
@@ -632,7 +634,7 @@ export function SettingsCliConnectionsTab({
             <button
               type="button"
               onClick={() => window.open(d.docsUrl, "_blank")}
-              className="px-2.5 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+              className="px-2.5 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
               title={isEn ? "Open the vendor page" : "Buka halaman vendor"}
             >
               <Globe className="w-3 h-3" />
@@ -642,7 +644,7 @@ export function SettingsCliConnectionsTab({
           <button
             type="button"
             onClick={() => toggleCard(id)}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
             title={expanded ? (isEn ? "Collapse" : "Ciutkan") : isEn ? "Expand for limits & setup" : "Buka untuk kuota & panduan"}
           >
             <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
@@ -656,10 +658,10 @@ export function SettingsCliConnectionsTab({
             }}
             disabled={busy}
             className={cn(
-              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none shadow-xs group",
+              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none group",
               state.active
-                ? "bg-white hover:bg-zinc-200 text-zinc-950 border border-white"
-                : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500"
+                ? "bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)]"
+                : "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-strong)]"
             )}
           >
             {busy ? (
@@ -674,7 +676,7 @@ export function SettingsCliConnectionsTab({
               </>
             ) : (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-dim)]" />
                 <span>{isEn ? "Connect" : "Hubungkan"}</span>
               </>
             )}
@@ -687,12 +689,12 @@ export function SettingsCliConnectionsTab({
             {/* Plan and token lifetime: the two facts that decide whether a connected provider
                 can actually answer. A free Codex account reads Connected and refuses everything. */}
             {(codexPlan || tokenExpiresAt) && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-muted)]">
                 {codexPlan && (
                   <span
                     className={cn(
                       "inline-flex items-center gap-1",
-                      codexPlan === "free" ? "text-amber-400/90" : "text-zinc-300 font-medium",
+                      codexPlan === "free" ? "text-amber-500" : "text-[var(--text-secondary)] font-medium",
                     )}
                     title={
                       codexPlan === "free"
@@ -722,7 +724,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleRefreshCred(id as "claude" | "codex")}
                   disabled={refreshingTarget === id}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
                   title={isEn ? "Refresh the harvested OAuth token" : "Perbarui token OAuth"}
                 >
                   <RefreshCw className={cn("w-3 h-3", refreshingTarget === id && "animate-spin")} />
@@ -734,7 +736,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleInjectCli(id as "claude" | "codex")}
                   disabled={injectingTarget === id}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
                 >
                   {injectingTarget === id ? <Loader2 className="w-3 h-3 animate-spin" /> : <SlidersHorizontal className="w-3 h-3" />}
                   Auto-Configure CLI
@@ -746,7 +748,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleBrowserSignIn(id)}
                   disabled={oauthPendingTarget === id}
-                  className="px-2.5 py-1 bg-white hover:bg-zinc-200 text-zinc-950 border border-white text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60 shadow-xs"
+                  className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 disabled:opacity-60"
                   title={
                     isEn
                       ? "Sign in with your browser, no CLI needed"
@@ -778,7 +780,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleSignOut(id)}
                   disabled={signingOutTarget === id}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 border border-zinc-700 rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
                   title={
                     isEn
                       ? "Remove the stored credential from Arunaki"
@@ -807,7 +809,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleOpenCodeSignOut()}
                   disabled={signingOutTarget === id}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 border border-zinc-700 rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] rounded text-[10px] font-medium flex items-center gap-1 disabled:opacity-50"
                   title={
                     isEn
                       ? "Run 'opencode auth logout opencode' in a terminal"
@@ -833,7 +835,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={handleAntigravityCliLogin}
                   disabled={isSigningInCli}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
                 >
                   {isSigningInCli ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogIn className="w-3 h-3" />}
                   {isEn ? "Open sign-in terminal" : "Buka terminal login"}
@@ -844,7 +846,7 @@ export function SettingsCliConnectionsTab({
                   type="button"
                   onClick={() => handleAntigravityLogout()}
                   disabled={isLoggingOutAntigravity}
-                  className="px-2 py-1 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1 disabled:opacity-60"
                 >
                   {isLoggingOutAntigravity ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -860,7 +862,7 @@ export function SettingsCliConnectionsTab({
                 <button
                   type="button"
                   onClick={() => setActiveAuthModalTarget(id)}
-                  className="px-2 py-1 bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
+                  className="px-2 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1"
                   title={isEn ? "Choose the sign-in method" : "Pilih metode masuk"}
                 >
                   <SlidersHorizontal className="w-3 h-3" />
@@ -880,7 +882,7 @@ export function SettingsCliConnectionsTab({
     return (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-secondary)]">
             <Gauge className="w-3.5 h-3.5" />
             {isEn ? "Rate Limit Windows" : "Jendela Batas Rate"}
           </div>
@@ -888,14 +890,14 @@ export function SettingsCliConnectionsTab({
             type="button"
             onClick={() => fetchQuota(true)}
             disabled={quotaLoading}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+            className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
             title={isEn ? "Refresh quota" : "Muat ulang kuota"}
           >
             <RefreshCw className={cn("w-3 h-3", quotaLoading && "animate-spin")} />
           </button>
         </div>
         {!report || !report.ok ? (
-          <div className="text-[10px] text-zinc-600">
+          <div className="text-[10px] text-[var(--text-muted)]">
             {quotaLoading
               ? isEn ? "Loading..." : "Memuat..."
               : isEn ? "Sign in to view limits" : "Masuk untuk melihat batas"}
@@ -923,23 +925,23 @@ export function SettingsCliConnectionsTab({
               return (
                 <div key={b.id + b.window} className="min-w-0">
                   <div className="flex items-baseline justify-between gap-2 text-[10px]">
-                    <span className="truncate text-zinc-500" title={tag ? `${b.label} (${tag})` : b.label}>
+                    <span className="truncate text-[var(--text-muted)]" title={tag ? `${b.label} (${tag})` : b.label}>
                       {b.label}
                       {b.window === "5h" ? ` (${b.window})` : ""}
                       {tag && tag !== b.label ? ` · ${tag}` : ""}
                     </span>
-                    <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-400" : "text-zinc-300")}>
+                    <span className={cn("shrink-0 tabular-nums", b.exhausted ? "text-red-500" : "text-[var(--text-secondary)]")}>
                       {pct}% · {formatReset(b.resetAt)}
                     </span>
                   </div>
-                  <div className="h-1 mt-0.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div className="h-1 mt-0.5 rounded-full bg-[var(--bg-hover)] overflow-hidden">
                     <div className={cn("h-full rounded-full transition-all", bar)} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
             })}
             {report.buckets.some((b) => b.exhausted) && (
-              <div className="flex items-center gap-1 text-[10px] text-red-400 pt-0.5">
+              <div className="flex items-center gap-1 text-[10px] text-red-500 pt-0.5">
                 <AlertTriangle className="w-2.5 h-2.5" />
                 {isEn ? "Some models are exhausted" : "Sebagian model sudah habis"}
               </div>
@@ -1696,21 +1698,21 @@ const isGeminiActive =
         <button
           type="button"
           onClick={() => setOpenDropdownId(isOpen ? null : targetKey)}
-          className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-600 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 max-w-[140px] sm:max-w-[180px]"
+          className="px-2.5 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] hover:border-[var(--border-strong)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 max-w-[140px] sm:max-w-[180px]"
           title="Choose model manually"
         >
-          <SlidersHorizontal className="w-3 h-3 text-zinc-400 shrink-0" />
+          <SlidersHorizontal className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
           <span className="truncate font-mono">{meta.label}</span>
-          <ChevronDown className={cn("w-3 h-3 text-zinc-400 shrink-0 transition-transform", isOpen && "rotate-180")} />
+          <ChevronDown className={cn("w-3 h-3 text-[var(--text-muted)] shrink-0 transition-transform", isOpen && "rotate-180")} />
         </button>
 
         {isOpen && (
           // Anchored left: the trigger sits at the left edge of the card, so a
           // right-aligned panel would extend past the viewport and get clipped.
-          <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl space-y-2">
-            <div className="flex items-center justify-between px-1 pb-1.5 border-b border-zinc-800">
-              <span className="text-xs font-semibold text-zinc-200">Model</span>
-              <span className="text-[10px] text-zinc-500 font-mono">
+          <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 p-2.5 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl space-y-2">
+            <div className="flex items-center justify-between px-1 pb-1.5 border-b border-[var(--border-color)]">
+              <span className="text-xs font-semibold text-[var(--text-primary)]">Model</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono">
               {isLive ? (isEn ? "Live from account" : "Live dari akun") : (isEn ? "Default list" : "Daftar bawaan")}
             </span>
             </div>
@@ -1727,13 +1729,13 @@ const isGeminiActive =
                     className={cn(
                       "w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between gap-2 transition-all cursor-pointer",
                       isSelected
-                        ? "bg-zinc-800 text-white font-medium border border-zinc-700"
-                        : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                        ? "bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium border border-[var(--border-strong)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                     )}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {isSelected ? (
-                        <Check className="w-3.5 h-3.5 text-white shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
                       ) : (
                         <span className="w-3.5 h-3.5 shrink-0" />
                       )}
@@ -1741,12 +1743,12 @@ const isGeminiActive =
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {itemMeta.badge && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60 font-mono">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-panel)] text-[var(--text-secondary)] border border-[var(--border-color)] font-mono">
                           {itemMeta.badge}
                         </span>
                       )}
                       {itemMeta.speed && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-app)] text-[var(--text-muted)] border border-[var(--border-color)] font-mono">
                           {itemMeta.speed}
                         </span>
                       )}
@@ -1757,8 +1759,8 @@ const isGeminiActive =
             </div>
 
             {/* Custom Model Input */}
-            <div className="pt-2 border-t border-zinc-800 space-y-1.5">
-              <div className="text-[10px] text-zinc-400 font-medium px-1">Custom / Manual Model:</div>
+            <div className="pt-2 border-t border-[var(--border-color)] space-y-1.5">
+              <div className="text-[10px] text-[var(--text-muted)] font-medium px-1">Custom / Manual Model:</div>
               <div className="flex items-center gap-1.5">
                 <input
                   type="text"
@@ -1770,7 +1772,7 @@ const isGeminiActive =
                     }
                   }}
                   placeholder="Type model name..."
-                  className="flex-1 bg-zinc-900 border border-zinc-800 text-xs text-white px-2.5 py-1 rounded-lg focus:outline-none focus:border-zinc-500 font-mono"
+                  className="flex-1 bg-[var(--bg-input)] border border-[var(--border-color)] text-xs text-[var(--text-primary)] px-2.5 py-1 rounded-lg focus:outline-none focus:border-[var(--border-strong)] font-mono"
                 />
                 <button
                   type="button"
@@ -1779,7 +1781,7 @@ const isGeminiActive =
                       handleSelectModel(targetKey, customInput[targetKey].trim(), activeId, isActive, friendlyName);
                     }
                   }}
-                  className="px-2.5 py-1 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold text-xs rounded-lg transition-all cursor-pointer"
+                  className="px-2.5 py-1 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] font-semibold text-xs rounded-lg transition-all cursor-pointer"
                 >
                   Set
                 </button>
@@ -1819,7 +1821,7 @@ const isGeminiActive =
           type="button"
           onClick={fetchStatus}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-all cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           <span>{isEn ? "Scan All Agents" : "Pindai Semua Agen"}</span>
@@ -1831,10 +1833,10 @@ const isGeminiActive =
         {(data.registry && data.registry.length > 0 ? data.registry : FALLBACK_CLI_REGISTRY).map((descriptor) => renderProviderCard(descriptor))}
 
         {(data.discovered ?? []).some((x) => x.hasToken) && (
-          <div className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-950/40 flex items-center justify-center flex-wrap gap-3">
-            <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-zinc-300">
-              <Sparkles className="w-4 h-4 text-white shrink-0" />
-              <span className="font-semibold text-white">Discovered Local Caches:</span>
+          <div className="px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-center flex-wrap gap-3">
+            <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
+              <Sparkles className="w-4 h-4 text-[var(--text-primary)] shrink-0" />
+              <span className="font-semibold text-[var(--text-primary)]">Discovered Local Caches:</span>
               {/* Derived, not enumerated. This row used to test four providers by name, so
                   OpenCode was found by the harvester and then never rendered. */}
               {(data.discovered ?? [])
@@ -1842,7 +1844,7 @@ const isGeminiActive =
                 .map((x) => (
                   <span
                     key={x.provider}
-                    className="inline-flex items-center gap-1 text-white font-medium"
+                    className="inline-flex items-center gap-1 text-[var(--text-primary)] font-medium"
                   >
                     {x.displayName || x.provider} &middot; OK
                   </span>
@@ -1852,10 +1854,10 @@ const isGeminiActive =
               type="button"
               onClick={() => handleRefreshCred("all")}
               disabled={refreshingTarget === "all"}
-              className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shrink-0"
+              className="px-2.5 py-1 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 shrink-0"
               title="Refresh all harvested credentials"
             >
-              <RefreshCw className={cn("w-3 h-3", refreshingTarget === "all" && "animate-spin text-zinc-400")} />
+              <RefreshCw className={cn("w-3 h-3", refreshingTarget === "all" && "animate-spin text-[var(--text-muted)]")} />
               <span>{refreshingTarget === "all" ? "Refreshing..." : "Refresh All"}</span>
             </button>
           </div>

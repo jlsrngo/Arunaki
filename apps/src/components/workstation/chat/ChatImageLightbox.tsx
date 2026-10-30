@@ -38,7 +38,7 @@ export const ChatImageLightbox = memo(function ChatImageLightbox({
         <img
           src={url}
           alt="Preview"
-          className="max-w-full max-h-full rounded-lg object-contain shadow-sm"
+          className="max-w-full max-h-full rounded-lg object-contain"
         />
       </div>
     </div>

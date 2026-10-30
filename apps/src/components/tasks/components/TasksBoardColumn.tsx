@@ -42,26 +42,26 @@ export function TasksBoardColumn({
   // Dot styling per column for clean visual hierarchy
   const columnDot =
     column.id === "overdue"
-      ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+      ? "bg-rose-500"
       : column.id === "today"
-      ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+      ? "bg-[var(--text-primary)]"
       : column.id === "inprogress"
-      ? "bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.4)]"
+      ? "bg-sky-400"
       : column.id === "upcoming"
-      ? "bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.4)]"
-      : "bg-white/60";
+      ? "bg-purple-400"
+      : "bg-[var(--text-muted)]";
 
   return (
     <div
       onDragOver={onDragOver}
       onDrop={() => onDrop(column.id)}
-      className="flex flex-col flex-1 min-w-[260px] h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm"
+      className="flex flex-col flex-1 min-w-[260px] h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-color)] overflow-hidden"
     >
       {/* Column Header */}
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-card)]/40 shrink-0">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${columnDot}`} />
-          <h2 className="text-xs font-semibold text-white tracking-wide">
+          <h2 className="text-xs font-semibold text-[var(--text-primary)] tracking-wide">
             {t(column.titleId, isIndonesian ? column.defaultTitle : column.titleEn)}
           </h2>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-color)]">
@@ -72,7 +72,7 @@ export function TasksBoardColumn({
           type="button"
           onClick={() => onAddNewTask(column.id)}
           title={isIndonesian ? `Tambah agenda di ${t(column.titleId, column.defaultTitle)}` : `Add task in ${t(column.titleId, column.titleEn)}`}
-          className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-white transition-colors cursor-pointer"
+          className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
         </button>

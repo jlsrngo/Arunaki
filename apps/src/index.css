@@ -17,43 +17,57 @@
   }
 
   :root, [data-theme="dark"], .dark {
-    --bg-app: #0A0A0C;
-    --bg-header: #121215;
-    --bg-panel: #141417;
-    --bg-panel-sub: #18181C;
-    --bg-card: #1C1C20;
-    --bg-hover: #26262B;
-    --bg-input: #121215;
-    --border: #222226;
-    --border-color: #222226;
-    --border-strong: #2E2E35;
-    --text-primary: #FFFFFF;
-    --text-secondary: #E4E4E7;
-    --text-muted: #8A8A93;
-    --text-dim: #52525B;
-    --accent: #FFFFFF;
-    --scrollbar-thumb: #2D2D33;
-    --scrollbar-thumb-hover: #3F3F46;
+    --bg-app: #09090B;
+    --bg-main: #09090B;
+    --bg-header: #0F0F12;
+    --bg-panel: #121216;
+    --bg-panel-sub: #17171C;
+    --bg-editor: #0D0D10;
+    --bg-card: #19191F;
+    --bg-elevated: #1E1E26;
+    --bg-hover: #24242C;
+    --bg-active: #2D2D37;
+    --bg-input: #141418;
+    --border: #26262F;
+    --border-color: #26262F;
+    --border-subtle: #1E1E26;
+    --border-strong: #383845;
+    --border-primary: #FAFAFA;
+    --text-primary: #FAFAFA;
+    --text-secondary: #D4D4D8;
+    --text-muted: #94949E;
+    --text-dim: #686873;
+    --accent: #FAFAFA;
+    --scrollbar-thumb: #2E2E38;
+    --scrollbar-thumb-hover: #454552;
+    color-scheme: dark;
   }
 
   [data-theme="light"], .light {
-    --bg-app: #F8FAFC;
+    --bg-app: #EFEFF2;
+    --bg-main: #F3F3F6;
     --bg-header: #FFFFFF;
-    --bg-panel: #F1F5F9;
-    --bg-panel-sub: #E2E8F0;
+    --bg-panel: #F5F5F8;
+    --bg-panel-sub: #EAEAEF;
+    --bg-editor: #FFFFFF;
     --bg-card: #FFFFFF;
-    --bg-hover: #E2E8F0;
+    --bg-elevated: #FFFFFF;
+    --bg-hover: #E2E2E9;
+    --bg-active: #D6D6E0;
     --bg-input: #FFFFFF;
-    --border: #E2E8F0;
-    --border-color: #E2E8F0;
-    --border-strong: #CBD5E1;
-    --text-primary: #0F172A;
-    --text-secondary: #334155;
-    --text-muted: #64748B;
-    --text-dim: #94A3B8;
-    --accent: #0F172A;
-    --scrollbar-thumb: #CBD5E1;
-    --scrollbar-thumb-hover: #94A3B8;
+    --border: #D4D4DC;
+    --border-color: #D4D4DC;
+    --border-subtle: #E4E4EB;
+    --border-strong: #B0B0BC;
+    --border-primary: #09090B;
+    --text-primary: #09090B;
+    --text-secondary: #27272A;
+    --text-muted: #52525B;
+    --text-dim: #71717A;
+    --accent: #09090B;
+    --scrollbar-thumb: #C2C2CC;
+    --scrollbar-thumb-hover: #8E8E9A;
+    color-scheme: light;
   }
 
   html, body, #root {
@@ -159,7 +173,7 @@
   .react-flow__controls {
     background-color: var(--bg-panel) !important;
     border-color: var(--border-color) !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: none !important;
   }
 
   .react-flow__controls-button {

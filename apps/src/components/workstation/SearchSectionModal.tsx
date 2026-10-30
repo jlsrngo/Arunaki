@@ -72,7 +72,7 @@ export function SearchSectionModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl overflow-hidden flex flex-col h-[460px] min-h-[460px] max-h-[85vh] shadow-2xl transform-gpu will-change-transform"
+        className="w-full max-w-2xl bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-2xl overflow-hidden flex flex-col h-[460px] min-h-[460px] max-h-[85vh] transform-gpu will-change-transform"
       >
         {/* Header Search Bar */}
         <div className="p-3.5 border-b border-[var(--border-color)] flex items-center gap-3 bg-[var(--bg-panel)] shrink-0">

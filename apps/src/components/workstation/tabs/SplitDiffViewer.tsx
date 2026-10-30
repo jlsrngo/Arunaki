@@ -72,24 +72,24 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-app)] text-[var(--text-primary)] select-text overflow-hidden">
       {/* Top Diff Action & Info Bar */}
-      <div className="h-10 px-4 bg-[var(--bg-app)] border-b border-[var(--border-color)] flex items-center justify-between gap-3 shrink-0 select-none">
+      <div className="h-10 px-4 bg-[var(--bg-panel)] border-b border-[var(--border-color)] flex items-center justify-between gap-3 shrink-0 select-none">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <GitCompare className="w-4 h-4 text-white shrink-0" strokeWidth={1.6} />
-          <span className="text-xs font-semibold text-white flex items-center gap-1.5 font-mono min-w-0">
+          <GitCompare className="w-4 h-4 text-[var(--text-primary)] shrink-0" strokeWidth={1.6} />
+          <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5 font-mono min-w-0">
             <FileText className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
             <span className="truncate">{fileName}</span>
             <span className="text-[var(--text-muted)] font-normal text-[11px] shrink-0">(Working Tree)</span>
             {/* Status Badge: N for New, M for Modified */}
             {isNew ? (
               <span
-                className="px-1.5 py-0.5 rounded bg-white text-black text-[10px] font-bold leading-none select-none shadow-xs shrink-0"
+                className="px-1.5 py-0.5 rounded bg-[var(--text-primary)] text-[var(--bg-card)] text-[10px] font-bold leading-none select-none shrink-0"
                 title={t("newFileBadge", "New")}
               >
                 N
               </span>
             ) : (
               <span
-                className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none shadow-xs shrink-0"
+                className="px-1.5 py-0.5 rounded bg-[#cf6613] text-white text-[10px] font-bold leading-none select-none shrink-0"
                 title={t("modifiedBadge", "Modified")}
               >
                 M
@@ -97,10 +97,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             )}
           </span>
           <div className="flex items-center gap-1.5 ml-1 shrink-0">
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]">
               +{stats.added}
             </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-white border border-[var(--border-strong)]">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]">
               -{stats.deleted}
             </span>
           </div>
@@ -111,10 +111,10 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <button
               type="button"
               onClick={onRevert}
-              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold text-[var(--text-muted)] hover:text-white bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer shadow-xs active:scale-95 whitespace-nowrap shrink-0"
+              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-hover)] border border-[var(--border-strong)] transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
               title={t("discardChanges", "Discard Changes")}
             >
-              <RotateCcw className="w-3 h-3 text-rose-400 shrink-0" />
+              <RotateCcw className="w-3 h-3 text-rose-500 shrink-0" />
               <span>{t("discardChanges", "Discard Changes")}</span>
             </button>
           )}
@@ -123,7 +123,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
             <button
               type="button"
               onClick={onAccept}
-              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-xs active:scale-95 whitespace-nowrap shrink-0"
+              className="h-7 px-2.5 flex items-center gap-1.5 rounded-md text-[11px] font-semibold bg-[var(--text-primary)] text-[var(--bg-card)] hover:opacity-90 transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
               title={t("saveToDisk", "Save to Disk")}
             >
               <Check className="w-3 h-3 shrink-0" strokeWidth={2.5} />
@@ -134,7 +134,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
       </div>
 
       {/* Subheader: File path & Breadcrumbs */}
-      <div className="h-7 px-4 bg-[var(--bg-panel)]/40 border-b border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono shrink-0 select-none">
+      <div className="h-7 px-4 bg-[var(--bg-panel-sub)] border-b border-[var(--border-color)] flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono shrink-0 select-none">
         <div className="truncate">
           {filePath || fileName}
         </div>
@@ -150,7 +150,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
         <div
           ref={leftScrollRef}
           onScroll={handleLeftScroll}
-          className="h-full overflow-y-auto overflow-x-auto border-r border-[#2d2d2d] bg-[#1e1e1e] select-text"
+          className="h-full overflow-y-auto overflow-x-auto border-r border-[var(--border-color)] bg-[var(--bg-editor)] select-text"
         >
           {isNew ? (
             <div className="p-4 text-xs text-[var(--text-muted)] italic font-sans flex items-center gap-2">
@@ -167,7 +167,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   key={`left-${row.id}`}
                   className={cn(
                     "flex items-stretch min-h-[20px] px-0 relative",
-                    isDel && "bg-[#da3633]/20 text-[#f85149]",
+                    isDel && "bg-rose-500/15 text-rose-600 dark:text-rose-400",
                     isEmpty && "select-none"
                   )}
                   style={isEmpty ? { backgroundImage: HATCHED_PATTERN } : undefined}
@@ -176,7 +176,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <div
                     className={cn(
                       "w-12 text-right pr-2.5 select-none text-[11px] font-mono shrink-0 border-r border-transparent",
-                      isDel ? "text-[#f85149] font-semibold" : "text-[#6e7681]"
+                      isDel ? "text-rose-600 dark:text-rose-400 font-semibold" : "text-[var(--text-dim)]"
                     )}
                   >
                     {row.left.lineNumber !== undefined
@@ -188,7 +188,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <pre
                     className={cn(
                       "flex-1 font-mono text-[12px] pl-3 pr-2 whitespace-pre m-0 p-0 overflow-visible",
-                      isDel ? "text-[#ffdcd7]" : "text-[#cccccc]"
+                      isDel ? "text-rose-700 dark:text-rose-300" : "text-[var(--text-primary)]"
                     )}
                   >
                     {row.left.content}
@@ -204,7 +204,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
         <div
           ref={rightScrollRef}
           onScroll={handleRightScroll}
-          className="h-full overflow-y-auto overflow-x-auto bg-[#1e1e1e] select-text"
+          className="h-full overflow-y-auto overflow-x-auto bg-[var(--bg-editor)] select-text"
         >
           <div className="min-w-fit py-0.5">
             {rows.map((row) => {
@@ -216,7 +216,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   key={`right-${row.id}`}
                   className={cn(
                     "flex items-stretch min-h-[20px] px-0 relative",
-                    isAdd && "bg-[#238636]/25 text-[#3fb950]",
+                    isAdd && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
                     isEmpty && "select-none"
                   )}
                   style={isEmpty ? { backgroundImage: HATCHED_PATTERN } : undefined}
@@ -225,7 +225,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <div
                     className={cn(
                       "w-12 text-right pr-2.5 select-none text-[11px] font-mono shrink-0 border-r border-transparent",
-                      isAdd ? "text-[#3fb950] font-semibold" : "text-[#6e7681]"
+                      isAdd ? "text-emerald-700 dark:text-emerald-400 font-semibold" : "text-[var(--text-dim)]"
                     )}
                   >
                     {row.right.lineNumber !== undefined
@@ -237,7 +237,7 @@ export const SplitDiffViewer = memo(function SplitDiffViewer({
                   <pre
                     className={cn(
                       "flex-1 font-mono text-[12px] pl-3 pr-2 whitespace-pre m-0 p-0 overflow-visible",
-                      isAdd ? "text-[#aff5b4]" : "text-[#cccccc]"
+                      isAdd ? "text-emerald-800 dark:text-emerald-300" : "text-[var(--text-primary)]"
                     )}
                   >
                     {row.right.content}

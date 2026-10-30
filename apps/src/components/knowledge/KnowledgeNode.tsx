@@ -83,7 +83,7 @@ const getIconElement = (type: string, iconName?: string) => {
 };
 
 const getNodeColorTheme = (_type: string, _iconName?: string) => {
-  return "bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-strong)] shadow-xs";
+  return "bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-strong)]";
 };
 
 export const KnowledgeNode = memo(function KnowledgeNode({ data, selected }: KnowledgeNodeProps) {
@@ -103,7 +103,7 @@ export const KnowledgeNode = memo(function KnowledgeNode({ data, selected }: Kno
         {/* Logo only, guaranteed 64x64 dimensions */}
         <ArunakiLogo
           size={64}
-          className="text-[var(--text-primary)] transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
+          className="text-[var(--text-primary)] transition-transform duration-300 group-hover:scale-110"
         />
 
         {/* 4 Invisible Connection Ports on the edges */}

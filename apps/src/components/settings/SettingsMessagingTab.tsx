@@ -275,7 +275,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
               setGuideInitialStep(1);
               setShowGuideModal(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-hover)] text-[var(--text-primary)] hover:bg-[var(--border-strong)] text-xs font-semibold transition-all cursor-pointer"
           >
             <BookOpen className="w-3.5 h-3.5 text-[var(--text-muted)]" />
             <span>{t("setupGuide", "Setup Guide")}</span>
@@ -294,7 +294,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
       </div>
 
       {/* Main Telegram Gateway Card (Monochrome) */}
-      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6 shadow-xs">
+      <div className="p-6 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] space-y-6">
         {/* Top bar with Channel Info & Status */}
         <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-3.5">
@@ -309,7 +309,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 {/* Live Status Badge (Monochrome) */}
                 {enabled ? (
                   status.connected ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] shadow-xs">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-primary)] animate-pulse" />
                       {t("connected", "Connected")} {status.botUsername ? `@${status.botUsername}` : ""}
                     </span>
@@ -344,7 +344,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full shadow-sm ring-0 transition-transform duration-200 ease-in-out",
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
                 enabled ? "translate-x-5 bg-[var(--bg-app)]" : "translate-x-0 bg-[var(--text-muted)]"
               )}
             />
@@ -522,7 +522,7 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-xs"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--text-primary)] text-[var(--bg-app)] hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
             >
               {saving ? (
                 <>
