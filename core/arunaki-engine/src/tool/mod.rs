@@ -16,6 +16,7 @@ pub mod question;
 pub mod read;
 pub mod reconcile;
 pub mod sop;
+pub mod step_formatter;
 pub mod synthesize;
 pub mod telegram;
 pub mod tasks;

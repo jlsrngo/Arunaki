@@ -25,7 +25,7 @@ use axum::{
     http::{header, Method, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use base64::Engine as _;
@@ -118,6 +118,8 @@ pub fn build_router() -> Router {
         .route("/api/event", get(handle_sse_events))
         .route("/global/event", get(handle_sse_events))
         .route("/event", get(handle_sse_events))
+        .route("/api/tool/format-step-label", post(tool::step_formatter::handle_format_step_label))
+        .route("/tool/format-step-label", post(tool::step_formatter::handle_format_step_label))
         .merge(desktop::router())
         .merge(diff::router())
         .merge(knowledge::router())
