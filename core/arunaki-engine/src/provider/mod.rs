@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod cli_diagnostics;
 pub mod config;
 pub mod local_cli;
 pub mod oauth;
@@ -51,6 +52,14 @@ pub fn router() -> Router {
         .route(
             "/providers/local-cli/status",
             get(local_cli::handle_local_cli_status),
+        )
+        .route(
+            "/api/providers/local-cli/ping",
+            post(cli_diagnostics::handle_local_cli_ping),
+        )
+        .route(
+            "/providers/local-cli/ping",
+            post(cli_diagnostics::handle_local_cli_ping),
         )
         .route(
             "/api/providers/local-cli/quotas",

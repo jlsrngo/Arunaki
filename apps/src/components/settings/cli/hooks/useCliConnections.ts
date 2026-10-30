@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE, BRIDGE_URL, apiFetch, bridgeFetch, directoryQuery, tauriCliLogin } from "../../../../lib/api";
+import { API_BASE, apiFetch, directoryQuery, tauriCliLogin } from "../../../../lib/api";
 import { useI18n } from "../../../../lib/i18n";
 import { toast } from "sonner";
 import type {
@@ -14,7 +14,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
   const { language } = useI18n();
   const isEn = language === "en";
 
-  const [data, setData] = useState<LocalCliData>(() => {
+  const [data, setData] = useState<LocalCliData & { cardStates?: Record<string, any> }>(() => {
     try {
       const saved = localStorage.getItem("arunaki_cached_local_cli_status");
       if (saved) {
@@ -136,6 +136,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
               codex: { ...prev.codex, ...json.data.codex },
               discovered: json.data.discovered ?? prev.discovered,
               registry: json.data.registry ?? prev.registry,
+              cardStates: json.data.cardStates ?? prev.cardStates,
             };
             try {
               localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
@@ -167,9 +168,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
         setLiveModels((prev) => ({ ...prev, [target]: models }));
         setModelsAreLive((prev) => ({ ...prev, [target]: true }));
       }
-    } catch {
-      // Keep whatever the registry gave us.
-    }
+    } catch {}
   };
 
   const fetchQuota = async (manual = true) => {
@@ -226,62 +225,24 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     };
   }, []);
 
-  const SIGNALS: Partial<
-    Record<
-      string,
-      (d: LocalCliData) => { installed: boolean; signedIn: boolean; email?: string; version?: string }
-    >
-  > = {
-    claude: (d) => ({
-      installed: d.claude.installed,
-      signedIn: Boolean(d.claude.loggedIn || d.discovered?.some((x) => x.provider === "claude" && x.hasToken)),
-      email: d.discovered?.find((x) => x.provider === "claude")?.accountEmail,
-      version: d.claude.version,
-    }),
-    codex: (d) => ({
-      installed: Boolean(d.codex?.installed),
-      signedIn: Boolean(d.codex?.signedIn || d.discovered?.some((x) => x.provider === "codex" && x.hasToken)),
-      email: d.codex?.accountEmail ?? d.discovered?.find((x) => x.provider === "codex")?.accountEmail,
-      version: d.codex?.version,
-    }),
-    opencode: (d) => ({ installed: true, signedIn: true, version: d.opencode.version }),
-    antigravity: (d) => ({
-      installed: Boolean(d.antigravity?.agyInstalled ?? d.antigravity?.cliInstalled),
-      signedIn: Boolean(d.antigravity?.agySignedIn || d.sources?.antigravity?.connected),
-      email:
-        d.antigravity?.accountEmail ||
-        d.sources?.antigravity?.accountEmail ||
-        (d.sources?.antigravity?.accountInfo?.includes("@") ? d.sources?.antigravity?.accountInfo : undefined) ||
-        d.discovered?.find((x) => x.provider === "antigravity")?.accountEmail ||
-        (typeof window !== "undefined" ? localStorage.getItem("arunaki_agy_email") || undefined : undefined),
-      version: d.antigravity?.agyVersion,
-    }),
-    nineRouter: (d) => ({
-      installed: Boolean(d.nineRouter?.installed),
-      signedIn: Boolean(d.nineRouter?.running),
-      version: d.nineRouter?.version,
-    }),
-    kiro: (d) => ({
-      installed: d.kiro?.installed ?? true,
-      signedIn: Boolean(d.kiro?.signedIn || d.discovered?.some((x) => x.provider === "kiro" && x.hasToken)),
-      email: d.kiro?.accountEmail ?? d.discovered?.find((x) => x.provider === "kiro")?.accountEmail,
-    }),
-  };
-
+  // Card states normalized in Rust via `engine::provider::cli_diagnostics::build_normalized_card_states`
   const cardState: Record<
     string,
     { installed: boolean; signedIn: boolean; email?: string; active: boolean; version?: string }
   > = Object.fromEntries(
     (data.registry && data.registry.length > 0 ? data.registry : FALLBACK_CLI_REGISTRY).map((d) => {
-      const facts = SIGNALS[d.id]?.(data) ?? { installed: false, signedIn: false };
+      const rustCard = data.cardStates?.[d.id];
       const token = data.discovered?.find((x) => x.provider === d.id);
       return [
         d.id,
         {
-          installed: facts.installed || Boolean(token?.hasToken),
-          signedIn: facts.signedIn || Boolean(token?.hasToken),
-          email: facts.email ?? token?.accountEmail,
-          version: facts.version,
+          installed: Boolean(rustCard?.installed ?? token?.hasToken ?? true),
+          signedIn: Boolean(rustCard?.signedIn ?? token?.hasToken),
+          email:
+            rustCard?.email ??
+            token?.accountEmail ??
+            (d.id === "antigravity" ? localStorage.getItem("arunaki_agy_email") || undefined : undefined),
+          version: rustCard?.version,
           active:
             localStorage.getItem("arunaki_active_provider") === d.id ||
             providers.some((p) => p.active && (p.id === d.id || p.type === d.id)),
@@ -386,9 +347,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
           action === "inject"
             ? (isEn ? "CLI Configured Successfully" : "CLI Berhasil Dikonfigurasi")
             : (isEn ? "CLI Reset to Defaults" : "Konfigurasi CLI Dikembalikan"),
-          {
-            description: json.data.message,
-          }
+          { description: json.data.message }
         );
         await fetchStatus();
       } else {
@@ -397,73 +356,42 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
         });
       }
     } catch (err: any) {
-      toast.error(isEn ? "Injector Error" : "Kesalahan Injector", {
-        description: err.message,
-      });
+      toast.error(isEn ? "Injector Error" : "Kesalahan Injector", { description: err.message });
     } finally {
       setInjectingTarget(null);
     }
   };
 
-  const handleLaunchClaudeTerminal = async () => {
+  const launchCliTerminalSession = async (
+    loginTarget: "claude" | "codex" | "opencode-terminal" | "antigravity-cli",
+    label: string,
+    onOpened?: () => void
+  ) => {
     setIsSigningInCli(true);
     try {
-      const res = await tauriCliLogin("claude");
+      const res = await tauriCliLogin(loginTarget);
       if (res.success) {
         toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
           description: res.message,
         });
+        onOpened?.();
       } else {
-        toast.error(isEn ? "Cannot open terminal automatically" : "Tidak dapat membuka terminal otomatis", {
+        toast.error(isEn ? `Cannot open ${label} terminal` : `Tidak dapat membuka terminal ${label}`, {
           description: res.message,
         });
       }
     } catch (err: any) {
-      toast.error(isEn ? "Failed to open Claude terminal" : "Gagal membuka terminal Claude", { description: err.message });
+      toast.error(isEn ? `Failed to open ${label} terminal` : `Gagal membuka terminal ${label}`, {
+        description: err.message,
+      });
     } finally {
       setIsSigningInCli(false);
     }
   };
 
-  const handleLaunchCodexTerminal = async () => {
-    setIsSigningInCli(true);
-    try {
-      const res = await tauriCliLogin("codex");
-      if (res.success) {
-        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
-          description: res.message,
-        });
-      } else {
-        toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
-          description: res.message,
-        });
-      }
-    } catch (err: any) {
-      toast.error(isEn ? "Failed to open Codex terminal" : "Gagal membuka terminal Codex", { description: err.message });
-    } finally {
-      setIsSigningInCli(false);
-    }
-  };
-
-  const handleLaunchOpenCodeTerminal = async () => {
-    setIsSigningInCli(true);
-    try {
-      const res = await tauriCliLogin("opencode-terminal");
-      if (res.success) {
-        toast.info(isEn ? "Terminal Window Opened" : "Jendela Terminal Terbuka", {
-          description: res.message,
-        });
-      } else {
-        toast.error(isEn ? "Cannot open terminal" : "Tidak dapat membuka terminal", {
-          description: res.message,
-        });
-      }
-    } catch (err: any) {
-      toast.error(isEn ? "Failed to open OpenCode terminal" : "Gagal membuka terminal OpenCode", { description: err.message });
-    } finally {
-      setIsSigningInCli(false);
-    }
-  };
+  const handleLaunchClaudeTerminal = () => launchCliTerminalSession("claude", "Claude");
+  const handleLaunchCodexTerminal = () => launchCliTerminalSession("codex", "Codex");
+  const handleLaunchOpenCodeTerminal = () => launchCliTerminalSession("opencode-terminal", "OpenCode");
 
   const handleLaunch9Router = async () => {
     setIsSigningInCli(true);
@@ -526,6 +454,9 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     }, 1500);
   };
 
+  const handleAntigravityCliLogin = () =>
+    launchCliTerminalSession("antigravity-cli", "Antigravity", startAntigravityPoll);
+
   const handleBrowserSignIn = async (target: CliProviderId) => {
     if (oauthPendingTarget) return;
     setOauthPendingTarget(target);
@@ -579,27 +510,6 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     }
   };
 
-  const handleAntigravityCliLogin = async () => {
-    setIsSigningInCli(true);
-    try {
-      const res = await tauriCliLogin("antigravity-cli");
-      if (res.success) {
-        toast.info("Antigravity Terminal Opened", {
-          description: isEn
-            ? "Terminal window opened for CLI authentication."
-            : "Jendela terminal dibuka untuk otentikasi CLI.",
-        });
-        startAntigravityPoll();
-      } else {
-        toast.error(isEn ? "Failed to open CLI terminal" : "Gagal membuka CLI terminal", { description: res.message });
-      }
-    } catch (err: any) {
-      toast.error(isEn ? "Failed to initiate CLI login" : "Gagal memulai login CLI", { description: err.message });
-    } finally {
-      setIsSigningInCli(false);
-    }
-  };
-
   const handleAntigravityLogout = async () => {
     setIsLoggingOutAntigravity(true);
     try {
@@ -620,22 +530,16 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     }
   };
 
-  const PROVIDER_CONFIGS: Record<
-    string,
-    { id: string; name: string; type: string; baseUrl: string; apiKey: string }
-  > = {
-    nineRouter: {
-      id: "9router",
-      name: "9Router Gateway",
-      type: "openai-compatible",
-      baseUrl: "http://localhost:20128/v1",
-      apiKey: "9router",
-    },
-  };
-
   const connectConfigFor = (target: string, name: string) => {
-    const override = PROVIDER_CONFIGS[target];
-    if (override) return override;
+    if (target === "nineRouter") {
+      return {
+        id: "9router",
+        name: "9Router Gateway",
+        type: "openai-compatible",
+        baseUrl: "http://localhost:20128/v1",
+        apiKey: "9router",
+      };
+    }
     return {
       id: target,
       name,
@@ -648,15 +552,6 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
   const handleConnectTarget = async (target: CliProviderId, friendlyName: string) => {
     setConnectingTarget(target);
     const config = connectConfigFor(target, friendlyName);
-    if (!config) {
-      setConnectingTarget(null);
-      toast.error(isEn ? `${friendlyName} is not ready to connect` : `${friendlyName} belum siap dihubungkan`, {
-        description: isEn
-          ? "No connect endpoint is configured for this provider yet."
-          : "Belum ada endpoint koneksi yang dikonfigurasi untuk provider ini.",
-      });
-      return;
-    }
     const chosenModel = selectedModels[target] || modelsFor(target)[0];
     const activeId = config.id;
 
@@ -707,17 +602,11 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
         }).catch(() => {});
       }
 
-      const localCliTargets = ["claude", "antigravity", "opencode", "kiro", "codex", "9router", "gemini", "agy"];
-      if (localCliTargets.includes(target)) {
-        await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            target: target === "claude" ? "claude" : target === "opencode" ? "opencode" : target === "antigravity" ? "antigravity" : target,
-            model: chosenModel,
-          }),
-        }).catch(() => {});
-      }
+      await apiFetch(`${API_BASE}/providers/local-cli/connect${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target, model: chosenModel }),
+      }).catch(() => {});
 
       toast.success(`${friendlyName} Connected & Active`, {
         description: `Ready to run document tasks using ${chosenModel}.`,
@@ -772,14 +661,6 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       return;
     }
     const config = connectConfigFor(target, friendlyName);
-    if (!config) {
-      toast.error(isEn ? `${friendlyName} is not ready` : `${friendlyName} belum siap`, {
-        description: isEn
-          ? "No connect endpoint is configured for this provider yet."
-          : "Belum ada endpoint koneksi yang dikonfigurasi untuk provider ini.",
-      });
-      return;
-    }
     if (isActive) {
       await handleDisconnect(config.id, friendlyName);
     } else {
@@ -787,115 +668,22 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
     }
   };
 
+  // Delegated 100% to native Rust `POST /api/providers/local-cli/ping` (`engine::provider::cli_diagnostics`)
   const handleTestPing = async (target: CliProviderId, friendlyName: string) => {
     setTestingPingTarget(target);
     const startMs = Date.now();
     try {
-      if (target === "antigravity" || target === "opencode") {
-        try {
-          const directRes = await bridgeFetch(`${BRIDGE_URL}/v1/models`, {
-            signal: AbortSignal.timeout(1200),
-          }).catch(() => null);
-          if (directRes && directRes.ok) {
-            const elapsed = Math.max(Date.now() - startMs, 12);
-            let opencodeDetail = "OpenCode CLI bridge active (port 20188)";
-            if (target === "opencode") {
-              const currentModel = (selectedModels.opencode || "").toLowerCase();
-              if (currentModel.includes("pickle") || currentModel.startsWith("opencode/")) {
-                opencodeDetail = "OpenCode CLI bridge active (OpenCode Zen / Big Pickle)";
-              } else if (currentModel.includes("groq") || currentModel.includes("qwen") || currentModel.includes("gpt-oss")) {
-                opencodeDetail = "OpenCode CLI bridge active (Groq Cloud LPU)";
-              } else if (currentModel.includes("9router")) {
-                opencodeDetail = "OpenCode CLI bridge active (9Router Gateway)";
-              } else {
-                opencodeDetail = `OpenCode CLI bridge active (${data.opencode?.hasGroq ? "Groq Cloud" : "port 20188"})`;
-              }
-            }
-            const detail =
-              target === "opencode"
-                ? opencodeDetail
-                : `Google Antigravity CLI bridge active (${data.antigravity?.agyVersion ? `agy ${data.antigravity.agyVersion}` : "port 20188"})`;
-            setPingResults((prev) => ({
-              ...prev,
-              [target]: {
-                success: true,
-                timeMs: elapsed,
-                message: detail,
-              },
-            }));
-            toast.success(`${friendlyName} Ping OK (${elapsed}ms)`, {
-              description: detail,
-            });
-            return;
-          }
-        } catch {}
-      }
-
-      const res = await apiFetch(`${API_BASE}/providers/local-cli/status${directoryQuery()}`);
+      const currentModel = selectedModels[target] || modelsFor(target)[0] || "";
+      const res = await apiFetch(`${API_BASE}/providers/local-cli/ping${directoryQuery()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target, model: currentModel }),
+      });
       const json = await res.json().catch(() => ({}));
-      const local = json.data || data;
-
-      if (json.data) {
-        setData((prev) => {
-          const updated = {
-            ...prev,
-            ...json.data,
-            claude: { ...prev.claude, ...json.data.claude },
-            opencode: { ...prev.opencode, ...json.data.opencode },
-            antigravity: { ...prev.antigravity, ...json.data.antigravity },
-            nineRouter: { ...prev.nineRouter, ...json.data.nineRouter },
-            codex: { ...prev.codex, ...json.data.codex },
-          };
-          try {
-            localStorage.setItem("arunaki_cached_local_cli_status", JSON.stringify(updated));
-            if (updated.antigravity?.accountEmail) {
-              localStorage.setItem("arunaki_agy_email", updated.antigravity.accountEmail);
-            }
-          } catch {}
-          return updated;
-        });
-      }
-
-      let isLive = false;
-      let detail = "";
-
-      if (target === "antigravity") {
-        isLive = !!local.bridgeRunning && (!!local.antigravity?.detected || !!local.antigravity?.cliInstalled);
-        detail = isLive
-          ? `Google Antigravity CLI bridge active (${local.antigravity?.agyVersion ? `agy ${local.antigravity.agyVersion}` : "port 20188"})`
-          : local.bridgeRunning
-          ? "Bridge active (Google Antigravity CLI ready)"
-          : "Local CLI bridge offline";
-      } else if (target === "claude") {
-        isLive = !!local.claude?.installed && (!!local.claude?.loggedIn || !!local.bridgeRunning);
-        detail = isLive
-          ? "Claude Code CLI authenticated & ready"
-          : local.claude?.installed
-          ? "Login required ('claude login')"
-          : "Claude Code CLI not installed";
-      } else if (target === "nineRouter") {
-        isLive = !!local.nineRouter?.running || !!local.nineRouter?.installed;
-        detail = local.nineRouter?.running
-          ? "9Router gateway running on port 20128"
-          : local.nineRouter?.installed
-          ? "9Router installed (ready to start)"
-          : "9Router binary not installed";
-      } else if (target === "opencode") {
-        isLive = !!local.opencode?.installed;
-        detail = isLive ? "OpenCode interpreter ready" : "OpenCode not installed";
-      } else if (target === "codex") {
-        isLive = !!local.codex?.installed;
-        detail = isLive ? "OpenAI Codex CLI ready" : "OpenAI Codex CLI not installed";
-      } else if (target === "kiro") {
-        isLive = !!local.bridgeRunning && !!local.kiro?.signedIn;
-        detail = isLive
-          ? `Kiro connected via the local CLI bridge (AWS CodeWhisperer, ${local.kiro?.region ?? "us-east-1"})`
-          : local.kiro?.signedIn
-          ? "Kiro signed in, but the local CLI bridge is offline"
-          : "Kiro sign-in needed";
-      }
-
-      const elapsed = Math.max(Date.now() - startMs, 14);
+      const pingData = json?.data;
+      const isLive = Boolean(pingData?.success);
+      const elapsed = typeof pingData?.timeMs === "number" ? pingData.timeMs : Math.max(Date.now() - startMs, 12);
+      const detail = pingData?.message || (isLive ? `${friendlyName} ready` : `${friendlyName} offline`);
 
       setPingResults((prev) => ({
         ...prev,
@@ -907,13 +695,9 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
       }));
 
       if (isLive) {
-        toast.success(`${friendlyName} Ping OK (${elapsed}ms)`, {
-          description: detail,
-        });
+        toast.success(`${friendlyName} Ping OK (${elapsed}ms)`, { description: detail });
       } else {
-        toast.error(`${friendlyName} Ping Offline`, {
-          description: detail,
-        });
+        toast.error(`${friendlyName} Ping Offline`, { description: detail });
       }
     } catch (err: any) {
       const elapsed = Math.max(Date.now() - startMs, 15);
@@ -925,9 +709,7 @@ export function useCliConnections({ providers, onRefresh }: SettingsCliConnectio
           message: err.message,
         },
       }));
-      toast.error(`${friendlyName} Ping Error`, {
-        description: err.message,
-      });
+      toast.error(`${friendlyName} Ping Error`, { description: err.message });
     } finally {
       setTestingPingTarget(null);
     }

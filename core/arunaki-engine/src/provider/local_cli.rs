@@ -399,7 +399,7 @@ pub async fn handle_local_cli_status() -> Response {
         "detail": "Built-in Rust Local-CLI Bridge active"
     });
 
-    let data_envelope = json!({
+    let mut data_envelope = json!({
         "claude": claude_slot,
         "opencode": opencode_slot,
         "antigravity": antigravity_slot,
@@ -411,6 +411,8 @@ pub async fn handle_local_cli_status() -> Response {
         "discovered": build_discovered_list(),
         "registry": build_cli_provider_registry()
     });
+    data_envelope["cardStates"] =
+        super::cli_diagnostics::build_normalized_card_states(&data_envelope);
 
     Json(json!({
         "bridgeRunning": true,
