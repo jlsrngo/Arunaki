@@ -48,32 +48,34 @@ export function useTasksBoard() {
     return () => window.removeEventListener("arunaki-folder-change", handleFolderChange);
   }, []);
 
-  // Save tasks to disk (.arunaki/tasks.json)
+  // Atomically save tasks to disk (.arunaki/tasks.json) via Rust engine::tasks
   const saveTasks = useCallback(async (newTasks: TaskItem[]) => {
     setTasks(newTasks);
 
     if (activeFolder) {
       localStorage.setItem(`arunaki_tasks_${activeFolder}`, JSON.stringify(newTasks));
-    }
-
-    if (!activeFolder) {
+    } else {
       localStorage.setItem("arunaki_offline_tasks", JSON.stringify(newTasks));
       return;
     }
 
     try {
-      const payloadStr = JSON.stringify(newTasks, null, 2);
-      await apiFetch("/api/desktop/write-file", {
+      const res = await apiFetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filePath: ".arunaki/tasks.json",
           directory: activeFolder,
-          content: payloadStr,
+          tasks: newTasks,
         }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.tasks)) {
+          setTasks(data.tasks);
+        }
+      }
     } catch (err) {
-      console.error("[TasksBoard] Failed to save tasks to disk:", err);
+      console.error("[TasksBoard] Failed to save tasks via engine::tasks:", err);
     }
   }, [activeFolder]);
 
@@ -110,7 +112,7 @@ export function useTasksBoard() {
     }
   }, [activeFolder]);
 
-  // Load tasks from .arunaki/tasks.json with automatic day rollover
+  // Load tasks from .arunaki/tasks.json with automatic Rust-side day/time rollover
   const loadTasks = useCallback(async () => {
     if (!activeFolder) {
       const savedOffline = localStorage.getItem("arunaki_offline_tasks");
@@ -133,43 +135,31 @@ export function useTasksBoard() {
 
     setIsLoading(true);
     try {
-      const res = await apiFetch("/api/desktop/read-file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filePath: ".arunaki/tasks.json",
-          directory: activeFolder,
-        }),
-      });
+      const res = await apiFetch(
+        `/api/tasks?directory=${encodeURIComponent(activeFolder)}`
+      );
 
       if (res.ok) {
         const data = await res.json();
-        if (data && typeof data.content === "string") {
-          try {
-            const parsed = JSON.parse(data.content);
-            if (Array.isArray(parsed)) {
-              const { updated, hasChanges } = reconcileTasksRollover(parsed);
-              setTasks(updated);
-              if (hasChanges) {
-                void saveTasks(updated);
-              }
-              return;
-            }
-          } catch {
-            // Ignore parse errors
-          }
+        if (Array.isArray(data?.tasks) && data.tasks.length > 0) {
+          setTasks(data.tasks);
+          localStorage.setItem(
+            `arunaki_tasks_${activeFolder}`,
+            JSON.stringify(data.tasks)
+          );
+          return;
         }
       }
 
-      // Fallback: Read from localStorage if file doesn't exist
+      // Fallback: Read from localStorage if file doesn't exist yet
       const local = localStorage.getItem(`arunaki_tasks_${activeFolder}`);
       if (local) {
         try {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed)) {
-            const { updated, hasChanges } = reconcileTasksRollover(parsed);
+            const { updated } = reconcileTasksRollover(parsed);
             setTasks(updated);
-            if (hasChanges) {
+            if (updated.length > 0) {
               void saveTasks(updated);
             }
             return;
@@ -181,7 +171,7 @@ export function useTasksBoard() {
         setTasks([]);
       }
     } catch (err) {
-      console.warn("[TasksBoard] Failed to read tasks file:", err);
+      console.warn("[TasksBoard] Failed to read tasks from engine::tasks:", err);
       setTasks([]);
     } finally {
       setIsLoading(false);

@@ -12,6 +12,7 @@ pub mod permission;
 pub mod provider;
 pub mod question;
 pub mod session;
+pub mod tasks;
 pub mod tool;
 
 use crate::bridge::{start_bridge_server, LOCAL_CLI_BRIDGE_PORT};
@@ -125,6 +126,7 @@ pub fn build_router() -> Router {
         .merge(messaging::router())
         .merge(network::router())
         .merge(session::router())
+        .merge(tasks::router())
         .merge(question::router())
         .merge(permission::router())
         .fallback(handle_fallback)
