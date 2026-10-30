@@ -117,14 +117,32 @@ export function reconcileTasksRollover(tasks: TaskItem[]): { updated: TaskItem[]
       };
     }
 
-    // 3. Overdue detection: If in 'today' and targetDate is before today -> shift to 'overdue'
-    if (task.columnId === "today" && task.targetDate && task.targetDate < today) {
-      hasChanges = true;
-      return {
-        ...task,
-        columnId: "overdue" as const,
-        updatedAt: new Date().toISOString(),
-      };
+    // 3. Overdue detection:
+    // a) If in 'today' and targetDate is strictly before today -> shift to 'overdue'
+    // b) If in 'today' and targetDate is today, but reminderTime is set and current time has passed it -> shift to 'overdue'
+    if (task.columnId === "today" && task.targetDate) {
+      if (task.targetDate < today) {
+        hasChanges = true;
+        return {
+          ...task,
+          columnId: "overdue" as const,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      if (task.targetDate === today && task.reminderTime) {
+        const [hours, minutes] = task.reminderTime.split(":").map(Number);
+        const taskMinutes = (hours || 0) * 60 + (minutes || 0);
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        if (nowMinutes > taskMinutes) {
+          hasChanges = true;
+          return {
+            ...task,
+            columnId: "overdue" as const,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      }
     }
 
     return task;

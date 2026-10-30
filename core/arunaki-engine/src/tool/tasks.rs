@@ -13,7 +13,7 @@ pub fn tasks_tool_definition() -> Value {
         "type": "function",
         "function": {
             "name": "manage_operational_tasks",
-            "description": "Autonomous Executive Assistant tool to manage, inspect, and update the operational agenda and task checklist (.arunaki/tasks.json). Call this tool whenever the user reports operational progress, completed deliveries, receipt of expenses (e.g., 'pengeluaran pengiriman paket pak arnol 30rb' implies package was delivered/sent), or wants to view/create/check off subtasks on their agenda board.",
+            "description": "Autonomous Executive Assistant tool to manage, inspect, and update the operational agenda and task checklist (.arunaki/tasks.json). Call this tool whenever the user reports task progress, operational milestones, settlement notes, or requests to inspect, create, or update checklist items on the tasks board.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -24,11 +24,11 @@ pub fn tasks_tool_definition() -> Value {
                     },
                     "task_query": {
                         "type": "string",
-                        "description": "Search term matching the task title or description (e.g. 'pak arnol', 'faktur'). Case-insensitive."
+                        "description": "Search keyword matching the target task title or description. Case-insensitive."
                     },
                     "subtask_query": {
                         "type": "string",
-                        "description": "Search term matching the subtask checklist title (e.g. 'terkirim', 'kirim', 'rekap', 'verifikasi'). Case-insensitive."
+                        "description": "Search keyword matching the target subtask checklist title. Case-insensitive."
                     },
                     "completed": {
                         "type": "boolean",
@@ -41,7 +41,7 @@ pub fn tasks_tool_definition() -> Value {
                     },
                     "notes": {
                         "type": "string",
-                        "description": "Optional additional notes or expense details to append to the task (e.g. 'Biaya pengiriman Rp 30.000 tercatat')."
+                        "description": "Optional additional notes, settlement details, or audit remarks to append to the task."
                     },
                     "new_task_title": {
                         "type": "string",

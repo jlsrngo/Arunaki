@@ -115,6 +115,12 @@ export function TaskModal({
       subtasks: modalSubtasks,
     });
 
+    const scheduleChanged = !editingTask ||
+      editingTask.reminderTime !== modalTime ||
+      editingTask.targetDate !== modalDate ||
+      editingTask.telegramReminderEnabled !== modalTelegram;
+    const resolvedNotifiedAt = scheduleChanged ? null : (editingTask?.notifiedAt || null);
+
     await onSave(
       {
         title: modalTitle.trim(),
@@ -124,7 +130,7 @@ export function TaskModal({
         reminderTime: modalTime,
         reminderDateTime,
         telegramReminderEnabled: modalTelegram,
-        notifiedAt: editingTask?.notifiedAt || null,
+        notifiedAt: resolvedNotifiedAt,
         priority: modalPriority,
         attachedFile: modalFile,
         subtasks: modalSubtasks,

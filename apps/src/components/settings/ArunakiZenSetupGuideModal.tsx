@@ -171,7 +171,7 @@ export function ArunakiZenSetupGuideModal({
                 )}
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-xs text-[var(--text-secondary)] pl-1">
-                <li>{tr("zenStep2Sub1", "Open ArunakiZen POS desktop or web app.")}</li>
+                <li>{tr("zenStep2Sub1", "Open the ArunakiZen desktop app.")}</li>
                 <li>{tr("zenStep2Sub2", "Navigate to Settings > Integration & API Key.")}</li>
                 <li>{tr("zenStep2Sub3", "Click 'Generate Token' or copy the active integration key.")}</li>
                 <li>{tr("zenStep2Sub4", "Paste the key into the 'Integration API Key' field.")}</li>

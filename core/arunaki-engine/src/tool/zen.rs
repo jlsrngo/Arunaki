@@ -206,7 +206,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "invoice": {
                             "type": "string",
-                            "description": "Optional existing invoice number (e.g. 'R43-241026007') when editing/revising an existing order in-place without supervisor password."
+                            "description": "Optional existing invoice number (e.g. 'INV-1001') when editing/revising an existing order in-place without supervisor password."
                         },
                         "is_edit": {
                             "type": "boolean",
@@ -261,7 +261,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "invoice": {
                             "type": "string",
-                            "description": "Existing sales invoice number to edit (e.g. 'R43-241026007')."
+                            "description": "Existing sales invoice number to edit (e.g. 'INV-1001')."
                         },
                         "customer": {
                             "type": "string",
@@ -321,7 +321,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "invoice": {
                             "type": "string",
-                            "description": "Sales invoice number (e.g. 'R43-231026001')."
+                            "description": "Sales invoice number (e.g. 'INV-1001')."
                         },
                         "open_drawer": {
                             "type": "boolean",
@@ -399,7 +399,7 @@ pub fn pos_tool_definitions() -> Vec<Value> {
                     "properties": {
                         "invoice": {
                             "type": "string",
-                            "description": "Sales invoice number to delete/void (e.g. 'R43-241026007')."
+                            "description": "Sales invoice number to delete/void (e.g. 'INV-1001')."
                         },
                         "reason": {
                             "type": "string",
