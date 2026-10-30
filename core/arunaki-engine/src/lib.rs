@@ -2,6 +2,7 @@ pub mod arunaki;
 pub mod bridge;
 pub mod cred_store;
 pub mod desktop;
+pub mod diff;
 pub mod files;
 pub mod knowledge;
 pub mod messaging;
@@ -117,6 +118,7 @@ pub fn build_router() -> Router {
         .route("/global/event", get(handle_sse_events))
         .route("/event", get(handle_sse_events))
         .merge(desktop::router())
+        .merge(diff::router())
         .merge(knowledge::router())
         .merge(files::router())
         .merge(provider::router())

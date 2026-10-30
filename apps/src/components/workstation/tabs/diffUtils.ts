@@ -1,3 +1,5 @@
+import { apiFetch } from "../../../lib/api";
+
 export interface DiffLine {
   type: "unchanged" | "added" | "deleted";
   oldLineNumber?: number;
@@ -18,7 +20,47 @@ export interface SideBySideDiffRow {
 }
 
 /**
- * Line-by-line diff algorithm (LCS-based) for gutter change indicators
+ * Calls the native Rust `engine::diff` endpoint (`POST /api/desktop/line-diff`)
+ * so large document diffs run off the WebView2 UI thread. Falls back to local LCS if offline.
+ */
+export async function computeLineDiffRust(
+  oldText: string,
+  newText: string
+): Promise<{
+  diffLines: DiffLine[];
+  addedCount: number;
+  deletedCount: number;
+}> {
+  try {
+    const res = await apiFetch("/api/desktop/line-diff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ oldText, newText }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.diffLines)) {
+        return {
+          diffLines: data.diffLines,
+          addedCount: typeof data.addedCount === "number" ? data.addedCount : 0,
+          deletedCount: typeof data.deletedCount === "number" ? data.deletedCount : 0,
+        };
+      }
+    }
+  } catch {
+    // Fallback to synchronous LCS below
+  }
+
+  const diffLines = computeLineDiff(oldText, newText);
+  return {
+    diffLines,
+    addedCount: diffLines.filter((l) => l.type === "added").length,
+    deletedCount: diffLines.filter((l) => l.type === "deleted").length,
+  };
+}
+
+/**
+ * Synchronous LCS line-diff fallback with prefix/suffix trimming.
  */
 export function computeLineDiff(oldText: string, newText: string): DiffLine[] {
   const oldLines = oldText ? oldText.split("\n") : [];
@@ -27,47 +69,92 @@ export function computeLineDiff(oldText: string, newText: string): DiffLine[] {
   const N = oldLines.length;
   const M = newLines.length;
 
-  const L: number[][] = Array.from({ length: N + 1 }, () => new Array(M + 1).fill(0));
-
-  for (let i = 0; i < N; i++) {
-    for (let j = 0; j < M; j++) {
-      if (oldLines[i] === newLines[j]) {
-        L[i + 1][j + 1] = L[i][j] + 1;
-      } else {
-        L[i + 1][j + 1] = Math.max(L[i + 1][j], L[i][j + 1]);
-      }
-    }
+  let prefixLen = 0;
+  while (prefixLen < N && prefixLen < M && oldLines[prefixLen] === newLines[prefixLen]) {
+    prefixLen++;
   }
 
-  let i = N;
-  let j = M;
+  let suffixLen = 0;
+  while (
+    suffixLen < N - prefixLen &&
+    suffixLen < M - prefixLen &&
+    oldLines[N - 1 - suffixLen] === newLines[M - 1 - suffixLen]
+  ) {
+    suffixLen++;
+  }
+
   const result: DiffLine[] = [];
 
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-      result.unshift({
-        type: "unchanged",
-        oldLineNumber: i,
-        newLineNumber: j,
-        content: oldLines[i - 1],
-      });
-      i--;
-      j--;
-    } else if (j > 0 && (i === 0 || L[i][j - 1] >= L[i - 1][j])) {
-      result.unshift({
-        type: "added",
-        newLineNumber: j,
-        content: newLines[j - 1],
-      });
-      j--;
-    } else if (i > 0 && (j === 0 || L[i][j - 1] < L[i - 1][j])) {
-      result.unshift({
-        type: "deleted",
-        oldLineNumber: i,
-        content: oldLines[i - 1],
-      });
-      i--;
+  for (let idx = 0; idx < prefixLen; idx++) {
+    result.push({
+      type: "unchanged",
+      oldLineNumber: idx + 1,
+      newLineNumber: idx + 1,
+      content: oldLines[idx],
+    });
+  }
+
+  const oldMid = oldLines.slice(prefixLen, N - suffixLen);
+  const newMid = newLines.slice(prefixLen, M - suffixLen);
+  const midN = oldMid.length;
+  const midM = newMid.length;
+
+  if (midN > 0 || midM > 0) {
+    const L: number[][] = Array.from({ length: midN + 1 }, () => new Array(midM + 1).fill(0));
+
+    for (let i = 0; i < midN; i++) {
+      for (let j = 0; j < midM; j++) {
+        if (oldMid[i] === newMid[j]) {
+          L[i + 1][j + 1] = L[i][j] + 1;
+        } else {
+          L[i + 1][j + 1] = Math.max(L[i + 1][j], L[i][j + 1]);
+        }
+      }
     }
+
+    let i = midN;
+    let j = midM;
+    const midResult: DiffLine[] = [];
+
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldMid[i - 1] === newMid[j - 1]) {
+        midResult.unshift({
+          type: "unchanged",
+          oldLineNumber: prefixLen + i,
+          newLineNumber: prefixLen + j,
+          content: oldMid[i - 1],
+        });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || L[i][j - 1] >= L[i - 1][j])) {
+        midResult.unshift({
+          type: "added",
+          newLineNumber: prefixLen + j,
+          content: newMid[j - 1],
+        });
+        j--;
+      } else {
+        midResult.unshift({
+          type: "deleted",
+          oldLineNumber: prefixLen + i,
+          content: oldMid[i - 1],
+        });
+        i--;
+      }
+    }
+
+    result.push(...midResult);
+  }
+
+  for (let offset = 0; offset < suffixLen; offset++) {
+    const oldIdx = N - suffixLen + offset;
+    const newIdx = M - suffixLen + offset;
+    result.push({
+      type: "unchanged",
+      oldLineNumber: oldIdx + 1,
+      newLineNumber: newIdx + 1,
+      content: oldLines[oldIdx],
+    });
   }
 
   return result;
@@ -103,7 +190,6 @@ export function computeSideBySideDiff(oldText: string, newText: string): SideByS
       continue;
     }
 
-    // Collect consecutive deleted and added chunks
     const deletedChunk: DiffLine[] = [];
     const addedChunk: DiffLine[] = [];
 

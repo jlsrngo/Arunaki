@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { CenterTab } from "../tabs/types";
-import { DiffLine, computeLineDiff } from "../tabs/diffUtils";
+import { DiffLine, computeLineDiffRust } from "../tabs/diffUtils";
 import { isArtCraftBinaryTab } from "../tabs/centerUtils";
 
 interface UseCenterPanelEditorOptions {
@@ -81,31 +81,38 @@ export function useCenterPanelEditor({
       incomingContent !== previousContents[activeTab.id]
     ) {
       if (activeTab.type === "file" || activeTab.type === "app") {
-        const prevText = previousContents[activeTab.id] ?? existingContent;
-        const diffLines = computeLineDiff(prevText, incomingContent);
-        const added = diffLines.filter((l) => l.type === "added").length;
-        const deleted = diffLines.filter((l) => l.type === "deleted").length;
+        const tabId = activeTab.id;
+        const prevText = previousContents[tabId] ?? existingContent;
+        setEditedContents((prev) => ({ ...prev, [tabId]: incomingContent }));
+        setPreviousContents((prev) => ({ ...prev, [tabId]: incomingContent }));
+        setUnsavedTabs((prev) => ({ ...prev, [tabId]: false }));
 
-        if (added > 0 || deleted > 0) {
-          setActiveDiffs((prev) => ({
-            ...prev,
-            [activeTab.id]: {
-              diffLines,
-              addedCount: added,
-              deletedCount: deleted,
-            },
-          }));
+        let cancelled = false;
+        let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
-          const timer = setTimeout(() => {
-            setActiveDiffs((prev) => ({ ...prev, [activeTab.id]: null }));
-          }, 10000);
+        computeLineDiffRust(prevText, incomingContent).then(
+          ({ diffLines, addedCount, deletedCount }) => {
+            if (cancelled) return;
+            if (addedCount > 0 || deletedCount > 0) {
+              setActiveDiffs((prev) => ({
+                ...prev,
+                [tabId]: {
+                  diffLines,
+                  addedCount,
+                  deletedCount,
+                },
+              }));
+              clearTimer = setTimeout(() => {
+                setActiveDiffs((prev) => ({ ...prev, [tabId]: null }));
+              }, 10000);
+            }
+          }
+        );
 
-          setEditedContents((prev) => ({ ...prev, [activeTab.id]: incomingContent }));
-          setPreviousContents((prev) => ({ ...prev, [activeTab.id]: incomingContent }));
-          setUnsavedTabs((prev) => ({ ...prev, [activeTab.id]: false }));
-
-          return () => clearTimeout(timer);
-        }
+        return () => {
+          cancelled = true;
+          if (clearTimer) clearTimeout(clearTimer);
+        };
       }
 
       setEditedContents((prev) => ({ ...prev, [activeTab.id]: incomingContent }));
