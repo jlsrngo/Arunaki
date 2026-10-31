@@ -353,10 +353,37 @@ pub async fn run_agent_turn(
         sys_prompt.push_str("</knowledge_base>");
     }
 
+    // Proactive Context Compaction (OpenCode Item 2a)
+    let (effective_history, was_compacted) =
+        crate::session::compaction::compact_session_history(history, crate::session::compaction::DEFAULT_CONTEXT_WINDOW);
+    if was_compacted {
+        crate::paths::log_engine(
+            "session",
+            &format!(
+                "📦 Session context compacted: {} turns summarized to preserve context window",
+                history.len()
+            ),
+        );
+        emit_event(
+            workspace_dir,
+            "session.compacted",
+            json!({
+                "sessionID": session_id,
+                "originalTurns": history.len(),
+                "compactedTurns": effective_history.len()
+            }),
+        );
+    }
+
     let mut chat_messages = vec![json!({ "role": "system", "content": sys_prompt })];
-    for m in history {
+    for m in &effective_history {
         let mtype = m.get("type").and_then(|v| v.as_str()).unwrap_or("");
-        if mtype == "user" {
+        if mtype == "synthetic" {
+            let txt = m.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            if !txt.is_empty() {
+                chat_messages.push(json!({ "role": "system", "content": txt }));
+            }
+        } else if mtype == "user" {
             let txt = m.get("text").and_then(|v| v.as_str()).unwrap_or("");
             chat_messages.push(json!({ "role": "user", "content": txt }));
         } else if mtype == "assistant" {
