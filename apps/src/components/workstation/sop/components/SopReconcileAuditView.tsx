@@ -89,7 +89,7 @@ export const SopReconcileAuditView = memo(function SopReconcileAuditView({
               )}
             >
               <div className="text-xs font-semibold text-[var(--text-primary)] mb-0.5">
-                POS vs Bank vs Cash Ledger
+                Business vs Bank vs Cash Ledger
               </div>
               <div className="text-[11px] text-[var(--text-muted)]">
                 Reconcile daily register sales, bank settlements, and Excel cash recaps.

@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { Loader2, Wifi, Trash2, ArrowUp, ArrowDown, Settings2, Info, X, Terminal } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../lib/i18n";
+import { useTheme } from "../../lib/theme";
 import type { Provider } from "./ModelProviderSettings";
 import { formatToastError } from "./constants";
 import { Card, Button, Badge } from "../ui";
@@ -37,6 +38,7 @@ export const ProviderCard = memo(function ProviderCard({
   onDelete,
 }: ProviderCardProps) {
   const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
   const [showTestDetails, setShowTestDetails] = useState(false);
 
   const selectedModels = getSelectedModels(p.model);
@@ -45,7 +47,9 @@ export const ProviderCard = memo(function ProviderCard({
     <Card
       className={cn(
         "p-4 rounded-2xl transition-all space-y-3",
-        p.active
+        isNeobrutalism
+          ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[3px_3px_0px_#141413]"
+          : p.active
           ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
           : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100"
       )}
@@ -86,6 +90,8 @@ export const ProviderCard = memo(function ProviderCard({
           {/* ON / OFF Toggle Switch */}
           <button
             type="button"
+            role="switch"
+            aria-checked={p.active}
             onClick={(e) => {
               e.stopPropagation();
               onToggleActive(p);
@@ -97,7 +103,11 @@ export const ProviderCard = memo(function ProviderCard({
             }
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border shrink-0 mt-0.5 select-none",
-              p.active
+              isNeobrutalism
+                ? p.active
+                  ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
+                  : "bg-[#EAE0D7] text-[#141413] border-2 border-[#141413]"
+                : p.active
                 ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)] hover:opacity-90"
                 : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
             )}
@@ -106,19 +116,38 @@ export const ProviderCard = memo(function ProviderCard({
             <div
               className={cn(
                 "w-7 h-4 rounded-full p-0.5 transition-colors flex items-center shrink-0",
-                p.active ? "bg-[var(--bg-app)]" : "bg-[var(--bg-hover)]"
+                isNeobrutalism
+                  ? p.active
+                    ? "bg-[#141413]"
+                    : "bg-[#141413]/30"
+                  : p.active
+                  ? "bg-[var(--bg-app)]"
+                  : "bg-[var(--bg-hover)]"
               )}
             >
               <div
                 className={cn(
                   "w-3 h-3 rounded-full transition-transform duration-150",
-                  p.active ? "bg-[var(--text-primary)] translate-x-3" : "bg-[var(--text-muted)] translate-x-0"
+                  isNeobrutalism
+                    ? p.active
+                      ? "bg-[#CCFF00] translate-x-3"
+                      : "bg-[#FFFDFB] translate-x-0"
+                    : p.active
+                    ? "bg-[var(--text-primary)] translate-x-3"
+                    : "bg-[var(--text-muted)] translate-x-0"
                 )}
               />
             </div>
             <span>{p.active ? "ON" : "OFF"}</span>
             {p.active && (
-              <span className="text-[10px] font-medium opacity-70 border-l border-[var(--bg-app)]/20 pl-1.5">
+              <span
+                className={cn(
+                  "text-[10px] font-medium pl-1.5",
+                  isNeobrutalism
+                    ? "border-l border-[#141413]/40 text-[#141413]"
+                    : "opacity-70 border-l border-[var(--bg-app)]/20"
+                )}
+              >
                 Primary
               </span>
             )}

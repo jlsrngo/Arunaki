@@ -14,11 +14,13 @@ import {
   BookOpen,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useTheme } from "../../lib/theme";
 import { TelegramSetupGuideModal } from "./TelegramSetupGuideModal";
 import { Button, Input, Card } from "../ui";
 import { useMessagingSettings } from "./hooks/useMessagingSettings";
 
 export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
+  const { isNeobrutalism } = useTheme();
   const {
     enabled,
     setEnabled,
@@ -49,13 +51,22 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header & Status Card */}
-      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)]">
+      <Card
+        className={cn(
+          "p-5 transition-all",
+          isNeobrutalism
+            ? "bg-[#F0F9FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            : "bg-[var(--bg-card)] border-[var(--border-color)]"
+        )}
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
               className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center border transition-colors",
-                status.connected
+                isNeobrutalism
+                  ? "bg-[#0EA5E9] text-white border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
+                  : status.connected
                   ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                   : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
               )}
@@ -64,13 +75,22 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-[var(--text-primary)] text-sm">
+                <h3
+                  className={cn(
+                    "font-semibold text-sm",
+                    isNeobrutalism ? "text-[#141413] font-bold" : "text-[var(--text-primary)]"
+                  )}
+                >
                   Telegram Bot Gateway
                 </h3>
                 <span
                   className={cn(
                     "text-[10px] px-2 py-0.5 rounded-full font-medium border",
-                    status.connected
+                    isNeobrutalism
+                      ? status.connected
+                        ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] font-bold"
+                        : "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] font-semibold"
+                      : status.connected
                       ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                       : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
                   )}
@@ -78,7 +98,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                   {status.connected ? "Active & Connected" : "Disconnected"}
                 </span>
               </div>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              <p
+                className={cn(
+                  "text-xs mt-0.5",
+                  isNeobrutalism ? "text-[#141413]/80" : "text-[var(--text-muted)]"
+                )}
+              >
                 {status.connected && status.botUsername
                   ? `Connected as @${status.botUsername} (${status.botFirstName || "Arunaki Bot"})`
                   : "Allow Arunaki to send notifications and receive task commands via Telegram."}
@@ -95,7 +120,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
                 setGuideInitialStep(1);
                 setShowGuideModal(true);
               }}
-              className="h-8 text-xs font-medium border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] gap-1.5"
+              className={cn(
+                "h-8 text-xs font-medium gap-1.5",
+                isNeobrutalism
+                  ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#F3EBE4]"
+                  : "border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              )}
             >
               <BookOpen className="w-3.5 h-3.5" />
               Setup Guide
@@ -107,7 +137,12 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
               size="sm"
               onClick={fetchConfigAndStatus}
               disabled={loading}
-              className="h-8 text-xs font-medium border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] gap-1.5"
+              className={cn(
+                "h-8 text-xs font-medium gap-1.5",
+                isNeobrutalism
+                  ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#F3EBE4]"
+                  : "border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              )}
             >
               <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
               Refresh
@@ -124,13 +159,30 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
       </Card>
 
       {/* Configuration Form */}
-      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)] space-y-5">
+      <Card
+        className={cn(
+          "p-5 space-y-5 transition-all",
+          isNeobrutalism
+            ? "bg-[#FAF5FF] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            : "bg-[var(--bg-card)] border-[var(--border-color)]"
+        )}
+      >
         <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
           <div>
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+            <h4
+              className={cn(
+                "text-sm font-semibold",
+                isNeobrutalism ? "text-[#141413] font-bold" : "text-[var(--text-primary)]"
+              )}
+            >
               Enable Telegram Bot Bridge
             </h4>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+            <p
+              className={cn(
+                "text-xs mt-0.5",
+                isNeobrutalism ? "text-[#141413]/80" : "text-[var(--text-muted)]"
+              )}
+            >
               Turn on to let Arunaki poll Telegram for incoming chat instructions and send progress updates.
             </p>
           </div>
@@ -140,14 +192,26 @@ export const SettingsMessagingTab = memo(function SettingsMessagingTab() {
             aria-checked={enabled}
             onClick={() => setEnabled(!enabled)}
             className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-              enabled ? "bg-[var(--text-primary)]" : "bg-[var(--border-strong)]"
+              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center p-0.5 transition-colors duration-200 ease-in-out focus:outline-none",
+              isNeobrutalism
+                ? enabled
+                  ? "bg-[#CCFF00] border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
+                  : "bg-[#EAE0D7] border-2 border-[#141413]"
+                : enabled
+                ? "bg-[var(--text-primary)] border-2 border-transparent"
+                : "bg-[var(--border-strong)] border-2 border-transparent"
             )}
           >
             <span
               className={cn(
-                "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[var(--bg-app)] shadow ring-0 transition duration-200 ease-in-out",
-                enabled ? "translate-x-5" : "translate-x-0"
+                "pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full ring-0 transition-transform duration-200 ease-in-out",
+                isNeobrutalism
+                  ? enabled
+                    ? "translate-x-5 bg-[#141413]"
+                    : "translate-x-0 bg-[#141413]"
+                  : enabled
+                  ? "translate-x-5 bg-[var(--bg-app)] shadow"
+                  : "translate-x-0 bg-[var(--bg-app)] shadow"
               )}
             />
           </button>

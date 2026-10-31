@@ -1,5 +1,5 @@
 //! 3-Way Reconciliation & Administrative Anomaly/Fraud Detection Engine.
-//! Audits cross-document financial records (POS <-> Cash Ledger <-> Bank, or PO <-> Delivery <-> Invoice).
+//! Audits cross-document financial records (Sales <-> Cash Ledger <-> Bank, or PO <-> Delivery <-> Invoice).
 
 use std::collections::HashMap;
 use std::fs;
@@ -43,7 +43,7 @@ pub fn reconcile_tool_definitions() -> Vec<Value> {
                     "mode": {
                         "type": "string",
                         "enum": ["cash_and_bank", "procurement_three_way"],
-                        "description": "Reconciliation mode: 'cash_and_bank' (POS vs Ledger vs Bank) or 'procurement_three_way' (PO vs Delivery vs Invoice)."
+                        "description": "Reconciliation mode: 'cash_and_bank' (Sales vs Ledger vs Bank) or 'procurement_three_way' (PO vs Delivery vs Invoice)."
                     },
                     "records": {
                         "type": "array",
@@ -186,7 +186,7 @@ pub fn execute_audit_reconciliation(
     let (source_a_label, source_b_label, source_c_label) = if mode == "procurement_three_way" {
         ("Purchase Order (PO)", "Delivery Receipt (GRN)", "Vendor Invoice")
     } else {
-        ("POS Register", "Cash Ledger", "Bank / Vault Settlement")
+        ("Sales Register", "Cash Ledger", "Bank / Vault Settlement")
     };
 
     let mut line_items: Vec<ReconcileLineItem> = Vec::new();

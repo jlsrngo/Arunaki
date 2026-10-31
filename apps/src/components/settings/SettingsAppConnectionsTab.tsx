@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 import { ArunakiZenSetupGuideModal } from "./ArunakiZenSetupGuideModal";
 import { cn } from "../../lib/utils";
+import { useTheme } from "../../lib/theme";
 import { Button, Input, Card } from "../ui";
 import { useAppConnections } from "./hooks/useAppConnections";
 
 export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab() {
+  const { isNeobrutalism } = useTheme();
   const {
     hostUrl,
     setHostUrl,
@@ -48,13 +50,22 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header & Status Card */}
-      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)]">
+      <Card
+        className={cn(
+          "p-5 transition-all",
+          isNeobrutalism
+            ? "bg-[#ECFDF5] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            : "bg-[var(--bg-card)] border-[var(--border-color)]"
+        )}
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
               className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center border transition-colors",
-                status.connected
+                isNeobrutalism
+                  ? "bg-[#10B981] text-white border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
+                  : status.connected
                   ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                   : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
               )}
@@ -63,13 +74,22 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-[var(--text-primary)] text-sm">
-                  ArunakiZen POS & ERP Integration
+                <h3
+                  className={cn(
+                    "font-semibold text-sm",
+                    isNeobrutalism ? "text-[#141413] font-bold" : "text-[var(--text-primary)]"
+                  )}
+                >
+                  ArunakiZen Business & ERP Integration
                 </h3>
                 <span
                   className={cn(
                     "text-[10px] px-2 py-0.5 rounded-full font-medium border",
-                    status.connected
+                    isNeobrutalism
+                      ? status.connected
+                        ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] font-bold"
+                        : "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] font-semibold"
+                      : status.connected
                       ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                       : "bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-color)]"
                   )}
@@ -77,10 +97,15 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                   {status.connected ? "Active & Linked" : "Standby / Unlinked"}
                 </span>
               </div>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              <p
+                className={cn(
+                  "text-xs mt-0.5",
+                  isNeobrutalism ? "text-[#141413]/80" : "text-[var(--text-muted)]"
+                )}
+              >
                 {status.connected && status.store
                   ? `Linked to ${status.store} · Operator: ${status.operator?.nama || "Admin"}`
-                  : "Allow Arunaki to query inventory, reconcile invoices, and sync business tables directly with ArunakiZen POS."}
+                  : "Allow Arunaki to query inventory, reconcile invoices, and sync business tables directly with ArunakiZen ERP."}
               </p>
             </div>
           </div>
@@ -94,7 +119,12 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
                 setGuideInitialStep(1);
                 setShowGuideModal(true);
               }}
-              className="h-8 text-xs font-medium border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] gap-1.5"
+              className={cn(
+                "h-8 text-xs font-medium gap-1.5",
+                isNeobrutalism
+                  ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#F3EBE4]"
+                  : "border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              )}
             >
               <BookOpen className="w-3.5 h-3.5" />
               Setup Guide
@@ -132,7 +162,14 @@ export const SettingsAppConnectionsTab = memo(function SettingsAppConnectionsTab
       </Card>
 
       {/* Configuration Form Card */}
-      <Card className="p-5 bg-[var(--bg-card)] border-[var(--border-color)] space-y-4">
+      <Card
+        className={cn(
+          "p-5 space-y-4 transition-all",
+          isNeobrutalism
+            ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[4px_4px_0px_#141413] rounded-2xl"
+            : "bg-[var(--bg-card)] border-[var(--border-color)]"
+        )}
+      >
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
           <div>
             <h4 className="text-sm font-semibold text-[var(--text-primary)]">

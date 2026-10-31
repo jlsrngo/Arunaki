@@ -96,7 +96,7 @@ pub fn classify_document(filename: &str, full_path: &str, size_bytes: u64) -> De
     {
         (
             "BANK_STATEMENT",
-            "Run 3-Way Cash & Bank Reconciliation against POS shift totals and Excel cashbook",
+            "Run 3-Way Cash & Bank Reconciliation against store shift totals and Excel cashbook",
             "daily_cash_closing",
         )
     } else if lower.contains("receipt")

@@ -74,7 +74,7 @@
     /* Authentic Neo-Brutalism Triadic Palette (Acid Lime #CCFF00 + Warm Orange #FF9F43 + Lavender Purple #B388FF + Warm Cream Canvas + Crisp Thin 1px Ink Outlines) */
     --bg-app: #F6EFEA;
     --bg-main: #FBF7F4;
-    --bg-header: #CCFF00;
+    --bg-header: #F6EFEA;
     --bg-panel: #F3EBE4;
     --bg-panel-sub: #EAE0D7;
     --bg-editor: #FBF7F4;
@@ -113,12 +113,22 @@
   }
 
   /* Neo-Brutalism Popups, Dropdown Menus & Modals */
-  [data-theme="neobrutalism"] [role="menu"],
-  [data-theme="neobrutalism"] .neo-popup-card,
-  [data-theme="neobrutalism"] [data-sonner-toaster] [data-sonner-toast] {
+  [data-theme="neobrutalism"] [role="menu"] {
     background-color: #FFFDFB !important;
-    border: 1px solid #141413 !important;
-    box-shadow: 3px 3px 0px #141413 !important;
+    border: 2px solid #141413 !important;
+    box-shadow: 4px 4px 0px #141413 !important;
+  }
+
+  [data-theme="neobrutalism"] .neo-popup-card {
+    background-color: #FFF9E6 !important;
+    border: 2px solid #141413 !important;
+    box-shadow: 5px 5px 0px #141413 !important;
+  }
+
+  [data-theme="neobrutalism"] [data-sonner-toaster] [data-sonner-toast] {
+    background-color: #FFF9E6 !important;
+    border: 2px solid #141413 !important;
+    box-shadow: 4px 4px 0px #141413 !important;
   }
 
   [data-theme="neobrutalism"] [role="menu"] [role="menuitem"]:hover {
@@ -127,17 +137,38 @@
   }
 
   /* Primary CTA buttons in Neo-Brutalism turn Acid Lime (#CCFF00) with Crisp 1px Ink Border */
-  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"],
-  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"] {
+  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"]:not([role="switch"]),
+  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"]:not([role="switch"]) {
     background-color: #CCFF00 !important;
     color: #141413 !important;
     border: 1px solid #141413 !important;
     font-weight: 600 !important;
   }
 
-  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"]:hover,
-  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"]:hover {
+  [data-theme="neobrutalism"] button[class*="bg-[#cf6613]"]:not([role="switch"]):hover,
+  [data-theme="neobrutalism"] button[class*="bg-[var(--text-primary)]"]:not([role="switch"]):hover {
     background-color: #FF9F43 !important;
+  }
+
+  /* Neo-Brutalism High-Contrast Toggle Switch */
+  [data-theme="neobrutalism"] button[role="switch"],
+  [data-theme="neobrutalism"] .neo-switch {
+    border: 2px solid #141413 !important;
+    box-shadow: 2px 2px 0px #141413 !important;
+  }
+  [data-theme="neobrutalism"] button[role="switch"][aria-checked="true"],
+  [data-theme="neobrutalism"] .neo-switch[aria-checked="true"],
+  [data-theme="neobrutalism"] .neo-switch-active {
+    background-color: #CCFF00 !important;
+  }
+  [data-theme="neobrutalism"] button[role="switch"][aria-checked="false"],
+  [data-theme="neobrutalism"] .neo-switch[aria-checked="false"] {
+    background-color: #EAE0D7 !important;
+  }
+  [data-theme="neobrutalism"] button[role="switch"] span,
+  [data-theme="neobrutalism"] .neo-switch span {
+    background-color: #141413 !important;
+    box-shadow: none !important;
   }
 
   /* Status Pills & Badges in Warm Orange (#FF9F43) with Crisp 1px Ink Border */

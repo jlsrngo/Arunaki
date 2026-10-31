@@ -122,7 +122,13 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onClose={onClose} className="max-w-[540px] p-7 select-text">
+      <DialogContent
+        onClose={onClose}
+        className={cn(
+          "max-w-[540px] p-7 select-text transition-all",
+          isNeobrutalism && "bg-[#FFF9E6] border-2 border-[#141413] shadow-[5px_5px_0px_#141413] rounded-2xl"
+        )}
+      >
         {/* Content layout: Left circle icon + Right content column */}
         <div className="flex items-start gap-5">
           {/* Circular info badge */}
@@ -130,7 +136,7 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
             className={cn(
               "shrink-0 pt-0.5 select-none text-[var(--text-primary)]",
               isNeobrutalism &&
-                "neo-icon-badge w-11 h-11 rounded-full bg-[#B388FF] border border-[#141413] flex items-center justify-center pt-0"
+                "neo-icon-badge w-11 h-11 rounded-full bg-[#B388FF] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] flex items-center justify-center pt-0"
             )}
           >
             <svg
@@ -186,7 +192,11 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                 type="button"
                 variant="outline"
                 onClick={handleCopy}
-                className="min-w-[72px]"
+                className={cn(
+                  "min-w-[72px]",
+                  isNeobrutalism &&
+                    "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#F3EBE4] font-semibold"
+                )}
               >
                 {copied ? (
                   <>
@@ -202,7 +212,11 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                 type="button"
                 variant="default"
                 onClick={onClose}
-                className="min-w-[58px]"
+                className={cn(
+                  "min-w-[58px]",
+                  isNeobrutalism &&
+                    "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold hover:bg-[#B388FF]"
+                )}
               >
                 {t("done", "OK")}
               </Button>

@@ -680,14 +680,14 @@ pub fn get_standard_playbooks() -> Vec<SopPlaybook> {
         SopPlaybook {
             id: "daily_cash_closing".to_string(),
             title: "Daily Register Closing & Cash Reconciliation".to_string(),
-            category: "Finance & POS".to_string(),
+            category: "Finance & Operations".to_string(),
             description: "Reconcile register sales, QRIS/card receipts, update daily cash ledger in GridCraft, and generate executive closing memorandum in WordCraft.".to_string(),
             estimated_minutes: 2,
             steps: vec![
                 SopStep {
                     step_index: 1,
                     title: "Cashier Shift Sales Synchronization".to_string(),
-                    description: "Pull register transactions from ArunakiZen POS or local transaction log.".to_string(),
+                    description: "Pull register transactions from ArunakiZen ERP or local transaction log.".to_string(),
                     target_file: "cashier_shift_report.txt".to_string(),
                     app: "wordcraft".to_string(),
                 },
@@ -964,7 +964,7 @@ pub fn execute_sop_playbook(
                  | **Total Net Revenue** | **3,920.00** | **81 Total Transactions** |\n\
                  | **Vault Cash Deposit** | **2,050.00** | **Audit Passed** |\n\n\
                  ### Reconciliation Statement\n\
-                 All physical transaction receipts were audited against ArunakiZen POS records. **Zero variance detected ($0.00 discrepancy / Fully Balanced)**.\n\n\
+                 All physical transaction receipts were audited against ArunakiZen records. **Zero variance detected ($0.00 discrepancy / Fully Balanced)**.\n\n\
                  *Autonomously Verified and Sealed by Arunaki Administration Manager.*\n\n\
                  Cashier Signature: ___________________ ( {} )\n\
                  Manager Signature: ___________________ ( ARUNAKI ADM )",

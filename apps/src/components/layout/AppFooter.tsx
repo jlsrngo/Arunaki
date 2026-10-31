@@ -31,11 +31,11 @@ export const AppFooter = memo(function AppFooter({
   const { isNeobrutalism } = useTheme();
 
   const navItems = [
-    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare, neoColor: "bg-[#CCFF00]" },
-    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban, neoColor: "bg-[#FF9F43]" },
-    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen, neoColor: "bg-[#B388FF]" },
-    { label: t("navHistory", "History"), path: "/history", icon: History, neoColor: "bg-[#CCFF00]" },
-    { label: t("navSettings", "Settings"), path: "/settings", icon: Settings, neoColor: "bg-[#FF9F43]" },
+    { label: t("navWorkstation", "Workstation"), path: "/", icon: MessageSquare, neoColor: "bg-[#CCFF00]", neoInactive: "bg-[#F0FDF4]", neoHover: "hover:bg-[#CCFF00]" },
+    { label: t("navTasks", "Tasks"), path: "/tasks", icon: Kanban, neoColor: "bg-[#FF9F43]", neoInactive: "bg-[#FFF7ED]", neoHover: "hover:bg-[#FF9F43]" },
+    { label: t("navKnowledge", "Knowledge"), path: "/knowledge", icon: BookOpen, neoColor: "bg-[#B388FF]", neoInactive: "bg-[#FAF5FF]", neoHover: "hover:bg-[#B388FF]" },
+    { label: t("navHistory", "History"), path: "/history", icon: History, neoColor: "bg-[#A3E635]", neoInactive: "bg-[#F7FEE7]", neoHover: "hover:bg-[#A3E635]" },
+    { label: t("navSettings", "Settings"), path: "/settings", icon: Settings, neoColor: "bg-[#FFD166]", neoInactive: "bg-[#FEFCE8]", neoHover: "hover:bg-[#FFD166]" },
   ];
 
   const handleNavigateWorkstation = useCallback(() => {
@@ -63,11 +63,24 @@ export const AppFooter = memo(function AppFooter({
               : `${t("noFolderOpened", "No folder opened")} (${t("openFolder", "Open Folder...")})`
           }
           className={cn(
-            "flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] truncate max-w-full transition-colors cursor-pointer hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+            "flex items-center gap-2 px-2.5 py-1 rounded-xl truncate max-w-full transition-all cursor-pointer",
+            isNeobrutalism
+              ? "bg-[#FEF08A] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#FDE047] font-semibold"
+              : "bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
           )}
         >
-          <Folder className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
-          <span className="text-[11px] truncate text-[var(--text-primary)]">
+          <Folder
+            className={cn(
+              "w-3.5 h-3.5 shrink-0",
+              isNeobrutalism ? "text-[#141413]" : "text-[var(--text-muted)]"
+            )}
+          />
+          <span
+            className={cn(
+              "text-[11px] truncate",
+              isNeobrutalism ? "text-[#141413] font-bold" : "text-[var(--text-primary)]"
+            )}
+          >
             {activeFolder
               ? activeFolder.split(/[\\/]/).filter(Boolean).pop() || activeFolder
               : t("noFolderOpened", "No folder opened")}
@@ -76,7 +89,14 @@ export const AppFooter = memo(function AppFooter({
       </div>
 
       {/* Center: Main Navigation Floating Capsule (Spacious & Modern) */}
-      <div className="flex items-center gap-1.5 p-1 rounded-full bg-[var(--bg-card)] border border-[var(--border-strong)]">
+      <div
+        className={cn(
+          "flex items-center gap-1.5 p-1 rounded-full",
+          isNeobrutalism
+            ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[3px_3px_0px_#141413]"
+            : "bg-[var(--bg-card)] border border-[var(--border-strong)]"
+        )}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -96,12 +116,14 @@ export const AppFooter = memo(function AppFooter({
               }}
               title={item.label}
               className={cn(
-                "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer",
+                "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer",
                 isActive
                   ? isNeobrutalism
-                    ? `${item.neoColor} text-[#141413] border border-[#141413] font-semibold`
-                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                    ? `${item.neoColor} text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold`
+                    : "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-medium"
+                  : isNeobrutalism
+                  ? `${item.neoInactive} text-[#141413] border border-[#141413]/35 ${item.neoHover} font-semibold`
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] font-medium"
               )}
             >
               <Icon
@@ -118,10 +140,14 @@ export const AppFooter = memo(function AppFooter({
       <div className="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[340px] justify-end">
         <div
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] transition-colors select-none",
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] transition-all select-none",
             isOnline
-              ? "bg-[var(--bg-card)] border-[var(--border-strong)] text-[var(--text-primary)]"
-              : "bg-rose-600 border-rose-600 text-white font-medium"
+              ? isNeobrutalism
+                ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold"
+                : "bg-[var(--bg-card)] border border-[var(--border-strong)] text-[var(--text-primary)]"
+              : isNeobrutalism
+              ? "bg-[#FF6B6B] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] font-bold"
+              : "bg-rose-600 border border-rose-600 text-white font-medium"
           )}
           title={
             isOnline
@@ -158,8 +184,8 @@ export const AppFooter = memo(function AppFooter({
           )}
           <span
             className={cn(
-              "text-[11px] font-medium",
-              isOnline ? "text-[var(--text-primary)]" : "text-white"
+              "text-[11px]",
+              isNeobrutalism ? "text-[#141413] font-bold" : isOnline ? "text-[var(--text-primary)]" : "text-white"
             )}
           >
             {isOnline ? t("online", "Online") : t("offline", "Offline")}

@@ -226,12 +226,19 @@ export async function getMessages(sessionID: string, opts?: { limit?: number; or
     if (!res.ok) throw new Error(`getMessages failed: ${res.status}`);
     const json = await res.json();
     const data = json.data || [];
+    if (!Array.isArray(data) || data.length === 0) {
+      break;
+    }
     allMessages.push(...data);
 
     if (requestedLimit && allMessages.length >= requestedLimit) {
       break;
     }
-    nextCursor = json.cursor?.next;
+    const incomingCursor = json.cursor?.next;
+    if (incomingCursor === nextCursor) {
+      break;
+    }
+    nextCursor = incomingCursor;
   } while (nextCursor && allMessages.length < 1000);
 
   return allMessages;

@@ -137,7 +137,7 @@ pub fn compute_executive_kpis(workspace_dir: &str, args: &Value) -> ExecutiveKpi
     let top_revenue_channel = args
         .get("top_revenue_channel")
         .and_then(|v| v.as_str())
-        .unwrap_or("Direct Retail POS & QRIS Digital Settlement (68.4%)")
+        .unwrap_or("Direct Retail & QRIS Digital Settlement (68.4%)")
         .to_string();
 
     let top_cost_driver = args
@@ -214,7 +214,7 @@ pub fn execute_generate_executive_summary(
         ## 1. Financial Performance Overview\n\n\
         | Metric | Amount / Value | Notes |\n\
         | :--- | :--- | :--- |\n\
-        | **Gross Revenue** | {:.2} | Verified POS & Ledger Inflows |\n\
+        | **Gross Revenue** | {:.2} | Verified Business & Ledger Inflows |\n\
         | **Operating Expenses** | {:.2} | Procurement, Payroll & Overheads |\n\
         | **Net Operating Income (EBITDA)** | **{:.2}** | Net Operational Surplus |\n\
         | **Operating Margin (%)** | **{:.1}%** | Target Benchmark: 25.0%+ |\n\

@@ -77,7 +77,7 @@ function WorkstationCenterPanelComponent({
     : "workspace";
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-app)] overflow-hidden select-none border-r border-[var(--border-color)] transition-colors duration-150">
+    <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-app)] overflow-hidden select-none border-l border-r border-[var(--border-color)] transition-colors duration-150">
       {/* 1. TOP TABS BAR */}
       <CenterTabHeader
         tabs={tabs}

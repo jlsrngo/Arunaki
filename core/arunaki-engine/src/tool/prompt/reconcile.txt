@@ -2,7 +2,7 @@ Perform a 3-Way Reconciliation and Administrative Anomaly/Fraud Audit across wor
 As an Administration Manager, use this tool to cross-verify records, detect financial discrepancies, identify duplicate invoices, and validate mathematical totals.
 
 Supported reconciliation modes (`mode`):
-- `cash_and_bank`: Reconciles POS Register Sales <-> Daily Cash Ledger <-> Bank Statement / Vault Deposit.
+- `cash_and_bank`: Reconciles Store Sales Register <-> Daily Cash Ledger <-> Bank Statement / Vault Deposit.
 - `procurement_three_way`: Matches Purchase Order (PO) <-> Delivery Receipt (GRN) <-> Vendor Invoice.
 
 Anomaly & Fraud checks performed automatically:

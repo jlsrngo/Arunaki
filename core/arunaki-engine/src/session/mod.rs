@@ -324,7 +324,6 @@ async fn handle_messages(
     Query(q): Query<HashMap<String, String>>,
 ) -> Response {
     let mut msgs = with_store(|store| store.messages.get(&id).cloned().unwrap_or_default());
-    let total = msgs.len();
     let order = q.get("order").map(|s| s.as_str()).unwrap_or("desc");
     if order == "desc" {
         msgs.reverse();
@@ -340,21 +339,28 @@ async fn handle_messages(
         .clamp(1, 500);
 
     let format = q.get("format").map(|s| s.as_str()).unwrap_or("");
-    let slice: Vec<Value> = if format == "ui" {
+    let (slice, total): (Vec<Value>, usize) = if format == "ui" {
         let mapped = ui_mapper::map_messages_for_ui(&msgs);
-        if offset < mapped.len() {
-            let end = (offset + limit).min(mapped.len());
+        let mapped_len = mapped.len();
+        let sl = if offset < mapped_len {
+            let end = (offset + limit).min(mapped_len);
             mapped[offset..end].to_vec()
         } else {
             Vec::new()
-        }
-    } else if offset < msgs.len() {
-        let end = (offset + limit).min(msgs.len());
-        msgs[offset..end].to_vec()
+        };
+        (sl, mapped_len)
     } else {
-        Vec::new()
+        let msgs_len = msgs.len();
+        let sl = if offset < msgs_len {
+            let end = (offset + limit).min(msgs_len);
+            msgs[offset..end].to_vec()
+        } else {
+            Vec::new()
+        };
+        (sl, msgs_len)
     };
-    let next_cursor = if offset + slice.len() < total {
+
+    let next_cursor = if !slice.is_empty() && offset + slice.len() < total {
         Some((offset + slice.len()).to_string())
     } else {
         None

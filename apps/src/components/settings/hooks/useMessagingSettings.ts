@@ -18,8 +18,31 @@ export interface TelegramTestResult {
 }
 
 export function useMessagingSettings() {
-  const [enabled, setEnabled] = useState(false);
-  const [botToken, setBotToken] = useState("");
+  const [enabled, setEnabledState] = useState(() => {
+    try {
+      return localStorage.getItem("arunaki_telegram_enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const setEnabled = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    setEnabledState((prev) => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      try {
+        localStorage.setItem("arunaki_telegram_enabled", String(resolved));
+      } catch {}
+      return resolved;
+    });
+  }, []);
+
+  const [botToken, setBotToken] = useState(() => {
+    try {
+      return localStorage.getItem("arunaki_telegram_token") || "";
+    } catch {
+      return "";
+    }
+  });
   const [allowedUserId, setAllowedUserId] = useState("");
   const [targetFolder, setTargetFolder] = useState("");
   const [showToken, setShowToken] = useState(false);
@@ -62,12 +85,17 @@ export function useMessagingSettings() {
         } catch {}
         const tg = configJson?.data?.telegram || configJson?.telegram;
         if (tg) {
-          setEnabled(Boolean(tg.enabled));
+          const isEn = Boolean(tg.enabled);
+          setEnabled(isEn);
           setBotToken(tg.botToken || "");
           setAllowedUserId(tg.allowedUserId || "");
           setTargetFolder(
             tg.targetFolder || localStorage.getItem("arunaki_active_folder") || ""
           );
+          try {
+            localStorage.setItem("arunaki_telegram_enabled", String(isEn));
+            if (tg.botToken) localStorage.setItem("arunaki_telegram_token", tg.botToken);
+          } catch {}
         }
       }
 
