@@ -313,6 +313,136 @@ pub async fn handle_calculate_range(Json(req): Json<CalculateRangeRequest>) -> R
     .into_response()
 }
 
+// ---------------------------------------------------------------------------
+// Post-Edit Formula & AST Validator (Item 3b)
+// ---------------------------------------------------------------------------
+
+/// List of standard supported spreadsheet formula functions.
+pub const STANDARD_FORMULA_FUNCTIONS: &[&str] = &[
+    "SUM", "AVERAGE", "AVG", "COUNT", "COUNTA", "COUNTIF", "COUNTIFS",
+    "MIN", "MAX", "IF", "IFS", "VLOOKUP", "XLOOKUP", "HLOOKUP",
+    "INDEX", "MATCH", "CONCAT", "CONCATENATE", "TEXT", "LEFT", "RIGHT",
+    "MID", "LEN", "TRIM", "ROUND", "ROUNDUP", "ROUNDDOWN", "ABS", "INT",
+    "MOD", "POWER", "SQRT", "PRODUCT", "SUBTOTAL", "NOW", "TODAY", "DATE",
+    "YEAR", "MONTH", "DAY", "AND", "OR", "NOT", "ISBLANK", "ISERROR",
+    "ISNUMBER", "ISTEXT", "SUMIF", "SUMIFS", "AVERAGEIF", "AVERAGEIFS",
+];
+
+/// Validates a single formula string (e.g. "=SUM(A1:A10)").
+/// Returns Ok(()) if syntax is sound, or Err(diagnostic) if invalid.
+pub fn validate_formula_syntax(formula: &str) -> Result<(), String> {
+    let trimmed = formula.trim();
+    if !trimmed.starts_with('=') {
+        return Err(format!("Spreadsheet formula must begin with '=': '{}'", formula));
+    }
+
+    let expr = trimmed[1..].trim();
+    if expr.is_empty() {
+        return Err("Formula expression after '=' cannot be empty".to_string());
+    }
+
+    // 1. Disallow literal error values
+    for err_token in &["#REF!", "#VALUE!", "#NAME?", "#DIV/0!", "#N/A", "#NULL!", "#NUM!"] {
+        if expr.contains(err_token) {
+            return Err(format!("Formula contains invalid error token '{}': '{}'", err_token, formula));
+        }
+    }
+
+    // 2. Check parenthesis balance and quotes
+    let mut paren_depth = 0i32;
+    let mut in_string = false;
+    let mut current_ident = String::new();
+    let mut identifiers = Vec::new();
+
+    for ch in expr.chars() {
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+
+        if in_string {
+            continue;
+        }
+
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            current_ident.push(ch);
+        } else {
+            if !current_ident.is_empty() {
+                identifiers.push((current_ident.clone(), ch == '('));
+                current_ident.clear();
+            }
+
+            if ch == '(' {
+                paren_depth += 1;
+            } else if ch == ')' {
+                paren_depth -= 1;
+                if paren_depth < 0 {
+                    return Err(format!("Unmatched closing parenthesis in formula: '{}'", formula));
+                }
+            }
+        }
+    }
+
+    if in_string {
+        return Err(format!("Unclosed string quote in formula: '{}'", formula));
+    }
+
+    if paren_depth != 0 {
+        return Err(format!("Unbalanced parentheses in formula (missing {} closing ')'): '{}'", paren_depth, formula));
+    }
+
+    if !current_ident.is_empty() {
+        identifiers.push((current_ident, false));
+    }
+
+    // 3. Verify function calls match standard names
+    for (ident, is_func) in identifiers {
+        if is_func {
+            let upper = ident.to_ascii_uppercase();
+            if !STANDARD_FORMULA_FUNCTIONS.contains(&upper.as_str()) {
+                return Err(format!("Unknown or mistyped spreadsheet function '{}' in formula: '{}'", ident, formula));
+            }
+        }
+    }
+
+    // 4. Validate ranges (e.g. A1:B10)
+    for part in expr.split(|c: char| c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == ',') {
+        let clean_part = part.trim();
+        if clean_part.contains(':') && parse_cell_range(clean_part).is_none() {
+            return Err(format!("Malformed cell range '{}' in formula: '{}'", clean_part, formula));
+        }
+    }
+
+    Ok(())
+}
+
+/// Validates a batch of cell updates before committing to disk or Excel.
+/// Returns Ok(()) or a list of specific validation failures.
+pub fn validate_cell_updates(cells: &[(String, String)]) -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+
+    for (coord, val) in cells {
+        // Validate coordinate
+        if parse_cell_coord(coord).is_none() {
+            errors.push(format!("Invalid cell coordinate: '{}'", coord));
+        }
+
+        // If it's a formula, validate syntax
+        let trimmed_val = val.trim();
+        if trimmed_val.starts_with('=') {
+            if let Err(err) = validate_formula_syntax(trimmed_val) {
+                errors.push(format!("Cell '{}': {}", coord, err));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,5 +492,38 @@ mod tests {
         let csv = export_table_to_csv(&parsed.headers, &parsed.rows);
         assert!(csv.contains("\"Item\",\"Qty\",\"Price\""));
         assert!(csv.contains("\"Coffee\",\"5\",\"25000\""));
+    }
+
+    #[test]
+    fn test_validate_formula_syntax_valid() {
+        assert!(validate_formula_syntax("=SUM(A1:A10)").is_ok());
+        assert!(validate_formula_syntax("=AVERAGE(B2:B20) + 5").is_ok());
+        assert!(validate_formula_syntax("=IF(A1>0, \"Positive\", \"Zero\")").is_ok());
+    }
+
+    #[test]
+    fn test_validate_formula_syntax_errors() {
+        assert!(validate_formula_syntax("=SUM(A1:A10").is_err()); // Unbalanced paren
+        assert!(validate_formula_syntax("=SMM(A1:A10)").is_err()); // Unknown function
+        assert!(validate_formula_syntax("=A1 + #REF!").is_err()); // Error token
+        assert!(validate_formula_syntax("=SUM(A1:A)").is_err()); // Malformed range
+        assert!(validate_formula_syntax("SUM(A1:A10)").is_err()); // Missing '='
+    }
+
+    #[test]
+    fn test_validate_cell_updates() {
+        let good_cells = vec![
+            ("A1".to_string(), "Revenue".to_string()),
+            ("A2".to_string(), "1000".to_string()),
+            ("A3".to_string(), "=SUM(A1:A2)".to_string()),
+        ];
+        assert!(validate_cell_updates(&good_cells).is_ok());
+
+        let bad_cells = vec![
+            ("99Invalid".to_string(), "100".to_string()),
+            ("B5".to_string(), "=UNKNOWNFUNC(B1:B4)".to_string()),
+        ];
+        let errs = validate_cell_updates(&bad_cells).expect_err("should have errors");
+        assert_eq!(errs.len(), 2);
     }
 }

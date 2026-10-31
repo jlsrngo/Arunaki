@@ -240,6 +240,18 @@ pub async fn execute_doc_com(
             let abs = p.to_string_lossy().to_string();
             let script = if name == "excel_com" {
                 let parsed_cells = parse_cells_arg(arguments);
+
+                // Post-Edit Formula & AST Validator (Item 3b)
+                if !parsed_cells.is_empty() {
+                    if let Err(validation_errors) = crate::files::formula_eval::validate_cell_updates(&parsed_cells) {
+                        return json!({
+                            "error": format!("Spreadsheet formula/cell validation rejected: {}", validation_errors.join("; ")),
+                            "blocked": true,
+                            "validationErrors": validation_errors
+                        });
+                    }
+                }
+
                 let effective_action = if !parsed_cells.is_empty()
                     && (action == "write" || action == "write_range" || action == "format")
                 {
