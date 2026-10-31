@@ -9,6 +9,7 @@ pub mod glob;
 pub mod governance;
 pub mod grep;
 pub mod image_ocr;
+pub mod json_repair;
 pub mod zen;
 #[allow(unused_imports)]
 pub mod open_app;

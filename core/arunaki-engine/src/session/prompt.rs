@@ -760,8 +760,13 @@ pub async fn run_agent_turn(
                 .pointer("/function/arguments")
                 .and_then(|v| v.as_str())
                 .unwrap_or("{}");
-            let args_val: Value =
-                serde_json::from_str(args_str).unwrap_or_else(|_| json!({}));
+
+            // Robust JSON Tool Argument Repair & Syntax Recovery (Item 1c)
+            let (args_val, syntax_error) = match crate::tool::json_repair::parse_or_repair_tool_args(args_str) {
+                Ok(val) => (val, None),
+                Err(err) => (json!({}), Some(err)),
+            };
+
             let tool_start = now_ms();
 
             emit_event(
@@ -781,9 +786,15 @@ pub async fn run_agent_turn(
                 &format!("🔧 Executing tool '{}' with input: {}", fn_name, args_str),
             );
 
-            // Doom-Loop Breaker: detect repeated identical invocations
+            // Doom-Loop Breaker & Syntax Guard
             let loop_warning = doom_loop_detector.check_and_record(&fn_name, args_str);
-            let (tool_out, is_blocked) = if let Some(warning) = loop_warning {
+            let (tool_out, is_blocked) = if let Some(err_msg) = syntax_error {
+                crate::paths::log_engine(
+                    "tool",
+                    &format!("⚠️ JSON argument syntax error for tool '{}': {}", fn_name, err_msg),
+                );
+                (json!({ "error": err_msg, "blocked": true }), true)
+            } else if let Some(warning) = loop_warning {
                 crate::paths::log_engine(
                     "tool",
                     &format!("🛑 Doom-loop blocked: tool '{}' repeated identically with args: {}", fn_name, args_str),
