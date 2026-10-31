@@ -1,6 +1,7 @@
 //! Session module — Axum router & public handlers.
 pub mod compaction;
 pub mod canvas_extractor;
+pub mod doom_loop;
 pub mod event_normalizer;
 pub mod memory;
 pub mod message;

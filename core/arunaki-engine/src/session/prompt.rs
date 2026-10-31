@@ -574,6 +574,7 @@ pub async fn run_agent_turn(
 
     let mut content_parts: Vec<Value> = Vec::new();
     let mut final_text = String::new();
+    let mut doom_loop_detector = super::doom_loop::DoomLoopDetector::default();
 
     for _step in 0..25 {
         let step_start = now_ms();
@@ -779,44 +780,75 @@ pub async fn run_agent_turn(
                 "tool",
                 &format!("🔧 Executing tool '{}' with input: {}", fn_name, args_str),
             );
-            let tool_out = execute_tool_call(
-                session_id,
-                &assistant_msg_id,
-                &call_id,
-                &fn_name,
-                &args_val,
-                workspace_dir,
-            )
-            .await;
+
+            // Doom-Loop Breaker: detect repeated identical invocations
+            let loop_warning = doom_loop_detector.check_and_record(&fn_name, args_str);
+            let (tool_out, is_blocked) = if let Some(warning) = loop_warning {
+                crate::paths::log_engine(
+                    "tool",
+                    &format!("🛑 Doom-loop blocked: tool '{}' repeated identically with args: {}", fn_name, args_str),
+                );
+                (json!({ "error": warning, "blocked": true }), true)
+            } else {
+                let out = execute_tool_call(
+                    session_id,
+                    &assistant_msg_id,
+                    &call_id,
+                    &fn_name,
+                    &args_val,
+                    workspace_dir,
+                )
+                .await;
+                (out, false)
+            };
 
             let tool_out_str =
                 serde_json::to_string_pretty(&tool_out).unwrap_or_else(|_| "{}".to_string());
             let tool_end = now_ms();
             let tool_dur = tool_end.saturating_sub(tool_start);
-            crate::paths::log_engine(
-                "tool",
-                &format!("✅ Tool '{}' completed in {}ms", fn_name, tool_dur),
-            );
 
-            emit_event(
-                workspace_dir,
-                "session.next.tool.success",
-                json!({
-                    "sessionID": session_id,
-                    "messageID": assistant_msg_id,
-                    "id": call_id,
-                    "name": fn_name,
-                    "content": [{ "type": "text", "text": tool_out_str }],
-                    "structured": tool_out
-                }),
-            );
+            if is_blocked {
+                crate::paths::log_engine(
+                    "tool",
+                    &format!("⚠️ Tool '{}' was halted by DoomLoopDetector in {}ms", fn_name, tool_dur),
+                );
+                emit_event(
+                    workspace_dir,
+                    "session.next.tool.failed",
+                    json!({
+                        "sessionID": session_id,
+                        "messageID": assistant_msg_id,
+                        "id": call_id,
+                        "name": fn_name,
+                        "content": [{ "type": "text", "text": tool_out_str }],
+                        "error": { "message": "Execution halted: repeated identical invocation detected" }
+                    }),
+                );
+            } else {
+                crate::paths::log_engine(
+                    "tool",
+                    &format!("✅ Tool '{}' completed in {}ms", fn_name, tool_dur),
+                );
+                emit_event(
+                    workspace_dir,
+                    "session.next.tool.success",
+                    json!({
+                        "sessionID": session_id,
+                        "messageID": assistant_msg_id,
+                        "id": call_id,
+                        "name": fn_name,
+                        "content": [{ "type": "text", "text": tool_out_str }],
+                        "structured": tool_out
+                    }),
+                );
+            }
 
             content_parts.push(json!({
                 "type": "tool",
                 "id": call_id,
                 "name": fn_name,
                 "state": {
-                    "status": "completed",
+                    "status": if is_blocked { "error" } else { "completed" },
                     "input": args_val,
                     "structured": tool_out,
                     "content": [{ "type": "text", "text": tool_out_str }],
