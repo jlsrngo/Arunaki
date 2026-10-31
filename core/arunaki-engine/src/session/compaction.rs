@@ -65,6 +65,22 @@ pub fn should_compact(history: &[Value], context_limit: usize) -> bool {
     total_history_tokens(history) > threshold
 }
 
+/// Detects whether an error message from an AI provider represents a context length or token overflow.
+pub fn is_context_overflow_error(error_text: &str) -> bool {
+    let lower = error_text.to_lowercase();
+    lower.contains("context_length_exceeded")
+        || lower.contains("maximum context length")
+        || lower.contains("prompt is too long")
+        || lower.contains("too many tokens")
+        || lower.contains("token limit exceeded")
+        || lower.contains("tokens exceed")
+        || lower.contains("context window")
+        || lower.contains("exceeds the context limit")
+        || lower.contains("exceeds the maximum context")
+        || lower.contains("string too long")
+        || (lower.contains("400") && (lower.contains("context") || lower.contains("token")))
+}
+
 /// Compacts session history when approaching or exceeding context limits.
 ///
 /// Returns `(compacted_history, was_compacted)`.
@@ -124,6 +140,70 @@ pub fn compact_session_history(history: &[Value], context_limit: usize) -> (Vec<
 
     compacted.extend_from_slice(tail);
     (compacted, true)
+}
+
+/// Performs aggressive emergency compaction on chat messages during a 400 overflow error.
+/// Preserves system instructions (msg 0), extracts key summary from middle turns,
+/// and retains the active prompt (final user message or turn).
+pub fn emergency_compact_messages(messages: &[Value]) -> Vec<Value> {
+    if messages.len() <= 2 {
+        return messages.to_vec();
+    }
+
+    let mut compacted = Vec::new();
+    // 1. Preserve Root System Prompt
+    compacted.push(messages[0].clone());
+
+    // 2. Synthesize intermediate turns into an anchored emergency summary
+    let middle = &messages[1..messages.len() - 1];
+    let mut files_touched = Vec::new();
+    let mut last_actions = Vec::new();
+
+    for m in middle {
+        let role = m.get("role").and_then(|v| v.as_str()).unwrap_or("");
+        let content = m.get("content").and_then(|v| v.as_str()).unwrap_or("");
+
+        if role == "tool" {
+            let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("tool");
+            last_actions.push(format!("Executed tool '{}'", name));
+        } else if role == "user" && !content.is_empty() {
+            let line = content.lines().next().unwrap_or("").trim();
+            if !line.is_empty() && last_actions.len() < 8 {
+                last_actions.push(format!("User requested: {}", line));
+            }
+        }
+
+        // Catch file references
+        for word in content.split_whitespace() {
+            let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_' && c != '-');
+            if (clean.ends_with(".xlsx") || clean.ends_with(".csv") || clean.ends_with(".docx") || clean.ends_with(".pdf") || clean.ends_with(".md"))
+                && !files_touched.contains(&clean.to_string())
+                && files_touched.len() < 10
+            {
+                files_touched.push(clean.to_string());
+            }
+        }
+    }
+
+    let summary_md = format!(
+        "[Emergency Context Auto-Heal]\n\
+         Earlier conversation turns were aggressively compacted by the harness to recover from provider context overflow.\n\
+         ## Active Files: {}\n\
+         ## Prior Steps:\n{}\n\
+         Please continue the task based on the latest prompt.",
+        if files_touched.is_empty() { "(none)".to_string() } else { files_touched.join(", ") },
+        if last_actions.is_empty() { "- (none)".to_string() } else { last_actions.iter().take(8).map(|a| format!("- {}", a)).collect::<Vec<_>>().join("\n") }
+    );
+
+    compacted.push(json!({
+        "role": "system",
+        "content": summary_md
+    }));
+
+    // 3. Preserve the final active message intact
+    compacted.push(messages[messages.len() - 1].clone());
+
+    compacted
 }
 
 /// Builds a structured OpenCode-standard markdown summary from older messages.
@@ -270,7 +350,6 @@ mod tests {
             ]
         }));
 
-        // Add 15 filler turns to simulate long interaction
         for i in 1..=15 {
             history.push(json!({ "type": "user", "text": format!("Pertanyaan ke-{}", i) }));
             history.push(json!({
@@ -279,7 +358,6 @@ mod tests {
             }));
         }
 
-        // Force low context limit to trigger compaction
         let (compacted_history, was_compacted) = compact_session_history(&history, 1_000);
         assert!(was_compacted);
         assert!(compacted_history.len() < history.len());
@@ -290,5 +368,36 @@ mod tests {
         assert!(summary_text.contains("## Objective"));
         assert!(summary_text.contains("sales.xlsx"));
         assert!(summary_text.contains("## Work State"));
+    }
+
+    #[test]
+    fn test_is_context_overflow_detection() {
+        assert!(is_context_overflow_error("Error 400: context_length_exceeded"));
+        assert!(is_context_overflow_error("This model's maximum context length is 128000 tokens"));
+        assert!(is_context_overflow_error("prompt is too long: 200000 tokens"));
+        assert!(is_context_overflow_error("token limit exceeded"));
+        assert!(!is_context_overflow_error("Error 401: Invalid API Key"));
+        assert!(!is_context_overflow_error("Network timeout connecting to server"));
+    }
+
+    #[test]
+    fn test_emergency_compact_messages() {
+        let messages = vec![
+            json!({ "role": "system", "content": "You are Arunaki." }),
+            json!({ "role": "user", "content": "Please read sales.xlsx and report.docx" }),
+            json!({ "role": "assistant", "content": "Reading files..." }),
+            json!({ "role": "tool", "name": "read", "content": "Large file dump..." }),
+            json!({ "role": "user", "content": "Now summarize the final total." }),
+        ];
+
+        let healed = emergency_compact_messages(&messages);
+        assert_eq!(healed.len(), 3);
+        assert_eq!(healed[0]["role"], "system");
+        assert_eq!(healed[0]["content"], "You are Arunaki.");
+        assert_eq!(healed[1]["role"], "system");
+        let healed_summary = healed[1]["content"].as_str().unwrap();
+        assert!(healed_summary.contains("sales.xlsx"));
+        assert_eq!(healed[2]["role"], "user");
+        assert_eq!(healed[2]["content"], "Now summarize the final total.");
     }
 }

@@ -658,10 +658,54 @@ pub async fn run_agent_turn(
                 }
             }
         };
+        let mut r = r;
         if !r.status().is_success() {
             let err_txt = r.text().await.unwrap_or_default();
-            final_text = format!("Error from AI provider: {}", err_txt);
-            break;
+            // Context Overflow Auto-Healing (OpenCode Item 2b)
+            if crate::session::compaction::is_context_overflow_error(&err_txt) && chat_messages.len() > 2 {
+                crate::paths::log_engine(
+                    "ai",
+                    "🩹 Context window overflow detected! Triggering emergency compaction auto-heal...",
+                );
+                chat_messages = crate::session::compaction::emergency_compact_messages(&chat_messages);
+                req_body["messages"] = Value::Array(chat_messages.clone());
+
+                emit_event(
+                    workspace_dir,
+                    "session.overflow_healed",
+                    json!({
+                        "sessionID": session_id,
+                        "compactedMessages": chat_messages.len()
+                    }),
+                );
+
+                let retry_resp = client
+                    .post(format!("{}/chat/completions", base_url))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .json(&req_body)
+                    .send()
+                    .await;
+
+                match retry_resp {
+                    Ok(healed_r) if healed_r.status().is_success() => {
+                        crate::paths::log_engine("ai", "✅ Emergency context auto-heal succeeded! Continuing turn.");
+                        r = healed_r;
+                    }
+                    Ok(healed_r) => {
+                        let final_err = healed_r.text().await.unwrap_or_default();
+                        final_text = format!("Error from AI provider (after context compaction): {}", final_err);
+                        break;
+                    }
+                    Err(retry_e) => {
+                        final_text = format!("Error reaching AI provider during auto-heal retry: {}", retry_e);
+                        break;
+                    }
+                }
+            } else {
+                final_text = format!("Error from AI provider: {}", err_txt);
+                break;
+            }
         }
         let data: Value = r.json().await.unwrap_or_else(|_| json!({}));
         let msg = data
