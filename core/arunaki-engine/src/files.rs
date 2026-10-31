@@ -1,4 +1,5 @@
 pub mod formula_eval;
+pub mod doc_locator;
 use crate::paths::{contains_path, normalize_workspace_path};
 use axum::{
     extract::Query,

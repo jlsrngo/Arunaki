@@ -332,6 +332,14 @@ pub async fn run_agent_turn(
         current_time_str
     );
 
+    // Document Auto-Locator (Item 3a - Pre-LLM deterministic document indexing)
+    if let Some(doc_block) = crate::files::doc_locator::format_workspace_documents_block(workspace_dir) {
+        sys_prompt.push_str("
+
+");
+        sys_prompt.push_str(&doc_block);
+    }
+
     // 2. Workspace Instruction File (.arunaki/ARUNAKI.md)
     let living_mem = crate::session::memory::get_living_memory_for_workspace(workspace_dir);
     if !living_mem.trim().is_empty() {
