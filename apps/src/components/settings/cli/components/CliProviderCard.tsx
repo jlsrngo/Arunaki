@@ -27,6 +27,7 @@ const NEO_CLI_COLORS: Record<string, string> = {
   opencode: "bg-[#EFF6FF]", // Soft Sky Blue
   antigravity: "bg-[#FEFCE8]", // Soft Yellow
   kiro: "bg-[#FFF7ED]", // Soft Orange
+  nineRouter: "bg-[#FAF5FF]", // Soft Purple
   router9: "bg-[#FAF5FF]", // Soft Purple
   "9router": "bg-[#FAF5FF]", // Soft Purple
   claude: "bg-[#FFF1F2]", // Soft Rose

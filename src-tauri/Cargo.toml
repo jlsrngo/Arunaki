@@ -17,6 +17,7 @@ arunaki-docs = { path = "../core/arunaki-docs" }
 arunaki-engine = { path = "../core/arunaki-engine" }
 tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
+tauri-plugin-updater = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }

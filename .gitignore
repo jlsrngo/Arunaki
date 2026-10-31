@@ -79,7 +79,12 @@ target/
 core/**/target/
 crates/**/target/
 
-# Local documentation & demo workspace (kept on local machine, ignored from GitHub)
+# Tauri updater signing keys
+.tauri-keys/
+*.key
+*.pub
+bun.lock
+
 docs/
 demo/
 demo-workspace/

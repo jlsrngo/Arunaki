@@ -190,7 +190,7 @@ export function SettingsPage() {
               : "bg-[var(--bg-panel)] border border-[var(--border-color)]"
           )}
         >
-          {activeTab === "models" && (
+          <div className={cn("w-full", activeTab !== "models" && "hidden")}>
             <ModelProviderSettings
               providers={providers}
               availableCatalogModels={availableCatalogModels}
@@ -198,21 +198,30 @@ export function SettingsPage() {
               onRefresh={fetchProviders}
               onUpdateProviders={setProviders}
             />
-          )}
+          </div>
 
-          {activeTab === "apps" && <SettingsAppConnectionsTab />}
+          <div className={cn("w-full", activeTab !== "apps" && "hidden")}>
+            <SettingsAppConnectionsTab />
+          </div>
 
-          {activeTab === "cli" && (
+          <div className={cn("w-full", activeTab !== "cli" && "hidden")}>
             <SettingsCliConnectionsTab
               providers={providers}
               onRefresh={fetchProviders}
             />
-          )}
+          </div>
 
-          {activeTab === "integrations" && <SettingsAutomationTab />}
-          {activeTab === "messaging" && <SettingsMessagingTab />}
+          <div className={cn("w-full", activeTab !== "integrations" && "hidden")}>
+            <SettingsAutomationTab />
+          </div>
 
-          {activeTab === "account" && <SettingsAccountTab />}
+          <div className={cn("w-full", activeTab !== "messaging" && "hidden")}>
+            <SettingsMessagingTab />
+          </div>
+
+          <div className={cn("w-full", activeTab !== "account" && "hidden")}>
+            <SettingsAccountTab />
+          </div>
         </div>
       </div>
     </div>

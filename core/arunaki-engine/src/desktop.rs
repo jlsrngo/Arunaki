@@ -71,6 +71,7 @@ pub fn router() -> Router {
         .route("/api/desktop/folder-watch/acknowledge", post(handle_folder_watch_ack))
         .route("/api/desktop/notify", post(handle_desktop_notify))
         .route("/api/desktop/open-url", post(handle_open_url))
+        .route("/api/desktop/check-updates", get(handle_check_updates).post(handle_check_updates))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -1551,4 +1552,79 @@ async fn handle_desktop_notify(Json(payload): Json<Value>) -> impl IntoResponse 
     });
 
     Json(json!({ "ok": true }))
+}
+
+async fn handle_check_updates() -> impl IntoResponse {
+    let current_version = env!("CARGO_PKG_VERSION");
+    let client = reqwest::Client::builder()
+        .user_agent("Arunaki-Desktop-Updater")
+        .timeout(std::time::Duration::from_secs(6))
+        .build();
+
+    let client = match client {
+        Ok(c) => c,
+        Err(e) => {
+            return Json(json!({
+                "status": "error",
+                "message": format!("Failed to create HTTP client: {}", e),
+                "has_update": false,
+                "current_version": current_version,
+            }));
+        }
+    };
+
+    let url = "https://api.github.com/repos/jlsrngo/Arunaki/releases/latest";
+    let res = client.get(url).send().await;
+
+    match res {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                if let Ok(rel) = resp.json::<Value>().await {
+                    let tag = rel.get("tag_name").and_then(|v| v.as_str()).unwrap_or("").trim();
+                    let latest_version = tag.trim_start_matches('v');
+                    let release_url = rel.get("html_url").and_then(|v| v.as_str()).unwrap_or("https://github.com/jlsrngo/Arunaki/releases");
+                    let release_notes = rel.get("body").and_then(|v| v.as_str()).unwrap_or("");
+
+                    let has_update = !latest_version.is_empty() && latest_version != current_version;
+
+                    let mut download_url = release_url.to_string();
+                    if let Some(assets) = rel.get("assets").and_then(|a| a.as_array()) {
+                        for asset in assets {
+                            if let Some(name) = asset.get("name").and_then(|n| n.as_str()) {
+                                if name.ends_with(".exe") || name.ends_with(".msi") {
+                                    if let Some(dl) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
+                                        download_url = dl.to_string();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return Json(json!({
+                        "status": "ok",
+                        "has_update": has_update,
+                        "current_version": current_version,
+                        "latest_version": latest_version,
+                        "release_url": release_url,
+                        "download_url": download_url,
+                        "release_notes": release_notes,
+                    }));
+                }
+            }
+            Json(json!({
+                "status": "ok",
+                "has_update": false,
+                "current_version": current_version,
+                "latest_version": current_version,
+                "message": "Repository is up to date.",
+            }))
+        }
+        Err(e) => Json(json!({
+            "status": "offline_or_error",
+            "has_update": false,
+            "current_version": current_version,
+            "message": format!("Could not reach GitHub Releases: {}", e),
+        })),
+    }
 }

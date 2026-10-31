@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback, useMemo } from "react";
-import { Check } from "lucide-react";
+import { Check, RefreshCw, Sparkles, Download } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
 import { cn } from "../../../lib/utils";
@@ -26,6 +26,16 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     desktop?: string;
     docs?: string;
     os?: string;
+  } | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState<{
+    checked: boolean;
+    hasUpdate: boolean;
+    currentVersion?: string;
+    latestVersion?: string;
+    releaseUrl?: string;
+    downloadUrl?: string;
+    message?: string;
   } | null>(null);
   const { t } = useI18n();
   const { isNeobrutalism } = useTheme();
@@ -69,6 +79,46 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
       active = false;
     };
   }, [isOpen]);
+
+  const checkForUpdates = useCallback(async () => {
+    setCheckingUpdate(true);
+    try {
+      const res = await fetch("/api/desktop/check-updates");
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateResult({
+          checked: true,
+          hasUpdate: Boolean(data.has_update),
+          currentVersion: data.current_version,
+          latestVersion: data.latest_version,
+          releaseUrl: data.release_url,
+          downloadUrl: data.download_url,
+          message: data.message,
+        });
+      } else {
+        setUpdateResult({
+          checked: true,
+          hasUpdate: false,
+          message: "Unable to reach update server.",
+        });
+      }
+    } catch (err: any) {
+      setUpdateResult({
+        checked: true,
+        hasUpdate: false,
+        message: err?.message || "Offline",
+      });
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }, []);
+
+  // Automatically check for updates once when opened
+  useEffect(() => {
+    if (isOpen && !updateResult && !checkingUpdate) {
+      checkForUpdates();
+    }
+  }, [isOpen, updateResult, checkingUpdate, checkForUpdates]);
 
   // Clean, modern Native Rust architecture specifications.
   // Outdated Electron/Node.js/V8 lines are completely eliminated.
@@ -184,6 +234,86 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                   </span>
                 </div>
               ))}
+            </div>
+
+            {/* Auto-Updater Status Banner */}
+            <div
+              className={cn(
+                "mt-4 p-3 rounded-xl border text-xs flex items-center justify-between gap-3 select-none transition-all",
+                isNeobrutalism
+                  ? updateResult?.hasUpdate
+                    ? "bg-[#CCFF00] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] text-[#141413]"
+                    : "bg-[#FFFDFB] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] text-[#141413]"
+                  : updateResult?.hasUpdate
+                  ? "bg-[var(--bg-hover)] border-[var(--border-strong)] text-[var(--text-primary)]"
+                  : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)]"
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {checkingUpdate ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[var(--text-muted)] shrink-0" />
+                ) : updateResult?.hasUpdate ? (
+                  <Sparkles className="w-3.5 h-3.5 text-[#141413] shrink-0" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                )}
+                <div className="truncate">
+                  {checkingUpdate ? (
+                    <span className="font-medium">Checking for updates...</span>
+                  ) : updateResult?.hasUpdate ? (
+                    <span className="font-bold">
+                      New update v{updateResult.latestVersion} available!
+                    </span>
+                  ) : updateResult?.checked ? (
+                    <span className="font-medium">
+                      Arunaki is up to date ({updateResult.currentVersion || "v0.1.0"})
+                    </span>
+                  ) : (
+                    <span className="text-[var(--text-muted)]">Automatic updates enabled</span>
+                  )}
+                </div>
+              </div>
+
+              {updateResult?.hasUpdate ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const target = updateResult.downloadUrl || updateResult.releaseUrl;
+                    if (target) {
+                      fetch("/api/desktop/open-url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url: target }),
+                      }).catch(() => window.open(target, "_blank"));
+                    }
+                  }}
+                  className={cn(
+                    "h-7 text-xs px-2.5 font-bold shrink-0",
+                    isNeobrutalism
+                      ? "bg-[#141413] text-white border border-[#141413] hover:bg-[#333]"
+                      : "bg-[var(--text-primary)] text-[var(--bg-app)]"
+                  )}
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Install Update
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={checkingUpdate}
+                  onClick={checkForUpdates}
+                  className={cn(
+                    "h-7 text-xs px-2.5 shrink-0",
+                    isNeobrutalism &&
+                      "bg-[#FFFDFB] text-[#141413] border border-[#141413] font-semibold hover:bg-[#F3EBE4]"
+                  )}
+                >
+                  {checkingUpdate ? "Checking..." : "Check Now"}
+                </Button>
+              )}
             </div>
 
             {/* Action buttons bottom-right */}
