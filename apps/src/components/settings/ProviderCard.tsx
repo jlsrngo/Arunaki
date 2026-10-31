@@ -7,6 +7,15 @@ import type { Provider } from "./ModelProviderSettings";
 import { formatToastError } from "./constants";
 import { Card, Button, Badge } from "../ui";
 
+const NEO_CARD_TINTS = [
+  "bg-[#EFF6FF]", // Blue
+  "bg-[#FFF7ED]", // Orange
+  "bg-[#FAF5FF]", // Purple
+  "bg-[#FEFCE8]", // Yellow
+  "bg-[#ECFDF5]", // Mint
+  "bg-[#FFF1F2]", // Rose
+];
+
 function getSelectedModels(modelStr: string): string[] {
   if (!modelStr) return [];
   return modelStr.split(",").map((s) => s.trim()).filter(Boolean);
@@ -42,13 +51,14 @@ export const ProviderCard = memo(function ProviderCard({
   const [showTestDetails, setShowTestDetails] = useState(false);
 
   const selectedModels = getSelectedModels(p.model);
+  const neoTint = NEO_CARD_TINTS[index % NEO_CARD_TINTS.length];
 
   return (
     <Card
       className={cn(
         "p-4 rounded-2xl transition-all space-y-3",
         isNeobrutalism
-          ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[3px_3px_0px_#141413]"
+          ? `${neoTint} border-2 border-[#141413] shadow-[3px_3px_0px_#141413]`
           : p.active
           ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
           : "bg-[var(--bg-card)] border-[var(--border-color)] opacity-90 hover:opacity-100"
@@ -87,71 +97,55 @@ export const ProviderCard = memo(function ProviderCard({
             </div>
           )}
 
-          {/* ON / OFF Toggle Switch */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={p.active}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleActive(p);
-            }}
-            title={
-              p.active
-                ? t("clickToTurnOffDivertCli", "Click to turn OFF & divert routing to CLI / Local Agent")
-                : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
-            }
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border shrink-0 mt-0.5 select-none",
-              isNeobrutalism
-                ? p.active
-                  ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
-                  : "bg-[#EAE0D7] text-[#141413] border-2 border-[#141413]"
-                : p.active
-                ? "bg-[var(--text-primary)] text-[var(--bg-app)] border-[var(--text-primary)] hover:opacity-90"
-                : "bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-strong)]"
-            )}
-          >
-            {/* Switch Track & Thumb */}
-            <div
+          {/* Clean High-Contrast Switch & Status */}
+          <div className="flex items-center gap-2 shrink-0 mt-0.5 select-none">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={p.active}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleActive(p);
+              }}
+              title={
+                p.active
+                  ? t("clickToTurnOffDivertCli", "Click to turn OFF & divert routing to CLI / Local Agent")
+                  : t("clickToTurnOnPrimary", "Click to turn ON as Primary API Provider")
+              }
               className={cn(
-                "w-7 h-4 rounded-full p-0.5 transition-colors flex items-center shrink-0",
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center p-0.5 transition-colors duration-200 focus:outline-none",
                 isNeobrutalism
                   ? p.active
-                    ? "bg-[#141413]"
-                    : "bg-[#141413]/30"
+                    ? "bg-[#CCFF00] border-2 border-[#141413] shadow-[2px_2px_0px_#141413]"
+                    : "bg-[#EAE0D7] border-2 border-[#141413]"
                   : p.active
-                  ? "bg-[var(--bg-app)]"
-                  : "bg-[var(--bg-hover)]"
+                  ? "bg-[var(--text-primary)] border border-[var(--border-strong)]"
+                  : "bg-[var(--bg-panel)] border border-[var(--border-strong)]"
               )}
             >
-              <div
+              <span
                 className={cn(
-                  "w-3 h-3 rounded-full transition-transform duration-150",
+                  "neo-switch-thumb pointer-events-none inline-block h-5 w-5 transform rounded-full transition duration-200 ease-in-out",
                   isNeobrutalism
-                    ? p.active
-                      ? "bg-[#CCFF00] translate-x-3"
-                      : "bg-[#FFFDFB] translate-x-0"
-                    : p.active
-                    ? "bg-[var(--text-primary)] translate-x-3"
-                    : "bg-[var(--text-muted)] translate-x-0"
+                    ? "bg-[#141413] border border-[#141413]"
+                    : "bg-white shadow-sm ring-0",
+                  p.active ? "translate-x-5" : "translate-x-0"
                 )}
               />
-            </div>
-            <span>{p.active ? "ON" : "OFF"}</span>
+            </button>
             {p.active && (
               <span
                 className={cn(
-                  "text-[10px] font-medium pl-1.5",
+                  "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider",
                   isNeobrutalism
-                    ? "border-l border-[#141413]/40 text-[#141413]"
-                    : "opacity-70 border-l border-[var(--bg-app)]/20"
+                    ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[1px_1px_0px_#141413]"
+                    : "bg-[var(--text-primary)] text-[var(--bg-app)]"
                 )}
               >
                 Primary
               </span>
             )}
-          </button>
+          </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

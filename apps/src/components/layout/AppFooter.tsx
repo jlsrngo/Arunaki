@@ -156,29 +156,7 @@ export const AppFooter = memo(function AppFooter({
           }
         >
           {isOnline ? (
-            isNeobrutalism ? (
-              <svg
-                className="w-4 h-4 shrink-0 neo-icon-drop"
-                viewBox="0 0 24 24"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                {/* Outer Arc - Warm Orange */}
-                <path d="M2 8.82a15 15 0 0 1 20 0" stroke="#141413" strokeWidth="3.5" />
-                <path d="M2 8.82a15 15 0 0 1 20 0" stroke="#FF9F43" strokeWidth="2" />
-                {/* Middle Arc - Lavender Purple */}
-                <path d="M5 12.859a10 10 0 0 1 14 0" stroke="#141413" strokeWidth="3.5" />
-                <path d="M5 12.859a10 10 0 0 1 14 0" stroke="#B388FF" strokeWidth="2" />
-                {/* Inner Arc - Acid Lime */}
-                <path d="M8.5 16.429a5 5 0 0 1 7 0" stroke="#141413" strokeWidth="3.5" />
-                <path d="M8.5 16.429a5 5 0 0 1 7 0" stroke="#CCFF00" strokeWidth="2" />
-                {/* Bottom Dot - Acid Lime with Ink Ring */}
-                <circle cx="12" cy="20" r="1.6" fill="#CCFF00" stroke="#141413" strokeWidth="1.2" />
-              </svg>
-            ) : (
-              <Wifi className="w-3.5 h-3.5 text-[var(--text-primary)] shrink-0" />
-            )
+            <Wifi className={cn("w-3.5 h-3.5 shrink-0", isNeobrutalism ? "text-[#141413] stroke-[2.2]" : "text-[var(--text-primary)]")} />
           ) : (
             <WifiOff className="w-3.5 h-3.5 text-white shrink-0" />
           )}

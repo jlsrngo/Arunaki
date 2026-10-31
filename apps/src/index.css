@@ -165,8 +165,9 @@
   [data-theme="neobrutalism"] .neo-switch[aria-checked="false"] {
     background-color: #EAE0D7 !important;
   }
-  [data-theme="neobrutalism"] button[role="switch"] span,
-  [data-theme="neobrutalism"] .neo-switch span {
+  [data-theme="neobrutalism"] button[role="switch"] > span:first-child,
+  [data-theme="neobrutalism"] button[role="switch"] > span.neo-switch-thumb,
+  [data-theme="neobrutalism"] .neo-switch > span {
     background-color: #141413 !important;
     box-shadow: none !important;
   }

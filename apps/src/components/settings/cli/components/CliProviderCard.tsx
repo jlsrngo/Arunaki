@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "../../../../lib/utils";
+import { useTheme } from "../../../../lib/theme";
 import { CliModelDropdown } from "./CliModelDropdown";
 import { CliQuotaView } from "./CliQuotaView";
 import type {
@@ -21,6 +22,16 @@ import type {
   LocalCliData,
   QuotaReport,
 } from "../types";
+
+const NEO_CLI_COLORS: Record<string, string> = {
+  opencode: "bg-[#EFF6FF]", // Soft Sky Blue
+  antigravity: "bg-[#FEFCE8]", // Soft Yellow
+  kiro: "bg-[#FFF7ED]", // Soft Orange
+  router9: "bg-[#FAF5FF]", // Soft Purple
+  "9router": "bg-[#FAF5FF]", // Soft Purple
+  claude: "bg-[#FFF1F2]", // Soft Rose
+  codex: "bg-[#ECFDF5]", // Soft Mint
+};
 
 interface CliProviderCardProps {
   descriptor: CliProviderDescriptor;
@@ -109,11 +120,13 @@ export const CliProviderCard = memo(function CliProviderCard({
   onSelectModel,
   onCustomInputChange,
 }: CliProviderCardProps) {
+  const { isNeobrutalism } = useTheme();
   const id = d.id as CliProviderId;
   const ownsOwnCredential = id === "opencode" || id === "antigravity";
   const discovered = data.discovered?.find((x) => x.provider === id);
   const codexPlan = id === "codex" ? data.codex?.plan : undefined;
   const tokenExpiresAt = id === "codex" ? data.codex?.expiresAt : id === "kiro" ? data.kiro?.expiresAt : null;
+  const neoCardBg = NEO_CLI_COLORS[id] || "bg-[#FFFDFB]";
 
   const dot = state.signedIn
     ? "bg-[var(--text-primary)]"
@@ -184,8 +197,10 @@ export const CliProviderCard = memo(function CliProviderCard({
   return (
     <div
       className={cn(
-        "rounded-xl border transition-all duration-200",
-        state.active
+        "rounded-2xl border transition-all duration-200",
+        isNeobrutalism
+          ? `${neoCardBg} border-2 border-[#141413] shadow-[3px_3px_0px_#141413]`
+          : state.active
           ? "bg-[var(--bg-panel)] border-[var(--border-strong)]"
           : "bg-[var(--bg-card)] border-[var(--border-color)]"
       )}
@@ -209,7 +224,11 @@ export const CliProviderCard = memo(function CliProviderCard({
           }
           className={cn(
             "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer group/circle",
-            state.active
+            isNeobrutalism
+              ? state.active
+                ? "border-2 border-[#141413] bg-[#CCFF00] shadow-[1px_1px_0px_#141413]"
+                : "border-2 border-[#141413] bg-[#FFFDFB] hover:bg-[#CCFF00]"
+              : state.active
               ? "border-[var(--text-primary)] bg-[var(--text-primary)] hover:opacity-90"
               : "border-[var(--border-strong)] hover:border-[var(--text-primary)] bg-transparent"
           )}
@@ -312,7 +331,9 @@ export const CliProviderCard = memo(function CliProviderCard({
           disabled={testingPingTarget === id}
           className={cn(
             "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
-            ping
+            isNeobrutalism
+              ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#CCFF00]"
+              : ping
               ? ping.success
                 ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
                 : "bg-[var(--bg-app)] text-[var(--text-muted)] border-[var(--border-color)]"
@@ -348,7 +369,12 @@ export const CliProviderCard = memo(function CliProviderCard({
           <button
             type="button"
             onClick={() => window.open(d.docsUrl, "_blank")}
-            className="px-2.5 py-1 bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-color)] text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5"
+            className={cn(
+              "px-2.5 py-1 text-[11px] rounded-lg transition-all cursor-pointer font-medium flex items-center gap-1.5 border",
+              isNeobrutalism
+                ? "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#CCFF00]"
+                : "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-color)]"
+            )}
             title={isEn ? "Open the vendor page" : "Buka halaman vendor"}
           >
             <Globe className="w-3 h-3" />
@@ -359,7 +385,12 @@ export const CliProviderCard = memo(function CliProviderCard({
         <button
           type="button"
           onClick={() => onToggleExpand(id)}
-          className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+          className={cn(
+            "p-1.5 rounded-lg transition-colors cursor-pointer",
+            isNeobrutalism
+              ? "text-[#141413] hover:bg-[#141413]/10"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+          )}
           title={
             expanded
               ? isEn
@@ -384,7 +415,11 @@ export const CliProviderCard = memo(function CliProviderCard({
           disabled={busy}
           className={cn(
             "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 select-none group",
-            state.active
+            isNeobrutalism
+              ? state.active
+                ? "bg-[#CCFF00] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:brightness-95"
+                : "bg-[#FFFDFB] text-[#141413] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] hover:bg-[#CCFF00]"
+              : state.active
               ? "bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-app)] border border-[var(--text-primary)]"
               : "bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-strong)]"
           )}

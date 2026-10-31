@@ -3,6 +3,7 @@ import { Cpu, User, Sliders, MessageSquare, Terminal, Store } from "lucide-react
 import { cn } from "../lib/utils";
 import { API_BASE, apiFetch, directoryQuery } from "../lib/api";
 import { useI18n } from "../lib/i18n";
+import { useTheme } from "../lib/theme";
 import { ModelProviderSettings, Provider, isCliProvider } from "../components/settings/ModelProviderSettings";
 import { SettingsCliConnectionsTab } from "../components/settings/SettingsCliConnectionsTab";
 import { SettingsAppConnectionsTab } from "../components/settings/SettingsAppConnectionsTab";
@@ -10,8 +11,18 @@ import { SettingsAccountTab } from "../components/settings/SettingsAccountTab";
 import { SettingsAutomationTab } from "../components/settings/SettingsAutomationTab";
 import { SettingsMessagingTab } from "../components/settings/SettingsMessagingTab";
 
+const NEO_TAB_COLORS: Record<string, { bg: string; activeBg: string }> = {
+  models: { bg: "bg-[#EFF6FF]", activeBg: "bg-[#93C5FD]" }, // Sky Blue
+  cli: { bg: "bg-[#FAF5FF]", activeBg: "bg-[#D8B4FE]" }, // Lavender
+  apps: { bg: "bg-[#ECFDF5]", activeBg: "bg-[#86EFAC]" }, // Mint Green
+  integrations: { bg: "bg-[#FFF7ED]", activeBg: "bg-[#FDBA74]" }, // Warm Orange
+  messaging: { bg: "bg-[#F0F9FF]", activeBg: "bg-[#7DD3FC]" }, // Light Cyan
+  account: { bg: "bg-[#FEFCE8]", activeBg: "bg-[#FDE047]" }, // Warm Yellow
+};
+
 export function SettingsPage() {
   const { t } = useI18n();
+  const { isNeobrutalism } = useTheme();
   const [activeTab, setActiveTab] = useState("models");
 
   const tabs = [
@@ -141,21 +152,26 @@ export function SettingsPage() {
           </p>
         </div>
 
-        {/* Tab Navigation Pill Bar (Monochrome) */}
+        {/* Tab Navigation Pill Bar */}
         <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3 mb-6 overflow-x-auto shrink-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const neoColor = NEO_TAB_COLORS[tab.id] || { bg: "bg-[#FFFDFB]", activeBg: "bg-[#CCFF00]" };
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer border whitespace-nowrap h-10 select-none",
-                  isActive
-                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)] font-semibold"
-                    : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border-transparent"
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap h-10 select-none",
+                  isNeobrutalism
+                    ? isActive
+                      ? `${neoColor.activeBg} text-[#141413] border-2 border-[#141413] shadow-[3px_3px_0px_#141413] font-bold`
+                      : `${neoColor.bg} text-[#141413] border-2 border-[#141413] shadow-[1px_1px_0px_#141413] hover:shadow-[2px_2px_0px_#141413] font-semibold hover:brightness-95`
+                    : isActive
+                    ? "bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-strong)] font-semibold"
+                    : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent"
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -166,7 +182,14 @@ export function SettingsPage() {
         </div>
 
         {/* Main Settings Panel Content */}
-        <div className="flex-1 w-full bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-color)] p-6 overflow-y-auto min-h-0 transition-colors duration-150">
+        <div
+          className={cn(
+            "flex-1 w-full rounded-2xl p-6 overflow-y-auto min-h-0 transition-colors duration-150",
+            isNeobrutalism
+              ? "bg-[#FFFDFB] border-2 border-[#141413] shadow-[4px_4px_0px_#141413]"
+              : "bg-[var(--bg-panel)] border border-[var(--border-color)]"
+          )}
+        >
           {activeTab === "models" && (
             <ModelProviderSettings
               providers={providers}
