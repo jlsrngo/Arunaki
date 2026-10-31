@@ -13,9 +13,8 @@ use crate::knowledge::get_active_knowledge_for_workspace;
 use crate::paths::{gen_id, now_ms};
 use crate::provider::read_arunaki_config;
 use crate::session::message::emit_event;
-use crate::session::session::{save_store, set_active_run, with_store};
+use crate::session::session::{save_store, with_store};
 use crate::session::tools::{build_tool_definitions, execute_tool_call, should_attach_document_tools};
-use base64::prelude::*;
 use serde_json::{json, Value};
 
 pub async fn run_agent_turn(
@@ -288,8 +287,41 @@ pub async fn run_agent_turn(
         }
     }
 
-    let enriched_user_text = if !ocr_transcriptions.is_empty() {
-        format!("{}\n\n{}", prompt_text, ocr_transcriptions.join("\n\n"))
+    // Resolve @filename mentions from prompt_text into workspace file context
+    let mut mentioned_files_context = Vec::new();
+    for word in prompt_text.split_whitespace() {
+        if let Some(m) = word.strip_prefix('@') {
+            let clean_m = m.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '_' && c != '-');
+            if !clean_m.is_empty() {
+                let candidate = std::path::Path::new(workspace_dir).join(clean_m);
+                if candidate.is_file() {
+                    if let Ok(content) = std::fs::read_to_string(&candidate) {
+                        let snippet: String = content.chars().take(8000).collect();
+                        mentioned_files_context.push(format!(
+                            "[Explicitly Mentioned Workspace File: {}]:\n\"\"\"\n{}\n\"\"\"",
+                            clean_m, snippet.trim()
+                        ));
+                    } else {
+                        mentioned_files_context.push(format!(
+                            "[Explicitly Mentioned Workspace File: {} (binary document present in active folder)]",
+                            clean_m
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    let mut context_additions = Vec::new();
+    if !ocr_transcriptions.is_empty() {
+        context_additions.extend(ocr_transcriptions);
+    }
+    if !mentioned_files_context.is_empty() {
+        context_additions.extend(mentioned_files_context);
+    }
+
+    let enriched_user_text = if !context_additions.is_empty() {
+        format!("{}\n\n{}", prompt_text, context_additions.join("\n\n"))
     } else {
         prompt_text.to_string()
     };
@@ -312,7 +344,10 @@ pub async fn run_agent_turn(
     let is_local_bridge = provider_id == "antigravity" || provider_id == "local-cli";
     let mut base_url = cfg
         .pointer(&format!("/provider/{}/options/baseURL", provider_id))
+        .or_else(|| cfg.pointer(&format!("/provider/{}/api/url", provider_id)))
         .or_else(|| cfg.pointer(&format!("/provider/{}/api", provider_id)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/options/baseURL", provider_id)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/api/url", provider_id)))
         .and_then(|v| v.as_str())
         .map(|s| s.trim_end_matches('/').to_string())
         .unwrap_or_else(|| crate::bridge::get_bridge_base_url());
@@ -323,6 +358,9 @@ pub async fn run_agent_turn(
     }
     let api_key = cfg
         .pointer(&format!("/provider/{}/options/apiKey", provider_id))
+        .or_else(|| cfg.pointer(&format!("/provider/{}/request/body/apiKey", provider_id)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/options/apiKey", provider_id)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/request/body/apiKey", provider_id)))
         .and_then(|v| v.as_str())
         .unwrap_or("local-cli-bridge")
         .to_string();

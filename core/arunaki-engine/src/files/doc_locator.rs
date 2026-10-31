@@ -97,6 +97,8 @@ pub fn classify_document_extension(filename: &str) -> Option<&'static str> {
         Some("PowerPoint Presentation")
     } else if lower.ends_with(".md") && !lower.ends_with("readme.md") {
         Some("Markdown Document")
+    } else if lower.ends_with(".txt") {
+        Some("Text Document")
     } else {
         None
     }
@@ -117,7 +119,7 @@ pub fn format_workspace_documents_block(workspace_dir: &str) -> Option<String> {
             doc.relative_path, doc.doc_type, size_kb
         ));
     }
-    out.push_str("When the user refers to \"excel\", \"spreadsheet\", \"laporan\", \"dokumen\", or \"pdf\", operate directly on these files.\n");
+    out.push_str("When the user refers to \"excel\", \"spreadsheet\", \"laporan\", \"dokumen\", \"catatan\", \"teks\", or \"pdf\", operate directly on these files.\n");
     out.push_str("</workspace_documents>");
 
     Some(out)
@@ -135,6 +137,7 @@ mod tests {
         assert_eq!(classify_document_extension("invoice.pdf"), Some("PDF Document"));
         assert_eq!(classify_document_extension("pitch.pptx"), Some("PowerPoint Presentation"));
         assert_eq!(classify_document_extension("notes.md"), Some("Markdown Document"));
+        assert_eq!(classify_document_extension("LAPORAN-HARIAN.txt"), Some("Text Document"));
         assert_eq!(classify_document_extension("README.md"), None);
         assert_eq!(classify_document_extension("main.rs"), None);
     }

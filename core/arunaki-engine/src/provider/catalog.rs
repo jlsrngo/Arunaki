@@ -16,7 +16,12 @@ pub fn build_catalog() -> (Vec<Value>, Vec<Value>) {
     let mut providers = Vec::new();
     let mut models = Vec::new();
 
-    if let Some(prov_map) = cfg.get("provider").and_then(|v| v.as_object()) {
+    let prov_map_opt = cfg
+        .get("provider")
+        .or_else(|| cfg.get("providers"))
+        .and_then(|v| v.as_object());
+
+    if let Some(prov_map) = prov_map_opt {
         for (pid, pval) in prov_map {
             let pname = pval
                 .get("name")
@@ -24,7 +29,8 @@ pub fn build_catalog() -> (Vec<Value>, Vec<Value>) {
                 .unwrap_or(pid.as_str());
             let base_url = pval
                 .pointer("/options/baseURL")
-                .or_else(|| pval.get("api"))
+                .or_else(|| pval.pointer("/api/url"))
+                .or_else(|| pval.get("api").filter(|v| v.is_string()))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             providers.push(json!({
@@ -181,7 +187,12 @@ pub fn build_ui_providers_list() -> Vec<Value> {
     let cfg = read_arunaki_config();
     let active_model_str = cfg.get("model").and_then(|v| v.as_str()).unwrap_or("");
     let mut out = Vec::new();
-    if let Some(prov_map) = cfg.get("provider").and_then(|v| v.as_object()) {
+    let prov_map_opt = cfg
+        .get("provider")
+        .or_else(|| cfg.get("providers"))
+        .and_then(|v| v.as_object());
+
+    if let Some(prov_map) = prov_map_opt {
         for (idx, (pid, pval)) in prov_map.iter().enumerate() {
             if pid == "local-cli" {
                 continue;
@@ -192,11 +203,13 @@ pub fn build_ui_providers_list() -> Vec<Value> {
                 .unwrap_or(pid.as_str());
             let base_url = pval
                 .pointer("/options/baseURL")
-                .or_else(|| pval.get("api"))
+                .or_else(|| pval.pointer("/api/url"))
+                .or_else(|| pval.get("api").filter(|v| v.is_string()))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let api_key = pval
                 .pointer("/options/apiKey")
+                .or_else(|| pval.pointer("/request/body/apiKey"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let first_model = pval
@@ -402,12 +415,18 @@ pub async fn handle_ui_provider_id_test(
     let cfg = read_arunaki_config();
     let base_url = cfg
         .pointer(&format!("/provider/{}/options/baseURL", pid))
+        .or_else(|| cfg.pointer(&format!("/provider/{}/api/url", pid)))
         .or_else(|| cfg.pointer(&format!("/provider/{}/api", pid)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/options/baseURL", pid)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/api/url", pid)))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
     let api_key = cfg
         .pointer(&format!("/provider/{}/options/apiKey", pid))
+        .or_else(|| cfg.pointer(&format!("/provider/{}/request/body/apiKey", pid)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/options/apiKey", pid)))
+        .or_else(|| cfg.pointer(&format!("/providers/{}/request/body/apiKey", pid)))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
@@ -729,7 +748,25 @@ pub async fn handle_providers_delete(AxumPath(pid): AxumPath<String>) -> Respons
     let mut cfg = read_arunaki_config();
     if let Some(map) = cfg.get_mut("provider").and_then(|v| v.as_object_mut()) {
         map.remove(&pid);
-        write_arunaki_config(&cfg);
     }
+    if let Some(map) = cfg.get_mut("providers").and_then(|v| v.as_object_mut()) {
+        map.remove(&pid);
+    }
+    write_arunaki_config(&cfg);
     Json(json!({ "ok": true, "data": { "ok": true } })).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_ui_providers_list_includes_user_providers() {
+        let list = build_ui_providers_list();
+        let kenari_opt = list.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some("kenari"));
+        assert!(kenari_opt.is_some(), "Kenari must be in ui providers list");
+        let kenari = kenari_opt.unwrap();
+        let key = kenari.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
+        assert_eq!(key, "kn-d4064183d620d48ada4409df456e02a4f1840f73a7541333");
+    }
 }
