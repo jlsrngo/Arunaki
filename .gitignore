@@ -73,6 +73,7 @@ arunaki.json
 dist-exe/
 dist-package/
 dist-portable/
+dist-installer/
 
 # Rust build artifacts
 target/
