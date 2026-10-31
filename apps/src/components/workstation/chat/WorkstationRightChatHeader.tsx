@@ -30,12 +30,13 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
     const fetchTitle = () => {
       if (activeChatId) {
         const saved = localStorage.getItem(`arunaki_chat_name_${activeChatId}`);
-        if (saved) {
+        if (saved && saved !== "New Session" && saved !== "Chat") {
           setChatTitle(saved);
         } else {
           getSession(activeChatId).then((sess) => {
-            if (sess?.title) {
+            if (sess?.title && sess.title !== "New Session" && sess.title !== "Chat") {
               setChatTitle(sess.title);
+              localStorage.setItem(`arunaki_chat_name_${activeChatId}`, sess.title);
             } else {
               setChatTitle("Chat");
             }
@@ -86,7 +87,7 @@ export const WorkstationRightChatHeader = memo(function WorkstationRightChatHead
   };
 
   const displayTitle =
-    chatTitle === "Chat"
+    chatTitle === "Chat" || chatTitle === "New Session"
       ? t("chat", "Chat")
       : chatTitle === "New Chat"
       ? t("newChat", "New Chat")

@@ -17,11 +17,25 @@ pub fn derive_session_title(prompt: &str) -> String {
         .unwrap_or(prompt.trim());
 
     let no_emoji: String = first_line.chars().filter(|&c| !is_emoji_char(c)).collect();
-    let cleaned = no_emoji
+    let mut candidate = no_emoji.trim();
+
+    // Clean common automated action prefixes (e.g. Playbooks, Commands)
+    if let Some(rest) = candidate.strip_prefix("Execute Playbook:") {
+        candidate = rest.trim();
+    } else if let Some(rest) = candidate.strip_prefix("Playbook:") {
+        candidate = rest.trim();
+    }
+
+    let cleaned = candidate
+        .replace("**", "")
+        .replace("__", "")
+        .replace("`", "")
         .trim_start_matches(|c: char| {
-            c == '#' || c == '*' || c == '-' || c == '>' || c == '`' || c == '@' || c.is_whitespace()
+            c == '#' || c == '*' || c == '-' || c == '>' || c == '`' || c == '@' || c == ':' || c.is_whitespace()
         })
-        .trim();
+        .trim_end_matches(|c: char| c == '*' || c == '`' || c.is_whitespace())
+        .trim()
+        .to_string();
 
     if cleaned.is_empty() {
         return "New Session".to_string();
@@ -37,7 +51,7 @@ pub fn derive_session_title(prompt: &str) -> String {
         }
         format!("{}...", truncated.trim())
     } else {
-        cleaned.to_string()
+        cleaned
     }
 }
 
@@ -58,6 +72,10 @@ mod tests {
         assert_eq!(
             derive_session_title("Tolong periksa semua transaksi invoice yang belum lunas dalam folder"),
             "Tolong periksa semua transaksi invoic..."
+        );
+        assert_eq!(
+            derive_session_title("Execute Playbook: **Sync LAPORAN-HARIAN.txt to REKAP 10-2026.xlsx**"),
+            "Sync LAPORAN-HARIAN.txt to REKAP 10-2..."
         );
         assert_eq!(derive_session_title("   "), "New Session");
     }

@@ -1082,6 +1082,22 @@ export function useWorkstationChat({
       });
       refetchFiles();
       reloadOpenTabsContent();
+
+      // Refresh session title to synchronize Right Chat Header and Sessions list
+      if (chatIdToUse) {
+        queryClient.invalidateQueries({ queryKey: ["sessions"] });
+        getSession(chatIdToUse).then((sess) => {
+          if (sess?.title && sess.title !== "New Session" && sess.title !== "Chat") {
+            localStorage.setItem(`arunaki_chat_name_${chatIdToUse}`, sess.title);
+            window.dispatchEvent(
+              new CustomEvent("arunaki:session-updated", {
+                detail: { sessionId: chatIdToUse, title: sess.title },
+              })
+            );
+          }
+        }).catch(() => {});
+      }
+
       setTimeout(() => {
         try {
           abortCtrl.abort();
@@ -1390,6 +1406,17 @@ export function useWorkstationChat({
             window.dispatchEvent(
               new CustomEvent("arunaki:open-app", {
                 detail: { app, title, path, content },
+              })
+            );
+          }
+        } else if (event.type === "session_updated" || event.type === "session.updated") {
+          const sTitle = event.data?.title;
+          const sId = event.data?.sessionID || event.data?.sessionId || chatIdToUse;
+          if (sTitle && sId) {
+            localStorage.setItem(`arunaki_chat_name_${sId}`, sTitle);
+            window.dispatchEvent(
+              new CustomEvent("arunaki:session-updated", {
+                detail: { sessionId: sId, title: sTitle },
               })
             );
           }

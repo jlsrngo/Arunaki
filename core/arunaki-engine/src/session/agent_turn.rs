@@ -845,6 +845,21 @@ pub async fn run_agent_turn(
     with_store(|store| {
         if let Some(s) = store.sessions.get_mut(session_id) {
             s["time"]["updated"] = json!(completed_ms);
+            let cur_title = s.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            if cur_title.is_empty()
+                || cur_title.eq_ignore_ascii_case("New Session")
+                || cur_title.eq_ignore_ascii_case("Chat")
+                || cur_title.starts_with("New session -")
+                || cur_title.starts_with("New Session -")
+            {
+                if let Some(first_msg) = store.messages.get(session_id).and_then(|m| m.first()) {
+                    let text = first_msg.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                    let auto_title = crate::session::title::derive_session_title(text);
+                    if auto_title != "New Session" {
+                        s["title"] = json!(&auto_title);
+                    }
+                }
+            }
         }
         store
             .messages

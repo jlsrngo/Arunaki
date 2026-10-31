@@ -49,12 +49,11 @@ export function useExternalChatEvents({
 
     subscribeEvents(
       (rawEvent) => {
-        if (isLocalSendingRef.current || isCompactingRef.current) return;
-
         const event = mapEngineEvent(rawEvent, activeChatId);
         if (!event) return;
 
-        if (event.type === "session_updated") {
+        // Session title/metadata updates must ALWAYS be processed, even during local streaming!
+        if (event.type === "session_updated" || event.type === "session.updated") {
           const sTitle = event.data?.title;
           const sId = event.data?.sessionID || event.data?.sessionId || activeChatId;
           if (sTitle) {
@@ -66,6 +65,8 @@ export function useExternalChatEvents({
           }
           return;
         }
+
+        if (isLocalSendingRef.current || isCompactingRef.current) return;
 
         if (event.type === "open_document_app" || event.type === "open_app") {
           const app = event.data?.app || (event as any)?.properties?.app;
