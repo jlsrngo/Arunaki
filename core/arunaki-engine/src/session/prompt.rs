@@ -857,11 +857,20 @@ pub async fn run_agent_turn(
                 "time": { "created": tool_start, "completed": tool_end }
             }));
 
+            let (bounded_tool_out_str, was_truncated) =
+                crate::tool::truncator::bound_tool_output(&fn_name, &tool_out_str);
+            if was_truncated {
+                crate::paths::log_engine(
+                    "tool",
+                    &format!("✂️ Tool '{}' output bounded by harness to prevent context exhaustion", fn_name),
+                );
+            }
+
             chat_messages.push(json!({
                 "role": "tool",
                 "tool_call_id": call_id,
                 "name": fn_name,
-                "content": tool_out_str
+                "content": bounded_tool_out_str
             }));
         }
     }

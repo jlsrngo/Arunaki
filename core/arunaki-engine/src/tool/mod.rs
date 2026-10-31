@@ -21,6 +21,7 @@ pub mod synthesize;
 pub mod telegram;
 pub mod tasks;
 pub mod todo;
+pub mod truncator;
 pub mod websearch;
 pub mod write;
 

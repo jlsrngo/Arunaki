@@ -493,7 +493,7 @@ mod tests {
         let create_args = json!({
             "action": "create_task",
             "new_task_title": "Ketemu client",
-            "target_date": "2026-10-31",
+            "target_date": "2099-12-31",
             "reminder_time": "13:00",
             "priority": "high",
             "notes": "Pertemuan di kantor client membahas kontrak"
@@ -503,7 +503,7 @@ mod tests {
         assert_eq!(res["title"], "Ketemu client");
         assert_eq!(res["priority"], "high");
         assert_eq!(res["reminderTime"], "13:00");
-        assert_eq!(res["targetDate"], "2026-10-31");
+        assert_eq!(res["targetDate"], "2099-12-31");
         assert_eq!(res["columnId"], "upcoming");
 
         // 2. List tasks

@@ -62,17 +62,29 @@ pub fn execute_read(workspace_dir: &str, arguments: &Value) -> Value {
                         let offset = arguments.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
                         let limit = arguments.get("limit").and_then(|v| v.as_u64()).map(|n| n as usize);
 
-                        if offset > 0 || limit.is_some() {
-                            let lines: Vec<&str> = content.lines().collect();
-                            let start = offset.min(lines.len());
-                            let end = match limit {
-                                Some(lim) => (start + lim).min(lines.len()),
-                                None => lines.len(),
-                            };
+                        let lines: Vec<&str> = content.lines().collect();
+                        let total_lines = lines.len();
+
+                        if offset > 0 || limit.is_some() || total_lines > crate::tool::truncator::MAX_TOOL_OUTPUT_LINES {
+                            let lim = limit.unwrap_or(crate::tool::truncator::MAX_TOOL_OUTPUT_LINES);
+                            let start = offset.min(total_lines);
+                            let end = (start + lim).min(total_lines);
                             let sliced = lines[start..end].join("\n");
-                            json!({ "content": sliced, "linesTotal": lines.len(), "offset": start, "linesReturned": end - start })
+                            let mut res = json!({
+                                "content": sliced,
+                                "linesTotal": total_lines,
+                                "offset": start,
+                                "linesReturned": end - start
+                            });
+                            if total_lines > end {
+                                res["hint"] = json!(format!(
+                                    "Showing lines {}..{} of {}. To read further, invoke 'read' with offset: {}.",
+                                    start + 1, end, total_lines, end
+                                ));
+                            }
+                            res
                         } else {
-                            json!({ "content": content })
+                            json!({ "content": content, "linesTotal": total_lines })
                         }
                     }
                     Err(e) => json!({ "error": format!("Read error: {}", e) }),
