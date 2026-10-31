@@ -83,7 +83,6 @@ crates/**/target/
 .tauri-keys/
 *.key
 *.pub
-bun.lock
 
 docs/
 demo/
