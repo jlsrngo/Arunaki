@@ -72,6 +72,7 @@ pub fn router() -> Router {
         .route("/api/desktop/notify", post(handle_desktop_notify))
         .route("/api/desktop/open-url", post(handle_open_url))
         .route("/api/desktop/check-updates", get(handle_check_updates).post(handle_check_updates))
+        .route("/api/desktop/check-artcraft-updates", get(handle_check_artcraft_updates).post(handle_check_artcraft_updates))
         .route("/api/desktop/quit", post(handle_quit))
 }
 
@@ -1627,4 +1628,95 @@ async fn handle_check_updates() -> impl IntoResponse {
             "message": format!("Could not reach GitHub Releases: {}", e),
         })),
     }
+}
+
+pub async fn handle_check_artcraft_updates() -> Json<Value> {
+    const EMBEDDED_MANIFEST: &str = include_str!("../../../artcraft-sync-manifest.json");
+    let manifest_val: Value = serde_json::from_str(EMBEDDED_MANIFEST).unwrap_or(json!({}));
+    let apps_obj = manifest_val.get("apps").and_then(|v| v.as_object());
+
+    let client = reqwest::Client::builder()
+        .user_agent("Arunaki-ArtCraft-Sync/1.0")
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .unwrap_or_default();
+
+    let mut apps_result = Vec::new();
+    let mut any_has_update = false;
+
+    let target_apps = [
+        ("GridCraft", "storytold/gridcraft", "Spreadsheet Engine (.xlsx, .csv)"),
+        ("WordCraft", "storytold/wordcraft", "Official Rich Document & A4 Layout (.docx, .md)"),
+        ("PdfCraft", "storytold/pdfcraft", "Offline PDF Reader & Data Cartographer (.pdf)"),
+        ("DeckCraft", "storytold/deckcraft", "Slide Presenter & Carousel (.pptx)"),
+    ];
+
+    for (name, repo, default_role) in target_apps {
+        let current_commit_full = apps_obj
+            .and_then(|a| a.get(name))
+            .and_then(|v| v.get("lastCommit"))
+            .and_then(|c| c.as_str())
+            .unwrap_or("3099df9");
+        let current_commit_short = if current_commit_full.len() >= 7 {
+            &current_commit_full[..7]
+        } else {
+            current_commit_full
+        };
+
+        let role = apps_obj
+            .and_then(|a| a.get(name))
+            .and_then(|v| v.get("role"))
+            .and_then(|r| r.as_str())
+            .unwrap_or(default_role);
+
+        let url = format!("https://api.github.com/repos/{}/commits?per_page=1", repo);
+        let resp = client.get(&url).send().await;
+
+        let mut latest_commit_short = current_commit_short.to_string();
+        let mut latest_message = "Synchronized with current embedded engine build.".to_string();
+        let mut latest_date = "".to_string();
+        let mut has_update = false;
+
+        if let Ok(r) = resp {
+            if r.status().is_success() {
+                if let Ok(commits) = r.json::<Value>().await {
+                    if let Some(first) = commits.as_array().and_then(|arr| arr.first()) {
+                        if let Some(sha) = first.get("sha").and_then(|s| s.as_str()) {
+                            let sha_short = if sha.len() >= 7 { &sha[..7] } else { sha };
+                            latest_commit_short = sha_short.to_string();
+                            if !current_commit_full.starts_with(sha_short) {
+                                has_update = true;
+                                any_has_update = true;
+                            }
+                        }
+                        if let Some(msg) = first.get("commit").and_then(|c| c.get("message")).and_then(|m| m.as_str()) {
+                            latest_message = msg.lines().next().unwrap_or("").to_string();
+                        }
+                        if let Some(dt) = first.get("commit").and_then(|c| c.get("committer")).and_then(|cm| cm.get("date")).and_then(|d| d.as_str()) {
+                            latest_date = dt.to_string();
+                        }
+                    }
+                }
+            }
+        }
+
+        apps_result.push(json!({
+            "name": name,
+            "repo": repo,
+            "role": role,
+            "repo_url": format!("https://github.com/{}", repo),
+            "current_commit": current_commit_short,
+            "latest_commit": latest_commit_short,
+            "latest_message": latest_message,
+            "latest_date": latest_date,
+            "has_update": has_update
+        }));
+    }
+
+    Json(json!({
+        "status": "ok",
+        "has_artcraft_update": any_has_update,
+        "last_checked": chrono::Utc::now().to_rfc3339(),
+        "apps": apps_result
+    }))
 }

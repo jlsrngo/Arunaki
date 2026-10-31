@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback, useMemo } from "react";
-import { Check, RefreshCw, Sparkles, Download } from "lucide-react";
+import { Check, RefreshCw, Sparkles, Download, Layers } from "lucide-react";
 import { useI18n } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
 import { cn } from "../../../lib/utils";
@@ -37,6 +37,23 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     downloadUrl?: string;
     message?: string;
   } | null>(null);
+  const [artcraftStatus, setArtcraftStatus] = useState<{
+    status: string;
+    has_artcraft_update: boolean;
+    last_checked: string;
+    apps: Array<{
+      name: string;
+      repo: string;
+      role: string;
+      repo_url: string;
+      current_commit: string;
+      latest_commit: string;
+      latest_message: string;
+      latest_date: string;
+      has_update: boolean;
+    }>;
+  } | null>(null);
+  const [checkingArtcraft, setCheckingArtcraft] = useState(false);
   const { t } = useI18n();
   const { isNeobrutalism } = useTheme();
 
@@ -113,12 +130,32 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
     }
   }, []);
 
+  const checkArtcraftUpdates = useCallback(async () => {
+    setCheckingArtcraft(true);
+    try {
+      const res = await fetch("/api/desktop/check-artcraft-updates");
+      if (res.ok) {
+        const data = await res.json();
+        setArtcraftStatus(data);
+      }
+    } catch {
+      // offline fallback
+    } finally {
+      setCheckingArtcraft(false);
+    }
+  }, []);
+
   // Automatically check for updates once when opened
   useEffect(() => {
-    if (isOpen && !updateResult && !checkingUpdate) {
-      checkForUpdates();
+    if (isOpen) {
+      if (!updateResult && !checkingUpdate) {
+        checkForUpdates();
+      }
+      if (!artcraftStatus && !checkingArtcraft) {
+        checkArtcraftUpdates();
+      }
     }
-  }, [isOpen, updateResult, checkingUpdate, checkForUpdates]);
+  }, [isOpen, updateResult, checkingUpdate, checkForUpdates, artcraftStatus, checkingArtcraft, checkArtcraftUpdates]);
 
   // Clean, modern Native Rust architecture specifications.
   // Outdated Electron/Node.js/V8 lines are completely eliminated.
@@ -313,6 +350,105 @@ export const AboutArunakiModal = memo(function AboutArunakiModal({
                 >
                   {checkingUpdate ? "Checking..." : "Check Now"}
                 </Button>
+              )}
+            </div>
+
+            {/* ArtCraft 4-Core Upstream Suite Live Tracker */}
+            <div
+              className={cn(
+                "mt-3 p-3 rounded-xl border text-xs select-none transition-all space-y-2",
+                isNeobrutalism
+                  ? artcraftStatus?.has_artcraft_update
+                    ? "bg-[#FED7AA] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] text-[#141413]"
+                    : "bg-[#FFFDFB] border-2 border-[#141413] shadow-[2px_2px_0px_#141413] text-[#141413]"
+                  : artcraftStatus?.has_artcraft_update
+                  ? "bg-[var(--bg-hover)] border-amber-500/50 text-[var(--text-primary)]"
+                  : "bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-secondary)]"
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Layers className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
+                  <span className="font-bold text-[11px] uppercase tracking-wider truncate">
+                    ArtCraft Upstream (storytold)
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded text-[10px] font-bold border",
+                      artcraftStatus?.has_artcraft_update
+                        ? isNeobrutalism
+                          ? "bg-[#FF9F43] text-[#141413] border-[#141413]"
+                          : "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                        : isNeobrutalism
+                        ? "bg-[#CCFF00] text-[#141413] border-[#141413]"
+                        : "bg-[var(--bg-hover)] text-[var(--text-primary)] border-[var(--border-strong)]"
+                    )}
+                  >
+                    {checkingArtcraft
+                      ? "Checking..."
+                      : artcraftStatus?.has_artcraft_update
+                      ? "Update Available"
+                      : "Up to Date"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={checkArtcraftUpdates}
+                    disabled={checkingArtcraft}
+                    className="p-1 hover:bg-[var(--bg-hover)] rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                    title="Refresh ArtCraft Upstream"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", checkingArtcraft && "animate-spin")} />
+                  </button>
+                </div>
+              </div>
+
+              {artcraftStatus?.apps ? (
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  {artcraftStatus.apps.map((app) => (
+                    <div
+                      key={app.name}
+                      onClick={() => {
+                        fetch("/api/desktop/open-url", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ url: app.repo_url }),
+                        }).catch(() => window.open(app.repo_url, "_blank"));
+                      }}
+                      className={cn(
+                        "p-1.5 rounded-lg border flex items-center justify-between gap-1 cursor-pointer transition-all hover:scale-[1.01]",
+                        isNeobrutalism
+                          ? app.has_update
+                            ? "bg-[#FDE047] border-2 border-[#141413] shadow-[1px_1px_0px_#141413] font-bold text-[#141413]"
+                            : "bg-[#FFFDFB] border border-[#141413] text-[#141413]"
+                          : app.has_update
+                          ? "bg-[var(--bg-hover)] border-amber-500/40 text-[var(--text-primary)]"
+                          : "bg-[var(--bg-app)] border-[var(--border-color)] text-[var(--text-secondary)]"
+                      )}
+                      title={`${app.name} (${app.repo})\nRole: ${app.role}\nCurrent: ${app.current_commit} | Latest: ${app.latest_commit}\nMessage: ${app.latest_message}\nClick to view upstream repository`}
+                    >
+                      <div className="min-w-0">
+                        <span className="font-semibold block truncate leading-tight text-[11px]">{app.name}</span>
+                        <span className="text-[9px] text-[var(--text-muted)] block truncate">{app.current_commit}</span>
+                      </div>
+                      {app.has_update ? (
+                        <span className={cn(
+                          "text-[9px] px-1 py-0.2 rounded font-bold shrink-0",
+                          isNeobrutalism ? "bg-[#141413] text-white" : "bg-amber-500 text-black"
+                        )}>
+                          NEW
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[9px] text-[var(--text-muted)] shrink-0">ok</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Monitoring upstream storytold repos for GridCraft, WordCraft, PdfCraft, and DeckCraft.
+                </p>
               )}
             </div>
 
