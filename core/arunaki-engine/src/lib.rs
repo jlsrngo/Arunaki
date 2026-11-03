@@ -132,6 +132,7 @@ pub fn build_router() -> Router {
         .merge(question::router())
         .merge(permission::router())
         .fallback(handle_fallback)
+        .layer(axum::extract::DefaultBodyLimit::max(64 * 1024 * 1024))
         .layer(middleware::from_fn(cors_and_auth_middleware))
 }
 
@@ -452,5 +453,44 @@ mod origin_tests {
         )
         .await;
         assert_eq!(status, 403);
+    }
+
+    #[tokio::test]
+    async fn local_dispatch_accepts_large_multimodal_image_payload() {
+        // Create session
+        let (create_status, _, create_body) = super::handle_local_request(
+            "POST",
+            "/api/session",
+            vec![("content-type".to_string(), "application/json".to_string())],
+            Some(serde_json::to_vec(&serde_json::json!({
+                "model": { "providerID": "local-cli", "id": "gemini-3.8-flash-low" }
+            })).unwrap()),
+        )
+        .await;
+        assert_eq!(create_status, 200);
+        let sess_json: serde_json::Value = serde_json::from_slice(&create_body).unwrap();
+        let sid = sess_json["data"]["id"].as_str().unwrap();
+
+        // 5MB base64 image (exceeds default 2MB Axum limit)
+        let large_b64 = format!("data:image/png;base64,{}", "A".repeat(5 * 1024 * 1024));
+        let prompt_payload = serde_json::json!({
+            "prompt": {
+                "text": "Analyze this screenshot",
+                "files": [{
+                    "name": "screenshot.png",
+                    "uri": large_b64,
+                    "mime": "image/png"
+                }]
+            }
+        });
+        let (prompt_status, _, resp_body) = super::handle_local_request(
+            "POST",
+            &format!("/api/session/{}/prompt", sid),
+            vec![("content-type".to_string(), "application/json".to_string())],
+            Some(serde_json::to_vec(&prompt_payload).unwrap()),
+        )
+        .await;
+        assert_ne!(prompt_status, 413, "Should NOT reject with 413 Payload Too Large");
+        assert_eq!(prompt_status, 200, "Should accept 5MB image prompt: {}", String::from_utf8_lossy(&resp_body));
     }
 }

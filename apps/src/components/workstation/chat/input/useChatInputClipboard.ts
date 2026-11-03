@@ -16,21 +16,107 @@ interface UseChatInputClipboardOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
 }
 
+async function optimizeImage(fileOrDataUrl: File | string, maxDim = 2048): Promise<string> {
+  if (typeof fileOrDataUrl === "string") {
+    if (!fileOrDataUrl.startsWith("data:image/") || fileOrDataUrl.length < 1.5 * 1024 * 1024) {
+      return fileOrDataUrl;
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= maxDim && height <= maxDim && fileOrDataUrl.length < 2 * 1024 * 1024) {
+          resolve(fileOrDataUrl);
+          return;
+        }
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(fileOrDataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      };
+      img.onerror = () => resolve(fileOrDataUrl);
+      img.src = fileOrDataUrl;
+    });
+  }
+
+  // File object
+  return new Promise((resolve) => {
+    if (!fileOrDataUrl.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(fileOrDataUrl);
+      return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(fileOrDataUrl);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width <= maxDim && height <= maxDim && fileOrDataUrl.size < 1.5 * 1024 * 1024) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(fileOrDataUrl);
+        return;
+      }
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(fileOrDataUrl);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      const mime = fileOrDataUrl.type === "image/png" ? "image/png" : "image/jpeg";
+      resolve(canvas.toDataURL(mime, 0.88));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(fileOrDataUrl);
+    };
+    img.src = url;
+  });
+}
+
 export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOptions) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFileItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const readFileAsDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleAddImageDataUrl = useCallback(
-    (dataUrl: string, nameHint = "screenshot") => {
+    async (rawUrl: string, nameHint = "screenshot") => {
+      const dataUrl = await optimizeImage(rawUrl);
       const currentCount = attachedFiles.length;
       const rawFileName = `${nameHint}.png`;
       const resolvedName = normalizeAttachmentName(rawFileName, 0, 1, currentCount);
@@ -71,7 +157,7 @@ export function useChatInputClipboard({ textareaRef }: UseChatInputClipboardOpti
       for (let i = 0; i < filesToAdd.length; i++) {
         const file = filesToAdd[i];
         try {
-          const dataUrl = await readFileAsDataUrl(file);
+          const dataUrl = await optimizeImage(file);
           const rawFileName =
             file.name ||
             (file.type ? `screenshot.${file.type.split("/")[1] || "png"}` : "screenshot.png");

@@ -231,6 +231,43 @@ pub(crate) async fn handle_antigravity_request(body: Value, model: &str, is_stre
             continue;
         }
 
+        if let Some(arr) = m.get("content").and_then(|v| v.as_array()) {
+            let mut parts = Vec::new();
+            for item in arr {
+                let itype = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                if itype == "text" || itype == "input_text" {
+                    if let Some(t) = item.get("text").and_then(|v| v.as_str()) {
+                        if !t.is_empty() {
+                            parts.push(json!({ "text": t }));
+                        }
+                    }
+                } else if itype == "image_url" {
+                    if let Some(url) = item.pointer("/image_url/url").and_then(|v| v.as_str()) {
+                        if let Some((mime, b64)) = super::parse_data_url(url) {
+                            parts.push(json!({
+                                "inlineData": {
+                                    "mimeType": mime,
+                                    "data": b64
+                                }
+                            }));
+                        }
+                    }
+                } else if let Some(s) = item.as_str() {
+                    if !s.is_empty() {
+                        parts.push(json!({ "text": s }));
+                    }
+                }
+            }
+            if parts.is_empty() {
+                parts.push(json!({ "text": " " }));
+            }
+            contents.push(json!({
+                "role": "user",
+                "parts": parts
+            }));
+            continue;
+        }
+
         let txt = extract_content_text(m.get("content"));
         contents.push(json!({
             "role": "user",

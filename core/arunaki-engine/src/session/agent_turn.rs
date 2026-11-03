@@ -223,9 +223,10 @@ pub async fn run_agent_turn(
             if uri.starts_with("data:image/") {
                 image_urls.push(uri.to_string());
                 if let Some(comma_pos) = uri.find(',') {
-                    let b64_data = &uri[comma_pos + 1..];
+                    let b64_raw = &uri[comma_pos + 1..];
+                    let clean_b64: String = b64_raw.chars().filter(|c| !c.is_whitespace()).collect();
                     use base64::prelude::*;
-                    if let Ok(bytes) = BASE64_STANDARD.decode(b64_data.trim()) {
+                    if let Ok(bytes) = BASE64_STANDARD.decode(&clean_b64) {
                         let scratch_dir = crate::paths::arunaki_dot_dir().join("scratch");
                         let _ = std::fs::create_dir_all(&scratch_dir);
                         let clean_name = file_name.replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");

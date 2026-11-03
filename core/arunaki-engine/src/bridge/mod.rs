@@ -114,6 +114,7 @@ pub async fn start_bridge_server(preferred_port: u16) -> Result<u16, String> {
         .route("/health", get(handle_health))
         .route("/v1/models", get(handle_models))
         .route("/v1/chat/completions", post(handle_chat_completions))
+        .layer(axum::extract::DefaultBodyLimit::max(64 * 1024 * 1024))
         .layer(middleware::from_fn(origin_guard_middleware));
 
     tokio::spawn(async move {
@@ -261,7 +262,7 @@ async fn handle_models() -> impl IntoResponse {
 }
 
 async fn handle_chat_completions(req: Request) -> Response {
-    let bytes = match axum::body::to_bytes(req.into_body(), 32 * 1024 * 1024).await {
+    let bytes = match axum::body::to_bytes(req.into_body(), 64 * 1024 * 1024).await {
         Ok(b) => b,
         Err(e) => {
             return (
@@ -310,6 +311,18 @@ async fn handle_chat_completions(req: Request) -> Response {
         return handle_claude_request(body, &model, is_stream).await;
     }
     handle_codex_request(body, &model, is_stream).await
+}
+
+pub(crate) fn parse_data_url(url: &str) -> Option<(&str, &str)> {
+    if let Some(rest) = url.strip_prefix("data:") {
+        if let Some(comma_pos) = rest.find(',') {
+            let meta = &rest[..comma_pos];
+            let data = &rest[comma_pos + 1..];
+            let mime = meta.split(';').next().unwrap_or("image/png");
+            return Some((mime, data));
+        }
+    }
+    None
 }
 
 pub(crate) fn extract_content_text(content: Option<&Value>) -> String {

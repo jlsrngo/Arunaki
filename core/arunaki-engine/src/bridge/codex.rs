@@ -103,6 +103,33 @@ pub(crate) async fn handle_codex_request(body: Value, model: &str, is_stream: bo
             }
             continue;
         }
+        if let Some(arr) = m.get("content").and_then(|v| v.as_array()) {
+            let mut content_parts = Vec::new();
+            for item in arr {
+                let itype = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                if itype == "text" || itype == "input_text" {
+                    if let Some(t) = item.get("text").and_then(|v| v.as_str()) {
+                        content_parts.push(json!({ "type": "input_text", "text": t }));
+                    }
+                } else if itype == "image_url" {
+                    if let Some(url) = item.pointer("/image_url/url").and_then(|v| v.as_str()) {
+                        content_parts.push(json!({
+                            "type": "input_image",
+                            "image_url": url
+                        }));
+                    }
+                }
+            }
+            if !content_parts.is_empty() {
+                input.push(json!({
+                    "type": "message",
+                    "role": "user",
+                    "content": content_parts
+                }));
+                continue;
+            }
+        }
+
         let txt = extract_content_text(m.get("content"));
         input.push(json!({
             "type": "message",
