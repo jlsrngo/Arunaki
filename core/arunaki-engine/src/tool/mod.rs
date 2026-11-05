@@ -66,11 +66,20 @@ pub fn build_tool_definitions() -> Vec<Value> {
 
 pub fn resolve_isolated_path(workspace_dir: &str, raw_file: &str) -> Result<PathBuf, String> {
     let base = Path::new(workspace_dir);
-    let candidate = Path::new(raw_file);
+    let normalized_raw = match raw_file.trim().replace('\\', "/").to_lowercase().as_str() {
+        "arunaki.md"
+        | ".arunaki.md"
+        | ".arunaki/.arunaki.md"
+        | ".arunaki/arunaki.md"
+        | "arunki.md"
+        | ".arunaki/arunki.md" => ".arunaki/ARUNAKI.md",
+        _ => raw_file.trim(),
+    };
+    let candidate = Path::new(normalized_raw);
     let resolved = if candidate.is_absolute() {
         candidate.to_path_buf()
     } else {
-        base.join(raw_file)
+        base.join(normalized_raw)
     };
     if !contains_path(base, &resolved) {
         return Err(format!(

@@ -512,6 +512,25 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("{}-{}-{}", role, idx, crate::paths::now_ms()));
 
+        let files_val = msg
+            .get("files")
+            .or_else(|| msg.pointer("/data/files"))
+            .or_else(|| msg.get("attachments"))
+            .and_then(|v| v.as_array())
+            .filter(|arr| !arr.is_empty())
+            .map(|arr| {
+                arr.iter()
+                    .map(|f| {
+                        json!({
+                            "name": f.get("name").or_else(|| f.get("filename")),
+                            "uri": f.get("uri").or_else(|| f.get("url")),
+                            "mime": f.get("mime").or_else(|| f.get("mediaType")),
+                            "description": f.get("description"),
+                        })
+                    })
+                    .collect::<Vec<Value>>()
+            });
+
         individual_messages.push(json!({
             "id": mid,
             "role": role,
@@ -521,6 +540,7 @@ pub fn map_messages_for_ui(raw_messages: &[Value]) -> Vec<Value> {
             "thoughtSec": thought_sec,
             "thoughtMs": thought_ms,
             "parts": if parts.is_empty() { Value::Null } else { json!(parts) },
+            "files": match files_val { Some(f) => json!(f), None => Value::Null },
             "createdAt": msg.get("createdAt").or_else(|| msg.pointer("/time/created")),
             "summary": false,
             "isRustMapped": true,
@@ -642,6 +662,27 @@ mod tests {
         assert!(is_internal_tool_target(&json!({ "path": ".arunaki/tasks.json" })));
         assert!(is_internal_tool_target(&json!({ "filePath": "docs/ARUNAKI.md" })));
         assert!(!is_internal_tool_target(&json!({ "filePath": "src/App.tsx" })));
+    }
+
+    #[test]
+    fn preserves_attached_files_in_ui_mapper() {
+        let raw = vec![json!({
+            "id": "msg_1",
+            "role": "user",
+            "text": "ekstrak isinya",
+            "files": [{
+                "name": "screenshot.png",
+                "uri": "data:image/png;base64,iVBORw0KGgo=",
+                "mime": "image/png"
+            }],
+            "time": { "created": 1000 }
+        })];
+        let mapped = map_messages_for_ui(&raw);
+        assert_eq!(mapped.len(), 1);
+        let files = mapped[0].get("files").and_then(|v| v.as_array()).expect("files should be mapped");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].get("name").and_then(|v| v.as_str()), Some("screenshot.png"));
+        assert_eq!(files[0].get("uri").and_then(|v| v.as_str()), Some("data:image/png;base64,iVBORw0KGgo="));
     }
 }
 

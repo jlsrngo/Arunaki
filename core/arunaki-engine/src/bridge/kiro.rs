@@ -119,10 +119,40 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
             continue;
         }
         let text = extract_content_text(m.get("content"));
-        raw_turns.push(json!({
+        let mut kiro_images = Vec::new();
+        if let Some(arr) = m.get("content").and_then(|v| v.as_array()) {
+            for item in arr {
+                if item.get("type").and_then(|v| v.as_str()) == Some("image_url") {
+                    if let Some(url) = item.pointer("/image_url/url").and_then(|v| v.as_str()) {
+                        if let Some((mime, b64)) = super::parse_data_url(url) {
+                            let fmt = match mime.trim().to_lowercase().as_str() {
+                                "image/jpeg" | "image/jpg" => "jpeg",
+                                "image/gif" => "gif",
+                                "image/webp" => "webp",
+                                _ => "png",
+                            };
+                            let clean_b64: String = b64.chars().filter(|c| !c.is_whitespace()).collect();
+                            if !clean_b64.is_empty() {
+                                kiro_images.push(json!({
+                                    "format": fmt,
+                                    "source": {
+                                        "bytes": clean_b64
+                                    }
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let mut user_turn = json!({
             "role": "user",
             "content": text
-        }));
+        });
+        if !kiro_images.is_empty() {
+            user_turn["images"] = Value::Array(kiro_images);
+        }
+        raw_turns.push(user_turn);
     }
 
     let mut kiro_tools = Vec::new();
@@ -177,6 +207,11 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
                 "modelId": kiro_model_id,
                 "origin": "AI_EDITOR"
             });
+            if let Some(imgs) = turn.get("images").and_then(|v| v.as_array()) {
+                if !imgs.is_empty() {
+                    u_msg["images"] = Value::Array(imgs.clone());
+                }
+            }
             if let Some(trs) = turn.get("toolResults").and_then(|v| v.as_array()) {
                 if !trs.is_empty() {
                     u_msg["userInputMessageContext"] = json!({ "toolResults": trs });
@@ -228,6 +263,11 @@ pub(crate) async fn handle_kiro_request(body: Value, model: &str, is_stream: boo
         "modelId": kiro_model_id,
         "origin": "AI_EDITOR"
     });
+    if let Some(imgs) = current_turn.get("images").and_then(|v| v.as_array()) {
+        if !imgs.is_empty() {
+            cur_user_msg["images"] = Value::Array(imgs.clone());
+        }
+    }
     if !cur_ctx.is_empty() {
         cur_user_msg["userInputMessageContext"] = Value::Object(cur_ctx);
     }

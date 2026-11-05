@@ -38,8 +38,14 @@ pub async fn handle_prompt(
                 .and_then(|h| h.to_str().ok())
                 .map(|s| s.to_string())
         })
+        .or_else(|| {
+            body.get("directory")
+                .or_else(|| body.pointer("/location/directory"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_default();
-    let workspace_dir = normalize_workspace_path(&urlencoding_decode(&raw_dir));
+    let mut workspace_dir = normalize_workspace_path(&urlencoding_decode(&raw_dir));
 
     let prompt_text = body
         .get("prompt")
@@ -63,6 +69,22 @@ pub async fn handle_prompt(
         )
             .into_response();
     };
+
+    if workspace_dir.is_empty() {
+        if let Some(s_dir) = session
+            .get("directory")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                session
+                    .pointer("/location/directory")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+            })
+        {
+            workspace_dir = normalize_workspace_path(s_dir);
+        }
+    }
 
     let model_val = session.get("model").cloned().unwrap_or_else(default_model_ref);
     let provider_id = model_val

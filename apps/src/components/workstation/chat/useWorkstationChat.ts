@@ -1617,6 +1617,7 @@ export function useWorkstationChat({
         files: filesToSend,
         variant: reasoningEffort || "low",
         signal: abortCtrl.signal,
+        directory: activeFolder || undefined,
       });
       // Prompt was accepted by the engine. Streaming is now in progress over SSE.
       // Finalization is handled by the SSE listener (done / error events) or watchdog.

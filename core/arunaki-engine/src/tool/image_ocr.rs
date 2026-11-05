@@ -97,14 +97,15 @@ pub fn execute_image_ocr(workspace_dir: &str, arguments: &Value) -> Value {
     }
 
     // Check workspace first, then .arunaki/scratch
-    let target_path: PathBuf = if let Ok(p) = resolve_isolated_path(workspace_dir, file_param) {
-        p
-    } else {
-        let scratch_candidate = arunaki_dot_dir().join("scratch").join(file_param);
-        if scratch_candidate.exists() {
-            scratch_candidate
-        } else {
-            Path::new(workspace_dir).join(file_param)
+    let target_path: PathBuf = match resolve_isolated_path(workspace_dir, file_param) {
+        Ok(p) if p.exists() => p,
+        _ => {
+            let scratch_candidate = arunaki_dot_dir().join("scratch").join(file_param);
+            if scratch_candidate.exists() {
+                scratch_candidate
+            } else {
+                Path::new(workspace_dir).join(file_param)
+            }
         }
     };
 

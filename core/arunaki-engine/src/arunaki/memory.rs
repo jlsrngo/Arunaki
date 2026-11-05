@@ -56,26 +56,55 @@ pub fn derive_syntax_invariants(extensions: &[&str]) -> Vec<String> {
     inv
 }
 
-/// Reads the active workspace living memory from `.arunaki/ARUNAKI.md`.
-/// If it doesn't exist yet, automatically synthesizes it on the fly.
+/// Reads the active workspace living memory from `.arunaki/ARUNAKI.md` (and `LIVING-MEMORY.txt` if present).
+/// If `.arunaki/ARUNAKI.md` doesn't exist yet, automatically synthesizes it on the fly.
 pub fn get_living_memory_for_workspace(workspace_dir: &str) -> String {
+    if workspace_dir.trim().is_empty() {
+        return String::new();
+    }
     let ws_path = Path::new(workspace_dir);
     let arunaki_md = ws_path.join(".arunaki").join(ARUNAKI_MD_NAME);
+    let living_txt = ws_path.join("LIVING-MEMORY.txt");
 
+    let mut base_mem = String::new();
     if arunaki_md.exists() {
         if let Ok(content) = std::fs::read_to_string(&arunaki_md) {
             if !content.trim().is_empty() {
-                return content;
+                base_mem = content;
             }
         }
     }
 
-    // Auto-synthesize on first run
-    synthesize_living_memory(workspace_dir)
+    if base_mem.trim().is_empty() {
+        if living_txt.exists() {
+            if let Ok(txt) = std::fs::read_to_string(&living_txt) {
+                if !txt.trim().is_empty() {
+                    let arunaki_dir = ws_path.join(".arunaki");
+                    let _ = std::fs::create_dir_all(&arunaki_dir);
+                    let _ = std::fs::write(&arunaki_md, &txt);
+                    return txt;
+                }
+            }
+        }
+        base_mem = synthesize_living_memory(workspace_dir);
+    } else if living_txt.exists() {
+        if let Ok(txt) = std::fs::read_to_string(&living_txt) {
+            let trimmed_txt = txt.trim();
+            if !trimmed_txt.is_empty() && trimmed_txt != base_mem.trim() {
+                base_mem.push_str("\n\n--- LIVING-MEMORY.txt ---\n");
+                base_mem.push_str(trimmed_txt);
+            }
+        }
+    }
+
+    base_mem
 }
 
 /// Scans active folder and synthesizes `.arunaki/ARUNAKI.md`.
 pub fn synthesize_living_memory(workspace_dir: &str) -> String {
+    if workspace_dir.trim().is_empty() {
+        return String::new();
+    }
     let ws_path = Path::new(workspace_dir);
     let folder_name = ws_path
         .file_name()

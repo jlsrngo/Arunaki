@@ -74,7 +74,7 @@ pub async fn run_agent_turn(
     // 2. Workspace Instruction File (.arunaki/ARUNAKI.md)
     let living_mem = crate::session::memory::get_living_memory_for_workspace(workspace_dir);
     if !living_mem.trim().is_empty() {
-        sys_prompt.push_str("\n\n<living_memory>\n");
+        sys_prompt.push_str("\n\n<living_memory source=\".arunaki/ARUNAKI.md\">\n");
         sys_prompt.push_str(living_mem.trim());
         sys_prompt.push_str("\n</living_memory>");
     }
@@ -124,7 +124,30 @@ pub async fn run_agent_turn(
             }
         } else if mtype == "user" {
             let txt = m.get("text").and_then(|v| v.as_str()).unwrap_or("");
-            chat_messages.push(json!({ "role": "user", "content": txt }));
+            let mut hist_parts = Vec::new();
+            if let Some(f_arr) = m.get("files").and_then(|v| v.as_array()) {
+                for f_item in f_arr {
+                    if let Some(u) = f_item
+                        .get("uri")
+                        .or_else(|| f_item.get("url"))
+                        .and_then(|v| v.as_str())
+                    {
+                        if u.starts_with("data:image/") {
+                            hist_parts.push(json!({
+                                "type": "image_url",
+                                "image_url": { "url": u }
+                            }));
+                        }
+                    }
+                }
+            }
+            if !hist_parts.is_empty() {
+                let mut combined = vec![json!({ "type": "text", "text": txt })];
+                combined.extend(hist_parts);
+                chat_messages.push(json!({ "role": "user", "content": combined }));
+            } else {
+                chat_messages.push(json!({ "role": "user", "content": txt }));
+            }
         } else if mtype == "assistant" {
             let parts = m.get("content").and_then(|v| v.as_array());
             let mut tool_calls = Vec::new();
@@ -230,6 +253,8 @@ pub async fn run_agent_turn(
                         let scratch_dir = crate::paths::arunaki_dot_dir().join("scratch");
                         let _ = std::fs::create_dir_all(&scratch_dir);
                         let clean_name = file_name.replace(|c: char| !c.is_alphanumeric() && c != '.' && c != '_', "_");
+                        let direct_alias = scratch_dir.join(&clean_name);
+                        let _ = std::fs::write(&direct_alias, &bytes);
                         let img_path = scratch_dir.join(format!("attached_{}_{}", now_ms(), clean_name));
                         if std::fs::write(&img_path, &bytes).is_ok() {
                             crate::paths::log_engine(
